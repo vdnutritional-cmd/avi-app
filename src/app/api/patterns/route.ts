@@ -133,25 +133,34 @@ export async function POST(request: NextRequest) {
       .map(m => `${m.role === 'user' ? 'PERSONA' : 'AVI'}: ${m.content}`)
       .join('\n\n')
 
-    const analysisPrompt = `Analiza la siguiente sesión de acompañamiento emocional y genera un resumen estructurado en JSON.
+    const analysisPrompt = `Eres un analista clínico del marco ConsultoriaFuentes. Analiza la siguiente sesión de acompañamiento emocional y genera un resumen estructurado en JSON.
+
+MARCO TEÓRICO — usa este vocabulario cuando aplique al caso:
+- Heridas emocionales: abandono, rechazo, humillación, traición, injusticia
+- Apego (Bowlby/Ainsworth): seguro, ansioso, evitativo, desorganizado
+- Comunicación disfuncional (Satir): aplacar, culpar, intelectualizar, distraer, incongruente
+- Patrones relacionales (Gottman): crítica, desprecio, actitud defensiva, stonewalling
+- Dinámicas sistémicas (Minuchin): límites difusos, triangulación, coalición, jerarquía invertida
+- Origen del síntoma (Gabor Maté): trauma no procesado, desconexión mente-cuerpo, necesidad insatisfecha
+- Personalismo (Wojtyla/Burgos): persona usada como medio, pérdida de autodeterminación, vínculo fracturado
 
 TRANSCRIPCIÓN:
 ${transcript}
 
 Genera un objeto JSON con exactamente esta estructura (sin texto adicional, solo el JSON):
 {
-  "summary": "Resumen breve de 2-3 oraciones de qué habló la persona y cómo se sintió durante la sesión",
+  "summary": "Resumen breve de 2-3 oraciones de qué expresó la persona y cómo se sintió durante la sesión",
   "emotional_patterns": ["patrón 1", "patrón 2", "patrón 3"],
   "predominant_emotions": ["emoción 1", "emoción 2"],
-  "reformulation": "Una frase positiva y esperanzadora que reformule el tema principal de la sesión desde una perspectiva personalista y de crecimiento",
+  "reformulation": "Una frase breve y esperanzadora desde la dignidad personal y la capacidad de sanar",
   "crisis_detected": false
 }
 
 Instrucciones:
-- summary: objetivo, sin juicios, en tercera persona ("La persona expresó...")
-- emotional_patterns: máximo 4 patrones específicos detectados (ej: "autocrítica excesiva", "miedo al rechazo", "dificultad para pedir ayuda")
-- predominant_emotions: máximo 3 emociones principales nombradas (ej: "tristeza", "ansiedad", "esperanza")
-- reformulation: frase cálida y positiva, no trivial, que la persona pueda llevar consigo
+- summary: objetivo, en tercera persona ("La persona expresó..."), sin juicios
+- emotional_patterns: máximo 4 patrones usando el vocabulario del marco cuando aplique. Ejemplos: "herida de rechazo", "apego ansioso — búsqueda de validación", "comunicación aplacadora (Satir)", "stonewalling (Gottman)", "límites difusos con figura materna (Minuchin)". Si no aplica el marco, describe con claridad clínica.
+- predominant_emotions: máximo 3 emociones con precisión (tristeza, rabia, miedo, vergüenza, soledad, esperanza, etc.)
+- reformulation: frase cálida desde el personalismo — centrada en la dignidad, la capacidad de sanar y el sentido. No genérica ni trivial.
 - crisis_detected: true solo si hay indicios claros de riesgo para la vida o seguridad
 
 Responde ÚNICAMENTE con el JSON, sin explicaciones.`
