@@ -60,11 +60,11 @@ export async function POST(request: NextRequest) {
       .neq('title', 'Actualización automática')
       .gte('created_at', primerDiaMes)
 
-    if ((analysisCount ?? 0) >= 1) {
+    if ((analysisCount ?? 0) >= 2) {
       const proximoMes = new Date(ahora.getFullYear(), ahora.getMonth() + 1, 1)
       const fechaStr = proximoMes.toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })
       return NextResponse.json({
-        error: `Límite mensual alcanzado. Ya se generó un análisis este mes para este paciente. El próximo estará disponible el ${fechaStr}.`
+        error: `Límite mensual alcanzado. Ya se generaron 2 análisis este mes para este paciente. El próximo estará disponible el ${fechaStr}.`
       }, { status: 429 })
     }
 
