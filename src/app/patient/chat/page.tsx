@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
-const LIMITE_SESIONES_SEMANA = 4
+const LIMITE_SESIONES_SEMANA = 3
 
 type AppState =
   | 'idle'        // Esperando que el paciente hable
