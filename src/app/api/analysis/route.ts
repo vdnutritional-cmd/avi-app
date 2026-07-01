@@ -48,6 +48,26 @@ export async function POST(request: NextRequest) {
 
     if (!relation) return NextResponse.json({ error: 'Paciente no encontrado' }, { status: 404 })
 
+    // Verificar límite: 1 análisis on-demand por paciente por mes calendario
+    const ahora = new Date()
+    const primerDiaMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1).toISOString()
+
+    const { count: analysisCount } = await supabase
+      .from('analyses')
+      .select('id', { count: 'exact', head: true })
+      .eq('therapist_id', user.id)
+      .eq('patient_id', patientId)
+      .neq('title', 'Actualización automática')
+      .gte('created_at', primerDiaMes)
+
+    if ((analysisCount ?? 0) >= 1) {
+      const proximoMes = new Date(ahora.getFullYear(), ahora.getMonth() + 1, 1)
+      const fechaStr = proximoMes.toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })
+      return NextResponse.json({
+        error: `Límite mensual alcanzado. Ya se generó un análisis este mes para este paciente. El próximo estará disponible el ${fechaStr}.`
+      }, { status: 429 })
+    }
+
     // Perfil del paciente
     const { data: profile } = await supabase
       .from('profiles')
