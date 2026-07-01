@@ -3,24 +3,9 @@ import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { buildConsultamePrompt } from '@/lib/prompts/consultame-prompt'
-import fs from 'fs'
-import path from 'path'
 
-let fuentesCache: string | null = null
-function cargarFuentes(): string {
-  if (fuentesCache) return fuentesCache
-  const docsDir = path.join(process.cwd(), 'docs')
-  const archivos = fs.readdirSync(docsDir).filter(f => f.endsWith('.md'))
-  fuentesCache = archivos.map(archivo => {
-    const nombre = archivo.replace('.md', '').replace(/_/g, ' ')
-    const texto = fs.readFileSync(path.join(docsDir, archivo), 'utf-8')
-    return `### ${nombre}\n\n${texto}`
-  }).join('\n\n---\n\n')
-  return fuentesCache
-}
-
-// Análisis clínico completo automático para el terapeuta — misma profundidad que el bajo demanda
+// Auto-análisis ligero: sin ConsultoriaFuentes — solo nota inicial + patrones acumulados.
+// El análisis completo con fuentes se genera bajo demanda desde Consúltame.
 async function triggerAutoAnalysis(patientId: string, supabase: SupabaseClient) {
   const { data: relation } = await supabase
     .from('therapist_patients')
@@ -45,29 +30,43 @@ async function triggerAutoAnalysis(patientId: string, supabase: SupabaseClient) 
     .eq('id', patientId)
     .single()
 
-  const sessionSummaries = allPatterns.map(p => ({
-    date: new Date(p.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' }),
-    rawDate: p.created_at,
-    summary: p.summary,
-    emotions: p.predominant_emotions ?? [],
-    patterns: p.emotional_patterns ?? [],
-    reformulation: p.reformulation ?? '',
-    crisisDetected: p.crisis_detected ?? false,
-  }))
+  const nombrePaciente = profile?.full_name ?? 'el consultante'
 
-  const fuentes = cargarFuentes()
-  const prompt = buildConsultamePrompt({
-    patientName: profile?.full_name ?? 'el consultante',
-    initialNote: relation.initial_note,
-    sessionSummaries,
-    fuentes,
-  })
+  const sesiones = allPatterns.map((p, i) => [
+    `--- Sesión ${i + 1} (${new Date(p.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}) ---`,
+    `Resumen: ${p.summary}`,
+    `Emociones: ${(p.predominant_emotions ?? []).join(', ')}`,
+    `Patrones: ${(p.emotional_patterns ?? []).join(', ')}`,
+    `Reformulación: "${p.reformulation ?? ''}"`,
+    p.crisis_detected ? '⚠️ Alerta de crisis detectada.' : '',
+  ].filter(Boolean).join('\n')).join('\n\n')
+
+  const prompt = `Eres supervisor clínico. Genera un seguimiento breve y actualizado del caso para el terapeuta. Sin relleno — solo lo que importa.
+
+NOTA INICIAL:
+${relation.initial_note}
+
+SESIONES AVI (cronológico):
+${sesiones}
+
+Responde en este formato exacto:
+
+**EVOLUCIÓN**
+¿Avance, estancamiento o retroceso desde la nota inicial? Una o dos oraciones concretas.
+
+**ESTADO ACTUAL**
+Dónde está ${nombrePaciente} emocionalmente hoy. Breve y directo.
+
+**PUNTO DE ATENCIÓN**
+Lo más relevante que el terapeuta debe tener en mente en la próxima sesión.
+
+Todo en español. Sin introducción ni cierre formal.`
 
   const anthropicClient = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 
   const response = await anthropicClient.messages.create({
-    model: 'claude-sonnet-5',
-    max_tokens: 8000,
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 1024,
     messages: [{ role: 'user', content: prompt }],
   })
 
@@ -78,7 +77,7 @@ async function triggerAutoAnalysis(patientId: string, supabase: SupabaseClient) 
     therapist_id: relation.therapist_id,
     patient_id: patientId,
     content,
-    title: '',
+    title: 'Actualización automática',
     sessions_analyzed: [],
     techniques_proposed: [],
     session_plan: [],
