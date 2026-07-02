@@ -2,31 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
 import { buildConsultamePrompt } from '@/lib/prompts/consultame-prompt'
-import fs from 'fs'
-import path from 'path'
+import { retrieveRelevantChunks, buildRagQuery } from '@/lib/rag/retrieve-chunks'
 
 export const maxDuration = 300 // 5 minutos — el análisis clínico completo puede tardar
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
-
-// Carga las fuentes clínicas una vez al arrancar el servidor
-let fuentesCache: string | null = null
-
-function cargarFuentes(): string {
-  if (fuentesCache) return fuentesCache
-
-  const docsDir = path.join(process.cwd(), 'docs')
-  const archivos = fs.readdirSync(docsDir).filter(f => f.endsWith('.md'))
-
-  const contenido = archivos.map(archivo => {
-    const nombre = archivo.replace('.md', '').replace(/_/g, ' ')
-    const texto = fs.readFileSync(path.join(docsDir, archivo), 'utf-8')
-    return `### ${nombre}\n\n${texto}`
-  }).join('\n\n---\n\n')
-
-  fuentesCache = contenido
-  return contenido
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -107,8 +87,21 @@ export async function POST(request: NextRequest) {
       notes: s.notes,
     }))
 
-    const fuentes = cargarFuentes()
     const patientName = profile?.full_name ?? 'el consultante'
+
+    // ── RAG: recuperar solo los fragmentos clínicos relevantes para ESTE caso
+    const ragQuery = buildRagQuery({
+      initialNote: relation.initial_note ?? '',
+      recentPatterns: (patterns ?? []).map(p => ({
+        summary: p.summary ?? '',
+        emotionalPatterns: p.emotional_patterns ?? [],
+        predominantEmotions: p.predominant_emotions ?? [],
+      })),
+    })
+
+    console.log('[analysis] Recuperando chunks relevantes con RAG...')
+    const fuentes = await retrieveRelevantChunks(ragQuery, 8)
+    console.log('[analysis] Fuentes RAG:', fuentes ? `${fuentes.length} chars` : 'sin resultados')
 
     const prompt = buildConsultamePrompt({
       patientName,
