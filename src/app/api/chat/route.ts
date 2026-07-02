@@ -95,13 +95,23 @@ export async function POST(request: NextRequest) {
       { role: 'user', content: message },
     ]
 
-    // Llamar a Claude API con streaming
-    const stream = await anthropic.messages.stream({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 512,
-      system: RECUPERATE_SYSTEM_PROMPT,
-      messages,
-    })
+    // Llamar a Claude API con streaming + Prompt Caching en system prompt
+    // cache_control: ephemeral → system prompt cacheado entre exchanges de la misma sesión
+    // Ahorro: 11 de 12 exchanges leen del caché al 10% del costo normal (~-40% costo total chat)
+    const stream = await anthropic.messages.stream(
+      {
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 512,
+        // SDK 0.30.1: cache_control no está en TextBlockParam pero sí en la API.
+        // Se castea el bloque completo. Actualizar SDK a 0.32+ elimina este cast.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        system: [{ type: 'text', text: RECUPERATE_SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }] as any,
+        messages,
+      },
+      {
+        headers: { 'anthropic-beta': 'prompt-caching-2024-07-31' },
+      }
+    )
 
     // Recopilar respuesta completa para guardar en DB
     let assistantMessage = ''
