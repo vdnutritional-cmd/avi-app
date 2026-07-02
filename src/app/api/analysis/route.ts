@@ -90,6 +90,11 @@ export async function POST(request: NextRequest) {
     const patientName = profile?.full_name ?? 'el consultante'
 
     // ── RAG: recuperar solo los fragmentos clínicos relevantes para ESTE caso
+    // Query = nota inicial + últimas 3 sesiones AVI + última sesión presencial
+    const lastInPerson = inPersonSessions.length > 0
+      ? inPersonSessions[inPersonSessions.length - 1]
+      : undefined
+
     const ragQuery = buildRagQuery({
       initialNote: relation.initial_note ?? '',
       recentPatterns: (patterns ?? []).map(p => ({
@@ -97,10 +102,13 @@ export async function POST(request: NextRequest) {
         emotionalPatterns: p.emotional_patterns ?? [],
         predominantEmotions: p.predominant_emotions ?? [],
       })),
+      lastInPersonSession: lastInPerson
+        ? { notes: lastInPerson.notes, sessionNumber: lastInPerson.sessionNumber }
+        : undefined,
     })
 
     console.log('[analysis] Recuperando chunks relevantes con RAG...')
-    const fuentes = await retrieveRelevantChunks(ragQuery, 8)
+    const fuentes = await retrieveRelevantChunks(ragQuery)
     console.log('[analysis] Fuentes RAG:', fuentes ? `${fuentes.length} chars` : 'sin resultados')
 
     const prompt = buildConsultamePrompt({

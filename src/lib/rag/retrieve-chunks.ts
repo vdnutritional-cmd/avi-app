@@ -66,6 +66,10 @@ export function buildRagQuery(params: {
     emotionalPatterns: string[]
     predominantEmotions: string[]
   }>
+  lastInPersonSession?: {
+    notes: string
+    sessionNumber: number
+  }
 }): string {
   const parts: string[] = []
 
@@ -81,7 +85,11 @@ export function buildRagQuery(params: {
       p.predominantEmotions.join(', '),
     ].filter(Boolean).join(' | ')).join(' | ')
 
-    parts.push(`PATRONES RECIENTES: ${patternTexts.slice(0, 1000)}`)
+    parts.push(`SESIONES AVI RECIENTES: ${patternTexts.slice(0, 1000)}`)
+  }
+
+  if (params.lastInPersonSession?.notes?.trim()) {
+    parts.push(`ÚLTIMA SESIÓN PRESENCIAL (${params.lastInPersonSession.sessionNumber}): ${params.lastInPersonSession.notes.slice(0, 1000)}`)
   }
 
   return parts.join('\n\n')
