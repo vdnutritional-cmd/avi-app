@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
 import { RECUPERATE_SYSTEM_PROMPT } from '@/lib/prompts/recuperate-system-prompt'
+import { sendCrisisPush } from '@/lib/push/send-crisis-push'
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY!,
@@ -84,6 +85,9 @@ export async function POST(request: NextRequest) {
           session_id: activeSessionId,
           detected_keywords: CRISIS_KEYWORDS.filter(kw => message.toLowerCase().includes(kw)),
         })
+      // Fire-and-forget: notificar push al terapeuta
+      sendCrisisPush({ patientId: user.id, sessionId: activeSessionId })
+        .catch(err => console.error('Error enviando push de crisis (keywords):', err))
     }
 
     // Preparar mensajes para Claude
@@ -156,6 +160,9 @@ export async function POST(request: NextRequest) {
                 session_id: activeSessionId,
                 detected_keywords: ['[AVI_INITIATED_CRISIS]'],
               })
+            // Fire-and-forget: notificar push al terapeuta
+            sendCrisisPush({ patientId: user.id, sessionId: activeSessionId })
+              .catch(err => console.error('Error enviando push de crisis (AVI):', err))
           }
 
           // Enviar sessionId y flags al cliente

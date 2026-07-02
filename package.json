@@ -18,22 +18,24 @@
     "dexie": "^4.0.8",
     "lucide-react": "^0.400.0",
     "next": "^16.2.9",
+    "openai": "^4.67.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tailwind-merge": "^2.5.2",
-    "openai": "^4.67.0",
+    "web-push": "^3.6.7",
     "zod": "^3.23.8"
   },
   "devDependencies": {
-    "dotenv": "^16.4.5",
-    "tsx": "^4.19.1",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@types/web-push": "^3.6.4",
+    "dotenv": "^16.4.5",
     "eslint": "^9.0.0",
     "eslint-config-next": "15.1.0",
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.14",
+    "tsx": "^4.19.1",
     "typescript": "^5.6.3"
   }
 }
