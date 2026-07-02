@@ -17,7 +17,7 @@ function getSupabaseAdmin() {
 
 export async function retrieveRelevantChunks(
   caseContext: string,
-  matchCount = 8
+  matchCount = 16
 ): Promise<string> {
   const embeddingResponse = await openai.embeddings.create({
     model: 'text-embedding-3-small',
@@ -29,7 +29,7 @@ export async function retrieveRelevantChunks(
   const { data: chunks, error } = await supabase.rpc('match_document_chunks', {
     query_embedding: queryEmbedding,
     match_count: matchCount,
-    min_similarity: 0.25,
+    min_similarity: 0.20,
   })
 
   if (error) {
