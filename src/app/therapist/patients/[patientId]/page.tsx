@@ -59,6 +59,7 @@ export default function PatientDetailPage() {
   const [analysisError, setAnalysisError] = useState<string | null>(null)
 
   const [activeTab, setActiveTab] = useState<'sesiones' | 'presenciales' | 'analisis' | 'nota'>('sesiones')
+  const [therapistId, setTherapistId] = useState<string | null>(null)
   const streamRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -68,6 +69,7 @@ export default function PatientDetailPage() {
   async function load() {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
+    if (user?.id) setTherapistId(user.id)
     const [profileRes, patternsRes, analysesRes, relationRes, sessionNotesRes] = await Promise.all([
       supabase.from('profiles').select('full_name, email').eq('id', patientId).single(),
       supabase.from('patterns').select('*').eq('patient_id', patientId).order('created_at', { ascending: false }),
@@ -115,6 +117,7 @@ export default function PatientDetailPage() {
 
   async function saveSessionNote() {
     if (!newSessionNotes.trim()) return
+    if (!therapistId) { alert('Error: sesión de terapeuta no encontrada. Recarga la página.'); return }
     setSavingSession(true)
     try {
       const supabase = createClient()
@@ -123,14 +126,17 @@ export default function PatientDetailPage() {
         : (sessionNotes.length > 0 ? Math.max(...sessionNotes.map(s => s.session_number)) + 1 : 1)
 
       if (editingSessionId) {
-        await supabase
+        const { error } = await supabase
           .from('therapist_session_notes')
           .update({ notes: newSessionNotes, session_date: newSessionDate, updated_at: new Date().toISOString() })
           .eq('id', editingSessionId)
+          .eq('therapist_id', therapistId)
+        if (error) { alert(`Error al actualizar la sesión: ${error.message}`); return }
       } else {
-        await supabase
+        const { error } = await supabase
           .from('therapist_session_notes')
-          .insert({ patient_id: patientId, session_number: nextNumber, session_date: newSessionDate, notes: newSessionNotes })
+          .insert({ therapist_id: therapistId, patient_id: patientId, session_number: nextNumber, session_date: newSessionDate, notes: newSessionNotes })
+        if (error) { alert(`Error al guardar la sesión: ${error.message}`); return }
       }
 
       setNewSessionNotes('')
