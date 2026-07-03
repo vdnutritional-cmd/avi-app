@@ -79,11 +79,11 @@ function PlanBadge({ status }: { status: string | null }) {
       </Link>
     )
   }
-  // Sin registro = pendiente de aprobación
+  // Sin registro = sin plan activo
   return (
-    <span className="text-xs text-amber-700 bg-amber-50 px-3 py-1 rounded-full">
-      ⏳ Pendiente de aprobación
-    </span>
+    <Link href="/pricing" className="text-xs text-amber-700 bg-amber-50 px-3 py-1 rounded-full hover:bg-amber-100 transition-colors">
+      Activa tu plan →
+    </Link>
   )
 }
 

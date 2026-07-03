@@ -39,18 +39,23 @@ export default async function TherapistDashboardPage() {
         <p className="text-gray-500 mt-1">Bienvenido a Consúltame — tu centro de gestión terapéutica</p>
       </div>
 
-      {/* Banner: pendiente de aprobación (nunca ha tenido suscripción) */}
+      {/* Banner: sin suscripción → dirigir a elegir plan */}
       {!hasAccess && !subscription && (
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 flex items-center gap-4">
-          <span className="text-3xl">⏳</span>
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 flex items-center justify-between gap-4">
           <div>
-            <p className="font-semibold text-amber-800">Cuenta pendiente de aprobación</p>
+            <p className="font-semibold text-amber-800">Activa tu plan para comenzar</p>
             <p className="text-sm text-amber-700 mt-0.5">
-              Tu cuenta está registrada. El administrador de AVI revisará tu solicitud
-              y activará tu acceso en breve. Si tienes dudas, contáctanos por
-              WhatsApp al <strong>33 1883 0312</strong>.
+              Elige el plan que mejor se adapte a ti. Si eres Asesor VALORA o
+              calificas para acceso patrocinado, contáctanos por WhatsApp al{' '}
+              <strong>33 1883 0312</strong>.
             </p>
           </div>
+          <Link
+            href="/pricing"
+            className="shrink-0 bg-amber-600 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-amber-700 transition-colors"
+          >
+            Ver planes →
+          </Link>
         </div>
       )}
 
