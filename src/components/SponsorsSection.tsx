@@ -10,7 +10,7 @@ interface Sponsor {
 
 // ── AGREGAR PATROCINADORES AQUÍ ───────────────────────────────
 const SPONSORS: Sponsor[] = [
-  { name: 'VD-Products', logo: '/sponsors/logo-vdproducts.png', url: 'https://vdproducts.net' },
+  { name: 'VD-Products', logo: '/sponsors/logo-vdproducts.png', url: 'https://www.vdproducts.net' },
 ]
 // ─────────────────────────────────────────────────────────────
 
