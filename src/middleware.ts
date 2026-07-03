@@ -41,6 +41,7 @@ export async function middleware(request: NextRequest) {
   const isPublicRoute =
     pathname === '/' ||
     pathname.startsWith('/auth') ||
+    pathname.startsWith('/pricing') ||
     pathname.startsWith('/_next') ||
     pathname.startsWith('/favicon')
 

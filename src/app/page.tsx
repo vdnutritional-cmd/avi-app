@@ -59,7 +59,7 @@ export default function HomePage() {
         {/* Link a pricing */}
         <Link
           href="/pricing"
-          className="text-xs text-primary-500 hover:text-primary-700 transition-colors"
+          className="text-sm text-primary-500 hover:text-primary-700 transition-colors"
         >
           Ver planes y precios →
         </Link>
