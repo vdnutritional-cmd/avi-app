@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
+import PatientsClient from './PatientsClient'
 
 export const dynamic = 'force-dynamic'
 
@@ -35,32 +36,14 @@ export default async function TherapistPatientsPage() {
     )
   }
 
-  return (
-    <div className="p-6 max-w-lg mx-auto space-y-4">
-      <div className="pt-2 pb-1">
-        <h1 className="text-xl font-semibold text-gray-800">Mis pacientes</h1>
-        <p className="text-sm text-gray-400">{relations.length} paciente{relations.length !== 1 ? 's' : ''} activo{relations.length !== 1 ? 's' : ''}</p>
-      </div>
+  const patients = (relations ?? []).map(r => {
+    const profile = profiles?.find(p => p.id === r.patient_id)
+    return {
+      id: r.patient_id,
+      full_name: profile?.full_name ?? null,
+      email: profile?.email ?? null,
+    }
+  })
 
-      {relations.map((r) => {
-        const profile = profiles?.find(p => p.id === r.patient_id) ?? null
-        return (
-          <Link
-            key={r.patient_id}
-            href={`/therapist/patients/${r.patient_id}`}
-            className="block bg-white rounded-2xl border border-gray-100 px-5 py-4
-                       hover:border-primary-200 hover:shadow-sm transition-all"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-gray-800">{profile?.full_name ?? 'Sin nombre'}</p>
-                <p className="text-xs text-gray-400 mt-0.5">{profile?.email}</p>
-              </div>
-              <span className="text-gray-300 text-lg">›</span>
-            </div>
-          </Link>
-        )
-      })}
-    </div>
-  )
+  return <PatientsClient patients={patients} total={patients.length} />
 }

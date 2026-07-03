@@ -14,7 +14,7 @@ export default function HomePage() {
             AVI
           </h1>
           <p className="text-lg text-gray-600">
-            Acompañamiento Virtual Interactivo para el bienestar emocional
+            Acompañamiento Virtual Integral para el bienestar emocional
           </p>
         </div>
 
@@ -56,13 +56,21 @@ export default function HomePage() {
           Es un complemento de apoyo entre sesiones.
         </p>
 
-        {/* Link a pricing */}
-        <Link
-          href="/pricing"
-          className="text-sm text-primary-500 hover:text-primary-700 transition-colors"
-        >
-          Ver planes y precios →
-        </Link>
+        {/* Links de pie */}
+        <div className="flex flex-col gap-2 items-center">
+          <Link
+            href="/pricing"
+            className="text-sm text-primary-500 hover:text-primary-700 transition-colors"
+          >
+            Ver planes y precios →
+          </Link>
+          <Link
+            href="/install"
+            className="text-sm text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            📱 Cómo instalar AVI en tu celular →
+          </Link>
+        </div>
       </div>
     </main>
   )
