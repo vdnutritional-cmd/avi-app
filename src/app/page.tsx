@@ -55,6 +55,14 @@ export default function HomePage() {
           AVI no reemplaza la atención terapéutica profesional.
           Es un complemento de apoyo entre sesiones.
         </p>
+
+        {/* Link a pricing */}
+        <Link
+          href="/pricing"
+          className="text-xs text-primary-500 hover:text-primary-700 transition-colors"
+        >
+          Ver planes y precios →
+        </Link>
       </div>
     </main>
   )
