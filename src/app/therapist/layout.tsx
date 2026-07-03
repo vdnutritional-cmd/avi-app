@@ -26,7 +26,7 @@ export default async function TherapistLayout({ children }: { children: React.Re
 
   const hasAccess = subscription?.status
     ? ['active', 'free_approved', 'trialing'].includes(subscription.status)
-    : true
+    : false
 
   return (
     <div className="min-h-screen flex bg-gray-50">
@@ -79,10 +79,10 @@ function PlanBadge({ status }: { status: string | null }) {
       </Link>
     )
   }
-  // Sin registro en subscriptions = acceso beta
+  // Sin registro = pendiente de aprobación
   return (
-    <span className="text-xs text-primary-600 bg-primary-50 px-3 py-1 rounded-full">
-      VALORA — acceso gratuito
+    <span className="text-xs text-amber-700 bg-amber-50 px-3 py-1 rounded-full">
+      ⏳ Pendiente de aprobación
     </span>
   )
 }

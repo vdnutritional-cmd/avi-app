@@ -30,7 +30,7 @@ export default async function TherapistDashboardPage() {
 
   const hasAccess = subscription?.status
     ? ['active', 'free_approved', 'trialing'].includes(subscription.status)
-    : true
+    : false
 
   return (
     <div className="space-y-8 max-w-3xl">
@@ -39,8 +39,23 @@ export default async function TherapistDashboardPage() {
         <p className="text-gray-500 mt-1">Bienvenido a Consúltame — tu centro de gestión terapéutica</p>
       </div>
 
-      {/* Banner de acceso bloqueado */}
-      {!hasAccess && (
+      {/* Banner: pendiente de aprobación (nunca ha tenido suscripción) */}
+      {!hasAccess && !subscription && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 flex items-center gap-4">
+          <span className="text-3xl">⏳</span>
+          <div>
+            <p className="font-semibold text-amber-800">Cuenta pendiente de aprobación</p>
+            <p className="text-sm text-amber-700 mt-0.5">
+              Tu cuenta está registrada. El administrador de AVI revisará tu solicitud
+              y activará tu acceso en breve. Si tienes dudas, contáctanos por
+              WhatsApp al <strong>33 1883 0312</strong>.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Banner: suscripción cancelada o vencida */}
+      {!hasAccess && subscription && (
         <div className="bg-red-50 border border-red-200 rounded-2xl p-5 flex items-center justify-between">
           <div>
             <p className="font-semibold text-red-700">Tu suscripción no está activa</p>
