@@ -175,7 +175,9 @@ export default function PricingPage() {
         </section>
 
         {/* ── Patrocinadores ── */}
-        <SponsorsSection />
+        <div className="-mt-8">
+          <SponsorsSection />
+        </div>
 
       </main>
     </div>

@@ -18,7 +18,7 @@ export default function SponsorsSection() {
   if (SPONSORS.length === 0) return null
 
   return (
-    <section className="text-center py-8">
+    <section className="text-center pt-4 pb-8">
       <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-6">
         Con el apoyo de
       </p>
@@ -37,7 +37,7 @@ export default function SponsorsSection() {
               <img
                 src={sponsor.logo}
                 alt={sponsor.name}
-                className="h-10 object-contain"
+                className="h-20 object-contain"
               />
             </a>
           ) : (
