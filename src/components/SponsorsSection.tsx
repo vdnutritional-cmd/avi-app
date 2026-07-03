@@ -10,8 +10,7 @@ interface Sponsor {
 
 // ── AGREGAR PATROCINADORES AQUÍ ───────────────────────────────
 const SPONSORS: Sponsor[] = [
-  // Ejemplo (descomentar cuando haya logos reales):
-  // { name: 'VALORA', logo: '/sponsors/valora.png', url: 'https://valora.mx' },
+  { name: 'VD-Products', logo: '/sponsors/logo-vdproducts.png', url: 'https://vdproducts.net' },
 ]
 // ─────────────────────────────────────────────────────────────
 
