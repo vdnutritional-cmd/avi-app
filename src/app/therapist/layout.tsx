@@ -20,7 +20,7 @@ export default async function TherapistLayout({ children }: { children: React.Re
 
   const { data: subscription } = await supabase
     .from('subscriptions')
-    .select('status')
+    .select('status, plan, patient_slots')
     .eq('therapist_id', user.id)
     .single()
 
@@ -43,15 +43,7 @@ export default async function TherapistLayout({ children }: { children: React.Re
         </nav>
 
         <div className="p-4 border-t border-gray-100 space-y-3">
-          {hasAccess && subscription ? (
-            <span className="text-xs text-green-600 bg-green-50 px-3 py-1 rounded-full">
-              ✓ Suscripción activa
-            </span>
-          ) : (
-            <span className="text-xs text-primary-600 bg-primary-50 px-3 py-1 rounded-full">
-              VALORA — acceso gratuito
-            </span>
-          )}
+          <PlanBadge status={subscription?.status ?? null} />
           <LogoutButton />
         </div>
       </aside>
@@ -62,6 +54,36 @@ export default async function TherapistLayout({ children }: { children: React.Re
 
       <PushRegistrar />
     </div>
+  )
+}
+
+function PlanBadge({ status }: { status: string | null }) {
+  if (status === 'active' || status === 'trialing') {
+    return (
+      <span className="text-xs text-green-700 bg-green-50 px-3 py-1 rounded-full">
+        ✓ Suscripción activa
+      </span>
+    )
+  }
+  if (status === 'free_approved') {
+    return (
+      <span className="text-xs text-blue-700 bg-blue-50 px-3 py-1 rounded-full">
+        🎁 Plan patrocinado
+      </span>
+    )
+  }
+  if (status === 'cancelled' || status === 'past_due') {
+    return (
+      <Link href="/pricing" className="text-xs text-red-600 bg-red-50 px-3 py-1 rounded-full hover:bg-red-100 transition-colors">
+        ⚠️ Sin suscripción activa →
+      </Link>
+    )
+  }
+  // Sin registro en subscriptions = acceso beta
+  return (
+    <span className="text-xs text-primary-600 bg-primary-50 px-3 py-1 rounded-full">
+      VALORA — acceso gratuito
+    </span>
   )
 }
 

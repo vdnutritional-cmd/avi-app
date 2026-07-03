@@ -5,18 +5,32 @@ export default async function TherapistDashboardPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const { count: patientCount } = await supabase
-    .from('therapist_patients')
-    .select('*', { count: 'exact', head: true })
-    .eq('therapist_id', user!.id)
-    .eq('is_active', true)
+  const [
+    { count: patientCount },
+    { count: codeCount },
+    { data: subscription },
+  ] = await Promise.all([
+    supabase
+      .from('therapist_patients')
+      .select('*', { count: 'exact', head: true })
+      .eq('therapist_id', user!.id)
+      .eq('is_active', true),
+    supabase
+      .from('authorization_codes')
+      .select('*', { count: 'exact', head: true })
+      .eq('therapist_id', user!.id)
+      .eq('is_active', true)
+      .is('used_by', null),
+    supabase
+      .from('subscriptions')
+      .select('status, plan, patient_slots')
+      .eq('therapist_id', user!.id)
+      .single(),
+  ])
 
-  const { count: codeCount } = await supabase
-    .from('authorization_codes')
-    .select('*', { count: 'exact', head: true })
-    .eq('therapist_id', user!.id)
-    .eq('is_active', true)
-    .is('used_by', null)
+  const hasAccess = subscription?.status
+    ? ['active', 'free_approved', 'trialing'].includes(subscription.status)
+    : true
 
   return (
     <div className="space-y-8 max-w-3xl">
@@ -24,6 +38,38 @@ export default async function TherapistDashboardPage() {
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
         <p className="text-gray-500 mt-1">Bienvenido a Consúltame — tu centro de gestión terapéutica</p>
       </div>
+
+      {/* Banner de acceso bloqueado */}
+      {!hasAccess && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-5 flex items-center justify-between">
+          <div>
+            <p className="font-semibold text-red-700">Tu suscripción no está activa</p>
+            <p className="text-sm text-red-500 mt-0.5">Activa un plan para seguir usando Consúltame.</p>
+          </div>
+          <Link
+            href="/pricing"
+            className="bg-red-600 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-red-700 transition-colors"
+          >
+            Ver planes →
+          </Link>
+        </div>
+      )}
+
+      {/* Card plan patrocinado */}
+      {subscription?.status === 'free_approved' && (
+        <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5 flex items-center gap-4">
+          <span className="text-3xl">🎁</span>
+          <div>
+            <p className="font-semibold text-blue-800">Plan patrocinado activo</p>
+            <p className="text-sm text-blue-600 mt-0.5">
+              Tu acceso a Consúltame está siendo patrocinado. No se te cobrará nada.
+              {subscription.patient_slots
+                ? ` Capacidad: hasta ${subscription.patient_slots} pacientes.`
+                : ''}
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-4">
         <div className="bg-white rounded-2xl border border-gray-100 p-6">
