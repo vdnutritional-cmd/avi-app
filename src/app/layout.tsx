@@ -4,11 +4,15 @@ import './globals.css'
 export const metadata: Metadata = {
   title: 'AVI — Acompañamiento Integral',
   description: 'Plataforma terapéutica para consultores y consultantes',
-  manifest: '/manifest.json', // se crea en Sprint 3
+  manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
     title: 'AVI',
+    startupImage: '/icons/apple-touch-icon.png',
+  },
+  icons: {
+    apple: '/icons/apple-touch-icon.png',
   },
 }
 
