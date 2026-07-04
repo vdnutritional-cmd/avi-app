@@ -9,10 +9,10 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: 'default',
     title: 'AVI',
-    startupImage: '/icons/apple-touch-icon.png',
+    startupImage: '/icons/apple-touch-icon-v2.png',
   },
   icons: {
-    apple: '/icons/apple-touch-icon.png',
+    apple: '/icons/apple-touch-icon-v2.png',
   },
 }
 
