@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import PushRegistrar from './PushRegistrar'
 import Sidebar from './Sidebar'
+import WhatsAppSupport from '@/components/WhatsAppSupport'
 
 export default async function TherapistLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -38,6 +39,7 @@ export default async function TherapistLayout({ children }: { children: React.Re
       </main>
 
       <PushRegistrar />
+      <WhatsAppSupport />
     </div>
   )
 }

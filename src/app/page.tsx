@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import WhatsAppSupport from '@/components/WhatsAppSupport'
 
 /**
  * Página de inicio / landing de AVI
@@ -72,6 +73,7 @@ export default function HomePage() {
           </Link>
         </div>
       </div>
+      <WhatsAppSupport />
     </main>
   )
 }
