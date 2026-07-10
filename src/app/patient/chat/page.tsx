@@ -34,11 +34,33 @@ const STATE_COLORS: Record<AppState, string> = {
 export default function PatientChatPage() {
   const router = useRouter()
 
-  // Redirigir a onboarding si es la primera vez
+  // Redirigir a onboarding si es la primera vez — verifica por usuario en Supabase
   useEffect(() => {
-    if (!localStorage.getItem('avi_onboarding_done')) {
-      router.replace('/patient/onboarding')
+    async function checkOnboarding() {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      // Cache específico por usuario (evita consulta extra en visitas repetidas)
+      const cacheKey = `avi_onboarding_done_${user.id}`
+      if (localStorage.getItem(cacheKey)) return
+
+      // Verificar en Supabase si ya aceptó el consentimiento informado
+      const { data: consent } = await supabase
+        .from('patient_consents')
+        .select('informed_consent_at')
+        .eq('patient_id', user.id)
+        .single()
+
+      if (!consent?.informed_consent_at) {
+        // Primera vez — ir a onboarding
+        router.replace('/patient/onboarding')
+      } else {
+        // Ya lo hizo — guardar en cache para no volver a consultar
+        localStorage.setItem(cacheKey, '1')
+      }
     }
+    checkOnboarding()
   }, [router])
 
   // Verificar límite de sesiones esta semana

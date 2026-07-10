@@ -92,7 +92,10 @@ export default function OnboardingPage() {
           })
       }
     } finally {
-      localStorage.setItem('avi_onboarding_done', '1')
+      // Cache específico por usuario para no repetir la consulta a Supabase
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) localStorage.setItem(`avi_onboarding_done_${user.id}`, '1')
       router.push('/patient/chat')
     }
   }
