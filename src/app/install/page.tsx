@@ -97,6 +97,25 @@ export default function InstallPage() {
           igual que cualquier app descargada de la tienda.
         </div>
 
+        {/* Guía de registro y primer ingreso */}
+        <div className="space-y-4">
+          <div className="text-center space-y-1">
+            <h2 className="text-lg font-semibold text-gray-800">Cómo registrarte y comenzar</h2>
+            <p className="text-sm text-gray-500">Sigue estos pasos la primera vez que entres a AVI</p>
+          </div>
+
+          {[1, 2, 3, 4, 5, 6].map(n => (
+            <div key={n} className="rounded-3xl overflow-hidden border border-gray-100 shadow-sm">
+              <img
+                src={`/guia/paso-${n}.png`}
+                alt={`Paso ${n}`}
+                className="w-full h-auto"
+                loading="lazy"
+              />
+            </div>
+          ))}
+        </div>
+
         <div className="text-center">
           <Link href="/" className="text-sm text-gray-400 hover:text-gray-600 transition-colors">
             ← Regresar al inicio
