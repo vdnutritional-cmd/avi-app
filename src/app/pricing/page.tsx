@@ -159,18 +159,18 @@ export default function PricingPage() {
 
         {/* ── Plan gratuito ── */}
         <section className="text-center border border-dashed border-gray-200 rounded-2xl p-8">
-          <h2 className="text-lg font-semibold text-gray-700 mb-2">Plan Patrocinado</h2>
+          <h2 className="text-lg font-semibold text-gray-700 mb-2">Empresas que Transforman Vidas</h2>
           <p className="text-sm text-gray-500 max-w-lg mx-auto mb-4">
-            AVI cuenta con patrocinios que permiten ofrecer acceso gratuito a algunos terapeutas.
-            Si crees que calificas, contáctanos.
+            AVI cuenta con patrocinios que permiten ofrecer acceso gratuito a Asesorados (pacientes).
+            ¿Te gustaría apoyar?
           </p>
           <a
-            href="https://wa.me/523318830312?text=Hola%2C%20me%20interesa%20conocer%20sobre%20el%20acceso%20patrocinado%20a%20AVI"
+            href="https://wa.me/523318830312?text=Hola%2C%20me%20interesa%20conocer%20el%20programa%20de%20patrocinios%20a%20AVI"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-5 py-2.5 rounded-xl transition-colors"
           >
-            <span>💬</span> Consultar disponibilidad
+            <span>💬</span> ¡Contáctanos!
           </a>
         </section>
 
