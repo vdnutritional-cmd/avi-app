@@ -40,7 +40,7 @@ export default async function TherapistDashboardPage() {
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 p-6">
           <p className="text-3xl font-bold text-calm-500">{codeCount ?? 0}</p>
-          <p className="text-sm text-gray-500 mt-1">Códigos disponibles</p>
+          <p className="text-sm text-gray-500 mt-1">Códigos entregados a pacientes sin usar</p>
         </div>
       </div>
 
