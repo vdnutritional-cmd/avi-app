@@ -72,26 +72,27 @@ export default function PatientChatPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      const inicioSemana = new Date()
-      inicioSemana.setDate(inicioSemana.getDate() - 6) // últimos 7 días
-      inicioSemana.setHours(0, 0, 0, 0)
+      const hace7dias = new Date()
+      hace7dias.setDate(hace7dias.getDate() - 6)
+      hace7dias.setHours(0, 0, 0, 0)
 
-      // Sesiones usadas esta semana
+      // Sesiones usadas en los últimos 7 días
       const { count } = await supabase
         .from('sessions')
         .select('*', { count: 'exact', head: true })
         .eq('patient_id', user.id)
-        .gte('started_at', inicioSemana.toISOString())
+        .gte('started_at', hace7dias.toISOString())
 
-      // Verificar si es la primera semana del paciente (consentimiento firmado esta semana)
+      // Verificar si están dentro de los primeros 7 días desde el registro
       const { data: consent } = await supabase
         .from('patient_consents')
         .select('informed_consent_at')
         .eq('patient_id', user.id)
         .single()
 
+      const SIETE_DIAS_MS = 7 * 24 * 60 * 60 * 1000
       const esPrimeraSemana = consent?.informed_consent_at
-        ? new Date(consent.informed_consent_at) >= inicioSemana
+        ? (Date.now() - new Date(consent.informed_consent_at).getTime()) < SIETE_DIAS_MS
         : false
 
       const limite = esPrimeraSemana ? LIMITE_PRIMERA_SEMANA : LIMITE_SESIONES_SEMANA
