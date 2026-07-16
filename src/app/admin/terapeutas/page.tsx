@@ -1,4 +1,3 @@
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 
@@ -32,7 +31,7 @@ async function revocarTerapeuta(formData: FormData) {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default async function AdminTerapeutasPage() {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   // Todos los terapeutas
   const { data: terapeutas } = await supabase
