@@ -75,6 +75,9 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
         <div className="mx-4 border-t border-gray-100" />
         <div className="p-4 space-y-3">
           <PlanBadge status={subscriptionStatus} patientSlots={patientSlots} />
+          {email === 'pepe.vargas.papa@gmail.com' && (
+            <NavLink href="/admin/terapeutas" icon="⚙️" label="Administración" />
+          )}
           <LogoutButton />
         </div>
       </aside>
