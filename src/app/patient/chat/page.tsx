@@ -4,7 +4,9 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
-const LIMITE_SESIONES_SEMANA = 3
+// Primera semana de uso: 3 sesiones. Semanas siguientes: 2 sesiones.
+const LIMITE_PRIMERA_SEMANA = 3
+const LIMITE_SESIONES_SEMANA = 2
 
 type AppState =
   | 'idle'        // Esperando que el paciente hable
@@ -74,15 +76,30 @@ export default function PatientChatPage() {
       inicioSemana.setDate(inicioSemana.getDate() - 6) // últimos 7 días
       inicioSemana.setHours(0, 0, 0, 0)
 
+      // Sesiones usadas esta semana
       const { count } = await supabase
         .from('sessions')
         .select('*', { count: 'exact', head: true })
         .eq('patient_id', user.id)
         .gte('started_at', inicioSemana.toISOString())
 
+      // Verificar si es la primera semana del paciente (consentimiento firmado esta semana)
+      const { data: consent } = await supabase
+        .from('patient_consents')
+        .select('informed_consent_at')
+        .eq('patient_id', user.id)
+        .single()
+
+      const esPrimeraSemana = consent?.informed_consent_at
+        ? new Date(consent.informed_consent_at) >= inicioSemana
+        : false
+
+      const limite = esPrimeraSemana ? LIMITE_PRIMERA_SEMANA : LIMITE_SESIONES_SEMANA
+
       const usadas = count ?? 0
       setSesionesUsadas(usadas)
-      if (usadas >= LIMITE_SESIONES_SEMANA) setLimitAlcanzado(true)
+      setLimiteActual(limite)
+      if (usadas >= limite) setLimitAlcanzado(true)
     }
     checkLimite()
   }, [])
@@ -97,6 +114,7 @@ export default function PatientChatPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [sesionesUsadas, setSesionesUsadas] = useState(0)
   const [limitAlcanzado, setLimitAlcanzado] = useState(false)
+  const [limiteActual, setLimiteActual] = useState(LIMITE_SESIONES_SEMANA)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null)
@@ -445,7 +463,7 @@ export default function PatientChatPage() {
             <div className="text-5xl">🌙</div>
             <h3 className="text-lg font-semibold text-gray-700">Has llegado a tu límite semanal</h3>
             <p className="text-sm text-gray-500 leading-relaxed">
-              Usaste tus {LIMITE_SESIONES_SEMANA} sesiones de esta semana. Regresa el próximo lunes para continuar con AVI.
+              Usaste tus {limiteActual} sesiones de esta semana. Regresa el próximo lunes para continuar con AVI.
             </p>
             <div className="bg-blue-50 border border-blue-200 rounded-2xl px-5 py-4 w-full">
               <p className="text-sm text-blue-700 leading-relaxed">
@@ -453,7 +471,7 @@ export default function PatientChatPage() {
               </p>
             </div>
             <p className="text-xs text-gray-300">
-              Sesiones esta semana: {sesionesUsadas} / {LIMITE_SESIONES_SEMANA}
+              Sesiones esta semana: {sesionesUsadas} / {limiteActual}
             </p>
           </div>
         )}

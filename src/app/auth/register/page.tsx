@@ -8,6 +8,7 @@ import { z } from 'zod'
 const registerSchema = z.object({
   fullName: z.string().min(2, 'Ingresa tu nombre completo'),
   email: z.string().email('Correo inválido'),
+  whatsapp: z.string().min(10, 'Ingresa tu número de WhatsApp (10 dígitos)').regex(/^\d+$/, 'Solo números, sin espacios ni guiones'),
   password: z.string().min(8, 'Mínimo 8 caracteres'),
   confirmPassword: z.string(),
 }).refine(d => d.password === d.confirmPassword, {
@@ -29,7 +30,7 @@ function EyeIcon({ open }: { open: boolean }) {
 }
 
 export default function RegisterPage() {
-  const [form, setForm] = useState({ fullName: '', email: '', password: '', confirmPassword: '' })
+  const [form, setForm] = useState({ fullName: '', email: '', whatsapp: '', password: '', confirmPassword: '' })
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -57,7 +58,7 @@ export default function RegisterPage() {
       email: form.email,
       password: form.password,
       options: {
-        data: { full_name: form.fullName, role: 'therapist' },
+        data: { full_name: form.fullName, role: 'therapist', whatsapp_phone: form.whatsapp },
         emailRedirectTo: `${window.location.origin}/api/auth/callback`,
       },
     })
@@ -118,6 +119,21 @@ export default function RegisterPage() {
               id="email" name="email" type="email"
               value={form.email} onChange={handleChange}
               placeholder="tu@correo.com" required
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none
+                         focus:ring-2 focus:ring-primary-300 focus:border-primary-400 transition"
+            />
+          </div>
+
+          {/* WhatsApp */}
+          <div className="space-y-1">
+            <label htmlFor="whatsapp" className="block text-sm font-medium text-gray-700">
+              Número de WhatsApp
+              <span className="text-xs text-gray-400 font-normal ml-1">(10 dígitos, sin espacios)</span>
+            </label>
+            <input
+              id="whatsapp" name="whatsapp" type="tel"
+              value={form.whatsapp} onChange={handleChange}
+              placeholder="3312345678" required
               className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none
                          focus:ring-2 focus:ring-primary-300 focus:border-primary-400 transition"
             />
