@@ -34,14 +34,14 @@ export default async function AdminTerapeutasPage() {
   const supabase = createAdminClient()
 
   // Todos los terapeutas
-  const { data: terapeutas } = await supabase
+  const { data: terapeutas, error: errT } = await supabase
     .from('profiles')
     .select('id, full_name, email, created_at')
     .eq('role', 'therapist')
     .order('created_at', { ascending: false })
 
   // Sus suscripciones
-  const { data: subs } = await supabase
+  const { data: subs, error: errS } = await supabase
     .from('subscriptions')
     .select('therapist_id, status, patient_slots, plan')
 
@@ -59,6 +59,17 @@ export default async function AdminTerapeutasPage() {
 
   return (
     <div className="space-y-10">
+      {/* ── DEBUG temporal ── */}
+      {(errT || errS) && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-xs text-red-700 font-mono whitespace-pre-wrap">
+          {errT && <p>Error profiles: {JSON.stringify(errT)}</p>}
+          {errS && <p>Error subs: {JSON.stringify(errS)}</p>}
+        </div>
+      )}
+      <div className="text-xs text-gray-400">
+        Terapeutas encontrados: {terapeutas?.length ?? 0}
+      </div>
+
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Terapeutas registrados</h1>
         <p className="text-sm text-gray-500 mt-1">
