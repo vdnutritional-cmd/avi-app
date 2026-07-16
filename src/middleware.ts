@@ -62,6 +62,15 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl)
   }
 
+  // ── Protección panel admin ────────────────────────────────────────────────
+  const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? 'pepe.vargas.papa@gmail.com'
+  if (pathname.startsWith('/admin')) {
+    if (user.email !== ADMIN_EMAIL) {
+      return NextResponse.redirect(new URL('/auth/login', request.url))
+    }
+    return supabaseResponse
+  }
+
   // ── Protección por rol ────────────────────────────────────────────────────
   const { data: profile } = await supabase
     .from('profiles')
