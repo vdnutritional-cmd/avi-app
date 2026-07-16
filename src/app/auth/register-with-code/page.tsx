@@ -98,6 +98,15 @@ export default function RegisterWithCodePage() {
 
     const patientId = authData.user.id
 
+    // Auto-confirmar email del paciente: no se les exige validar correo
+    // (muchos son de bajos recursos y no tienen acceso fácil a su cuenta de correo).
+    // Los terapeutas sí pasan por la confirmación normal de Supabase.
+    await fetch('/api/auth/confirm-patient', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: patientId }),
+    })
+
     await supabase
       .from('authorization_codes')
       .update({ used_by: patientId, used_at: new Date().toISOString(), is_active: false })
