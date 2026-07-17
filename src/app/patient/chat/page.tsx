@@ -403,8 +403,7 @@ export default function PatientChatPage() {
         <div className="text-5xl">🔒</div>
         <h2 className="text-lg font-semibold text-gray-700">Acceso suspendido</h2>
         <p className="text-sm text-gray-500 max-w-xs">
-          Tu terapeuta ha pausado temporalmente tu acceso a AVI.
-          Comunícate con él o ella para más información.
+          Para continuar usando AVI, solicita una nueva Sesión Presencial con tu Asesor y coméntale en la cita.
         </p>
       </div>
     )
