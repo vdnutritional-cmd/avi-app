@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import Link from 'next/link'
 import PatientsClient from './PatientsClient'
@@ -39,8 +40,9 @@ export default async function TherapistPatientsPage() {
     .order('created_at', { ascending: false })
 
   const patientIds = (relations ?? []).map(r => r.patient_id)
+  const adminClient = createAdminClient()
   const { data: profiles } = patientIds.length > 0
-    ? await supabase.from('profiles').select('id, full_name, email').in('id', patientIds)
+    ? await adminClient.from('profiles').select('id, full_name, email').in('id', patientIds)
     : { data: [] }
 
   const patients = (relations ?? []).map(r => {
