@@ -79,35 +79,23 @@ export default function RegisterWithCodePage() {
     }
 
     setLoading(true)
-    const supabase = createClient()
 
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email: form.email,
-      password: form.password,
-      options: {
-        data: { full_name: form.fullName, role: 'patient' },
-        emailRedirectTo: `${window.location.origin}/api/auth/callback`,
-      },
-    })
-
-    if (authError || !authData.user) {
-      setError(authError?.message ?? 'Error al crear la cuenta')
-      setLoading(false)
-      return
-    }
-
-    const patientId = authData.user.id
-
-    // Todo server-side: confirmar email + marcar código + vincular terapeuta
-    // (no usamos el cliente porque signUp() sin sesión falla por RLS en operaciones client-side)
+    // Todo server-side: crear usuario + confirmar email + código + vínculo terapeuta
     const res = await fetch('/api/auth/confirm-patient', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: patientId, codeId, therapistId }),
+      body: JSON.stringify({
+        email: form.email,
+        password: form.password,
+        fullName: form.fullName,
+        codeId,
+        therapistId,
+      }),
     })
 
     if (!res.ok) {
-      setError('Hubo un problema al activar tu cuenta. Contacta a tu terapeuta.')
+      const body = await res.json().catch(() => ({}))
+      setError(body.error ?? 'Hubo un problema al crear tu cuenta. Contacta a tu terapeuta.')
       setLoading(false)
       return
     }

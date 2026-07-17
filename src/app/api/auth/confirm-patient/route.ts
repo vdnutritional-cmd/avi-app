@@ -3,36 +3,78 @@ import { createAdminClient } from '@/lib/supabase/admin'
 
 /**
  * POST /api/auth/confirm-patient
- * Ejecuta server-side (con service_role) los 3 pasos del registro de paciente:
- *   1. Auto-confirma el email (sin verificación manual — muchos pacientes no tienen correo real)
+ * Crea al paciente COMPLETAMENTE server-side:
+ *   1. Crea el usuario en Supabase Auth con email ya confirmado (HTTP directo, sin SDK)
  *   2. Marca el código de autorización como usado
  *   3. Vincula al paciente con su terapeuta en therapist_patients
  *
- * Se hace aquí porque después del signUp() con "Confirm email" activado en Supabase,
- * NO se crea sesión, por lo que las llamadas client-side fallan por RLS.
+ * Motivo: auth.admin SDK methods fallan en Vercel serverless.
+ * Solución: llamada HTTP directa a la API de Supabase Auth Admin.
  */
 export async function POST(req: NextRequest) {
   try {
-    const { userId, codeId, therapistId } = await req.json()
+    const { email, password, fullName, codeId, therapistId } = await req.json()
+
+    if (!email || !password || !fullName) {
+      return NextResponse.json({ error: 'Datos incompletos' }, { status: 400 })
+    }
+
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+
+    // 1. Crear usuario con email ya confirmado — HTTP directo a Supabase Auth Admin API
+    const createRes = await fetch(`${supabaseUrl}/auth/v1/admin/users`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${serviceRoleKey}`,
+        'apikey': serviceRoleKey,
+      },
+      body: JSON.stringify({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: { full_name: fullName, role: 'patient' },
+      }),
+    })
+
+    if (!createRes.ok) {
+      const errBody = await createRes.json().catch(() => ({}))
+      console.error('[confirm-patient] Error al crear usuario:', errBody)
+      // Si el usuario ya existe, tratar como éxito parcial
+      if (createRes.status !== 422) {
+        return NextResponse.json({ error: errBody.msg ?? 'Error al crear cuenta' }, { status: 500 })
+      }
+    }
+
+    const userData = await createRes.json().catch(() => null)
+    const userId = userData?.id
 
     if (!userId) {
-      return NextResponse.json({ error: 'userId requerido' }, { status: 400 })
+      // Intentar obtener el userId si el usuario ya existía
+      const supabase = createAdminClient()
+      const { data: existingUsers } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', email)
+        .single()
+      if (!existingUsers?.id) {
+        return NextResponse.json({ error: 'No se pudo obtener el ID del usuario' }, { status: 500 })
+      }
+    }
+
+    const finalUserId = userId ?? null
+    if (!finalUserId) {
+      return NextResponse.json({ error: 'ID de usuario no disponible' }, { status: 500 })
     }
 
     const supabase = createAdminClient()
-
-    // 1. Auto-confirmar email via SQL (más confiable que auth.admin.updateUserById)
-    const { error: confirmError } = await supabase.rpc('confirm_user_email', { user_id: userId })
-    if (confirmError) {
-      console.error('[confirm-patient] Error al confirmar email:', confirmError)
-      return NextResponse.json({ error: confirmError.message }, { status: 500 })
-    }
 
     // 2. Marcar código como usado
     if (codeId) {
       const { error: codeError } = await supabase
         .from('authorization_codes')
-        .update({ used_by: userId, used_at: new Date().toISOString(), is_active: false })
+        .update({ used_by: finalUserId, used_at: new Date().toISOString(), is_active: false })
         .eq('id', codeId)
       if (codeError) console.error('[confirm-patient] Error al actualizar código:', codeError)
     }
@@ -41,7 +83,7 @@ export async function POST(req: NextRequest) {
     if (therapistId) {
       const { error: linkError } = await supabase
         .from('therapist_patients')
-        .insert({ therapist_id: therapistId, patient_id: userId, authorization_code_id: codeId ?? null })
+        .insert({ therapist_id: therapistId, patient_id: finalUserId, authorization_code_id: codeId ?? null })
       if (linkError) console.error('[confirm-patient] Error al vincular terapeuta-paciente:', linkError)
     }
 
