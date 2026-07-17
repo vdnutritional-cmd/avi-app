@@ -21,10 +21,8 @@ export async function POST(req: NextRequest) {
 
     const supabase = createAdminClient()
 
-    // 1. Auto-confirmar email
-    const { error: confirmError } = await supabase.auth.admin.updateUserById(userId, {
-      email_confirm: true,
-    })
+    // 1. Auto-confirmar email via SQL (más confiable que auth.admin.updateUserById)
+    const { error: confirmError } = await supabase.rpc('confirm_user_email', { user_id: userId })
     if (confirmError) {
       console.error('[confirm-patient] Error al confirmar email:', confirmError)
       return NextResponse.json({ error: confirmError.message }, { status: 500 })
