@@ -35,6 +35,23 @@ const STATE_COLORS: Record<AppState, string> = {
 
 export default function PatientChatPage() {
   const router = useRouter()
+  const [accesoSuspendido, setAccesoSuspendido] = useState(false)
+
+  // Verificar si el terapeuta bloqueó el acceso
+  useEffect(() => {
+    async function checkAcceso() {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data } = await supabase
+        .from('therapist_patients')
+        .select('is_active')
+        .eq('patient_id', user.id)
+        .single()
+      if (data && data.is_active === false) setAccesoSuspendido(true)
+    }
+    checkAcceso()
+  }, [])
 
   // Redirigir a onboarding si es la primera vez — verifica por usuario en Supabase
   useEffect(() => {
@@ -377,6 +394,20 @@ export default function PatientChatPage() {
       stopAudio()
       setAppState('idle')
     }
+  }
+
+  // ── Acceso suspendido ────────────────────────────────────────────────────────
+  if (accesoSuspendido) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[calc(100vh-120px)] px-6 text-center space-y-4">
+        <div className="text-5xl">🔒</div>
+        <h2 className="text-lg font-semibold text-gray-700">Acceso suspendido</h2>
+        <p className="text-sm text-gray-500 max-w-xs">
+          Tu terapeuta ha pausado temporalmente tu acceso a AVI.
+          Comunícate con él o ella para más información.
+        </p>
+      </div>
+    )
   }
 
   return (
