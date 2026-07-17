@@ -4,7 +4,7 @@ import { useState } from 'react'
 
 const WA_NUMBER = '523318830312'
 const WA_MESSAGE = encodeURIComponent(
-  'Hola, necesito asistencia con AVI. ¿Podrían ayudarme?'
+  'Hola, necesito asistencia con AVI. ¿Podrían ayudarme? Mi nombre es: '
 )
 const WA_URL = `https://wa.me/${WA_NUMBER}?text=${WA_MESSAGE}`
 
