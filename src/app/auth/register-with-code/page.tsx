@@ -98,23 +98,19 @@ export default function RegisterWithCodePage() {
 
     const patientId = authData.user.id
 
-    // Auto-confirmar email del paciente: no se les exige validar correo
-    // (muchos son de bajos recursos y no tienen acceso fácil a su cuenta de correo).
-    // Los terapeutas sí pasan por la confirmación normal de Supabase.
-    await fetch('/api/auth/confirm-patient', {
+    // Todo server-side: confirmar email + marcar código + vincular terapeuta
+    // (no usamos el cliente porque signUp() sin sesión falla por RLS en operaciones client-side)
+    const res = await fetch('/api/auth/confirm-patient', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: patientId }),
+      body: JSON.stringify({ userId: patientId, codeId, therapistId }),
     })
 
-    await supabase
-      .from('authorization_codes')
-      .update({ used_by: patientId, used_at: new Date().toISOString(), is_active: false })
-      .eq('id', codeId)
-
-    await supabase
-      .from('therapist_patients')
-      .insert({ therapist_id: therapistId, patient_id: patientId, authorization_code_id: codeId })
+    if (!res.ok) {
+      setError('Hubo un problema al activar tu cuenta. Contacta a tu terapeuta.')
+      setLoading(false)
+      return
+    }
 
     setLoading(false)
     setStep('success')
@@ -124,14 +120,17 @@ export default function RegisterWithCodePage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 via-white to-calm-50 px-4">
         <div className="w-full max-w-sm text-center space-y-4">
-          <div className="text-5xl">✉️</div>
-          <h2 className="text-xl font-bold text-gray-800">¡Ya casi!</h2>
+          <div className="text-5xl">🎉</div>
+          <h2 className="text-xl font-bold text-gray-800">¡Tu cuenta está lista!</h2>
           <p className="text-gray-500 text-sm">
-            Enviamos un enlace de confirmación a <strong>{form.email}</strong>.
-            Confírmalo para empezar a usar Recupérate.
+            Ya puedes iniciar sesión con tu correo y contraseña para empezar a usar AVI.
           </p>
-          <Link href="/auth/login" className="block text-primary-600 font-medium hover:underline text-sm">
-            Volver al inicio de sesión
+          <Link
+            href="/auth/login"
+            className="block w-full py-3 bg-primary-600 text-white rounded-xl font-semibold
+                       hover:bg-primary-700 transition-colors text-sm text-center"
+          >
+            Iniciar sesión →
           </Link>
         </div>
       </div>
