@@ -41,6 +41,7 @@ export async function middleware(request: NextRequest) {
   const isPublicRoute =
     pathname === '/' ||
     pathname.startsWith('/auth') ||
+    pathname.startsWith('/api/') ||   // Las API routes manejan su propia auth
     pathname.startsWith('/pricing') ||
     pathname.startsWith('/install') ||
     pathname.startsWith('/_next') ||

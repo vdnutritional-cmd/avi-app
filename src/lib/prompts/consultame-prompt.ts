@@ -1,16 +1,32 @@
 export interface InPersonSession {
   sessionNumber: number
   sessionDate: string
-  rawDate: string   // ISO date para ordenar cronológicamente
-  notes: string
+  rawDate: string
+  objetivo: string       // Objetivo de la sesión
+  desarrollo: string     // Desarrollo de la sesión
+  notes: string          // Observaciones particulares
+}
+
+export interface ExpedienteResumen {
+  antecedentes:       string
+  sintomatologia:     string
+  prediag_impresion:  string
+  prediag_diagnostico: string
+  prediag_areas:      string
+  prediag_tipo:       string
+  prediag_detonadores: string
+  prediag_guia:       string
 }
 
 export function buildConsultamePrompt(params: {
   patientName: string
   initialNote: string
+  initialNoteMotivo?: string
+  initialNoteSubyacente?: string
+  initialNotePremisas?: string
   sessionSummaries: Array<{
     date: string
-    rawDate: string  // ISO datetime para ordenar cronológicamente
+    rawDate: string
     summary: string
     emotions: string[]
     patterns: string[]
@@ -19,8 +35,12 @@ export function buildConsultamePrompt(params: {
   }>
   inPersonSessions?: InPersonSession[]
   fuentes: string
+  expediente?: ExpedienteResumen
 }): string {
-  const { patientName, initialNote, sessionSummaries, inPersonSessions = [], fuentes } = params
+  const {
+    patientName, initialNote, initialNoteMotivo, initialNoteSubyacente, initialNotePremisas,
+    sessionSummaries, inPersonSessions = [], fuentes, expediente,
+  } = params
 
   // Unifica AVI + Presenciales en un solo flujo cronológico
   type EntradaSesion = { rawDate: string; texto: string }
@@ -39,7 +59,12 @@ export function buildConsultamePrompt(params: {
 
   const entradasPresenciales: EntradaSesion[] = inPersonSessions.map(s => ({
     rawDate: s.rawDate,
-    texto: `--- Sesión Presencial ${s.sessionNumber} (${s.sessionDate}) ---\n${s.notes}`,
+    texto: [
+      `--- Sesión Presencial ${s.sessionNumber} (${s.sessionDate}) ---`,
+      s.objetivo    ? `Objetivo: ${s.objetivo}`           : '',
+      s.desarrollo  ? `Desarrollo: ${s.desarrollo}`       : '',
+      s.notes       ? `Observaciones: ${s.notes}`         : '',
+    ].filter(Boolean).join('\n'),
   }))
 
   const todasLasSesiones = [...entradasAVI, ...entradasPresenciales]
@@ -51,6 +76,23 @@ export function buildConsultamePrompt(params: {
 
   const tieneSesiones = todasLasSesiones.length > 0
   const esAnalisisEvolutivo = tieneSesiones
+
+  // Bloque de Historia Clínica / Prediagnóstico (si existe)
+  const tieneExpediente = expediente && (
+    expediente.antecedentes || expediente.prediag_impresion || expediente.prediag_diagnostico
+  )
+
+  const expedienteBloque = tieneExpediente ? `
+HISTORIA CLÍNICA INICIAL Y PREDIAGNÓSTICO:
+${expediente!.antecedentes       ? `\nAntecedentes de relevancia:\n${expediente!.antecedentes}` : ''}
+${expediente!.sintomatologia     ? `\nSintomatología observada:\n${expediente!.sintomatologia}` : ''}
+${expediente!.prediag_impresion  ? `\nImpresión del sujeto: ${expediente!.prediag_impresion}` : ''}
+${expediente!.prediag_diagnostico ? `\nDiagnóstico presuntivo: ${expediente!.prediag_diagnostico}` : ''}
+${expediente!.prediag_areas      ? `\nÁreas de conflicto: ${expediente!.prediag_areas}` : ''}
+${expediente!.prediag_tipo       ? `\nTipo de problema: ${expediente!.prediag_tipo}` : ''}
+${expediente!.prediag_detonadores ? `\nDetonadores: ${expediente!.prediag_detonadores}` : ''}
+${expediente!.prediag_guia       ? `\nGuía de acción: ${expediente!.prediag_guia}` : ''}
+` : ''
 
   return `Eres supervisor clínico de ConsultoriaFuentes. Tu función es orientar al terapeuta con precisión — nada de relleno. Di lo que importa con las palabras justas. Entre más digas con menos, mejor.
 
@@ -74,8 +116,19 @@ ${fuentes}
 Consultante: ${patientName}
 
 NOTA INICIAL DEL TERAPEUTA (punto de partida, independiente de la fecha):
-${initialNote || '(Sin nota inicial registrada — analiza con lo disponible)'}
 
+1. DESARROLLO DEL CASO:
+${initialNote || '(Sin registrar)'}
+
+2. MOTIVO DE CONSULTA DEL PACIENTE:
+${initialNoteMotivo || '(Sin registrar)'}
+
+3. MOTIVO DE CONSULTA SUBYACENTE (observación clínica del terapeuta):
+${initialNoteSubyacente || '(Sin registrar)'}
+
+4. PREMISAS ANTE EL MOTIVO DE CONSULTA (hipótesis del terapeuta sobre el origen del problema):
+${initialNotePremisas || '(Sin registrar)'}
+${expedienteBloque}
 SESIONES EN ORDEN CRONOLÓGICO (AVI y presenciales mezcladas por fecha):
 ${sesionesUnificadas}
 === FIN DEL CASO ===

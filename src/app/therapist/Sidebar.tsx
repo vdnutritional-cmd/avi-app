@@ -66,9 +66,10 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
 
         {/* Nav */}
         <nav className="p-4 space-y-1" onClick={() => setOpen(false)}>
-          <NavLink href="/therapist/dashboard" icon="🏠" label="Dashboard" />
-          <NavLink href="/therapist/patients"  icon="👥" label="Mis pacientes" />
-          <NavLink href="/therapist/codes"     icon="🔑" label="Códigos de acceso" />
+          <NavLink href="/therapist/dashboard"  icon="🏠" label="Dashboard" />
+          <NavLink href="/therapist/patients"   icon="👥" label="Mis pacientes" />
+          <NavLink href="/therapist/codes"      icon="🔑" label="Códigos de acceso" />
+          <NavLink href="/therapist/asesorias"  icon="📊" label="Mis asesorías" />
         </nav>
 
         {/* Separador + Plan + Logout — justo bajo el nav */}

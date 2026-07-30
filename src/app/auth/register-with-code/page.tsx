@@ -94,8 +94,15 @@ export default function RegisterWithCodePage() {
     })
 
     if (!res.ok) {
-      const body = await res.json().catch(() => ({}))
-      setError(body.error ?? 'Hubo un problema al crear tu cuenta. Contacta a tu terapeuta.')
+      let errorMsg = `Error HTTP ${res.status}`
+      try {
+        const body = await res.json()
+        errorMsg = body.error ?? errorMsg
+      } catch {
+        const text = await res.text().catch(() => '')
+        errorMsg = text ? `${errorMsg}: ${text.slice(0, 120)}` : errorMsg
+      }
+      setError(errorMsg)
       setLoading(false)
       return
     }

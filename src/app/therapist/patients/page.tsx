@@ -35,7 +35,7 @@ export default async function TherapistPatientsPage() {
   // Todos los pacientes (activos e inactivos)
   const { data: relations } = await supabase
     .from('therapist_patients')
-    .select('patient_id, is_active, created_at')
+    .select('patient_id, is_active, created_at, initial_note_virtual, initial_note_pro_bono')
     .eq('therapist_id', user!.id)
     .order('created_at', { ascending: false })
 
@@ -52,6 +52,8 @@ export default async function TherapistPatientsPage() {
       full_name: profile?.full_name ?? null,
       email: profile?.email ?? null,
       is_active: r.is_active,
+      is_virtual:  r.initial_note_virtual  ?? false,
+      is_pro_bono: r.initial_note_pro_bono ?? false,
     }
   })
 

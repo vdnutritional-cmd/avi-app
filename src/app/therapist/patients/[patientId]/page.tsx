@@ -3,8 +3,14 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import ExpedienteTab from './ExpedienteTab'
 
 const MAX_SESIONES_PRESENCIALES = 12
+
+// Fecha de hoy en horario de la Ciudad de México (YYYY-MM-DD)
+function hoyMX(): string {
+  return new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Mexico_City' })
+}
 
 interface Pattern {
   id: string
@@ -26,7 +32,11 @@ interface SessionNote {
   id: string
   session_number: number
   session_date: string
-  notes: string
+  session_objetivo: string | null
+  session_desarrollo: string | null
+  notes: string             // Observaciones particulares
+  is_pro_bono: boolean
+  is_virtual: boolean
 }
 
 interface PatientProfile {
@@ -45,21 +55,43 @@ export default function PatientDetailPage() {
   const [sessionNotes, setSessionNotes] = useState<SessionNote[]>([])
   const [initialNote, setInitialNote] = useState('')
   const [savedNote, setSavedNote] = useState('')
+  const [initialNoteDate, setInitialNoteDate] = useState(hoyMX())
+  const [savedNoteDate, setSavedNoteDate] = useState(hoyMX())
+  const [initialNoteProBono, setInitialNoteProBono] = useState(false)
+  const [savedNoteProBono, setSavedNoteProBono] = useState(false)
+  const [initialNoteVirtual, setInitialNoteVirtual] = useState(false)
+  const [savedNoteVirtual, setSavedNoteVirtual] = useState(false)
+  const [initialNoteMotivo, setInitialNoteMotivo] = useState('')
+  const [savedNoteMotivo, setSavedNoteMotivo] = useState('')
+  const [initialNoteSubyacente, setInitialNoteSubyacente] = useState('')
+  const [savedNoteSubyacente, setSavedNoteSubyacente] = useState('')
+  const [initialNotePremisas, setInitialNotePremisas] = useState('')
+  const [savedNotePremisas, setSavedNotePremisas] = useState('')
   const [savingNote, setSavingNote] = useState(false)
   const [noteSaved, setNoteSaved] = useState(false)
 
   // Nueva sesión presencial
-  const [newSessionDate, setNewSessionDate] = useState(new Date().toISOString().split('T')[0])
-  const [newSessionNotes, setNewSessionNotes] = useState('')
+  const [newSessionDate, setNewSessionDate] = useState(hoyMX())
+  const [newSessionObjetivo, setNewSessionObjetivo] = useState('')
+  const [newSessionDesarrollo, setNewSessionDesarrollo] = useState('')
+  const [newSessionNotes, setNewSessionNotes] = useState('')  // Observaciones particulares
+  const [newSessionProBono, setNewSessionProBono] = useState(false)
+  const [newSessionIsVirtual, setNewSessionIsVirtual] = useState(false)
   const [savingSession, setSavingSession] = useState(false)
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null)
+
+  // Edición de nombre
+  const [isEditingName, setIsEditingName] = useState(false)
+  const [editingName, setEditingName] = useState('')
+  const [savingName, setSavingName] = useState(false)
 
   const [analyzing, setAnalyzing] = useState(false)
   const [streamText, setStreamText] = useState('')
   const [analysisError, setAnalysisError] = useState<string | null>(null)
 
-  const [activeTab, setActiveTab] = useState<'sesiones' | 'presenciales' | 'analisis' | 'nota'>('sesiones')
+  const [activeTab, setActiveTab] = useState<'sesiones' | 'presenciales' | 'analisis' | 'nota' | 'expediente'>('sesiones')
   const [therapistId, setTherapistId] = useState<string | null>(null)
+  const [tier, setTier] = useState<'esencial' | 'clinico'>('esencial')
   const streamRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -70,11 +102,22 @@ export default function PatientDetailPage() {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (user?.id) setTherapistId(user.id)
+
+    // Obtener tier de suscripción del terapeuta
+    if (user?.id) {
+      const { data: sub } = await supabase
+        .from('subscriptions')
+        .select('tier')
+        .eq('therapist_id', user.id)
+        .maybeSingle()
+      if (sub?.tier === 'clinico') setTier('clinico')
+    }
+
     const [profileRes, patternsRes, analysesRes, relationRes, sessionNotesRes] = await Promise.all([
       supabase.from('profiles').select('full_name, email').eq('id', patientId).single(),
       supabase.from('patterns').select('*').eq('patient_id', patientId).order('created_at', { ascending: false }),
       supabase.from('analyses').select('*').eq('patient_id', patientId).eq('therapist_id', user?.id ?? '').order('created_at', { ascending: false }),
-      supabase.from('therapist_patients').select('initial_note').eq('patient_id', patientId).eq('therapist_id', user?.id ?? '').single(),
+      supabase.from('therapist_patients').select('initial_note, initial_note_date, initial_note_pro_bono, initial_note_virtual, initial_note_motivo, initial_note_subyacente, initial_note_premisas').eq('patient_id', patientId).eq('therapist_id', user?.id ?? '').single(),
       supabase.from('therapist_session_notes').select('*').eq('patient_id', patientId).order('session_number', { ascending: true }),
     ])
 
@@ -86,11 +129,52 @@ export default function PatientDetailPage() {
       setInitialNote(relationRes.data.initial_note)
       setSavedNote(relationRes.data.initial_note)
     }
+    const noteDate = relationRes.data?.initial_note_date ?? hoyMX()
+    setInitialNoteDate(noteDate)
+    setSavedNoteDate(noteDate)
+    const notePb = relationRes.data?.initial_note_pro_bono ?? false
+    setInitialNoteProBono(notePb)
+    setSavedNoteProBono(notePb)
+    const noteVirtual = relationRes.data?.initial_note_virtual ?? false
+    setInitialNoteVirtual(noteVirtual)
+    setSavedNoteVirtual(noteVirtual)
+    const noteMotivo = relationRes.data?.initial_note_motivo ?? ''
+    setInitialNoteMotivo(noteMotivo)
+    setSavedNoteMotivo(noteMotivo)
+    const noteSubyacente = relationRes.data?.initial_note_subyacente ?? ''
+    setInitialNoteSubyacente(noteSubyacente)
+    setSavedNoteSubyacente(noteSubyacente)
+    const notePremisas = relationRes.data?.initial_note_premisas ?? ''
+    setInitialNotePremisas(notePremisas)
+    setSavedNotePremisas(notePremisas)
   }
 
   useEffect(() => {
     streamRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [streamText])
+
+  async function saveName() {
+    if (!editingName.trim()) return
+    setSavingName(true)
+    try {
+      const res = await fetch('/api/patients/rename', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ patientId, fullName: editingName }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        alert(`Error al guardar nombre: ${err.error ?? res.status}`)
+        return
+      }
+      setProfile(prev => prev ? { ...prev, full_name: editingName.trim() } : prev)
+      setIsEditingName(false)
+    } catch {
+      alert('Error de red al guardar el nombre.')
+    } finally {
+      setSavingName(false)
+    }
+  }
 
   async function saveNote() {
     setSavingNote(true)
@@ -98,7 +182,10 @@ export default function PatientDetailPage() {
       const res = await fetch('/api/analysis', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ patientId, initialNote }),
+        body: JSON.stringify({
+          patientId, initialNote, initialNoteDate, initialNoteProBono, initialNoteVirtual,
+          initialNoteMotivo, initialNoteSubyacente, initialNotePremisas,
+        }),
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
@@ -106,6 +193,12 @@ export default function PatientDetailPage() {
         return
       }
       setSavedNote(initialNote)
+      setSavedNoteDate(initialNoteDate)
+      setSavedNoteProBono(initialNoteProBono)
+      setSavedNoteVirtual(initialNoteVirtual)
+      setSavedNoteMotivo(initialNoteMotivo)
+      setSavedNoteSubyacente(initialNoteSubyacente)
+      setSavedNotePremisas(initialNotePremisas)
       setNoteSaved(true)
       setTimeout(() => setNoteSaved(false), 3000)
     } catch {
@@ -116,7 +209,8 @@ export default function PatientDetailPage() {
   }
 
   async function saveSessionNote() {
-    if (!newSessionNotes.trim()) return
+    const hayContenido = newSessionObjetivo.trim() || newSessionDesarrollo.trim() || newSessionNotes.trim()
+    if (!hayContenido) return
     if (!therapistId) { alert('Error: sesión de terapeuta no encontrada. Recarga la página.'); return }
     setSavingSession(true)
     try {
@@ -125,22 +219,35 @@ export default function PatientDetailPage() {
         ? sessionNotes.find(s => s.id === editingSessionId)?.session_number ?? 1
         : (sessionNotes.length > 0 ? Math.max(...sessionNotes.map(s => s.session_number)) + 1 : 1)
 
+      const payload = {
+        session_date:      newSessionDate,
+        session_objetivo:  newSessionObjetivo  || null,
+        session_desarrollo: newSessionDesarrollo || null,
+        notes:             newSessionNotes     || null,   // Observaciones particulares
+        is_pro_bono:       newSessionProBono,
+        is_virtual:        newSessionIsVirtual,
+      }
+
       if (editingSessionId) {
         const { error } = await supabase
           .from('therapist_session_notes')
-          .update({ notes: newSessionNotes, session_date: newSessionDate, updated_at: new Date().toISOString() })
+          .update({ ...payload, updated_at: new Date().toISOString() })
           .eq('id', editingSessionId)
           .eq('therapist_id', therapistId)
         if (error) { alert(`Error al actualizar la sesión: ${error.message}`); return }
       } else {
         const { error } = await supabase
           .from('therapist_session_notes')
-          .insert({ therapist_id: therapistId, patient_id: patientId, session_number: nextNumber, session_date: newSessionDate, notes: newSessionNotes })
+          .insert({ therapist_id: therapistId, patient_id: patientId, session_number: nextNumber, ...payload })
         if (error) { alert(`Error al guardar la sesión: ${error.message}`); return }
       }
 
+      setNewSessionObjetivo('')
+      setNewSessionDesarrollo('')
       setNewSessionNotes('')
-      setNewSessionDate(new Date().toISOString().split('T')[0])
+      setNewSessionDate(hoyMX())
+      setNewSessionProBono(false)
+      setNewSessionIsVirtual(false)
       setEditingSessionId(null)
       await load()
     } finally {
@@ -151,7 +258,11 @@ export default function PatientDetailPage() {
   function startEdit(session: SessionNote) {
     setEditingSessionId(session.id)
     setNewSessionDate(session.session_date)
-    setNewSessionNotes(session.notes)
+    setNewSessionObjetivo(session.session_objetivo ?? '')
+    setNewSessionDesarrollo(session.session_desarrollo ?? '')
+    setNewSessionNotes(session.notes ?? '')
+    setNewSessionProBono(session.is_pro_bono ?? false)
+    setNewSessionIsVirtual(session.is_virtual ?? false)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -222,7 +333,15 @@ export default function PatientDetailPage() {
     }
   }
 
-  const noteChanged = initialNote !== savedNote
+  const noteChanged =
+    initialNote !== savedNote ||
+    initialNoteDate !== savedNoteDate ||
+    initialNoteProBono !== savedNoteProBono ||
+    initialNoteVirtual !== savedNoteVirtual ||
+    initialNoteMotivo !== savedNoteMotivo ||
+    initialNoteSubyacente !== savedNoteSubyacente ||
+    initialNotePremisas !== savedNotePremisas
+  const hayContenidoNuevaSesion = !!(newSessionObjetivo.trim() || newSessionDesarrollo.trim() || newSessionNotes.trim())
   const puedeAgregarSesion = sessionNotes.length < MAX_SESIONES_PRESENCIALES || editingSessionId !== null
 
   return (
@@ -235,7 +354,47 @@ export default function PatientDetailPage() {
             className="text-sm text-gray-400 hover:text-gray-600 mb-2 flex items-center gap-1">
             ← Mis pacientes
           </button>
-          <h1 className="text-2xl font-bold text-gray-800">{profile?.full_name ?? '...'}</h1>
+
+          {/* Nombre editable */}
+          {isEditingName ? (
+            <div className="flex items-center gap-2 flex-wrap">
+              <input
+                type="text"
+                value={editingName}
+                onChange={e => setEditingName(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') saveName(); if (e.key === 'Escape') setIsEditingName(false) }}
+                autoFocus
+                className="text-2xl font-bold text-gray-800 border-b-2 border-primary-400 outline-none bg-transparent w-64"
+              />
+              <button
+                onClick={saveName}
+                disabled={savingName || !editingName.trim()}
+                className="text-sm px-3 py-1 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-40"
+              >
+                {savingName ? 'Guardando…' : 'Guardar'}
+              </button>
+              <button
+                onClick={() => setIsEditingName(false)}
+                className="text-sm px-3 py-1 border border-gray-200 text-gray-500 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold text-gray-800">{profile?.full_name ?? '...'}</h1>
+              {profile && (
+                <button
+                  onClick={() => { setEditingName(profile.full_name ?? ''); setIsEditingName(true) }}
+                  title="Editar nombre"
+                  className="text-gray-300 hover:text-primary-500 transition-colors text-base leading-none"
+                >
+                  ✏️
+                </button>
+              )}
+            </div>
+          )}
+
           <p className="text-sm text-gray-400">{profile?.email}</p>
         </div>
 
@@ -256,17 +415,27 @@ export default function PatientDetailPage() {
       {/* Tabs */}
       <div className="flex border-b border-gray-200 overflow-x-auto">
         {[
-          { id: 'sesiones',     label: `Sesiones AVI (${patterns.length})` },
-          { id: 'presenciales', label: `Sesiones presenciales (${sessionNotes.length}/${MAX_SESIONES_PRESENCIALES})` },
-          { id: 'analisis',     label: `Análisis (${analyses.length})` },
-          { id: 'nota',         label: 'Nota inicial' + (savedNote ? ' ✓' : ' ⚠️') },
+          { id: 'sesiones',     label: `Sesiones AVI (${patterns.length})`,     locked: false },
+          { id: 'presenciales', label: `Sesiones presenciales (${sessionNotes.length}/${MAX_SESIONES_PRESENCIALES})`, locked: false },
+          { id: 'analisis',     label: `Análisis (${analyses.length})`,          locked: false },
+          { id: 'nota',         label: 'Nota inicial' + (savedNote ? ' ✓' : ' ⚠️'), locked: false },
+          { id: 'expediente',   label: tier === 'clinico' ? 'Expediente' : '🔒 Expediente', locked: tier !== 'clinico' },
         ].map(tab => (
           <button key={tab.id}
-            onClick={() => setActiveTab(tab.id as typeof activeTab)}
+            onClick={() => {
+              if (tab.locked) {
+                alert('El Expediente está disponible en AVI Clínico. Actualiza tu plan en Planes y precios.')
+                return
+              }
+              setActiveTab(tab.id as typeof activeTab)
+            }}
+            title={tab.locked ? 'Disponible en AVI Clínico' : undefined}
             className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
-              activeTab === tab.id
-                ? 'border-primary-600 text-primary-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+              tab.locked
+                ? 'border-transparent text-gray-300 cursor-not-allowed'
+                : activeTab === tab.id
+                  ? 'border-primary-600 text-primary-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}>
             {tab.label}
           </button>
@@ -330,7 +499,7 @@ export default function PatientDetailPage() {
                   : `Nueva Sesión Presencial ${sessionNotes.length + 1}`}
               </h3>
 
-              <div className="flex gap-4 flex-wrap">
+              <div className="flex gap-4 flex-wrap items-end">
                 <div className="space-y-1 flex-1 min-w-[160px]">
                   <label className="text-xs font-medium text-gray-500">Fecha de la sesión</label>
                   <input
@@ -341,17 +510,66 @@ export default function PatientDetailPage() {
                                focus:outline-none focus:ring-2 focus:ring-primary-300"
                   />
                 </div>
+                <label className="flex items-center gap-2 cursor-pointer pb-2 select-none">
+                  <input
+                    type="checkbox"
+                    checked={newSessionProBono}
+                    onChange={e => setNewSessionProBono(e.target.checked)}
+                    className="w-4 h-4 rounded accent-primary-600"
+                  />
+                  <span className="text-sm text-gray-600">Pro-bono</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer pb-2 select-none">
+                  <input
+                    type="checkbox"
+                    checked={newSessionIsVirtual}
+                    onChange={e => setNewSessionIsVirtual(e.target.checked)}
+                    className="w-4 h-4 rounded accent-primary-600"
+                  />
+                  <span className="text-sm text-gray-600">Virtual</span>
+                </label>
               </div>
 
+              {/* 1. Objetivo */}
               <div className="space-y-1">
-                <label className="text-xs font-medium text-gray-500">
-                  Resumen y observaciones de la sesión
+                <label className="text-xs font-semibold text-gray-600">
+                  1. Objetivo de la sesión
+                </label>
+                <textarea
+                  value={newSessionObjetivo}
+                  onChange={e => setNewSessionObjetivo(e.target.value)}
+                  placeholder="¿Qué se busca lograr en esta sesión? (máx. ~30 palabras)"
+                  rows={2}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-700
+                             focus:outline-none focus:ring-2 focus:ring-primary-300 leading-relaxed resize-none"
+                />
+              </div>
+
+              {/* 2. Desarrollo */}
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-gray-600">
+                  2. Desarrollo de la sesión
+                </label>
+                <textarea
+                  value={newSessionDesarrollo}
+                  onChange={e => setNewSessionDesarrollo(e.target.value)}
+                  placeholder="Describe el desarrollo de la sesión: temas abordados, dinámica, técnicas aplicadas, reacciones del paciente..."
+                  rows={6}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-700
+                             focus:outline-none focus:ring-2 focus:ring-primary-300 leading-relaxed resize-none"
+                />
+              </div>
+
+              {/* 3. Observaciones particulares */}
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-gray-600">
+                  3. Observaciones particulares
                 </label>
                 <textarea
                   value={newSessionNotes}
                   onChange={e => setNewSessionNotes(e.target.value)}
-                  placeholder="Describe lo que ocurrió en la sesión: temas trabajados, reacciones del paciente, avances observados, dificultades, técnicas aplicadas, observaciones clínicas relevantes..."
-                  rows={8}
+                  placeholder="Observaciones clínicas relevantes, elementos a seguir en próximas sesiones, señales de alerta, avances notables..."
+                  rows={6}
                   className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-700
                              focus:outline-none focus:ring-2 focus:ring-primary-300 leading-relaxed resize-none"
                 />
@@ -360,7 +578,7 @@ export default function PatientDetailPage() {
               <div className="flex gap-3 justify-end">
                 {editingSessionId && (
                   <button
-                    onClick={() => { setEditingSessionId(null); setNewSessionNotes(''); setNewSessionDate(new Date().toISOString().split('T')[0]) }}
+                    onClick={() => { setEditingSessionId(null); setNewSessionNotes(''); setNewSessionDate(hoyMX()) }}
                     className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 border border-gray-200 rounded-xl transition-colors"
                   >
                     Cancelar
@@ -368,7 +586,7 @@ export default function PatientDetailPage() {
                 )}
                 <button
                   onClick={saveSessionNote}
-                  disabled={savingSession || !newSessionNotes.trim()}
+                  disabled={savingSession || !hayContenidoNuevaSesion}
                   className="px-5 py-2.5 bg-primary-600 text-white rounded-xl text-sm font-semibold
                              hover:bg-primary-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
@@ -397,13 +615,19 @@ export default function PatientDetailPage() {
               {sessionNotes.map(s => (
                 <div key={s.id} className="bg-white rounded-2xl border border-gray-100 p-5 space-y-3">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 flex-wrap">
                       <span className="text-xs font-bold bg-primary-100 text-primary-700 px-3 py-1 rounded-full">
                         Sesión {s.session_number}
                       </span>
                       <span className="text-xs text-gray-400">
-                        {new Date(s.session_date).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}
+                        {new Date(s.session_date).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })}
                       </span>
+                      {s.is_pro_bono && (
+                        <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Pro-bono</span>
+                      )}
+                      {s.is_virtual && (
+                        <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Virtual</span>
+                      )}
                     </div>
                     <button
                       onClick={() => startEdit(s)}
@@ -412,7 +636,26 @@ export default function PatientDetailPage() {
                       Editar
                     </button>
                   </div>
-                  <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{s.notes}</p>
+                  <div className="space-y-4">
+                    {s.session_objetivo && (
+                      <div>
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Objetivo de la sesión</p>
+                        <p className="text-sm text-gray-700 leading-relaxed">{s.session_objetivo}</p>
+                      </div>
+                    )}
+                    {s.session_desarrollo && (
+                      <div>
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Desarrollo de la sesión</p>
+                        <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{s.session_desarrollo}</p>
+                      </div>
+                    )}
+                    {s.notes && (
+                      <div>
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Observaciones particulares</p>
+                        <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{s.notes}</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -486,36 +729,134 @@ export default function PatientDetailPage() {
 
       {/* ── TAB: Nota inicial ── */}
       {activeTab === 'nota' && (
-        <div className="bg-white rounded-2xl border border-gray-100 p-6 space-y-4">
+        <div className="bg-white rounded-2xl border border-gray-100 p-6 space-y-6">
           <div>
-            <h3 className="font-semibold text-gray-800 mb-1">Nota inicial del caso</h3>
+            <h3 className="font-semibold text-gray-800 mb-1">Nota inicial integrada</h3>
             <p className="text-sm text-gray-500 leading-relaxed">
-              Describe los datos generales del paciente, el motivo de consulta y el objetivo terapéutico.
-              Esta nota es la base de todos los análisis clínicos de Consultame.
+              Completa los cuatro apartados de la Nota Inicial. Toda la información aquí registrada
+              se usa como base del análisis clínico de Consúltame.
             </p>
           </div>
 
-          <textarea
-            value={initialNote}
-            onChange={e => setInitialNote(e.target.value)}
-            placeholder={`Ejemplo:
-Nombre: María García, 38 años, casada, 2 hijos.
-Motivo de consulta: dificultades en la relación conyugal, comunicación deteriorada con el esposo.
-Contexto familiar: familia nuclear con tensiones por la crianza. El esposo trabaja largas jornadas.
-Objetivo terapéutico: mejorar la comunicación de pareja y sanar heridas de abandono emocional.
-Observaciones clínicas iniciales: patrón de apego ansioso, baja autoestima, dificultad para pedir ayuda.`}
-            rows={14}
-            className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-700
-                       focus:outline-none focus:ring-2 focus:ring-primary-300 leading-relaxed resize-none"
-          />
+          {/* Fecha + Pro-bono + Virtual */}
+          <div className="flex gap-4 flex-wrap items-end">
+            <div className="space-y-1 flex-1 min-w-[160px]">
+              <label className="text-xs font-medium text-gray-500">Fecha de la consulta inicial</label>
+              <input
+                type="date"
+                value={initialNoteDate}
+                onChange={e => setInitialNoteDate(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm
+                           focus:outline-none focus:ring-2 focus:ring-primary-300"
+              />
+            </div>
+            <label className="flex items-center gap-2 cursor-pointer pb-2 select-none">
+              <input
+                type="checkbox"
+                checked={initialNoteProBono}
+                onChange={e => setInitialNoteProBono(e.target.checked)}
+                className="w-4 h-4 rounded accent-primary-600"
+              />
+              <span className="text-sm text-gray-600">Pro-bono</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer pb-2 select-none">
+              <input
+                type="checkbox"
+                checked={initialNoteVirtual}
+                onChange={e => setInitialNoteVirtual(e.target.checked)}
+                className="w-4 h-4 rounded accent-primary-600"
+              />
+              <span className="text-sm text-gray-600">Virtual</span>
+            </label>
+          </div>
 
-          <div className="flex items-center justify-between">
+          {/* 1. Desarrollo del caso */}
+          <div className="space-y-2">
+            <div>
+              <p className="text-sm font-semibold text-gray-700">
+                1. Desarrollo del caso
+              </p>
+              <p className="text-xs text-gray-400 mt-0.5">
+                Resumen de lo que nos platica el paciente: datos generales, contexto familiar, historia relevante.
+              </p>
+            </div>
+            <textarea
+              value={initialNote}
+              onChange={e => setInitialNote(e.target.value)}
+              placeholder="Nombre, edad, estado civil, ocupación, composición familiar. Resumen de lo que el paciente relató en la primera consulta..."
+              rows={6}
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-700
+                         focus:outline-none focus:ring-2 focus:ring-primary-300 leading-relaxed resize-none"
+            />
+          </div>
+
+          {/* 2. Motivo de consulta del paciente */}
+          <div className="space-y-2">
+            <div>
+              <p className="text-sm font-semibold text-gray-700">
+                2. Motivo de consulta del paciente
+              </p>
+              <p className="text-xs text-gray-400 mt-0.5">
+                Lo que el paciente dice que lo trajo a consulta, en sus propias palabras o parafraseado.
+              </p>
+            </div>
+            <textarea
+              value={initialNoteMotivo}
+              onChange={e => setInitialNoteMotivo(e.target.value)}
+              placeholder="&quot;Vine porque...&quot; — el problema o situación que el paciente identifica como la razón de buscar ayuda."
+              rows={4}
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-700
+                         focus:outline-none focus:ring-2 focus:ring-primary-300 leading-relaxed resize-none"
+            />
+          </div>
+
+          {/* 3. Motivo de consulta subyacente */}
+          <div className="space-y-2">
+            <div>
+              <p className="text-sm font-semibold text-gray-700">
+                3. Motivo de consulta subyacente
+              </p>
+              <p className="text-xs text-gray-400 mt-0.5">
+                Lo que como Asesor o Terapeuta observas que realmente está ocurriendo — más allá de lo que el paciente presenta.
+              </p>
+            </div>
+            <textarea
+              value={initialNoteSubyacente}
+              onChange={e => setInitialNoteSubyacente(e.target.value)}
+              placeholder="Observación clínica: el problema real que subyace al motivo declarado por el paciente (herida de apego, patrón relacional, dinámica familiar, etc.)."
+              rows={4}
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-700
+                         focus:outline-none focus:ring-2 focus:ring-primary-300 leading-relaxed resize-none"
+            />
+          </div>
+
+          {/* 4. Premisas ante el motivo de consulta */}
+          <div className="space-y-2">
+            <div>
+              <p className="text-sm font-semibold text-gray-700">
+                4. Premisas ante el motivo de consulta
+              </p>
+              <p className="text-xs text-gray-400 mt-0.5">
+                ¿Por qué consideras que se da el problema subyacente? Preferentemente define 3 premisas.
+              </p>
+            </div>
+            <textarea
+              value={initialNotePremisas}
+              onChange={e => setInitialNotePremisas(e.target.value)}
+              placeholder="Premisa 1: ...&#10;Premisa 2: ...&#10;Premisa 3: ..."
+              rows={5}
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-700
+                         focus:outline-none focus:ring-2 focus:ring-primary-300 leading-relaxed resize-none"
+            />
+          </div>
+
+          <div className="flex items-center justify-between pt-2 border-t border-gray-100">
             <p className="text-xs text-gray-400">
               {savedNote.trim() ? '✓ Nota guardada — disponible para el análisis' : '⚠️ Sin nota — el análisis no puede generarse'}
             </p>
             <button
               onClick={saveNote}
-              disabled={savingNote || !noteChanged || !initialNote.trim()}
+              disabled={savingNote || !noteChanged}
               className="px-5 py-2.5 bg-primary-600 text-white rounded-xl text-sm font-semibold
                          hover:bg-primary-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
@@ -523,6 +864,16 @@ Observaciones clínicas iniciales: patrón de apego ansioso, baja autoestima, di
             </button>
           </div>
         </div>
+      )}
+
+      {/* ── TAB: Expediente ── */}
+      {activeTab === 'expediente' && therapistId && (
+        <ExpedienteTab
+          patientId={patientId}
+          therapistId={therapistId}
+          patientEmail={profile?.email ?? null}
+          patientName={profile?.full_name ?? null}
+        />
       )}
     </div>
   )

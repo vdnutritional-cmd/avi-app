@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     // Verificar que el paciente pertenece al terapeuta
     const { data: relation } = await supabase
       .from('therapist_patients')
-      .select('patient_id, initial_note')
+      .select('patient_id, initial_note, initial_note_motivo, initial_note_subyacente, initial_note_premisas')
       .eq('therapist_id', user.id)
       .eq('patient_id', patientId)
       .eq('is_active', true)
@@ -55,17 +55,20 @@ export async function POST(request: NextRequest) {
       .eq('id', patientId)
       .single()
 
-    // Sesiones AVI y patrones del paciente
-    const { data: patterns } = await supabase
+    // Últimas 4 sesiones AVI (cronológico)
+    const { data: patternsDesc } = await supabase
       .from('patterns')
       .select('summary, emotional_patterns, predominant_emotions, reformulation, crisis_detected, created_at')
       .eq('patient_id', patientId)
-      .order('created_at', { ascending: true })
+      .order('created_at', { ascending: false })
+      .limit(4)
+
+    const patterns = (patternsDesc ?? []).reverse()
 
     // Sesiones presenciales del terapeuta
     const { data: inPersonRaw } = await supabase
       .from('therapist_session_notes')
-      .select('session_number, session_date, notes')
+      .select('session_number, session_date, session_objetivo, session_desarrollo, notes')
       .eq('therapist_id', user.id)
       .eq('patient_id', patientId)
       .order('session_number', { ascending: true })
@@ -84,8 +87,23 @@ export async function POST(request: NextRequest) {
       sessionNumber: s.session_number,
       sessionDate: new Date(s.session_date).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' }),
       rawDate: s.session_date,
-      notes: s.notes,
+      objetivo:   s.session_objetivo   ?? '',
+      desarrollo: s.session_desarrollo ?? '',
+      notes:      s.notes              ?? '',
     }))
+
+    // Historia Clínica / Prediagnóstico del expediente
+    const { data: expedienteRow } = await supabase
+      .from('patient_expediente')
+      .select(`
+        individual_antecedentes, individual_sintomatologia,
+        individual_prediag_impresion, individual_prediag_diagnostico,
+        individual_prediag_areas, individual_prediag_tipo,
+        individual_prediag_detonadores, individual_prediag_guia
+      `)
+      .eq('therapist_id', user.id)
+      .eq('patient_id', patientId)
+      .maybeSingle()
 
     const patientName = profile?.full_name ?? 'el consultante'
 
@@ -103,7 +121,10 @@ export async function POST(request: NextRequest) {
         predominantEmotions: p.predominant_emotions ?? [],
       })),
       lastInPersonSession: lastInPerson
-        ? { notes: lastInPerson.notes, sessionNumber: lastInPerson.sessionNumber }
+        ? {
+            notes: [lastInPerson.objetivo, lastInPerson.desarrollo, lastInPerson.notes].filter(Boolean).join(' '),
+            sessionNumber: lastInPerson.sessionNumber,
+          }
         : undefined,
     })
 
@@ -114,9 +135,22 @@ export async function POST(request: NextRequest) {
     const prompt = buildConsultamePrompt({
       patientName,
       initialNote: relation.initial_note ?? '',
+      initialNoteMotivo: relation.initial_note_motivo ?? '',
+      initialNoteSubyacente: relation.initial_note_subyacente ?? '',
+      initialNotePremisas: relation.initial_note_premisas ?? '',
       sessionSummaries,
       inPersonSessions,
       fuentes,
+      expediente: expedienteRow ? {
+        antecedentes:        expedienteRow.individual_antecedentes       ?? '',
+        sintomatologia:      expedienteRow.individual_sintomatologia      ?? '',
+        prediag_impresion:   expedienteRow.individual_prediag_impresion   ?? '',
+        prediag_diagnostico: expedienteRow.individual_prediag_diagnostico ?? '',
+        prediag_areas:       expedienteRow.individual_prediag_areas       ?? '',
+        prediag_tipo:        expedienteRow.individual_prediag_tipo        ?? '',
+        prediag_detonadores: expedienteRow.individual_prediag_detonadores ?? '',
+        prediag_guia:        expedienteRow.individual_prediag_guia        ?? '',
+      } : undefined,
     })
 
     // Streaming SSE
@@ -194,15 +228,26 @@ export async function PATCH(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
-    const { patientId, initialNote } = await request.json()
+    const {
+      patientId, initialNote, initialNoteDate, initialNoteProBono, initialNoteVirtual,
+      initialNoteMotivo, initialNoteSubyacente, initialNotePremisas,
+    } = await request.json()
     if (!patientId) return NextResponse.json({ error: 'patientId requerido' }, { status: 400 })
+
+    const updateData: Record<string, unknown> = {
+      initial_note: initialNote,
+      initial_note_updated_at: new Date().toISOString(),
+    }
+    if (initialNoteDate !== undefined) updateData.initial_note_date = initialNoteDate
+    if (initialNoteProBono !== undefined) updateData.initial_note_pro_bono = initialNoteProBono
+    if (initialNoteVirtual !== undefined) updateData.initial_note_virtual = initialNoteVirtual
+    if (initialNoteMotivo !== undefined) updateData.initial_note_motivo = initialNoteMotivo
+    if (initialNoteSubyacente !== undefined) updateData.initial_note_subyacente = initialNoteSubyacente
+    if (initialNotePremisas !== undefined) updateData.initial_note_premisas = initialNotePremisas
 
     const { data: updated, error } = await supabase
       .from('therapist_patients')
-      .update({
-        initial_note: initialNote,
-        initial_note_updated_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq('therapist_id', user.id)
       .eq('patient_id', patientId)
       .select()

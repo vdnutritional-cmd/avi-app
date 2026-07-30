@@ -8,6 +8,21 @@ interface Patient {
   full_name: string | null
   email: string | null
   is_active: boolean
+  is_virtual:  boolean
+  is_pro_bono: boolean
+}
+
+function ClasificacionBadges({ virtual: isVirtual, proBono }: { virtual: boolean; proBono: boolean }) {
+  if (!isVirtual && !proBono) return null
+  const etiquetas = [
+    ...(isVirtual ? ['Virtual'] : []),
+    ...(proBono   ? ['Pro-bono'] : []),
+  ]
+  return (
+    <span className="text-xs font-normal" style={{ color: '#b243d5' }}>
+      [{etiquetas.join(', ')}]
+    </span>
+  )
 }
 
 interface Props {
@@ -20,10 +35,15 @@ export default function PatientsClient({ activos, bloqueados, toggleAction }: Pr
   const [query, setQuery] = useState('')
 
   const filtrar = (lista: Patient[]) => {
-    const q = query.toLowerCase()
+    const q = query.toLowerCase().trim()
+    if (!q) return lista
+    const buscarVirtual  = 'virtual'.includes(q)
+    const buscarProBono  = 'pro-bono'.includes(q) || 'probono'.includes(q) || 'pro bono'.includes(q)
     return lista.filter(p =>
       (p.full_name ?? '').toLowerCase().includes(q) ||
-      (p.email ?? '').toLowerCase().includes(q)
+      (p.email ?? '').toLowerCase().includes(q) ||
+      (buscarVirtual  && p.is_virtual) ||
+      (buscarProBono  && p.is_pro_bono)
     )
   }
 
@@ -74,7 +94,10 @@ export default function PatientsClient({ activos, bloqueados, toggleAction }: Pr
                            hover:border-primary-200 hover:shadow-sm transition-all
                            flex items-center justify-between gap-3">
                 <Link href={`/therapist/patients/${p.id}`} className="flex-1 min-w-0">
-                  <p className="font-medium text-gray-800 truncate">{p.full_name ?? 'Sin nombre'}</p>
+                  <p className="font-medium text-gray-800 truncate flex items-center gap-2 flex-wrap">
+                    {p.full_name ?? 'Sin nombre'}
+                    <ClasificacionBadges virtual={p.is_virtual} proBono={p.is_pro_bono} />
+                  </p>
                   <p className="text-xs text-gray-400 mt-0.5 truncate">{p.email}</p>
                 </Link>
                 <form action={toggleAction}>
@@ -106,7 +129,10 @@ export default function PatientsClient({ activos, bloqueados, toggleAction }: Pr
               className="bg-gray-50 rounded-2xl border border-gray-100 px-5 py-4
                          flex items-center justify-between gap-3 opacity-70">
               <Link href={`/therapist/patients/${p.id}`} className="flex-1 min-w-0">
-                <p className="font-medium text-gray-500 truncate">{p.full_name ?? 'Sin nombre'}</p>
+                <p className="font-medium text-gray-500 truncate flex items-center gap-2 flex-wrap">
+                  {p.full_name ?? 'Sin nombre'}
+                  <ClasificacionBadges virtual={p.is_virtual} proBono={p.is_pro_bono} />
+                </p>
                 <p className="text-xs text-gray-400 mt-0.5 truncate">{p.email}</p>
               </Link>
               <form action={toggleAction}>

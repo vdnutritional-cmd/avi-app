@@ -5,10 +5,15 @@ export default async function TherapistDashboardPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
+  const now = new Date()
+  const mesInicio = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+  const mesFin    = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString().split('T')[0]
+
   const [
     { count: patientCount },
     { count: codeCount },
     { data: subscription },
+    { data: sesionesDelMes },
   ] = await Promise.all([
     supabase
       .from('therapist_patients')
@@ -26,7 +31,16 @@ export default async function TherapistDashboardPage() {
       .select('status, plan, patient_slots')
       .eq('therapist_id', user!.id)
       .single(),
+    supabase
+      .from('therapist_session_notes')
+      .select('is_pro_bono')
+      .eq('therapist_id', user!.id)
+      .gte('session_date', mesInicio)
+      .lt('session_date', mesFin),
   ])
+
+  const totalAsesorias  = sesionesDelMes?.length ?? 0
+  const totalFacturables = sesionesDelMes?.filter(s => !s.is_pro_bono).length ?? 0
 
   const hasAccess = subscription?.status
     ? ['active', 'free_approved', 'trialing'].includes(subscription.status)
@@ -101,6 +115,28 @@ export default async function TherapistDashboardPage() {
           <p className="text-sm text-gray-500 mt-1">Códigos entregados a pacientes sin usar</p>
         </div>
       </div>
+
+      {/* Resumen asesorías del mes */}
+      <Link
+        href="/therapist/asesorias"
+        className="flex items-center justify-between bg-white rounded-2xl border border-gray-100
+                   p-5 hover:border-primary-200 hover:bg-primary-50 transition-colors group"
+      >
+        <div className="flex items-center gap-4">
+          <span className="text-3xl">📊</span>
+          <div>
+            <p className="font-semibold text-gray-800 group-hover:text-primary-700 transition-colors">
+              Asesorías este mes
+            </p>
+            <p className="text-sm text-gray-500 mt-0.5">
+              {totalAsesorias === 0
+                ? 'Sin sesiones registradas aún'
+                : `${totalAsesorias} totales · ${totalFacturables} facturables · ${totalAsesorias - totalFacturables} pro-bono`}
+            </p>
+          </div>
+        </div>
+        <span className="text-gray-300 group-hover:text-primary-400 transition-colors text-sm">Ver detalle →</span>
+      </Link>
 
       <div className="space-y-3">
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Acciones rápidas</h2>
