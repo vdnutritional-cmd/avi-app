@@ -48,8 +48,9 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/favicon')
 
   if (isPublicRoute) {
-    // Si ya tiene sesión y visita una ruta de auth, redirigir al panel correcto
-    if (user && (pathname === '/' || pathname.startsWith('/auth'))) {
+    // Si ya tiene sesión y visita una ruta de auth (/auth/login, etc.), redirigir al panel correcto
+    // Nota: NO redirigir desde '/' para que siempre se vea la página de inicio
+    if (user && pathname.startsWith('/auth')) {
       return await redirectByRole(supabase, user.id, request)
     }
     return supabaseResponse
