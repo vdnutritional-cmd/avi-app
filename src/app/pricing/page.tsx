@@ -14,19 +14,6 @@ import {
 } from '@/lib/stripe/plans'
 import SponsorsSection from '@/components/SponsorsSection'
 
-// ── Funcionalidades por tier ──────────────────────────────────
-const FEATURES_ESENCIAL = [
-  'Chat AVI con IA (paciente)',
-  'Consúltame IA (terapeuta)',
-  'Sesiones presenciales',
-  'Nota inicial estructurada',
-  'Impresiones y reportes',
-  'Notificaciones de crisis',
-]
-const FEATURES_CLINICO_EXTRA = [
-  'Expediente clínico completo',
-  'Historia clínica individual',
-]
 
 export default function PricingPage() {
   const [tier, setTier] = useState<PlanTier>('esencial')
@@ -81,40 +68,124 @@ export default function PricingPage() {
             </div>
           </div>
 
-          {/* Descripción del tier */}
-          <div className="mt-5 max-w-2xl mx-auto text-center">
-            {isEsencial ? (
-              <p className="text-gray-500 text-sm">
-                Acceso a todas las funciones de AVI para acompañar a tus pacientes con IA.
-              </p>
-            ) : (
-              <p className="text-gray-500 text-sm">
-                Todo lo de Esencial más el{' '}
-                <span className="font-semibold text-purple-700">Expediente clínico completo</span>:
-                historia clínica individual y datos generales por paciente.
-              </p>
-            )}
-          </div>
+          {/* Tabla comparativa de funciones */}
+          <div className="mt-8 max-w-2xl mx-auto">
+            <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100">
+                    <th className="text-left px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide w-full">Función</th>
+                    <th className="px-5 py-3 text-center text-xs font-medium text-gray-600 uppercase tracking-wide whitespace-nowrap">Esencial</th>
+                    <th className="px-5 py-3 text-center text-xs font-medium text-purple-700 uppercase tracking-wide whitespace-nowrap">Clínico</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {/* Funciones generales */}
+                  {[
+                    'Registro y selección de pacientes',
+                    'Códigos de acceso para pacientes',
+                    'Chat AVI acompañamiento (pacientes)',
+                    'Resumen de sesiones AVI (por paciente)',
+                    'Registro de entrevista inicial',
+                    'Registro de sesiones presenciales',
+                    'Análisis clínico del caso',
+                    'Tipo de sesión presencial',
+                    'Reporte de asesorías / terapias',
+                    'Impresiones',
+                  ].map(f => (
+                    <tr key={f} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-5 py-2.5 text-gray-700">{f}</td>
+                      <td className="px-5 py-2.5 text-center text-green-500 text-base">✓</td>
+                      <td className="px-5 py-2.5 text-center text-green-500 text-base">✓</td>
+                    </tr>
+                  ))}
 
-          {/* Feature badges */}
-          <div className="mt-4 flex flex-wrap justify-center gap-2">
-            {FEATURES_ESENCIAL.map(f => (
-              <span key={f} className="text-xs px-3 py-1 rounded-full font-medium bg-gray-100 text-gray-600">
-                {f}
-              </span>
-            ))}
-            {FEATURES_CLINICO_EXTRA.map(f => (
-              <span
-                key={f}
-                className={`text-xs px-3 py-1 rounded-full font-medium transition-all ${
-                  !isEsencial
-                    ? 'bg-purple-100 text-purple-700 ring-1 ring-purple-300'
-                    : 'bg-gray-100 text-gray-300'
-                }`}
-              >
-                {!isEsencial ? '★ ' : ''}{f}
-              </span>
-            ))}
+                  {/* Expediente — solo Clínico */}
+                  <tr className="bg-purple-50">
+                    <td colSpan={3} className="px-5 py-2 text-xs font-semibold text-purple-700 uppercase tracking-wide">
+                      Expediente clínico — datos generales
+                    </td>
+                  </tr>
+                  {[
+                    'Datos generales',
+                  ].map(f => (
+                    <tr key={f} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-5 py-2.5 text-gray-700">{f}</td>
+                      <td className="px-5 py-2.5 text-center text-gray-300 text-base">—</td>
+                      <td className="px-5 py-2.5 text-center text-green-500 text-base">✓</td>
+                    </tr>
+                  ))}
+
+                  <tr className="bg-purple-50">
+                    <td colSpan={3} className="px-5 py-2 text-xs font-semibold text-purple-700 uppercase tracking-wide">Individual</td>
+                  </tr>
+                  {[
+                    'Dimensiones evolutivas (áreas de desarrollo)',
+                    'Contexto',
+                    'Antecedentes de relevancia',
+                    'Sintomatología observada',
+                  ].map(f => (
+                    <tr key={f} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-5 py-2.5 text-gray-700">{f}</td>
+                      <td className="px-5 py-2.5 text-center text-gray-300 text-base">—</td>
+                      <td className="px-5 py-2.5 text-center text-green-500 text-base">✓</td>
+                    </tr>
+                  ))}
+
+                  <tr className="bg-purple-50">
+                    <td colSpan={3} className="px-5 py-2 text-xs font-semibold text-purple-700 uppercase tracking-wide">Familiar</td>
+                  </tr>
+                  {[
+                    'Síntomas',
+                    'Detonadores',
+                    'Factores de riesgo',
+                    'Funciones familiares presentes y no presentes',
+                    'Características maternas y paternas (vinculación afectiva)',
+                    'Referentes de disfuncionalidad',
+                    'Tipo de disfunción observada',
+                    'Ciclo vital de la familia',
+                    'Procesos familiares',
+                  ].map(f => (
+                    <tr key={f} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-5 py-2.5 text-gray-700">{f}</td>
+                      <td className="px-5 py-2.5 text-center text-gray-300 text-base">—</td>
+                      <td className="px-5 py-2.5 text-center text-green-500 text-base">✓</td>
+                    </tr>
+                  ))}
+
+                  <tr className="bg-purple-50">
+                    <td colSpan={3} className="px-5 py-2 text-xs font-semibold text-purple-700 uppercase tracking-wide">Pareja</td>
+                  </tr>
+                  {[
+                    'Conformación estructural',
+                    'Tipo de amor',
+                    'Roles de la pareja',
+                    'Áreas funcionales y disfuncionales de la pareja',
+                  ].map(f => (
+                    <tr key={f} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-5 py-2.5 text-gray-700">{f}</td>
+                      <td className="px-5 py-2.5 text-center text-gray-300 text-base">—</td>
+                      <td className="px-5 py-2.5 text-center text-green-500 text-base">✓</td>
+                    </tr>
+                  ))}
+
+                  <tr className="bg-purple-50">
+                    <td colSpan={3} className="px-5 py-2 text-xs font-semibold text-purple-700 uppercase tracking-wide">Prediagnóstico y vías de acción</td>
+                  </tr>
+                  {[
+                    'Prediagnóstico',
+                    'Plan de intervención',
+                    'Técnicas de análisis e interpretación',
+                  ].map(f => (
+                    <tr key={f} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-5 py-2.5 text-gray-700">{f}</td>
+                      <td className="px-5 py-2.5 text-center text-gray-300 text-base">—</td>
+                      <td className="px-5 py-2.5 text-center text-green-500 text-base">✓</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </section>
 
