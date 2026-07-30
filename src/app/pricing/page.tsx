@@ -58,15 +58,15 @@ export default function PricingPage() {
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-gray-100">
-                    <th className="text-left px-4 py-2 text-xs font-medium text-gray-400 uppercase tracking-wide w-full">Función</th>
-                    <th className="px-4 py-2 text-center text-xs font-medium text-gray-600 uppercase tracking-wide whitespace-nowrap">Esencial</th>
-                    <th className="px-4 py-2 text-center text-xs font-medium text-purple-700 uppercase tracking-wide whitespace-nowrap">Clínico</th>
+                    <th className="text-left px-4 py-2 text-sm font-bold uppercase tracking-wide w-full" style={{ color: '#b243d5' }}>Función</th>
+                    <th className="px-4 py-2 text-center text-sm font-bold uppercase tracking-wide whitespace-nowrap" style={{ color: '#b243d5' }}>Esencial</th>
+                    <th className="px-4 py-2 text-center text-sm font-bold uppercase tracking-wide whitespace-nowrap" style={{ color: '#b243d5' }}>Clínico</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
 
                   {/* ── AVI ESENCIAL ── */}
-                  <tr className="bg-white">
+                  <tr className="bg-purple-50">
                     <td colSpan={3} className="px-3 py-1 text-xs font-bold uppercase tracking-wide" style={{ color: '#b243d5' }}>
                       AVI Esencial
                     </td>
@@ -90,7 +90,7 @@ export default function PricingPage() {
                   ))}
 
                   {/* ── EXPEDIENTE CLÍNICO ── */}
-                  <tr className="bg-white">
+                  <tr className="bg-purple-50">
                     <td colSpan={3} className="px-3 py-1 text-xs font-bold uppercase tracking-wide" style={{ color: '#b243d5' }}>
                       Expediente Clínico (incisos 1 a 6)
                     </td>
@@ -170,7 +170,9 @@ export default function PricingPage() {
                             </span>
                           </td>
                           <td className="px-3 py-1 text-center text-gray-300 text-xs">—</td>
-                          <td className="px-3 py-1 text-center text-green-600 font-bold text-xs">✔</td>
+                          <td className="px-3 py-1 text-center text-green-600 font-bold text-xs">
+                            {isOpen ? '' : '✔'}
+                          </td>
                         </tr>
                         {/* Filas de detalle (colapsables) */}
                         {isOpen && items.map(f => (
