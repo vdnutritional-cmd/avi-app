@@ -18,6 +18,15 @@ import SponsorsSection from '@/components/SponsorsSection'
 export default function PricingPage() {
   const [tier, setTier] = useState<PlanTier>('esencial')
   const [customSlots, setCustomSlots] = useState(3)
+  const [openSections, setOpenSections] = useState<Set<number>>(new Set())
+
+  function toggleSection(n: number) {
+    setOpenSections(prev => {
+      const next = new Set(prev)
+      next.has(n) ? next.delete(n) : next.add(n)
+      return next
+    })
+  }
 
   const isEsencial  = tier === 'esencial'
   const unitPrice   = isEsencial ? UNIT_PRICE_ESENCIAL : UNIT_PRICE_CLINICO
@@ -57,8 +66,8 @@ export default function PricingPage() {
                 <tbody className="divide-y divide-gray-50">
 
                   {/* ── AVI ESENCIAL ── */}
-                  <tr className="bg-orange-50">
-                    <td colSpan={3} className="px-3 py-1 text-xs font-bold text-orange-600 uppercase tracking-wide">
+                  <tr className="bg-white">
+                    <td colSpan={3} className="px-3 py-1 text-xs font-bold uppercase tracking-wide" style={{ color: '#b243d5' }}>
                       AVI Esencial
                     </td>
                   </tr>
@@ -75,14 +84,14 @@ export default function PricingPage() {
                   ].map(f => (
                     <tr key={f} className="hover:bg-gray-50 transition-colors">
                       <td className="px-3 py-0.5 text-gray-700">• {f}</td>
-                      <td className="px-3 py-0.5 text-center text-green-500">✓</td>
-                      <td className="px-3 py-0.5 text-center text-green-500">✓</td>
+                      <td className="px-3 py-0.5 text-center text-green-600 font-bold">✔</td>
+                      <td className="px-3 py-0.5 text-center text-green-600 font-bold">✔</td>
                     </tr>
                   ))}
 
                   {/* ── EXPEDIENTE CLÍNICO ── */}
-                  <tr className="bg-orange-50">
-                    <td colSpan={3} className="px-3 py-1 text-xs font-bold text-orange-600 uppercase tracking-wide">
+                  <tr className="bg-white">
+                    <td colSpan={3} className="px-3 py-1 text-xs font-bold uppercase tracking-wide" style={{ color: '#b243d5' }}>
                       Expediente Clínico (incisos 1 a 6)
                     </td>
                   </tr>
@@ -90,104 +99,90 @@ export default function PricingPage() {
                     <tr key={f} className="hover:bg-gray-50 transition-colors">
                       <td className="px-3 py-0.5 text-gray-700">• {f}</td>
                       <td className="px-3 py-0.5 text-center text-gray-300">—</td>
-                      <td className="px-3 py-0.5 text-center text-green-500">✓</td>
+                      <td className="px-3 py-0.5 text-center text-green-600 font-bold">✔</td>
                     </tr>
                   ))}
 
-                  {/* 1. INDIVIDUAL */}
-                  <tr className="bg-orange-50">
-                    <td colSpan={3} className="px-3 py-1 text-xs font-bold text-orange-600 uppercase tracking-wide">1. Individual</td>
-                  </tr>
-                  {[
-                    'Dimensiones evolutivas (áreas de desarrollo)',
-                    'Contexto',
-                    'Antecedentes de relevancia',
-                    'Sintomatología observada',
-                  ].map(f => (
-                    <tr key={f} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-3 py-0.5 text-gray-700">• {f}</td>
-                      <td className="px-3 py-0.5 text-center text-gray-300">—</td>
-                      <td className="px-3 py-0.5 text-center text-green-500">✓</td>
-                    </tr>
-                  ))}
-
-                  {/* 2. FAMILIAR */}
-                  <tr className="bg-orange-50">
-                    <td colSpan={3} className="px-3 py-1 text-xs font-bold text-orange-600 uppercase tracking-wide">2. Familiar</td>
-                  </tr>
-                  {[
-                    'Síntomas',
-                    'Detonadores',
-                    'Factores de riesgo',
-                    'Funciones familiares presentes y no presentes',
-                    'Características maternas y paternas (vinculación afectiva)',
-                    'Referentes de disfuncionalidad',
-                    'Tipo de disfunción observada',
-                    'Ciclo vital de la familia',
-                    'Procesos familiares',
-                  ].map(f => (
-                    <tr key={f} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-3 py-0.5 text-gray-700">• {f}</td>
-                      <td className="px-3 py-0.5 text-center text-gray-300">—</td>
-                      <td className="px-3 py-0.5 text-center text-green-500">✓</td>
-                    </tr>
-                  ))}
-
-                  {/* 3. PAREJA */}
-                  <tr className="bg-orange-50">
-                    <td colSpan={3} className="px-3 py-1 text-xs font-bold text-orange-600 uppercase tracking-wide">3. Pareja</td>
-                  </tr>
-                  {[
-                    'Conformación estructural',
-                    'Tipo de amor',
-                    'Roles de la pareja',
-                    'Áreas funcionales y disfuncionales de la pareja',
-                  ].map(f => (
-                    <tr key={f} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-3 py-0.5 text-gray-700">• {f}</td>
-                      <td className="px-3 py-0.5 text-center text-gray-300">—</td>
-                      <td className="px-3 py-0.5 text-center text-green-500">✓</td>
-                    </tr>
-                  ))}
-
-                  {/* 4. PREDIAGNÓSTICO & VÍAS DE ACCIÓN */}
-                  <tr className="bg-orange-50">
-                    <td colSpan={3} className="px-3 py-1 text-xs font-bold text-orange-600 uppercase tracking-wide">4. Prediagnóstico &amp; Vías de acción</td>
-                  </tr>
-                  {[
-                    'Prediagnóstico',
-                    'Plan de intervención (con propuesta 10 sesiones base Prediagnóstico)',
-                  ].map(f => (
-                    <tr key={f} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-3 py-0.5 text-gray-700">• {f}</td>
-                      <td className="px-3 py-0.5 text-center text-gray-300">—</td>
-                      <td className="px-3 py-0.5 text-center text-green-500">✓</td>
-                    </tr>
-                  ))}
-
-                  {/* 5. TÉCNICAS DE ANÁLISIS e INTERPRETACIÓN */}
-                  <tr className="bg-orange-50">
-                    <td colSpan={3} className="px-3 py-1 text-xs font-bold text-orange-600 uppercase tracking-wide">5. Técnicas de análisis e interpretación</td>
-                  </tr>
-                  {['Cuestionarios e interpretación (varios)'].map(f => (
-                    <tr key={f} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-3 py-0.5 text-gray-700">• {f}</td>
-                      <td className="px-3 py-0.5 text-center text-gray-300">—</td>
-                      <td className="px-3 py-0.5 text-center text-green-500">✓</td>
-                    </tr>
-                  ))}
-
-                  {/* 6. IMPRESIONES */}
-                  <tr className="bg-orange-50">
-                    <td colSpan={3} className="px-3 py-1 text-xs font-bold text-orange-600 uppercase tracking-wide">6. Impresiones</td>
-                  </tr>
-                  {['Reportes AVI y de protocolo (varios)'].map(f => (
-                    <tr key={f} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-3 py-0.5 text-gray-700">• {f}</td>
-                      <td className="px-3 py-0.5 text-center text-gray-300">—</td>
-                      <td className="px-3 py-0.5 text-center text-green-500">✓</td>
-                    </tr>
-                  ))}
+                  {/* ── Secciones colapsables 1–6 ── */}
+                  {([
+                    {
+                      n: 1, label: '1. Individual',
+                      items: [
+                        'Dimensiones evolutivas (áreas de desarrollo)',
+                        'Contexto',
+                        'Antecedentes de relevancia',
+                        'Sintomatología observada',
+                      ],
+                    },
+                    {
+                      n: 2, label: '2. Familiar',
+                      items: [
+                        'Síntomas',
+                        'Detonadores',
+                        'Factores de riesgo',
+                        'Funciones familiares presentes y no presentes',
+                        'Características maternas y paternas (vinculación afectiva)',
+                        'Referentes de disfuncionalidad',
+                        'Tipo de disfunción observada',
+                        'Ciclo vital de la familia',
+                        'Procesos familiares',
+                      ],
+                    },
+                    {
+                      n: 3, label: '3. Pareja',
+                      items: [
+                        'Conformación estructural',
+                        'Tipo de amor',
+                        'Roles de la pareja',
+                        'Áreas funcionales y disfuncionales de la pareja',
+                      ],
+                    },
+                    {
+                      n: 4, label: '4. Prediagnóstico & Vías de acción',
+                      items: [
+                        'Prediagnóstico',
+                        'Plan de intervención (con propuesta 10 sesiones base Prediagnóstico)',
+                      ],
+                    },
+                    {
+                      n: 5, label: '5. Técnicas de análisis e interpretación',
+                      items: ['Cuestionarios e interpretación (varios)'],
+                    },
+                    {
+                      n: 6, label: '6. Impresiones',
+                      items: ['Reportes AVI y de protocolo (varios)'],
+                    },
+                  ] as const).map(({ n, label, items }) => {
+                    const isOpen = openSections.has(n)
+                    return (
+                      <>
+                        {/* Fila de encabezado colapsable */}
+                        <tr
+                          key={`sec-${n}`}
+                          onClick={() => toggleSection(n)}
+                          className="bg-white cursor-pointer hover:bg-purple-50 transition-colors select-none"
+                        >
+                          <td className="px-3 py-1 text-xs font-bold uppercase tracking-wide" style={{ color: '#b243d5' }}>
+                            <span className="mr-1.5 text-[10px]">{isOpen ? '▼' : '▶'}</span>
+                            {label}
+                            <span className="ml-2 text-[9px] font-normal normal-case text-gray-400">
+                              {isOpen ? 'ocultar detalle' : 'ver detalle'}
+                            </span>
+                          </td>
+                          <td className="px-3 py-1 text-center text-gray-300 text-xs">—</td>
+                          <td className="px-3 py-1 text-center text-green-600 font-bold text-xs">✔</td>
+                        </tr>
+                        {/* Filas de detalle (colapsables) */}
+                        {isOpen && items.map(f => (
+                          <tr key={f} className="hover:bg-gray-50 transition-colors">
+                            <td className="px-5 py-0.5 text-gray-600">• {f}</td>
+                            <td className="px-3 py-0.5 text-center text-gray-300">—</td>
+                            <td className="px-3 py-0.5 text-center text-green-600 font-bold">✔</td>
+                          </tr>
+                        ))}
+                      </>
+                    )
+                  })}
 
                 </tbody>
               </table>
