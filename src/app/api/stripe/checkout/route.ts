@@ -112,7 +112,8 @@ export async function POST(req: NextRequest) {
     }
 
     // 5. Crear Checkout Session
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://avi-app.com.mx'
+    // Siempre usar el dominio del app (go.avi-app.com.mx), nunca el sitio marketing
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://go.avi-app.com.mx'
 
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
@@ -126,7 +127,7 @@ export async function POST(req: NextRequest) {
       automatic_tax: { enabled: true },
       customer_update: { address: 'auto' },
       success_url: `${appUrl}/therapist/dashboard?checkout=success`,
-      cancel_url: `${appUrl}/pricing?checkout=cancelled`,
+      cancel_url: `${appUrl}/therapist/dashboard`,
       metadata: {
         therapist_id: user.id,
         plan_id: planId,
