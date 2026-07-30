@@ -3,6 +3,10 @@ import { redirect } from 'next/navigation'
 import PushRegistrar from './PushRegistrar'
 import Sidebar from './Sidebar'
 import WhatsAppSupport from '@/components/WhatsAppSupport'
+import ActivarPlan from './ActivarPlan'
+
+// Statuses que permiten acceso al app
+const ACTIVE_STATUSES = ['active', 'trialing', 'free_approved']
 
 export default async function TherapistLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -23,6 +27,12 @@ export default async function TherapistLayout({ children }: { children: React.Re
     .select('status, plan, patient_slots')
     .eq('therapist_id', user.id)
     .single()
+
+  // ── Gate: sin plan activo → pantalla de activación ──
+  const hasAccess = subscription && ACTIVE_STATUSES.includes(subscription.status)
+  if (!hasAccess) {
+    return <ActivarPlan therapistName={profile?.full_name ?? ''} />
+  }
 
   return (
     <div className="min-h-screen flex bg-gray-50">
