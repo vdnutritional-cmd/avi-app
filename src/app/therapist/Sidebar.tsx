@@ -9,9 +9,10 @@ interface SidebarProps {
   email: string | null
   subscriptionStatus: string | null
   patientSlots: number | null
+  tier: string | null
 }
 
-export default function Sidebar({ fullName, email, subscriptionStatus, patientSlots }: SidebarProps) {
+export default function Sidebar({ fullName, email, subscriptionStatus, patientSlots, tier }: SidebarProps) {
   const [open, setOpen] = useState(false)
 
   return (
@@ -75,7 +76,7 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
         {/* Separador + Plan + Logout — justo bajo el nav */}
         <div className="mx-4 border-t border-gray-100" />
         <div className="p-4 space-y-3">
-          <PlanBadge status={subscriptionStatus} patientSlots={patientSlots} />
+          <PlanBadge status={subscriptionStatus} patientSlots={patientSlots} tier={tier} />
           {email === 'pepe.vargas.papa@gmail.com' && (
             <NavLink href="/admin/terapeutas" icon="⚙️" label="Administración" />
           )}
@@ -99,11 +100,14 @@ function NavLink({ href, icon, label }: { href: string; icon: string; label: str
   )
 }
 
-function PlanBadge({ status, patientSlots }: { status: string | null; patientSlots: number | null }) {
+function PlanBadge({ status, patientSlots, tier }: { status: string | null; patientSlots: number | null; tier: string | null }) {
   if (status === 'active' || status === 'trialing') {
+    const tierLabel = tier === 'clinico' ? 'Clínico' : tier === 'esencial' ? 'Esencial' : null
     return (
-      <span className="text-xs text-green-700 bg-green-50 px-3 py-1 rounded-full">
+      <span className="text-xs text-green-700 bg-green-50 px-3 py-1 rounded-full leading-relaxed">
         ✓ Suscripción activa
+        {tierLabel && <> · {tierLabel}</>}
+        {patientSlots ? <> · {patientSlots} pac.</> : ''}
       </span>
     )
   }

@@ -12,6 +12,157 @@ import {
   type PlanTier,
 } from '@/lib/stripe/plans'
 
+// ── Tabla comparativa de funciones ────────────────────────────
+function FeatureTable() {
+  const [openSections, setOpenSections] = useState<Set<number>>(new Set())
+
+  function toggleSection(n: number) {
+    setOpenSections(prev => {
+      const next = new Set(prev)
+      next.has(n) ? next.delete(n) : next.add(n)
+      return next
+    })
+  }
+
+  return (
+    <div className="max-w-2xl mx-auto">
+      <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b border-gray-100">
+              <th className="text-left px-4 py-2 text-sm font-bold uppercase tracking-wide w-full" style={{ color: '#b243d5' }}>Función</th>
+              <th className="px-4 py-2 text-center text-sm font-bold uppercase tracking-wide whitespace-nowrap" style={{ color: '#b243d5' }}>Esencial</th>
+              <th className="px-4 py-2 text-center text-sm font-bold uppercase tracking-wide whitespace-nowrap" style={{ color: '#b243d5' }}>Clínico</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-50">
+
+            {/* ── AVI ESENCIAL ── */}
+            <tr className="bg-purple-50">
+              <td colSpan={3} className="px-3 py-1 text-xs font-bold uppercase tracking-wide" style={{ color: '#b243d5' }}>
+                AVI Esencial
+              </td>
+            </tr>
+            {[
+              'Registro y selección de pacientes',
+              'Códigos de acceso para pacientes',
+              'Chat AVI acompañamiento (pacientes)',
+              'Resumen de sesiones AVI (por paciente)',
+              'Registro de entrevista inicial',
+              'Registro de sesiones presenciales',
+              'Análisis clínico del caso (incluye propuesta 10 sesiones)',
+              'Tipo de sesión presencial',
+              'Reporte de asesorías/terapias',
+            ].map(f => (
+              <tr key={f} className="hover:bg-gray-50 transition-colors">
+                <td className="px-3 py-0.5 text-gray-700">• {f}</td>
+                <td className="px-3 py-0.5 text-center text-green-600 font-bold">✔</td>
+                <td className="px-3 py-0.5 text-center text-green-600 font-bold">✔</td>
+              </tr>
+            ))}
+
+            {/* ── EXPEDIENTE CLÍNICO ── */}
+            <tr className="bg-purple-50">
+              <td colSpan={3} className="px-3 py-1 text-xs font-bold uppercase tracking-wide" style={{ color: '#b243d5' }}>
+                Expediente Clínico (incisos 1 a 6)
+              </td>
+            </tr>
+            {['Datos generales'].map(f => (
+              <tr key={f} className="hover:bg-gray-50 transition-colors">
+                <td className="px-3 py-0.5 text-gray-700">• {f}</td>
+                <td className="px-3 py-0.5 text-center text-gray-300">—</td>
+                <td className="px-3 py-0.5 text-center text-green-600 font-bold">✔</td>
+              </tr>
+            ))}
+
+            {/* ── Secciones colapsables 1–6 ── */}
+            {([
+              {
+                n: 1, label: '1. Individual',
+                items: [
+                  'Dimensiones evolutivas (áreas de desarrollo)',
+                  'Contexto',
+                  'Antecedentes de relevancia',
+                  'Sintomatología observada',
+                ],
+              },
+              {
+                n: 2, label: '2. Familiar',
+                items: [
+                  'Síntomas',
+                  'Detonadores',
+                  'Factores de riesgo',
+                  'Funciones familiares presentes y no presentes',
+                  'Características maternas y paternas (vinculación afectiva)',
+                  'Referentes de disfuncionalidad',
+                  'Tipo de disfunción observada',
+                  'Ciclo vital de la familia',
+                  'Procesos familiares',
+                ],
+              },
+              {
+                n: 3, label: '3. Pareja',
+                items: [
+                  'Conformación estructural',
+                  'Tipo de amor',
+                  'Roles de la pareja',
+                  'Áreas funcionales y disfuncionales de la pareja',
+                ],
+              },
+              {
+                n: 4, label: '4. Prediagnóstico & Vías de acción',
+                items: [
+                  'Prediagnóstico',
+                  'Plan de intervención (con propuesta 10 sesiones base Prediagnóstico)',
+                ],
+              },
+              {
+                n: 5, label: '5. Técnicas de análisis e interpretación',
+                items: ['Cuestionarios e interpretación (varios)'],
+              },
+              {
+                n: 6, label: '6. Impresiones',
+                items: ['Reportes AVI y de protocolo (varios)'],
+              },
+            ] as const).map(({ n, label, items }) => {
+              const isOpen = openSections.has(n)
+              return (
+                <>
+                  <tr
+                    key={`sec-${n}`}
+                    onClick={() => toggleSection(n)}
+                    className="bg-white cursor-pointer hover:bg-purple-50 transition-colors select-none"
+                  >
+                    <td className="px-3 py-1 text-xs font-bold uppercase tracking-wide" style={{ color: '#b243d5' }}>
+                      <span className="mr-1.5 text-[10px]">{isOpen ? '▼' : '▶'}</span>
+                      {label}
+                      <span className="ml-2 text-[9px] font-normal normal-case text-gray-400">
+                        {isOpen ? 'ocultar detalle' : 'ver detalle'}
+                      </span>
+                    </td>
+                    <td className="px-3 py-1 text-center text-gray-300 text-xs">—</td>
+                    <td className="px-3 py-1 text-center text-green-600 font-bold text-xs">
+                      {isOpen ? '' : '✔'}
+                    </td>
+                  </tr>
+                  {isOpen && items.map(f => (
+                    <tr key={f} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-5 py-0.5 text-gray-600">• {f}</td>
+                      <td className="px-3 py-0.5 text-center text-gray-300">—</td>
+                      <td className="px-3 py-0.5 text-center text-green-600 font-bold">✔</td>
+                    </tr>
+                  ))}
+                </>
+              )
+            })}
+
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
 // ── Botón de checkout ──────────────────────────────────────────
 function CheckoutButton({
   label, planId, slots, variant = 'purple',
@@ -79,6 +230,9 @@ export default function ActivarPlan({ therapistName }: { therapistName: string }
       </header>
 
       <main className="flex-1 max-w-4xl mx-auto w-full px-6 pb-16 space-y-10">
+
+        {/* ── Tabla comparativa ── */}
+        <FeatureTable />
 
         {/* ── Selector de tier ── */}
         <div className="flex justify-center">

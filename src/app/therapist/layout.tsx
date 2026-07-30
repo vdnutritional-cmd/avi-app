@@ -24,7 +24,7 @@ export default async function TherapistLayout({ children }: { children: React.Re
 
   const { data: subscription } = await supabase
     .from('subscriptions')
-    .select('status, plan, patient_slots')
+    .select('status, plan, patient_slots, tier')
     .eq('therapist_id', user.id)
     .single()
 
@@ -41,6 +41,7 @@ export default async function TherapistLayout({ children }: { children: React.Re
         email={profile?.email ?? user.email ?? null}
         subscriptionStatus={subscription?.status ?? null}
         patientSlots={subscription?.patient_slots ?? null}
+        tier={subscription?.tier ?? null}
       />
 
       {/* Contenido principal — padding-top extra en móvil para el botón hamburger */}
