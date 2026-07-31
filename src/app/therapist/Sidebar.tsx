@@ -101,20 +101,22 @@ function NavLink({ href, icon, label }: { href: string; icon: string; label: str
 }
 
 function PlanBadge({ status, patientSlots, tier }: { status: string | null; patientSlots: number | null; tier: string | null }) {
+  const tierLabel = tier === 'clinico' ? 'Clínico' : tier === 'esencial' ? 'Esencial' : null
+  const planPrefix = tierLabel
+    ? `AVI ${tierLabel}${patientSlots ? ` ${patientSlots}` : ''}`
+    : null
+
   if (status === 'active' || status === 'trialing') {
-    const tierLabel = tier === 'clinico' ? 'Clínico' : tier === 'esencial' ? 'Esencial' : null
     return (
       <span className="text-xs text-green-700 bg-green-50 px-3 py-1 rounded-full leading-relaxed">
-        ✓ Suscripción activa
-        {tierLabel && <> · {tierLabel}</>}
-        {patientSlots ? <> · {patientSlots} pac.</> : ''}
+        ✓ {planPrefix ?? 'Suscripción'} · activo
       </span>
     )
   }
   if (status === 'free_approved') {
     return (
       <span className="text-xs text-blue-700 bg-blue-50 px-3 py-1 rounded-full">
-        🎁 Plan patrocinado{patientSlots ? ` · ${patientSlots} pac.` : ''}
+        🎁 {planPrefix ?? 'Plan'} · patrocinado
       </span>
     )
   }

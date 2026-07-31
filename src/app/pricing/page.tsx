@@ -65,10 +65,10 @@ export default function PricingPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-50">
 
-                  {/* ── AVI ESENCIAL ── */}
+                  {/* ── CONSÚLTAME ── */}
                   <tr className="bg-purple-50">
                     <td colSpan={3} className="px-3 py-1 text-xs font-bold uppercase tracking-wide" style={{ color: '#b243d5' }}>
-                      AVI Esencial
+                      Consúltame
                     </td>
                   </tr>
                   {[
