@@ -14,6 +14,7 @@ export default async function TherapistDashboardPage() {
     { count: codeCount },
     { data: subscription },
     { data: sesionesDelMes },
+    { data: notasIniciales },
   ] = await Promise.all([
     supabase
       .from('therapist_patients')
@@ -37,10 +38,23 @@ export default async function TherapistDashboardPage() {
       .eq('therapist_id', user!.id)
       .gte('session_date', mesInicio)
       .lt('session_date', mesFin),
+    supabase
+      .from('therapist_patients')
+      .select('initial_note_pro_bono')
+      .eq('therapist_id', user!.id)
+      .not('initial_note', 'is', null)
+      .not('initial_note_date', 'is', null)
+      .gte('initial_note_date', mesInicio)
+      .lt('initial_note_date', mesFin),
   ])
 
-  const totalAsesorias  = sesionesDelMes?.length ?? 0
-  const totalFacturables = sesionesDelMes?.filter(s => !s.is_pro_bono).length ?? 0
+  // Combinar sesiones presenciales + notas iniciales (igual que asesorias/page.tsx)
+  const todasAsesorias = [
+    ...(sesionesDelMes ?? []),
+    ...(notasIniciales ?? []).map(n => ({ is_pro_bono: n.initial_note_pro_bono ?? false })),
+  ]
+  const totalAsesorias   = todasAsesorias.length
+  const totalFacturables = todasAsesorias.filter(s => !s.is_pro_bono).length
 
   const hasAccess = subscription?.status
     ? ['active', 'free_approved', 'trialing'].includes(subscription.status)
