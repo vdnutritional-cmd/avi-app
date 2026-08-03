@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
+import ReporteAsesorias from './ReporteAsesorias'
 
 export const dynamic = 'force-dynamic'
 
@@ -271,6 +272,9 @@ export default async function AsesoriasPage({
           </div>
         </div>
       )}
+
+      {/* Reporte por período */}
+      <ReporteAsesorias />
 
     </div>
   )
