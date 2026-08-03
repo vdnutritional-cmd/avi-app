@@ -419,7 +419,7 @@ export default function PatientDetailPage() {
           { id: 'presenciales', label: `Sesiones presenciales (${sessionNotes.length}/${MAX_SESIONES_PRESENCIALES})`, locked: false },
           { id: 'analisis',     label: `Análisis (${analyses.length})`,          locked: false },
           { id: 'nota',         label: 'Nota inicial' + (savedNote ? ' ✓' : ' ⚠️'), locked: false },
-          { id: 'expediente',   label: tier === 'clinico' ? 'Expediente' : '🔒 Expediente', locked: tier !== 'clinico' },
+          { id: 'expediente',   label: tier === 'clinico' ? 'EXPEDIENTE' : '🔒 EXPEDIENTE', locked: tier !== 'clinico' },
         ].map(tab => (
           <button key={tab.id}
             onClick={() => {
