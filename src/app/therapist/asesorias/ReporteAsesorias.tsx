@@ -39,6 +39,7 @@ function Bloque({
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-gray-50 text-left">
+              <th className="px-3 py-2 font-medium text-gray-400 text-xs uppercase tracking-wide w-8">#</th>
               <th className="px-5 py-2 font-medium text-gray-500 text-xs uppercase tracking-wide">Fecha</th>
               <th className="px-5 py-2 font-medium text-gray-500 text-xs uppercase tracking-wide">Asesorado</th>
             </tr>
@@ -46,6 +47,7 @@ function Bloque({
           <tbody className="divide-y divide-gray-50">
             {entries.map((e, i) => (
               <tr key={i} className="hover:bg-gray-50 transition-colors">
+                <td className="px-3 py-3 text-gray-400 text-xs font-semibold w-8 text-right">{i + 1}</td>
                 <td className="px-5 py-3 text-gray-500 whitespace-nowrap capitalize">{formatFecha(e.fecha)}</td>
                 <td className="px-5 py-3 text-gray-800 font-medium">{e.nombre}</td>
               </tr>
@@ -65,9 +67,10 @@ function imprimirReporte(data: ReporteData) {
     })
   }
 
-  const filas = (entries: Entry[], color: string) =>
-    entries.map(e => `
+  const filas = (entries: Entry[]) =>
+    entries.map((e, i) => `
       <tr>
+        <td style="padding:8px 10px; color:#aaa; font-size:11px; font-weight:600; text-align:right; width:28px;">${i + 1}</td>
         <td style="padding:8px 12px; color:#555; text-transform:capitalize;">${formatFecha(e.fecha)}</td>
         <td style="padding:8px 12px; font-weight:500; color:#222;">${e.nombre}</td>
       </tr>
@@ -85,12 +88,13 @@ function imprimirReporte(data: ReporteData) {
         <table width="100%" style="border-collapse:collapse; font-size:13px; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden;">
           <thead>
             <tr style="background:#f9fafb;">
+              <th style="padding:8px 10px; text-align:right; font-size:11px; color:#9ca3af; width:28px;">#</th>
               <th style="padding:8px 12px; text-align:left; font-size:11px; color:#6b7280; text-transform:uppercase; letter-spacing:.05em;">Fecha</th>
               <th style="padding:8px 12px; text-align:left; font-size:11px; color:#6b7280; text-transform:uppercase; letter-spacing:.05em;">Asesorado</th>
             </tr>
           </thead>
           <tbody>
-            ${filas(entries, color)}
+            ${filas(entries)}
           </tbody>
         </table>
       </div>
@@ -119,7 +123,7 @@ function imprimirReporte(data: ReporteData) {
   <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:32px; padding-bottom:20px; border-bottom:2px solid #7c3aed;">
     <div>
       <div style="font-size:22px; font-weight:700; color:#7c3aed; letter-spacing:-.01em;">AVI</div>
-      <div style="font-size:11px; color:#9ca3af; margin-top:2px;">Asistente Virtual Integral</div>
+      <div style="font-size:11px; color:#9ca3af; margin-top:2px;">Asesoría Virtual Interactiva</div>
     </div>
     <div style="text-align:right;">
       <div style="font-size:14px; font-weight:600; color:#374151;">Reporte de Asesorías</div>
@@ -153,7 +157,7 @@ function imprimirReporte(data: ReporteData) {
 
   <!-- Pie -->
   <div style="margin-top:40px; padding-top:16px; border-top:1px solid #e5e7eb; font-size:11px; color:#9ca3af; display:flex; justify-content:space-between;">
-    <span>AVI — Asistente Virtual Integral</span>
+    <span>AVI — Asesoría Virtual Interactiva</span>
     <span>Generado el ${new Date().toLocaleDateString('es-MX', { day:'numeric', month:'long', year:'numeric' })}</span>
   </div>
 
