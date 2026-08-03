@@ -205,7 +205,7 @@ export default function RegisterWithCodePage() {
 
             {/* Contraseña con show/hide */}
             <div className="space-y-1">
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">Contraseña</label>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700">Define tu contraseña personal</label>
               <div className="relative">
                 <input
                   id="password"

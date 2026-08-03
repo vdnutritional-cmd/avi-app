@@ -210,7 +210,7 @@ export default function RegisterWithCodePage() {
             {[
               { id: 'fullName', label: 'Tu nombre', type: 'text', placeholder: 'María García' },
               { id: 'email', label: 'Correo electrónico', type: 'email', placeholder: 'tu@correo.com' },
-              { id: 'password', label: 'Contraseña', type: 'password', placeholder: '••••••••' },
+              { id: 'password', label: 'Define tu contraseña personal', type: 'password', placeholder: '••••••••' },
             ].map(field => (
               <div key={field.id} className="space-y-1">
                 <label htmlFor={field.id} className="block text-sm font-medium text-gray-700">
