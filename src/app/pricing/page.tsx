@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import {
   ESENCIAL_PLANS,
@@ -19,6 +19,15 @@ export default function PricingPage() {
   const [tier, setTier] = useState<PlanTier>('esencial')
   const [customSlots, setCustomSlots] = useState(3)
   const [openSections, setOpenSections] = useState<Set<number>>(new Set())
+  const [empresas, setEmpresas] = useState<{ id: string; nombre: string }[]>([])
+  const [empresaSeleccionada, setEmpresaSeleccionada] = useState('')
+
+  useEffect(() => {
+    fetch('/api/convenio-empresas')
+      .then(r => r.json())
+      .then(d => setEmpresas(d.empresas ?? []))
+      .catch(() => {})
+  }, [])
 
   function toggleSection(n: number) {
     setOpenSections(prev => {
@@ -306,11 +315,30 @@ export default function PricingPage() {
 
         {/* ── Paquetes en CONVENIO ── */}
         <section className="bg-gradient-to-r from-purple-700 to-purple-900 rounded-2xl p-8 text-white">
-          <div className="mb-6">
-            <h2 className="text-xl font-bold mb-1">Paquetes en CONVENIO</h2>
-            <p className="text-purple-200 text-sm">
-              Exclusivo para Asesores activos que participan en empresas en CONVENIO.
-            </p>
+          <div className="mb-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-bold mb-1">Paquetes en CONVENIO</h2>
+              <p className="text-purple-200 text-sm">
+                Exclusivo para Asesores activos que participan en empresas en CONVENIO.
+              </p>
+            </div>
+            {empresas.length > 0 && (
+              <div className="shrink-0">
+                <label className="block text-xs text-purple-300 mb-1">Empresa en CONVENIO</label>
+                <select
+                  value={empresaSeleccionada}
+                  onChange={e => setEmpresaSeleccionada(e.target.value)}
+                  className="bg-white/10 border border-white/30 text-white text-sm rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-white/50 min-w-[200px]"
+                >
+                  <option value="" className="text-gray-800">Selecciona tu empresa</option>
+                  {empresas.map(emp => (
+                    <option key={emp.id} value={emp.nombre} className="text-gray-800">
+                      {emp.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
             {valoraPlans.map(plan => (
@@ -338,7 +366,9 @@ export default function PricingPage() {
               ¿Eres Asesor o Terapeuta activo en una institución en CONVENIO? Solicita por WhatsApp obtener precio en descuento o acceso gratuito.
             </p>
             <a
-              href="https://wa.me/523318830312?text=Hola%2C%20soy%20Asesor%20o%20Terapeuta%20activo%20en%20una%20instituci%C3%B3n%20en%20CONVENIO%20y%20solicito%20acceso%20a%20AVI"
+              href={`https://wa.me/523318830312?text=${encodeURIComponent(
+                `Hola, soy Asesor/Terapeuta activo en una institución en CONVENIO y solicito acceso a AVI en Convenio de ${empresaSeleccionada || '<empresa en convenio>'}`
+              )}`}
               target="_blank" rel="noopener noreferrer"
               className="inline-flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white text-sm px-5 py-2.5 rounded-xl font-medium transition-colors"
             >

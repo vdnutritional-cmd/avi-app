@@ -24,6 +24,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <Link href="/admin/convenio" className="text-sm text-gray-600 hover:text-purple-700 transition-colors">
             Códigos CONVENIO
           </Link>
+          <Link href="/admin/convenio-empresas" className="text-sm text-gray-600 hover:text-purple-700 transition-colors">
+            Empresas en CONVENIO
+          </Link>
         </div>
         <span className="text-xs text-gray-400">{user.email}</span>
       </header>
