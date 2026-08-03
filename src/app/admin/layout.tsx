@@ -17,6 +17,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <Link href="/" className="text-xl font-bold text-primary-700">AVI</Link>
           <span className="text-sm text-gray-400">|</span>
           <span className="text-sm font-medium text-gray-600">Panel de Administración</span>
+          <span className="text-sm text-gray-400">|</span>
+          <Link href="/admin/terapeutas" className="text-sm text-gray-600 hover:text-purple-700 transition-colors">
+            Terapeutas
+          </Link>
+          <Link href="/admin/convenio" className="text-sm text-gray-600 hover:text-purple-700 transition-colors">
+            Códigos CONVENIO
+          </Link>
         </div>
         <span className="text-xs text-gray-400">{user.email}</span>
       </header>

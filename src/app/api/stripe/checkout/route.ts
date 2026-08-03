@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
 
     // 2. Parsear body
     const body = await req.json()
-    const { planId, slots } = body as { planId: string; slots?: number }
+    const { planId, slots, convenioCode } = body as { planId: string; slots?: number; convenioCode?: string }
 
     if (!planId) {
       return NextResponse.json({ error: 'planId requerido' }, { status: 400 })
@@ -81,6 +81,41 @@ export async function POST(req: NextRequest) {
     const resolved = resolvePlan(planId, slots)
     if (!resolved) {
       return NextResponse.json({ error: `Plan "${planId}" no encontrado` }, { status: 400 })
+    }
+
+    // 3b. Validar código CONVENIO si el plan lo requiere
+    const isConvenioPlan = resolved.planType === 'valora'
+    if (isConvenioPlan) {
+      if (!convenioCode) {
+        return NextResponse.json({ error: 'Este plan requiere un código CONVENIO autorizado.' }, { status: 403 })
+      }
+      const serviceClient = createServiceClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      )
+      const { data: codeRow } = await serviceClient
+        .from('convenio_codes')
+        .select('id, plan_id, used_by, expires_at, is_active')
+        .eq('code', convenioCode.toUpperCase())
+        .maybeSingle()
+
+      if (!codeRow || !codeRow.is_active) {
+        return NextResponse.json({ error: 'Código CONVENIO inválido o inactivo.' }, { status: 403 })
+      }
+      if (codeRow.used_by) {
+        return NextResponse.json({ error: 'Este código ya fue utilizado.' }, { status: 403 })
+      }
+      if (codeRow.expires_at && new Date(codeRow.expires_at) < new Date()) {
+        return NextResponse.json({ error: 'Este código ha expirado.' }, { status: 403 })
+      }
+      if (codeRow.plan_id && codeRow.plan_id !== planId) {
+        return NextResponse.json({ error: 'Este código no es válido para el plan seleccionado.' }, { status: 403 })
+      }
+      // Marcar como usado (se confirma al completar webhook, pero reservamos aquí)
+      await serviceClient
+        .from('convenio_codes')
+        .update({ used_by: user.id, used_at: new Date().toISOString() })
+        .eq('id', codeRow.id)
     }
 
     // 4. Obtener o crear cliente Stripe vinculado al terapeuta

@@ -28,8 +28,9 @@ export interface PatrocinioPlan {
   type: 'patrocinio'
   name: string
   description: string
-  priceUSD: number          // completar con precio real
+  priceUSD: number
   stripePriceId: string
+  isPerPatient?: boolean    // true = tarifa plana × cantidad de pacientes (ej. Legado)
 }
 
 // ── Precios unitarios base ────────────────────────────────────
@@ -115,14 +116,14 @@ export const ESENCIAL_PLANS: Plan[] = [
   },
 ]
 
-// ── Paquetes VALORA — Esencial ────────────────────────────────
+// ── Paquetes en CONVENIO — Esencial ──────────────────────────
 export const ESENCIAL_VALORA_PLANS: Plan[] = [
   {
     id: 'esencial_valora10',
     type: 'valora',
     tier: 'esencial',
-    name: 'VALORA Esencial 10',
-    description: '10 pacientes — Precio especial asesores VALORA',
+    name: 'CONVENIO Esencial 10',
+    description: '10 pacientes — Precio especial asesores en CONVENIO',
     patientSlots: 10,
     priceUSD: 17.00,
     unitPriceUSD: 1.70,
@@ -134,8 +135,8 @@ export const ESENCIAL_VALORA_PLANS: Plan[] = [
     id: 'esencial_valora20',
     type: 'valora',
     tier: 'esencial',
-    name: 'VALORA Esencial 20',
-    description: '20 pacientes — Precio especial asesores VALORA',
+    name: 'CONVENIO Esencial 20',
+    description: '20 pacientes — Precio especial asesores en CONVENIO',
     patientSlots: 20,
     priceUSD: 32.00,
     unitPriceUSD: 1.60,
@@ -222,14 +223,14 @@ export const CLINICO_PLANS: Plan[] = [
   },
 ]
 
-// ── Paquetes VALORA — Clínico ─────────────────────────────────
+// ── Paquetes en CONVENIO — Clínico ───────────────────────────
 export const CLINICO_VALORA_PLANS: Plan[] = [
   {
     id: 'clinico_valora10',
     type: 'valora',
     tier: 'clinico',
-    name: 'VALORA Clínico 10',
-    description: '10 pacientes — Precio especial asesores VALORA',
+    name: 'CONVENIO Clínico 10',
+    description: '10 pacientes — Precio especial asesores en CONVENIO',
     patientSlots: 10,
     priceUSD: 26.50,
     unitPriceUSD: 2.65,
@@ -241,8 +242,8 @@ export const CLINICO_VALORA_PLANS: Plan[] = [
     id: 'clinico_valora20',
     type: 'valora',
     tier: 'clinico',
-    name: 'VALORA Clínico 20',
-    description: '20 pacientes — Precio especial asesores VALORA',
+    name: 'CONVENIO Clínico 20',
+    description: '20 pacientes — Precio especial asesores en CONVENIO',
     patientSlots: 20,
     priceUSD: 50.00,
     unitPriceUSD: 2.50,
@@ -280,12 +281,29 @@ export const PATROCINIO_PLANS: PatrocinioPlan[] = [
     stripePriceId: process.env.STRIPE_PRICE_PATROCINIO_COMUNIDAD ?? '',
   },
   {
+    id: 'encuentro',
+    type: 'patrocinio',
+    name: 'Encuentro',
+    description: 'Patrocinio nivel Encuentro',
+    priceUSD: 110.00,
+    stripePriceId: process.env.STRIPE_PRICE_PATROCINIO_ENCUENTRO ?? '',
+  },
+  {
     id: 'transforma',
     type: 'patrocinio',
     name: 'Transforma',
     description: 'Patrocinio nivel Transforma',
     priceUSD: 155.17,
     stripePriceId: process.env.STRIPE_PRICE_PATROCINIO_TRANSFORMA ?? '',
+  },
+  {
+    id: 'legado',
+    type: 'patrocinio',
+    name: 'Legado',
+    description: 'Patrocinio nivel Legado — $3.60 USD por paciente patrocinado',
+    priceUSD: 3.60,
+    stripePriceId: process.env.STRIPE_PRICE_PATROCINIO_LEGADO ?? '',
+    isPerPatient: true,     // quantity = número de pacientes a patrocinar
   },
 ]
 
