@@ -367,7 +367,7 @@ export default function PricingPage() {
             </p>
             <a
               href={`https://wa.me/523318830312?text=${encodeURIComponent(
-                `Hola, soy Asesor/Terapeuta activo en una institución en CONVENIO y solicito acceso a AVI en Convenio de ${empresaSeleccionada || '<empresa en convenio>'}`
+                `Hola, soy Asesor/Terapeuta activo en ${empresaSeleccionada || '<empresa en convenio>'}. Solicito acceso a AVI en la modalidad del Convenio con ${empresaSeleccionada || '<empresa en convenio>'}. Mi nombre es: `
               )}`}
               target="_blank" rel="noopener noreferrer"
               className="inline-flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white text-sm px-5 py-2.5 rounded-xl font-medium transition-colors"
