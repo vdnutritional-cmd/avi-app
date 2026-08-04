@@ -89,6 +89,15 @@ export default function PatientChatPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
+      // Verificar si esta cuenta tiene sesiones ilimitadas
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('unlimited_avi_sessions')
+        .eq('id', user.id)
+        .single()
+
+      if (profile?.unlimited_avi_sessions) return  // Sin límite para esta cuenta
+
       const hace7dias = new Date()
       hace7dias.setDate(hace7dias.getDate() - 6)
       hace7dias.setHours(0, 0, 0, 0)
