@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   ESENCIAL_PLANS,
   CLINICO_PLANS,
@@ -165,28 +165,39 @@ function FeatureTable() {
 
 // ── Botón de checkout ──────────────────────────────────────────
 function CheckoutButton({
-  label, planId, slots, variant = 'purple',
+  label, planId, slots, variant = 'purple', requiresCode = false,
 }: {
   label: string
   planId: string
   slots?: number
   variant?: 'purple' | 'white'
+  requiresCode?: boolean
 }) {
+  const [showCodeInput, setShowCodeInput] = useState(false)
+  const [code, setCode] = useState('')
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
   async function handleClick() {
+    if (requiresCode && !showCodeInput) {
+      setShowCodeInput(true)
+      return
+    }
     setLoading(true)
-    try {
-      const res = await fetch('/api/stripe/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ planId, slots }),
-      })
-      const data = await res.json()
-      if (data.url) window.location.href = data.url
-      else alert('Ocurrió un error. Intenta de nuevo.')
-    } finally {
-      setLoading(false)
+    setError('')
+    const res = await fetch('/api/stripe/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ planId, slots, convenioCode: requiresCode ? code.trim().toUpperCase() : undefined }),
+    })
+    const data = await res.json()
+    setLoading(false)
+    if (data.url) {
+      window.location.href = data.url
+    } else if (data.error) {
+      setError(data.error)
+    } else {
+      setError('Ocurrió un error. Intenta de nuevo.')
     }
   }
 
@@ -196,9 +207,28 @@ function CheckoutButton({
     : `${base} bg-purple-700 text-white hover:bg-purple-800`
 
   return (
-    <button onClick={handleClick} disabled={loading} className={styles}>
-      {loading ? 'Redirigiendo…' : label}
-    </button>
+    <div className="space-y-2">
+      {showCodeInput && (
+        <div>
+          <input
+            type="text"
+            placeholder="Tu código CONVENIO"
+            value={code}
+            onChange={e => { setCode(e.target.value); setError('') }}
+            className="w-full border border-white/30 bg-white/10 text-white placeholder-white/50 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-white/50 uppercase"
+            autoFocus
+          />
+          {error && <p className="text-red-300 text-xs mt-1">{error}</p>}
+        </div>
+      )}
+      <button
+        onClick={handleClick}
+        disabled={loading || (showCodeInput && code.trim().length < 3)}
+        className={styles}
+      >
+        {loading ? 'Verificando…' : showCodeInput ? 'Confirmar y suscribirse' : label}
+      </button>
+    </div>
   )
 }
 
@@ -206,6 +236,15 @@ function CheckoutButton({
 export default function ActivarPlan({ therapistName }: { therapistName: string }) {
   const [tier, setTier] = useState<PlanTier>('esencial')
   const [customSlots, setCustomSlots] = useState(3)
+  const [empresas, setEmpresas] = useState<{ id: string; nombre: string }[]>([])
+  const [empresaSeleccionada, setEmpresaSeleccionada] = useState('')
+
+  useEffect(() => {
+    fetch('/api/convenio-empresas')
+      .then(r => r.json())
+      .then(d => setEmpresas(d.empresas ?? []))
+      .catch(() => {})
+  }, [])
 
   const isEsencial = tier === 'esencial'
   const unitPrice  = isEsencial ? UNIT_PRICE_ESENCIAL : UNIT_PRICE_CLINICO
@@ -329,12 +368,33 @@ export default function ActivarPlan({ therapistName }: { therapistName: string }
           </p>
         </section>
 
-        {/* ── Paquetes VALORA ── */}
+        {/* ── Paquetes en CONVENIO ── */}
         <section className="bg-gradient-to-r from-purple-700 to-purple-900 rounded-2xl p-6 text-white">
-          <h2 className="text-base font-bold mb-1">Paquetes VALORA</h2>
-          <p className="text-purple-200 text-xs mb-4">
-            Exclusivo para Asesores VALORA activos.
-          </p>
+          <div className="mb-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+            <div>
+              <h2 className="text-base font-bold mb-1">Paquetes en CONVENIO</h2>
+              <p className="text-purple-200 text-xs">
+                Exclusivo para Asesores activos que participan en empresas en CONVENIO.
+              </p>
+            </div>
+            {empresas.length > 0 && (
+              <div className="shrink-0">
+                <label className="block text-xs text-purple-300 mb-1">Empresa en CONVENIO</label>
+                <select
+                  value={empresaSeleccionada}
+                  onChange={e => setEmpresaSeleccionada(e.target.value)}
+                  className="bg-white/10 border border-white/30 text-white text-sm rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-white/50 min-w-[180px]"
+                >
+                  <option value="" className="text-gray-800">Selecciona tu empresa</option>
+                  {empresas.map(emp => (
+                    <option key={emp.id} value={emp.nombre} className="text-gray-800">
+                      {emp.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
             {valoraPlans.map(plan => (
               <div key={plan.id} className="bg-white/10 rounded-xl p-4 border border-white/20">
@@ -343,19 +403,22 @@ export default function ActivarPlan({ therapistName }: { therapistName: string }
                   <span className="text-2xl font-bold">${plan.priceUSD}</span>
                   <span className="text-purple-300 text-[10px] ml-1">USD/mes</span>
                 </div>
+                <p className="text-xs text-purple-300 mb-0.5">${plan.unitPriceUSD}/paciente</p>
                 <span className="text-[10px] text-green-300 font-medium block mb-3">
                   Ahorra {plan.savingsVsUnit}% vs precio estándar
                 </span>
-                <CheckoutButton label="Elegir plan VALORA" planId={plan.id} variant="white" />
+                <CheckoutButton label="Elegir plan en CONVENIO" planId={plan.id} variant="white" requiresCode />
               </div>
             ))}
           </div>
           <div className="border-t border-white/20 pt-4">
             <p className="text-xs text-purple-200 mb-3">
-              ¿Eres Asesor VALORA activo y deseas acceso gratuito?
+              ¿Eres Asesor o Terapeuta activo en una institución en CONVENIO? Solicita por WhatsApp obtener precio en descuento o acceso gratuito.
             </p>
             <a
-              href="https://wa.me/523318830312?text=Hola%2C%20soy%20Asesor%20VALORA%20activo%20y%20solicito%20acceso%20gratuito%20a%20AVI"
+              href={`https://wa.me/523318830312?text=${encodeURIComponent(
+                `Hola, soy Asesor/Terapeuta activo en ${empresaSeleccionada || '<empresa en convenio>'}. Solicito acceso a AVI en la modalidad del Convenio con ${empresaSeleccionada || '<empresa en convenio>'}. Mi nombre es: `
+              )}`}
               target="_blank" rel="noopener noreferrer"
               className="inline-flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white text-sm px-4 py-2 rounded-xl font-medium transition-colors"
             >
