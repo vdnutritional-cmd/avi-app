@@ -380,7 +380,7 @@ export default function PatientChatPage() {
 
   // Mensaje de cierre garantizado — siempre se dice al terminar, sin excepción
   const speakMensajeCierre = useCallback(async () => {
-    const mensaje = 'Gracias por usar AVI. Recuerda contactar a tu terapeuta personal o llama a VALORA al 33 1363 0266 y solicita una cita.'
+    const mensaje = 'Gracias por usar AVI. Recuerda contactar a tu terapeuta personal y haz una cita, o contacta a AVI Acompañamiento por WhatsApp para apoyarte para tener tu cita.'
     setMessages(prev => [...prev, { role: 'assistant', content: mensaje }])
     await speakResponse(mensaje)
   }, [speakResponse])
@@ -522,7 +522,7 @@ export default function PatientChatPage() {
             </p>
             <div className="bg-blue-50 border border-blue-200 rounded-2xl px-5 py-4 w-full">
               <p className="text-sm text-blue-700 leading-relaxed">
-                Mientras tanto, contacta a <strong>TU TERAPEUTA</strong> o llama a <strong>VALORA</strong> al <strong>33 1363 0266</strong>
+                Mientras tanto, contacta a <strong>TU TERAPEUTA</strong>.
               </p>
             </div>
             <p className="text-xs text-gray-300">
@@ -600,11 +600,18 @@ export default function PatientChatPage() {
 
         {/* Mensaje de cierre — reemplaza etiqueta de estado cuando termina la sesión */}
         {sessionClosed && (
-          <div className="text-center max-w-xs space-y-2 px-2">
+          <div className="text-center max-w-xs space-y-3 px-2">
             <p className="text-sm text-blue-600 leading-relaxed">
-              Te invitamos a contactar a <strong>TU TERAPEUTA</strong> personal<br />
-              o llama a <strong>VALORA</strong> al <strong>33 1363 0266</strong> y solicita una cita.
+              Te invitamos a contactar a <strong>TU TERAPEUTA</strong> personal o contacta por WhatsApp a <strong>AVI Acompañamiento</strong> para apoyarte a obtener tu cita.
             </p>
+            <a
+              href={`https://wa.me/523318830312?text=${encodeURIComponent('Apóyenme para tener una cita con un terapeuta. Mi nombre es: ')}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors w-full justify-center"
+            >
+              💬 Contactar por WhatsApp
+            </a>
             <p className="text-xs text-blue-400">
               ✓ Sesión guardada — ve a <strong>&quot;Reformúlate&quot;</strong> para ver una propuesta de cómo verte
             </p>
