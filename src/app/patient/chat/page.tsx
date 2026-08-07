@@ -148,6 +148,7 @@ export default function PatientChatPage() {
   const transcriptRef = useRef<string>('')   // Acumula el texto mientras el usuario habla
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const userStoppedRef = useRef(false)       // true solo cuando el usuario presionó el botón de parar
 
   // Refs para acceder a valores actuales desde event listeners (evitan closures obsoletos)
   const sessionIdRef = useRef<string | null>(null)
@@ -196,8 +197,9 @@ export default function PatientChatPage() {
   }, [])
 
   // Reproducir respuesta de AVI con ElevenLabs
+  // IMPORTANTE: la Promise resuelve cuando el audio TERMINA (no cuando empieza),
+  // para que speakMensajeCierre() nunca se monte encima de la respuesta anterior.
   const speakResponse = useCallback(async (text: string) => {
-    // Se mantiene en 'processing' (amarillo) mientras descarga el audio
     try {
       const response = await fetch('/api/voice/tts', {
         method: 'POST',
@@ -212,17 +214,20 @@ export default function PatientChatPage() {
       const audio = new Audio(audioUrl)
       audioRef.current = audio
 
-      audio.onended = () => {
-        URL.revokeObjectURL(audioUrl)
-        setAppState('idle')
-      }
-      audio.onerror = () => {
-        setAppState('idle')
-      }
-
-      // Solo cambia a azul CUANDO el audio realmente empieza
-      await audio.play()
-      setAppState('speaking')
+      await new Promise<void>((resolve) => {
+        audio.onended = () => {
+          URL.revokeObjectURL(audioUrl)
+          setAppState('idle')
+          resolve()
+        }
+        audio.onerror = () => {
+          setAppState('idle')
+          resolve()
+        }
+        audio.play()
+          .then(() => setAppState('speaking'))
+          .catch(() => { setAppState('idle'); resolve() })
+      })
     } catch {
       setAppState('idle')
     }
@@ -343,6 +348,15 @@ export default function PatientChatPage() {
 
     // onend se dispara cuando el usuario presiona parar (stopRecording llama a recognition.stop())
     recognition.onend = async () => {
+      if (!userStoppedRef.current) {
+        // El navegador cortó el reconocimiento por pausa (comportamiento normal del browser).
+        // El usuario NO presionó el botón, así que reiniciamos para seguir escuchando.
+        try { recognition.start() } catch { /* ya destruido */ }
+        return
+      }
+
+      // El usuario presionó el botón de parar — ahora sí enviamos
+      userStoppedRef.current = false
       const transcript = transcriptRef.current.trim()
       if (transcript) {
         setAppState('processing')
@@ -359,8 +373,9 @@ export default function PatientChatPage() {
   // Detener reconocimiento — el usuario presiona el botón cuando termina de hablar
   function stopRecording() {
     if (appState !== 'recording') return
+    userStoppedRef.current = true   // marcar que FUE el usuario quien paró
     recognitionRef.current?.stop()
-    // No cambiamos a 'processing' aquí — onend lo hace después de recopilar el transcript
+    // onend lo procesa después de recopilar el transcript completo
   }
 
   // Mensaje de cierre garantizado — siempre se dice al terminar, sin excepción
