@@ -165,13 +165,14 @@ function FeatureTable() {
 
 // ── Botón de checkout ──────────────────────────────────────────
 function CheckoutButton({
-  label, planId, slots, variant = 'purple', requiresCode = false,
+  label, planId, slots, variant = 'purple', requiresCode = false, empresaIds = [],
 }: {
   label: string
   planId: string
   slots?: number
   variant?: 'purple' | 'white'
   requiresCode?: boolean
+  empresaIds?: string[]
 }) {
   const [showCodeInput, setShowCodeInput] = useState(false)
   const [code, setCode] = useState('')
@@ -188,7 +189,12 @@ function CheckoutButton({
     const res = await fetch('/api/stripe/checkout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ planId, slots, convenioCode: requiresCode ? code.trim().toUpperCase() : undefined }),
+      body: JSON.stringify({
+        planId,
+        slots,
+        convenioCode: requiresCode ? code.trim().toUpperCase() : undefined,
+        empresaIds: requiresCode ? empresaIds : undefined,
+      }),
     })
     const data = await res.json()
     setLoading(false)
@@ -237,7 +243,7 @@ export default function ActivarPlan({ therapistName }: { therapistName: string }
   const [tier, setTier] = useState<PlanTier>('esencial')
   const [customSlots, setCustomSlots] = useState(3)
   const [empresas, setEmpresas] = useState<{ id: string; nombre: string }[]>([])
-  const [empresaSeleccionada, setEmpresaSeleccionada] = useState('')
+  const [empresasSeleccionadas, setEmpresasSeleccionadas] = useState<string[]>([])
 
   useEffect(() => {
     fetch('/api/convenio-empresas')
@@ -245,6 +251,17 @@ export default function ActivarPlan({ therapistName }: { therapistName: string }
       .then(d => setEmpresas(d.empresas ?? []))
       .catch(() => {})
   }, [])
+
+  function toggleEmpresa(id: string) {
+    setEmpresasSeleccionadas(prev =>
+      prev.includes(id) ? prev.filter(e => e !== id) : [...prev, id]
+    )
+  }
+
+  const empresasNombres = empresas
+    .filter(e => empresasSeleccionadas.includes(e.id))
+    .map(e => e.nombre)
+    .join(', ')
 
   const isEsencial = tier === 'esencial'
   const unitPrice  = isEsencial ? UNIT_PRICE_ESENCIAL : UNIT_PRICE_CLINICO
@@ -379,19 +396,27 @@ export default function ActivarPlan({ therapistName }: { therapistName: string }
             </div>
             {empresas.length > 0 && (
               <div className="shrink-0">
-                <label className="block text-xs text-purple-300 mb-1">Empresa en CONVENIO</label>
-                <select
-                  value={empresaSeleccionada}
-                  onChange={e => setEmpresaSeleccionada(e.target.value)}
-                  className="bg-white/10 border border-white/30 text-white text-sm rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-white/50 min-w-[180px]"
-                >
-                  <option value="" className="text-gray-800">Selecciona tu empresa</option>
+                <p className="text-xs text-purple-300 mb-2">Empresas en CONVENIO en que participas</p>
+                <div className="space-y-1.5">
                   {empresas.map(emp => (
-                    <option key={emp.id} value={emp.nombre} className="text-gray-800">
-                      {emp.nombre}
-                    </option>
+                    <label key={emp.id} className="flex items-center gap-2.5 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={empresasSeleccionadas.includes(emp.id)}
+                        onChange={() => toggleEmpresa(emp.id)}
+                        className="w-4 h-4 accent-purple-300 rounded cursor-pointer"
+                      />
+                      <span className="text-sm text-white/90 group-hover:text-white transition-colors">
+                        {emp.nombre}
+                      </span>
+                    </label>
                   ))}
-                </select>
+                </div>
+                {empresasSeleccionadas.length > 0 && (
+                  <p className="mt-2 text-xs text-green-300">
+                    ✓ {empresasSeleccionadas.length === 1 ? '1 empresa seleccionada' : `${empresasSeleccionadas.length} empresas seleccionadas`}
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -407,7 +432,7 @@ export default function ActivarPlan({ therapistName }: { therapistName: string }
                 <span className="text-[10px] text-green-300 font-medium block mb-3">
                   Ahorra {plan.savingsVsUnit}% vs precio estándar
                 </span>
-                <CheckoutButton label="Elegir plan en CONVENIO" planId={plan.id} variant="white" requiresCode />
+                <CheckoutButton label="Elegir plan en CONVENIO" planId={plan.id} variant="white" requiresCode empresaIds={empresasSeleccionadas} />
               </div>
             ))}
           </div>
@@ -417,7 +442,7 @@ export default function ActivarPlan({ therapistName }: { therapistName: string }
             </p>
             <a
               href={`https://wa.me/523318830312?text=${encodeURIComponent(
-                `Hola, soy Asesor/Terapeuta activo en ${empresaSeleccionada || '<empresa en convenio>'}. Solicito acceso a AVI en la modalidad del Convenio con ${empresaSeleccionada || '<empresa en convenio>'}. Mi nombre es: `
+                `Hola, soy Asesor/Terapeuta activo en ${empresasNombres || '<empresa en convenio>'}. Solicito acceso a AVI en la modalidad del Convenio con ${empresasNombres || '<empresa en convenio>'}. Mi nombre es: `
               )}`}
               target="_blank" rel="noopener noreferrer"
               className="inline-flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white text-sm px-4 py-2 rounded-xl font-medium transition-colors"

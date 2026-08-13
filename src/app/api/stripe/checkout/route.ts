@@ -71,7 +71,12 @@ export async function POST(req: NextRequest) {
 
     // 2. Parsear body
     const body = await req.json()
-    const { planId, slots, convenioCode } = body as { planId: string; slots?: number; convenioCode?: string }
+    const { planId, slots, convenioCode, empresaIds } = body as {
+      planId: string
+      slots?: number
+      convenioCode?: string
+      empresaIds?: string[]
+    }
 
     if (!planId) {
       return NextResponse.json({ error: 'planId requerido' }, { status: 400 })
@@ -111,11 +116,22 @@ export async function POST(req: NextRequest) {
       if (codeRow.plan_id && codeRow.plan_id !== planId) {
         return NextResponse.json({ error: 'Este código no es válido para el plan seleccionado.' }, { status: 403 })
       }
-      // Marcar como usado (se confirma al completar webhook, pero reservamos aquí)
+      // Marcar código como usado
       await serviceClient
         .from('convenio_codes')
         .update({ used_by: user.id, used_at: new Date().toISOString() })
         .eq('id', codeRow.id)
+
+      // Guardar asociaciones terapeuta <-> empresas seleccionadas
+      if (empresaIds && empresaIds.length > 0) {
+        const rows = empresaIds.map(empresa_id => ({
+          therapist_id: user.id,
+          empresa_id,
+        }))
+        await serviceClient
+          .from('therapist_empresa')
+          .upsert(rows, { onConflict: 'therapist_id,empresa_id', ignoreDuplicates: true })
+      }
     }
 
     // 4. Obtener o crear cliente Stripe vinculado al terapeuta
@@ -168,6 +184,7 @@ export async function POST(req: NextRequest) {
         plan_id: planId,
         plan_type: resolved.planType,
         patient_slots: String(resolved.patientSlots),
+        empresa_ids: empresaIds && empresaIds.length > 0 ? empresaIds.join(',') : '',
       },
     })
 

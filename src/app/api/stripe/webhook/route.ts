@@ -144,6 +144,36 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     throw error
   }
 
+  // Crear bloque de cupo (therapist_slot_bundles)
+  const sourceType = planType === 'valora' ? 'convenio' : 'regular'
+  const empresaIdsRaw = session.metadata?.empresa_ids ?? ''
+  const empresaIdsList = empresaIdsRaw ? empresaIdsRaw.split(',').filter(Boolean) : []
+
+  if (sourceType === 'convenio' && empresaIdsList.length > 0) {
+    // Un bundle por empresa en convenio
+    const bundleRows = empresaIdsList.map((empresa_id: string) => ({
+      therapist_id: therapistId,
+      source_type:  'convenio',
+      empresa_id,
+      patient_slots: Math.round(patientSlots / empresaIdsList.length), // distribuir slots equitativamente
+      discount_pct:  0, // el descuento viene del precio del plan; aquí no lo calculamos
+      status:        'active',
+      stripe_sub_id: subscriptionId,
+    }))
+    await supabase.from('therapist_slot_bundles').insert(bundleRows)
+  } else {
+    // Bundle regular (sin convenio) o convenio sin empresa seleccionada
+    await supabase.from('therapist_slot_bundles').insert({
+      therapist_id: therapistId,
+      source_type:  sourceType,
+      empresa_id:   null,
+      patient_slots: patientSlots,
+      discount_pct:  0,
+      status:        'active',
+      stripe_sub_id: subscriptionId,
+    })
+  }
+
   console.log(`[webhook] ✅ Suscripción activada — terapeuta: ${therapistId}, plan: ${planId}, tier: ${tier}, slots: ${patientSlots}`)
 }
 

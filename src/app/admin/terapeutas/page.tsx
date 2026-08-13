@@ -43,6 +43,32 @@ async function cambiarTier(formData: FormData) {
   revalidatePath('/admin/terapeutas')
 }
 
+async function agregarEmpresa(formData: FormData) {
+  'use server'
+  const therapistId = formData.get('therapistId') as string
+  const empresaId   = formData.get('empresaId')   as string
+  if (!therapistId || !empresaId) return
+  const supabase = createAdminClient()
+  await supabase.from('therapist_empresa').upsert(
+    { therapist_id: therapistId, empresa_id: empresaId },
+    { onConflict: 'therapist_id,empresa_id', ignoreDuplicates: true }
+  )
+  revalidatePath('/admin/terapeutas')
+}
+
+async function quitarEmpresa(formData: FormData) {
+  'use server'
+  const therapistId = formData.get('therapistId') as string
+  const empresaId   = formData.get('empresaId')   as string
+  if (!therapistId || !empresaId) return
+  const supabase = createAdminClient()
+  await supabase.from('therapist_empresa')
+    .delete()
+    .eq('therapist_id', therapistId)
+    .eq('empresa_id', empresaId)
+  revalidatePath('/admin/terapeutas')
+}
+
 async function revocarTerapeuta(formData: FormData) {
   'use server'
   const therapistId = formData.get('therapistId') as string
@@ -94,6 +120,74 @@ export default async function AdminTerapeutasPage({
   const { data: subs, error: errS } = await supabase
     .from('subscriptions')
     .select('therapist_id, status, patient_slots, plan, tier')
+
+  // Todas las empresas en convenio (para el selector del admin)
+  const { data: todasEmpresas } = await supabase
+    .from('convenio_empresas')
+    .select('id, nombre')
+    .order('nombre', { ascending: true })
+
+  // Empresas asignadas por terapeuta
+  const { data: therapistEmpresas } = await supabase
+    .from('therapist_empresa')
+    .select('therapist_id, empresa_id, convenio_empresas(id, nombre)')
+
+  // Mapa: therapistId → array de { empresa_id, nombre }
+  const empresasByTherapist = new Map<string, { empresa_id: string; nombre: string }[]>()
+  for (const row of therapistEmpresas ?? []) {
+    const nombre = (row.convenio_empresas as unknown as { nombre: string } | null)?.nombre ?? ''
+    if (!empresasByTherapist.has(row.therapist_id)) empresasByTherapist.set(row.therapist_id, [])
+    empresasByTherapist.get(row.therapist_id)!.push({ empresa_id: row.empresa_id, nombre })
+  }
+
+  // ── Datos de actividad ────────────────────────────────────────
+  const [
+    { data: convenioCodes },
+    { data: allPatients },
+    { data: allSessions },
+    authUsersResult,
+  ] = await Promise.all([
+    supabase.from('convenio_codes').select('used_by, plan_id').not('used_by', 'is', null),
+    supabase.from('therapist_patients').select('therapist_id, patient_id'),
+    supabase.from('sessions').select('patient_id, created_at').order('created_at', { ascending: false }),
+    supabase.auth.admin.listUsers({ perPage: 500 }),
+  ])
+
+  // Mapas de actividad
+  const convenioMap = new Map<string, string | null>(
+    (convenioCodes ?? []).map(c => [c.used_by as string, c.plan_id as string | null])
+  )
+  const CONVENIO_LABELS: Record<string, string> = {
+    esencial_valora10: 'Esencial 10',
+    esencial_valora20: 'Esencial 20',
+    clinico_valora10:  'Clínico 10',
+    clinico_valora20:  'Clínico 20',
+  }
+  const lastSignInMap = new Map<string, string>(
+    (authUsersResult.data?.users ?? [])
+      .filter(u => u.last_sign_in_at)
+      .map(u => [u.id, u.last_sign_in_at!])
+  )
+  // Pacientes por terapeuta
+  const patientsByTherapist = new Map<string, Set<string>>()
+  for (const p of allPatients ?? []) {
+    if (!patientsByTherapist.has(p.therapist_id)) patientsByTherapist.set(p.therapist_id, new Set())
+    patientsByTherapist.get(p.therapist_id)!.add(p.patient_id)
+  }
+  // Última sesión de paciente por terapeuta
+  const lastPatientSessionMap = new Map<string, string>()
+  for (const s of allSessions ?? []) {
+    for (const [therapistId, patients] of patientsByTherapist) {
+      if (patients.has(s.patient_id) && !lastPatientSessionMap.has(therapistId)) {
+        lastPatientSessionMap.set(therapistId, s.created_at)
+      }
+    }
+  }
+
+  function fmtDate(iso: string | undefined | null) {
+    if (!iso) return '—'
+    return new Date(iso).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
+  }
 
   // Sesiones presenciales del mes actual (todos los terapeutas)
   const [{ data: sesionesMesRaw }, { data: notasInicialesAdmin }] = await Promise.all([
@@ -221,11 +315,24 @@ export default async function AdminTerapeutasPage({
           <div className="space-y-3">
             {aprobados.map(t => {
               const sub = subMap.get(t.id)!
+              const empresasAsignadas = empresasByTherapist.get(t.id) ?? []
+              const convenioVal   = convenioMap.has(t.id) ? convenioMap.get(t.id) : undefined
+              const convenioLabel = convenioVal !== undefined
+                ? (convenioVal ? `CONVENIO ${CONVENIO_LABELS[convenioVal] ?? convenioVal}` : 'CONVENIO')
+                : null
+              const empresasDisponibles = (todasEmpresas ?? []).filter(
+                e => !empresasAsignadas.some(a => a.empresa_id === e.id)
+              )
+              const pacientes       = patientsByTherapist.get(t.id)?.size ?? 0
+              const lastTerapLogin  = lastSignInMap.get(t.id)
+              const lastPatientSess = lastPatientSessionMap.get(t.id)
+
               return (
                 <div key={t.id} className="bg-white border border-green-100 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center gap-4">
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <p className="font-medium text-gray-800">{t.full_name ?? '—'}</p>
                     <p className="text-sm text-gray-500">{t.email}</p>
+                    {/* Fila plan */}
                     <p className="text-xs text-gray-400 mt-0.5">
                       Plan: {sub.plan} · {sub.patient_slots} pac ·{' '}
                       <span className="capitalize">{sub.status}</span> ·{' '}
@@ -233,6 +340,73 @@ export default async function AdminTerapeutasPage({
                         AVI {sub.tier === 'clinico' ? 'Clínico' : 'Esencial'}
                       </span>
                     </p>
+                    {/* ── Métricas de actividad ── */}
+                    <div className="mt-2.5 flex flex-wrap gap-2">
+                      {/* Empresas en CONVENIO */}
+                      {empresasAsignadas.length === 0 ? (
+                        <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-gray-50 text-gray-400 border border-gray-100 font-medium">
+                          🏢 Sin CONVENIO
+                        </span>
+                      ) : (
+                        empresasAsignadas.map(emp => (
+                          <form key={emp.empresa_id} action={quitarEmpresa} className="inline-flex">
+                            <input type="hidden" name="therapistId" value={t.id} />
+                            <input type="hidden" name="empresaId" value={emp.empresa_id} />
+                            <button
+                              type="submit"
+                              title="Quitar empresa"
+                              className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 border border-purple-200 font-medium hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors group"
+                            >
+                              🏢 {emp.nombre}
+                              <span className="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] ml-0.5">✕</span>
+                            </button>
+                          </form>
+                        ))
+                      )}
+                      {/* Pacientes */}
+                      <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-100 font-medium">
+                        👥 {pacientes} {pacientes === 1 ? 'paciente' : 'pacientes'}
+                      </span>
+                      {/* Último acceso del terapeuta */}
+                      <span className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border font-medium ${
+                        lastTerapLogin
+                          ? 'bg-green-50 text-green-700 border-green-100'
+                          : 'bg-gray-50 text-gray-400 border-gray-100'
+                      }`}>
+                        🕐 Terapeuta: {fmtDate(lastTerapLogin)}
+                      </span>
+                      {/* Última sesión de paciente */}
+                      <span className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border font-medium ${
+                        lastPatientSess
+                          ? 'bg-amber-50 text-amber-700 border-amber-100'
+                          : 'bg-gray-50 text-gray-400 border-gray-100'
+                      }`}>
+                        📱 Últ. sesión pac.: {fmtDate(lastPatientSess)}
+                      </span>
+                    </div>
+
+                    {/* Agregar empresa */}
+                    {empresasDisponibles.length > 0 && (
+                      <form action={agregarEmpresa} className="flex items-center gap-1.5 mt-1">
+                        <input type="hidden" name="therapistId" value={t.id} />
+                        <select
+                          name="empresaId"
+                          className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-purple-300 text-gray-600"
+                          defaultValue=""
+                        >
+                          <option value="" disabled>+ Agregar empresa...</option>
+                          {empresasDisponibles.map(e => (
+                            <option key={e.id} value={e.id}>{e.nombre}</option>
+                          ))}
+                        </select>
+                        <button
+                          type="submit"
+                          className="text-xs text-purple-600 border border-purple-200 rounded-lg px-2 py-1 hover:bg-purple-50 transition-colors"
+                        >
+                          Agregar
+                        </button>
+                      </form>
+                    )}
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
                     {/* Cambiar tier */}
