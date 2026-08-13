@@ -99,7 +99,7 @@ export default function ConvenioPage() {
 
       {/* ── Generador ── */}
       <div className="bg-white border border-gray-200 rounded-2xl p-6 space-y-4">
-        <h2 className="text-base font-semibold text-gray-800">Generar nuevo código</h2>
+        <h2 className="text-base font-semibold text-gray-800">Generar nuevo código para Plan con Descuento</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Plan (opcional)</label>

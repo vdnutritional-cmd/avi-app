@@ -83,9 +83,6 @@ export default function RegisterPage() {
             Enviamos un enlace de confirmación a <strong>{form.email}</strong>.
             Haz clic en el enlace para activar tu cuenta.
           </p>
-          <Link href="/auth/login" className="block text-primary-600 font-medium hover:underline text-sm">
-            Volver al inicio de sesión
-          </Link>
         </div>
       </div>
     )
