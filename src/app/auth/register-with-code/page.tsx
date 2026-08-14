@@ -72,8 +72,8 @@ export default function RegisterWithCodePage() {
     try {
       const res = await fetch('/api/convenio-empresas')
       if (res.ok) {
-        const lista: Empresa[] = await res.json()
-        setEmpresas(lista)
+        const data = await res.json()
+        setEmpresas(data.empresas ?? [])
       }
     } catch { /* si falla, el dropdown mostrará solo "No pertenezco a ninguna" */ }
 
