@@ -32,11 +32,12 @@ export default async function TherapistPatientsPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Todos los pacientes (activos e inactivos)
+  // Pacientes no archivados (activos e inactivos, pero no fusionados)
   const { data: relations } = await supabase
     .from('therapist_patients')
-    .select('patient_id, is_active, created_at, initial_note_virtual, initial_note_pro_bono')
+    .select('patient_id, is_active, created_at, initial_note_virtual, initial_note_pro_bono, status')
     .eq('therapist_id', user!.id)
+    .neq('status', 'archived')
     .order('created_at', { ascending: false })
 
   const patientIds = (relations ?? []).map(r => r.patient_id)
@@ -76,10 +77,21 @@ export default async function TherapistPatientsPage() {
   }
 
   return (
-    <PatientsClient
-      activos={activos}
-      bloqueados={bloqueados}
-      toggleAction={togglePaciente}
-    />
+    <>
+      {/* Enlace a fusionar cuentas */}
+      <div className="flex justify-end px-6 pt-4">
+        <Link
+          href="/therapist/fusionar-paciente"
+          className="inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-primary-600 transition-colors border border-gray-200 hover:border-primary-200 rounded-xl px-3 py-1.5"
+        >
+          ⚡ Fusionar cuentas de paciente
+        </Link>
+      </div>
+      <PatientsClient
+        activos={activos}
+        bloqueados={bloqueados}
+        toggleAction={togglePaciente}
+      />
+    </>
   )
 }
