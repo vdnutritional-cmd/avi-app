@@ -86,6 +86,11 @@ export default function PatientDetailPage() {
   const [savingName, setSavingName] = useState(false)
 
   const [empresaNombre, setEmpresaNombre] = useState<string | null>(null)
+  const [empresaId, setEmpresaId] = useState<string | null>(null)
+  const [editingEmpresa, setEditingEmpresa] = useState(false)
+  const [empresasList, setEmpresasList] = useState<{ id: string; nombre: string }[]>([])
+  const [selectedEmpresaId, setSelectedEmpresaId] = useState<string>('')
+  const [savingEmpresa, setSavingEmpresa] = useState(false)
 
   const [analyzing, setAnalyzing] = useState(false)
   const [streamText, setStreamText] = useState('')
@@ -119,7 +124,7 @@ export default function PatientDetailPage() {
       supabase.from('profiles').select('full_name, email').eq('id', patientId).single(),
       supabase.from('patterns').select('*').eq('patient_id', patientId).order('created_at', { ascending: false }),
       supabase.from('analyses').select('*').eq('patient_id', patientId).eq('therapist_id', user?.id ?? '').order('created_at', { ascending: false }),
-      supabase.from('therapist_patients').select('initial_note, initial_note_date, initial_note_pro_bono, initial_note_virtual, initial_note_motivo, initial_note_subyacente, initial_note_premisas, convenio_empresas(nombre)').eq('patient_id', patientId).eq('therapist_id', user?.id ?? '').single(),
+      supabase.from('therapist_patients').select('initial_note, initial_note_date, initial_note_pro_bono, initial_note_virtual, initial_note_motivo, initial_note_subyacente, initial_note_premisas, empresa_id, convenio_empresas(nombre)').eq('patient_id', patientId).eq('therapist_id', user?.id ?? '').single(),
       supabase.from('therapist_session_notes').select('*').eq('patient_id', patientId).order('session_number', { ascending: true }),
     ])
 
@@ -129,10 +134,22 @@ export default function PatientDetailPage() {
     if (sessionNotesRes.data) setSessionNotes(sessionNotesRes.data)
 
     // Empresa CONVENIO del paciente (si tiene)
-    // Supabase devuelve el join como array; tomamos el primer elemento
     const empresaRaw = relationRes.data?.convenio_empresas as unknown
     const empresaObj = Array.isArray(empresaRaw) ? empresaRaw[0] : empresaRaw
-    setEmpresaNombre((empresaObj as { nombre?: string } | null)?.nombre ?? null)
+    const nombreEmpresa = (empresaObj as { nombre?: string } | null)?.nombre ?? null
+    const idEmpresa = (relationRes.data as { empresa_id?: string | null } | null)?.empresa_id ?? null
+    setEmpresaNombre(nombreEmpresa)
+    setEmpresaId(idEmpresa)
+    setSelectedEmpresaId(idEmpresa ?? '')
+
+    // Cargar lista de empresas para el editor
+    try {
+      const empRes = await fetch('/api/convenio-empresas')
+      if (empRes.ok) {
+        const empData = await empRes.json()
+        setEmpresasList(empData.empresas ?? [])
+      }
+    } catch { /* sin empresas disponibles */ }
 
     if (relationRes.data?.initial_note) {
       setInitialNote(relationRes.data.initial_note)
@@ -161,6 +178,25 @@ export default function PatientDetailPage() {
   useEffect(() => {
     streamRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [streamText])
+
+  async function saveEmpresa() {
+    setSavingEmpresa(true)
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setSavingEmpresa(false); return }
+
+    const nuevoId = selectedEmpresaId || null
+    await supabase
+      .from('therapist_patients')
+      .update({ empresa_id: nuevoId })
+      .eq('therapist_id', user.id)
+      .eq('patient_id', patientId)
+
+    setEmpresaId(nuevoId)
+    setEmpresaNombre(empresasList.find(e => e.id === nuevoId)?.nombre ?? null)
+    setEditingEmpresa(false)
+    setSavingEmpresa(false)
+  }
 
   async function saveName() {
     if (!editingName.trim()) return
@@ -405,10 +441,48 @@ export default function PatientDetailPage() {
           )}
 
           <p className="text-sm text-gray-400">{profile?.email}</p>
-          {empresaNombre && (
-            <span className="inline-flex items-center gap-1 text-xs font-medium text-purple-700 bg-purple-50 border border-purple-100 rounded-full px-2.5 py-0.5 mt-1">
-              🏢 {empresaNombre}
-            </span>
+          {/* Empresa CONVENIO — editable */}
+          {editingEmpresa ? (
+            <div className="flex items-center gap-2 mt-1">
+              <select
+                value={selectedEmpresaId}
+                onChange={e => setSelectedEmpresaId(e.target.value)}
+                className="text-xs border border-purple-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-purple-300 bg-white text-gray-700"
+              >
+                <option value="">Sin empresa</option>
+                {empresasList.map(e => (
+                  <option key={e.id} value={e.id}>{e.nombre}</option>
+                ))}
+              </select>
+              <button
+                onClick={saveEmpresa}
+                disabled={savingEmpresa}
+                className="text-xs px-2.5 py-1 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
+              >
+                {savingEmpresa ? '…' : 'Guardar'}
+              </button>
+              <button
+                onClick={() => { setEditingEmpresa(false); setSelectedEmpresaId(empresaId ?? '') }}
+                className="text-xs px-2.5 py-1 border border-gray-200 text-gray-500 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 mt-1">
+              {empresaNombre ? (
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-purple-700 bg-purple-50 border border-purple-100 rounded-full px-2.5 py-0.5">
+                  🏢 {empresaNombre}
+                </span>
+              ) : null}
+              <button
+                onClick={() => setEditingEmpresa(true)}
+                title={empresaNombre ? 'Cambiar empresa' : 'Asignar empresa'}
+                className="text-gray-300 hover:text-purple-500 transition-colors text-xs leading-none"
+              >
+                {empresaNombre ? '✏️' : '＋ empresa'}
+              </button>
+            </div>
           )}
         </div>
 
