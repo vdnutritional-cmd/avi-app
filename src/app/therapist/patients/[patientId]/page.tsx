@@ -85,6 +85,8 @@ export default function PatientDetailPage() {
   const [editingName, setEditingName] = useState('')
   const [savingName, setSavingName] = useState(false)
 
+  const [empresaNombre, setEmpresaNombre] = useState<string | null>(null)
+
   const [analyzing, setAnalyzing] = useState(false)
   const [streamText, setStreamText] = useState('')
   const [analysisError, setAnalysisError] = useState<string | null>(null)
@@ -117,7 +119,7 @@ export default function PatientDetailPage() {
       supabase.from('profiles').select('full_name, email').eq('id', patientId).single(),
       supabase.from('patterns').select('*').eq('patient_id', patientId).order('created_at', { ascending: false }),
       supabase.from('analyses').select('*').eq('patient_id', patientId).eq('therapist_id', user?.id ?? '').order('created_at', { ascending: false }),
-      supabase.from('therapist_patients').select('initial_note, initial_note_date, initial_note_pro_bono, initial_note_virtual, initial_note_motivo, initial_note_subyacente, initial_note_premisas').eq('patient_id', patientId).eq('therapist_id', user?.id ?? '').single(),
+      supabase.from('therapist_patients').select('initial_note, initial_note_date, initial_note_pro_bono, initial_note_virtual, initial_note_motivo, initial_note_subyacente, initial_note_premisas, convenio_empresas(nombre)').eq('patient_id', patientId).eq('therapist_id', user?.id ?? '').single(),
       supabase.from('therapist_session_notes').select('*').eq('patient_id', patientId).order('session_number', { ascending: true }),
     ])
 
@@ -125,6 +127,11 @@ export default function PatientDetailPage() {
     if (patternsRes.data) setPatterns(patternsRes.data)
     if (analysesRes.data) setAnalyses(analysesRes.data)
     if (sessionNotesRes.data) setSessionNotes(sessionNotesRes.data)
+
+    // Empresa CONVENIO del paciente (si tiene)
+    const empresaData = relationRes.data?.convenio_empresas as { nombre: string } | null
+    setEmpresaNombre(empresaData?.nombre ?? null)
+
     if (relationRes.data?.initial_note) {
       setInitialNote(relationRes.data.initial_note)
       setSavedNote(relationRes.data.initial_note)
@@ -396,6 +403,11 @@ export default function PatientDetailPage() {
           )}
 
           <p className="text-sm text-gray-400">{profile?.email}</p>
+          {empresaNombre && (
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-purple-700 bg-purple-50 border border-purple-100 rounded-full px-2.5 py-0.5 mt-1">
+              🏢 {empresaNombre}
+            </span>
+          )}
         </div>
 
         <button
