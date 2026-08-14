@@ -8,7 +8,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
  */
 export async function POST(req: NextRequest) {
   try {
-    const { email, password, fullName, codeId, therapistId } = await req.json()
+    const { email, password, fullName, codeId, therapistId, empresaId } = await req.json()
 
     if (!email || !password || !fullName) {
       return NextResponse.json({ error: 'Datos incompletos' }, { status: 400 })
@@ -64,11 +64,16 @@ export async function POST(req: NextRequest) {
       if (codeError) console.error('[confirm-patient] código:', codeError.message)
     }
 
-    // 3. Vincular paciente con terapeuta
+    // 3. Vincular paciente con terapeuta (incluye empresa si el paciente seleccionó una)
     if (therapistId) {
       const { error: linkError } = await admin
         .from('therapist_patients')
-        .insert({ therapist_id: therapistId, patient_id: userId, authorization_code_id: codeId ?? null })
+        .insert({
+          therapist_id: therapistId,
+          patient_id: userId,
+          authorization_code_id: codeId ?? null,
+          empresa_id: empresaId ?? null,
+        })
       if (linkError) console.error('[confirm-patient] vínculo:', linkError.message)
     }
 

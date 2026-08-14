@@ -14,6 +14,7 @@ const schema = z.object({
 })
 
 type Step = 'code' | 'register' | 'success'
+type Empresa = { id: string; nombre: string }
 
 export default function RegisterWithCodePage() {
   const [step, setStep] = useState<Step>('code')
@@ -24,6 +25,8 @@ export default function RegisterWithCodePage() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [empresas, setEmpresas] = useState<Empresa[]>([])
+  const [empresaId, setEmpresaId] = useState<string>('')
 
   async function handleValidateCode(e: React.FormEvent) {
     e.preventDefault()
@@ -64,6 +67,16 @@ export default function RegisterWithCodePage() {
 
     setTherapistId(data.therapist_id)
     setCodeId(data.id)
+
+    // Cargar empresas en CONVENIO para el dropdown
+    try {
+      const res = await fetch('/api/convenio-empresas')
+      if (res.ok) {
+        const lista: Empresa[] = await res.json()
+        setEmpresas(lista)
+      }
+    } catch { /* si falla, el dropdown mostrará solo "No pertenezco a ninguna" */ }
+
     setLoading(false)
     setStep('register')
   }
@@ -90,6 +103,7 @@ export default function RegisterWithCodePage() {
         fullName: form.fullName,
         codeId,
         therapistId,
+        empresaId: empresaId || null,
       }),
     })
 
@@ -227,6 +241,26 @@ export default function RegisterWithCodePage() {
                 </button>
               </div>
             </div>
+            {/* Institución / empresa en CONVENIO */}
+            <div className="space-y-1">
+              <label htmlFor="empresa" className="block text-sm font-medium text-gray-700">
+                ¿Perteneces a alguna de estas instituciones?
+              </label>
+              <select
+                id="empresa"
+                value={empresaId}
+                onChange={e => setEmpresaId(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none
+                           focus:ring-2 focus:ring-primary-300 focus:border-primary-400 transition
+                           bg-white text-sm text-gray-700"
+              >
+                <option value="">No pertenezco a ninguna</option>
+                {empresas.map(emp => (
+                  <option key={emp.id} value={emp.id}>{emp.nombre}</option>
+                ))}
+              </select>
+            </div>
+
             {error && <p className="text-red-500 text-sm bg-red-50 px-4 py-3 rounded-xl">{error}</p>}
             <button
               type="submit"
