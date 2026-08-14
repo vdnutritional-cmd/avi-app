@@ -16,7 +16,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         {/* Fila superior: logo + email */}
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-3">
-            <Link href="/admin/terapeutas" className="text-xl font-bold text-primary-700">AVI</Link>
+            <Link href="https://go.avi-app.com.mx/therapist/patients" className="text-xl font-bold text-primary-700">AVI</Link>
             <span className="text-sm text-gray-400 hidden sm:inline">|</span>
             <span className="text-sm font-medium text-gray-600 hidden sm:inline">Panel de Administración</span>
           </div>
