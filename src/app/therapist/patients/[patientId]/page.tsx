@@ -129,8 +129,10 @@ export default function PatientDetailPage() {
     if (sessionNotesRes.data) setSessionNotes(sessionNotesRes.data)
 
     // Empresa CONVENIO del paciente (si tiene)
-    const empresaData = relationRes.data?.convenio_empresas as { nombre: string } | null
-    setEmpresaNombre(empresaData?.nombre ?? null)
+    // Supabase devuelve el join como array; tomamos el primer elemento
+    const empresaRaw = relationRes.data?.convenio_empresas as unknown
+    const empresaObj = Array.isArray(empresaRaw) ? empresaRaw[0] : empresaRaw
+    setEmpresaNombre((empresaObj as { nombre?: string } | null)?.nombre ?? null)
 
     if (relationRes.data?.initial_note) {
       setInitialNote(relationRes.data.initial_note)
