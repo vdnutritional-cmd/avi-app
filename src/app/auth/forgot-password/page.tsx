@@ -8,6 +8,8 @@ export default function ForgotPasswordPage() {
   const [sent, setSent] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [resending, setResending] = useState(false)
+  const [resent, setResent] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -29,6 +31,20 @@ export default function ForgotPasswordPage() {
     setLoading(false)
   }
 
+  async function handleResend() {
+    setResending(true)
+    setResent(false)
+    try {
+      await fetch('/api/auth/send-reset-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+    } catch { /* silencioso */ }
+    setResending(false)
+    setResent(true)
+  }
+
   if (sent) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 via-white to-calm-50 px-4">
@@ -41,7 +57,14 @@ export default function ForgotPasswordPage() {
           <p className="text-xs text-gray-400">
             Si no lo ves en unos minutos, revisa tu carpeta de spam.
           </p>
-          <Link href="/auth/login" className="block text-primary-600 font-medium hover:underline text-sm">
+          <button
+            onClick={handleResend}
+            disabled={resending}
+            className="text-sm text-primary-600 hover:underline disabled:opacity-50"
+          >
+            {resending ? 'Reenviando…' : resent ? '✓ Correo reenviado' : '¿No llegó? Reenviar correo'}
+          </button>
+          <Link href="/auth/login" className="block text-gray-400 hover:text-gray-600 text-sm">
             ← Volver al inicio de sesión
           </Link>
         </div>
