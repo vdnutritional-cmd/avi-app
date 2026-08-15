@@ -33,29 +33,40 @@ export async function GET(req: NextRequest) {
   limite.setDate(limite.getDate() - DIAS_INACTIVIDAD)
   const limiteFecha = limite.toISOString().split('T')[0] // YYYY-MM-DD
 
-  // 1. Obtener todos los vínculos activos con su última actividad
-  const { data: vinculos, error } = await admin
+  // 1. Obtener todos los vínculos activos
+  const { data: vinculos, error: errorVinculos } = await admin
     .from('therapist_patients')
-    .select(`
-      therapist_id,
-      patient_id,
-      created_at,
-      initial_note_date,
-      therapist_session_notes (
-        session_date
-      )
-    `)
+    .select('therapist_id, patient_id, created_at, initial_note_date')
     .eq('is_active', true)
 
-  if (error) {
-    console.error('[cron/bloquear-inactivos] Error al leer vínculos:', error.message)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  if (errorVinculos) {
+    console.error('[cron] Error al leer vínculos:', errorVinculos.message)
+    return NextResponse.json({ error: errorVinculos.message }, { status: 500 })
   }
 
+  // 2. Obtener todas las sesiones presenciales (solo therapist_id, patient_id, session_date)
+  const { data: sesiones, error: errorSesiones } = await admin
+    .from('therapist_session_notes')
+    .select('therapist_id, patient_id, session_date')
+    .order('session_date', { ascending: false })
+
+  if (errorSesiones) {
+    console.error('[cron] Error al leer sesiones:', errorSesiones.message)
+    return NextResponse.json({ error: errorSesiones.message }, { status: 500 })
+  }
+
+  // 3. Construir mapa de última sesión por (therapist_id:patient_id)
+  const ultimaSesion: Record<string, string> = {}
+  for (const s of (sesiones ?? [])) {
+    const key = `${s.therapist_id}:${s.patient_id}`
+    if (!ultimaSesion[key]) ultimaSesion[key] = s.session_date // ya viene ordenado desc
+  }
+
+  // 4. Evaluar cada vínculo
   const aBloquear: { therapist_id: string; patient_id: string; ultima_actividad: string }[] = []
 
   for (const v of (vinculos ?? [])) {
-    // Calcular última actividad
+    const key = `${v.therapist_id}:${v.patient_id}`
     const fechas: string[] = []
 
     // Fecha de registro del vínculo (fallback)
@@ -64,13 +75,10 @@ export async function GET(req: NextRequest) {
     // Nota inicial (cuenta como sesión)
     if (v.initial_note_date) fechas.push(v.initial_note_date)
 
-    // Sesiones presenciales
-    const sesiones = (v.therapist_session_notes as { session_date: string }[] | null) ?? []
-    for (const s of sesiones) {
-      if (s.session_date) fechas.push(s.session_date)
-    }
+    // Última sesión presencial
+    if (ultimaSesion[key]) fechas.push(ultimaSesion[key])
 
-    // Última actividad = la fecha más reciente
+    // Última actividad = fecha más reciente
     const ultimaActividad = fechas.sort().at(-1) ?? limiteFecha
 
     if (ultimaActividad < limiteFecha) {
@@ -82,7 +90,7 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // 2. Bloquear los inactivos
+  // 5. Bloquear los inactivos
   let bloqueados = 0
   for (const r of aBloquear) {
     const { error: updError } = await admin
