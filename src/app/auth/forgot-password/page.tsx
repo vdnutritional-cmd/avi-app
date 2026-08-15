@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 
 export default function ForgotPasswordPage() {
@@ -10,6 +10,17 @@ export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false)
   const [resending, setResending] = useState(false)
   const [resent, setResent] = useState(false)
+  const [countdown, setCountdown] = useState(0)
+
+  useEffect(() => {
+    if (sent) setCountdown(60)
+  }, [sent])
+
+  useEffect(() => {
+    if (countdown <= 0) return
+    const timer = setTimeout(() => setCountdown(c => c - 1), 1000)
+    return () => clearTimeout(timer)
+  }, [countdown])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -43,6 +54,7 @@ export default function ForgotPasswordPage() {
     } catch { /* silencioso */ }
     setResending(false)
     setResent(true)
+    setCountdown(60)
   }
 
   if (sent) {
@@ -57,13 +69,19 @@ export default function ForgotPasswordPage() {
           <p className="text-xs text-gray-400">
             Si no lo ves en unos minutos, revisa tu carpeta de spam.
           </p>
-          <button
-            onClick={handleResend}
-            disabled={resending}
-            className="text-sm text-primary-600 hover:underline disabled:opacity-50"
-          >
-            {resending ? 'Reenviando…' : resent ? '✓ Correo reenviado' : '¿No llegó? Reenviar correo'}
-          </button>
+          {countdown > 0 ? (
+            <p className="text-sm text-gray-400">
+              Puedes reenviar en <span className="font-semibold tabular-nums">{countdown}s</span>
+            </p>
+          ) : (
+            <button
+              onClick={handleResend}
+              disabled={resending}
+              className="text-sm text-primary-600 hover:underline disabled:opacity-50"
+            >
+              {resending ? 'Reenviando…' : resent ? '✓ Correo reenviado' : '¿No llegó? Reenviar correo'}
+            </button>
+          )}
           <Link href="/auth/login" className="block text-gray-400 hover:text-gray-600 text-sm">
             ← Volver al inicio de sesión
           </Link>
