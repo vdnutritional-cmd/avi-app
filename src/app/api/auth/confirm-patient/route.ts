@@ -74,7 +74,21 @@ export async function POST(req: NextRequest) {
           authorization_code_id: codeId ?? null,
           empresa_id: empresaId ?? null,
         })
-      if (linkError) console.error('[confirm-patient] vínculo:', linkError.message)
+
+      if (linkError) {
+        // Código 23505 = duplicate key: el paciente ya está vinculado a este terapeuta.
+        // Es un caso válido (paciente registrándose con un código adicional del mismo terapeuta).
+        // Cualquier otro error sí es inesperado y se reporta.
+        if (linkError.code === '23505') {
+          console.log(`[confirm-patient] Paciente ${userId} ya vinculado al terapeuta ${therapistId} — vínculo existente conservado.`)
+        } else {
+          console.error('[confirm-patient] Error inesperado al crear vínculo:', linkError)
+          return NextResponse.json(
+            { error: `Error al vincular paciente con terapeuta: ${linkError.message}` },
+            { status: 500 },
+          )
+        }
+      }
     }
 
     return NextResponse.json({ ok: true })
