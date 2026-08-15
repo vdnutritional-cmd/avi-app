@@ -148,7 +148,7 @@ export default async function AdminTerapeutasPage({
     authUsersResult,
   ] = await Promise.all([
     supabase.from('convenio_codes').select('used_by, plan_id').not('used_by', 'is', null),
-    supabase.from('therapist_patients').select('therapist_id, patient_id'),
+    supabase.from('therapist_patients').select('therapist_id, patient_id').eq('is_active', true).eq('status', 'active'),
     supabase.from('sessions').select('patient_id, created_at').order('created_at', { ascending: false }),
     supabase.auth.admin.listUsers({ perPage: 500 }),
   ])
