@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/bloquear-inactivos",
+      "schedule": "0 9 * * *"
+    }
+  ]
+}
