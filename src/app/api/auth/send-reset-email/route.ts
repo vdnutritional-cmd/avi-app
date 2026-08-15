@@ -25,9 +25,8 @@ export async function POST(req: NextRequest) {
     })
 
     if (error || !data?.properties?.action_link) {
-      // No revelar el error al cliente — solo logueamos
       console.error('[send-reset-email] generateLink error:', error?.message)
-      return NextResponse.json({ ok: true })
+      return NextResponse.json({ debug: 'generateLink failed', error: error?.message })
     }
 
     const resetLink = data.properties.action_link
@@ -42,9 +41,10 @@ export async function POST(req: NextRequest) {
 
     if (sendError) {
       console.error('[send-reset-email] Resend error:', sendError)
+      return NextResponse.json({ debug: 'resend failed', error: JSON.stringify(sendError) })
     }
 
-    return NextResponse.json({ ok: true })
+    return NextResponse.json({ ok: true, debug: 'sent', link: resetLink })
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err)
     console.error('[send-reset-email] Error inesperado:', msg)
