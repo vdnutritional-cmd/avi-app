@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
     let userId: string | undefined
 
     if (createError) {
-      // Código 422 = usuario ya existe → buscar su ID
+      // Código 422 = usuario ya existe → buscar su ID y actualizar contraseña
       if (createError.status === 422 || createError.message?.toLowerCase().includes('already')) {
         const { data: existing } = await admin
           .from('profiles')
@@ -40,6 +40,11 @@ export async function POST(req: NextRequest) {
             { error: `Usuario ya existe pero sin perfil: ${createError.message}` },
             { status: 500 },
           )
+        }
+        // Actualizar la contraseña a la nueva que el paciente ingresó
+        const { error: pwError } = await admin.auth.admin.updateUserById(userId, { password })
+        if (pwError) {
+          console.error('[confirm-patient] Error actualizando contraseña:', pwError.message)
         }
       } else {
         return NextResponse.json(
