@@ -173,7 +173,7 @@ export default function ExpedienteTab({ patientId, therapistId, patientEmail, pa
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saveOk, setSaveOk] = useState(false)
-  const [subTab, setSubTab] = useState<'datos-generales' | 'individual' | 'impresiones'>('datos-generales')
+  const [subTab, setSubTab] = useState<'datos-generales' | 'individual' | 'familiar' | 'pareja' | 'impresiones'>('datos-generales')
 
   // Cargar expediente al montar
   useEffect(() => {
@@ -305,9 +305,9 @@ export default function ExpedienteTab({ patientId, therapistId, patientEmail, pa
   const SUB_TABS = [
     { id: 'datos-generales', label: 'Datos generales', ready: true },
     { id: 'individual',      label: 'Individual',      ready: true },
+    { id: 'familiar',        label: 'Familiar',        ready: true },
+    { id: 'pareja',          label: 'Pareja',          ready: true },
     { id: 'impresiones',     label: 'Impresiones',     ready: true },
-    { id: 'pendiente-3',     label: 'Por definir',     ready: false },
-    { id: 'pendiente-4',     label: 'Por definir',     ready: false },
   ]
 
   if (loading) {
@@ -327,7 +327,7 @@ export default function ExpedienteTab({ patientId, therapistId, patientEmail, pa
           <button
             key={tab.id}
             disabled={!tab.ready}
-            onClick={() => tab.ready && setSubTab(tab.id as 'datos-generales' | 'individual' | 'impresiones')}
+            onClick={() => tab.ready && setSubTab(tab.id as 'datos-generales' | 'individual' | 'familiar' | 'pareja' | 'impresiones')}
             className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap
               ${subTab === tab.id && tab.ready
                 ? 'bg-primary-600 text-white'
@@ -684,10 +684,21 @@ export default function ExpedienteTab({ patientId, therapistId, patientEmail, pa
         />
       )}
 
-      {/* Placeholders para sub-tabs pendientes */}
-      {(subTab as string).startsWith('pendiente') && (
+      {/* ── Familiar ── */}
+      {subTab === 'familiar' && (
         <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
-          <p className="text-gray-400 text-sm">Esta sección estará disponible próximamente.</p>
+          <p className="text-gray-300 text-3xl mb-4">👨‍👩‍👧‍👦</p>
+          <p className="text-gray-500 text-sm font-medium">Sección Familiar</p>
+          <p className="text-gray-400 text-xs mt-1">En construcción — disponible próximamente.</p>
+        </div>
+      )}
+
+      {/* ── Pareja ── */}
+      {subTab === 'pareja' && (
+        <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
+          <p className="text-gray-300 text-3xl mb-4">👫</p>
+          <p className="text-gray-500 text-sm font-medium">Sección Pareja</p>
+          <p className="text-gray-400 text-xs mt-1">En construcción — disponible próximamente.</p>
         </div>
       )}
     </div>
