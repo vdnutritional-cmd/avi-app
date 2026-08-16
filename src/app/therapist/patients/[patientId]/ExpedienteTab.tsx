@@ -173,7 +173,7 @@ export default function ExpedienteTab({ patientId, therapistId, patientEmail, pa
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saveOk, setSaveOk] = useState(false)
-  const [subTab, setSubTab] = useState<'datos-generales' | 'individual' | 'familiar' | 'pareja' | 'impresiones'>('datos-generales')
+  const [subTab, setSubTab] = useState<'datos-generales' | 'individual' | 'familiar' | 'pareja' | 'prediagnostico' | 'impresiones'>('datos-generales')
 
   // Cargar expediente al montar
   useEffect(() => {
@@ -307,6 +307,7 @@ export default function ExpedienteTab({ patientId, therapistId, patientEmail, pa
     { id: 'individual',      label: 'Individual',      ready: true },
     { id: 'familiar',        label: 'Familiar',        ready: true },
     { id: 'pareja',          label: 'Pareja',          ready: true },
+    { id: 'prediagnostico',  label: 'Prediagnóstico',  ready: true },
     { id: 'impresiones',     label: 'Impresiones',     ready: true },
   ]
 
@@ -327,7 +328,7 @@ export default function ExpedienteTab({ patientId, therapistId, patientEmail, pa
           <button
             key={tab.id}
             disabled={!tab.ready}
-            onClick={() => tab.ready && setSubTab(tab.id as 'datos-generales' | 'individual' | 'familiar' | 'pareja' | 'impresiones')}
+            onClick={() => tab.ready && setSubTab(tab.id as 'datos-generales' | 'individual' | 'familiar' | 'pareja' | 'prediagnostico' | 'impresiones')}
             className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap
               ${subTab === tab.id && tab.ready
                 ? 'bg-primary-600 text-white'
@@ -689,6 +690,15 @@ export default function ExpedienteTab({ patientId, therapistId, patientEmail, pa
         <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
           <p className="text-gray-300 text-3xl mb-4">👨‍👩‍👧‍👦</p>
           <p className="text-gray-500 text-sm font-medium">Sección Familiar</p>
+          <p className="text-gray-400 text-xs mt-1">En construcción — disponible próximamente.</p>
+        </div>
+      )}
+
+      {/* ── Prediagnóstico ── */}
+      {subTab === 'prediagnostico' && (
+        <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
+          <p className="text-gray-300 text-3xl mb-4">🔍</p>
+          <p className="text-gray-500 text-sm font-medium">Sección Prediagnóstico</p>
           <p className="text-gray-400 text-xs mt-1">En construcción — disponible próximamente.</p>
         </div>
       )}
