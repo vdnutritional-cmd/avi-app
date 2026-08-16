@@ -108,7 +108,7 @@ function ChevronIcon({ open }: { open: boolean }) {
 
 function Th({ children, right }: { children: React.ReactNode; right?: boolean }) {
   return (
-    <th className={`px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide bg-gray-50 border-b border-gray-100 ${right ? 'text-right' : 'text-left'}`}>
+    <th className={`px-4 py-2 text-xs font-medium text-gray-400 uppercase tracking-wide bg-gray-50 border-b border-gray-100 ${right ? 'text-right' : 'text-left'}`}>
       {children}
     </th>
   )
@@ -116,7 +116,7 @@ function Th({ children, right }: { children: React.ReactNode; right?: boolean })
 
 function Td({ children, right, muted }: { children: React.ReactNode; right?: boolean; muted?: boolean }) {
   return (
-    <td className={`px-4 py-2.5 text-sm ${right ? 'text-right' : ''} ${muted ? 'text-gray-400' : 'text-gray-700'}`}>
+    <td className={`px-4 py-1 text-sm ${right ? 'text-right' : ''} ${muted ? 'text-gray-400' : 'text-gray-700'}`}>
       {children}
     </td>
   )
