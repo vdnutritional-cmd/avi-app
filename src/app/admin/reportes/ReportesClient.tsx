@@ -21,6 +21,33 @@ function printReport(id: number) {
   setTimeout(() => document.body.removeAttribute('data-printing'), 800)
 }
 
+// ── CSV export ─────────────────────────────────────────────────────────────────
+
+function downloadCSV(filename: string, headers: string[], rows: (string | number | null | undefined)[][]) {
+  const esc = (v: string | number | null | undefined): string => {
+    const s = v == null ? '' : String(v)
+    // Envolver en comillas si contiene coma, comilla o salto de línea
+    return s.includes(',') || s.includes('"') || s.includes('\n')
+      ? `"${s.replace(/"/g, '""')}"`
+      : s
+  }
+  const lines = [
+    headers.map(esc).join(','),
+    ...rows.map(r => r.map(esc).join(',')),
+  ]
+  // BOM UTF-8 para que Excel abra correctamente los acentos
+  const csv = '﻿' + lines.join('\r\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
+
 // ── Shared UI atoms ────────────────────────────────────────────────────────────
 
 function PrintHeader({ title }: { title: string }) {
@@ -50,6 +77,20 @@ function PrintBtn({ onClick }: { onClick: () => void }) {
         <path strokeLinecap="round" strokeLinejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.056 48.056 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5zm-3 0h.008v.008H15V10.5z" />
       </svg>
       Imprimir
+    </button>
+  )
+}
+
+function CsvBtn({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex items-center gap-1.5 text-sm border border-gray-200 text-gray-500 hover:bg-gray-50 px-3 py-1.5 rounded-xl transition-colors"
+    >
+      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+      </svg>
+      CSV
     </button>
   )
 }
@@ -349,6 +390,79 @@ export default function ReportesClient({ terapeutas, vinculos, empresas }: Props
     ? searchResults.find(p => p.patient_id === selectedPatientId) ?? null
     : null
 
+  // ── Exportaciones CSV ──────────────────────────────────────────────────────
+
+  function exportR1() {
+    downloadCSV('avi-terapeutas.csv',
+      ['Nombre', 'Correo', 'WhatsApp', 'Empresas CONVENIO', 'Pacientes activos', 'Cupo'],
+      terapeutas.map(t => [
+        t.full_name,
+        t.email,
+        t.whatsapp_phone ?? '',
+        t.empresas.map(e => e.nombre).join(' | '),
+        t.pacientes_activos,
+        t.patient_slots || '',
+      ])
+    )
+  }
+
+  function exportR2() {
+    const rows: (string | number)[][] = []
+    for (const emp of [...empresas, { id: '__sin_convenio__', nombre: 'Sin convenio' }]) {
+      const { terapeutasList, totalPacientes } = getEmpresaStats(emp.id)
+      for (const t of terapeutasList) {
+        rows.push([emp.nombre, t.full_name, t.email, t.whatsapp_phone ?? '', t.pacientes_activos])
+      }
+      if (terapeutasList.length === 0) {
+        rows.push([emp.nombre, '', '', '', 0])
+      }
+      // Fila de total por empresa
+      rows.push([emp.nombre + ' — TOTAL PACIENTES ASOCIADOS', '', '', '', totalPacientes])
+      rows.push(['', '', '', '', '']) // separador
+    }
+    downloadCSV('avi-por-empresa.csv',
+      ['Empresa', 'Terapeuta', 'Correo', 'WhatsApp', 'Pacientes activos'],
+      rows
+    )
+  }
+
+  function exportR3() {
+    const rows: string[][] = []
+    for (const t of terapeutas) {
+      const pacs = vinculosByTherapist.get(t.id) ?? []
+      if (pacs.length === 0) {
+        rows.push([t.full_name, t.email, t.whatsapp_phone ?? '', t.empresas.map(e => e.nombre).join(' | '), '', '', ''])
+      } else {
+        for (const v of pacs) {
+          rows.push([
+            t.full_name, t.email, t.whatsapp_phone ?? '',
+            t.empresas.map(e => e.nombre).join(' | '),
+            v.patient_name, v.patient_email, v.empresa_nombre ?? '',
+          ])
+        }
+      }
+      rows.push(['', '', '', '', '', '', '']) // separador
+    }
+    downloadCSV('avi-por-terapeuta.csv',
+      ['Terapeuta', 'Correo terapeuta', 'WhatsApp', 'Empresas CONVENIO', 'Paciente', 'Correo paciente', 'Empresa CONVENIO'],
+      rows
+    )
+  }
+
+  function exportR4() {
+    const source = selectedPatient ? [selectedPatient] : searchResults
+    const rows = source.flatMap(p =>
+      p.relaciones.map(r => [p.patient_name, p.patient_email, r.therapist_name, r.therapist_email, r.empresa_nombre ?? ''])
+    )
+    const name = selectedPatient
+      ? selectedPatient.patient_name.replace(/\s+/g, '-').toLowerCase()
+      : 'busqueda'
+    downloadCSV(`avi-paciente-${name}.csv`,
+      ['Paciente', 'Correo paciente', 'Terapeuta', 'Correo terapeuta', 'Empresa CONVENIO'],
+      rows
+    )
+  }
+
   const tabs = [
     { id: 1, label: 'Terapeutas' },
     { id: 2, label: 'Por empresa' },
@@ -427,7 +541,10 @@ export default function ReportesClient({ terapeutas, vinculos, empresas }: Props
               {terapeutas.length} terapeutas · {terapeutas.reduce((a, t) => a + t.pacientes_activos, 0)} pacientes activos
             </p>
           </div>
-          <PrintBtn onClick={() => printReport(1)} />
+          <div className="flex items-center gap-2">
+            <CsvBtn onClick={exportR1} />
+            <PrintBtn onClick={() => printReport(1)} />
+          </div>
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 overflow-x-auto">
           <table className="w-full min-w-[680px]">
@@ -485,6 +602,7 @@ export default function ReportesClient({ terapeutas, vinculos, empresas }: Props
             >
               {allEmpresasOpen ? 'Colapsar todos' : 'Expandir todos'}
             </button>
+            <CsvBtn onClick={exportR2} />
             <PrintBtn onClick={() => printReport(2)} />
           </div>
         </div>
@@ -522,6 +640,7 @@ export default function ReportesClient({ terapeutas, vinculos, empresas }: Props
             >
               {allTerapeutasOpen ? 'Colapsar todos' : 'Expandir todos'}
             </button>
+            <CsvBtn onClick={exportR3} />
             <PrintBtn onClick={() => printReport(3)} />
           </div>
         </div>
@@ -548,7 +667,12 @@ export default function ReportesClient({ terapeutas, vinculos, empresas }: Props
             <h2 className="text-base font-semibold text-gray-800">Búsqueda de paciente</h2>
             <p className="text-xs text-gray-400 mt-0.5">Escribe nombre o correo para buscar</p>
           </div>
-          {selectedPatient && <PrintBtn onClick={() => printReport(4)} />}
+          {searchResults.length > 0 && (
+            <div className="flex items-center gap-2">
+              <CsvBtn onClick={exportR4} />
+              {selectedPatient && <PrintBtn onClick={() => printReport(4)} />}
+            </div>
+          )}
         </div>
 
         {/* Search input */}
