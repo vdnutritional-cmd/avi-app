@@ -25,15 +25,15 @@ function printReport(id: number) {
 
 function PrintHeader({ title }: { title: string }) {
   return (
-    <div className="hidden print:block mb-6 pb-4 border-b border-gray-200">
+    <div className="hidden print:block mb-4 pb-3 border-b border-gray-200">
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-2xl font-bold text-purple-700 tracking-tight">AVI</p>
-          <p className="text-xs text-gray-400">Acompañamiento Virtual Integral</p>
+          <p className="print-avi-title font-bold text-purple-700 tracking-tight">AVI</p>
+          <p className="print-avi-sub text-gray-400">Acompañamiento Virtual Integral</p>
         </div>
         <div className="text-right">
-          <p className="text-sm font-semibold text-gray-700">{title}</p>
-          <p className="text-xs text-gray-400">Generado: {fmtDate(new Date())}</p>
+          <p className="print-report-title font-semibold text-gray-700">{title}</p>
+          <p className="text-gray-400">Generado: {fmtDate(new Date())}</p>
         </div>
       </div>
     </div>
@@ -367,10 +367,23 @@ export default function ReportesClient({ terapeutas, vinculos, empresas }: Props
           body[data-printing="2"] .report-section[data-id="2"] { display: block !important; }
           body[data-printing="3"] .report-section[data-id="3"] { display: block !important; }
           body[data-printing="4"] .report-section[data-id="4"] { display: block !important; }
-          table { border-collapse: collapse; width: 100%; font-size: 11px; }
-          th, td { border: 1px solid #e5e7eb; padding: 6px 10px; text-align: left; }
-          th { background: #f9fafb; font-weight: 600; color: #6b7280; text-transform: uppercase; font-size: 10px; letter-spacing: 0.05em; }
-          button.accordion-btn { pointer-events: none; }
+
+          /* Tamaño base para todo el reporte impreso */
+          .report-section * { font-size: 9px !important; line-height: 1.4 !important; }
+
+          /* Encabezado AVI (PrintHeader) — un poco más grande */
+          .report-section .print-avi-title { font-size: 14px !important; font-weight: 700; }
+          .report-section .print-avi-sub   { font-size: 8px !important; }
+          .report-section .print-report-title { font-size: 10px !important; font-weight: 600; }
+
+          /* Tablas */
+          table { border-collapse: collapse; width: 100%; }
+          th, td { border: 1px solid #e5e7eb; padding: 4px 8px !important; text-align: left; }
+          th { background: #f9fafb; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.04em; }
+
+          /* Acordeones: quitar bordes redondeados y sombras */
+          .report-section [class*="rounded"] { border-radius: 0 !important; }
+          .report-section button { display: block !important; width: 100%; text-align: left; }
         }
       `}</style>
 
