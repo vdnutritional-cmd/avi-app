@@ -168,35 +168,45 @@ function TerapeutaBlock({
 }) {
   return (
     <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-      {/* Header */}
+      {/* Header — solo nombre, igual que EmpresaBlock */}
       <button
         onClick={onToggle}
-        className="w-full px-5 py-4 flex items-center justify-between text-left hover:bg-gray-50 transition-colors"
+        className="w-full px-5 py-3.5 flex items-center justify-between text-left hover:bg-gray-50 transition-colors"
       >
         <div className="flex items-center gap-3">
           <ChevronIcon open={isOpen} />
-          <div>
-            <p className="font-semibold text-gray-800">{terapeuta.full_name}</p>
-            <p className="text-xs text-gray-400 mt-0.5">
-              {terapeuta.email}
-              {terapeuta.whatsapp_phone ? ` · ${terapeuta.whatsapp_phone}` : ''}
-            </p>
-            {terapeuta.empresas.length > 0 && (
-              <p className="text-xs text-purple-500 mt-0.5">
-                {terapeuta.empresas.map(e => e.nombre).join(' · ')}
-              </p>
-            )}
-          </div>
+          <p className="font-semibold text-gray-800 text-sm">{terapeuta.full_name}</p>
         </div>
-        <div className="text-right shrink-0 ml-4">
-          <p className="text-xl font-bold text-gray-700">{terapeuta.pacientes_activos}</p>
-          <p className="text-xs text-gray-400">pacientes</p>
+        <div className="flex items-center gap-3 text-xs text-gray-400 shrink-0 ml-4">
+          <span>
+            <span className="font-semibold text-gray-600">{terapeuta.pacientes_activos}</span>{' '}
+            paciente{terapeuta.pacientes_activos !== 1 ? 's' : ''}
+          </span>
         </div>
       </button>
 
-      {/* Contenido colapsable */}
+      {/* Contenido colapsable — toda la info del terapeuta + pacientes */}
       {isOpen && (
         <div className="border-t border-gray-100">
+          {/* Ficha del terapeuta */}
+          <div className="px-5 py-3 bg-gray-50 border-b border-gray-100 flex items-start justify-between">
+            <div>
+              <p className="text-xs text-gray-500">
+                {terapeuta.email}
+                {terapeuta.whatsapp_phone ? ` · ${terapeuta.whatsapp_phone}` : ''}
+              </p>
+              {terapeuta.empresas.length > 0 && (
+                <p className="text-xs text-purple-500 mt-0.5">
+                  {terapeuta.empresas.map(e => e.nombre).join(' · ')}
+                </p>
+              )}
+            </div>
+            <div className="text-right shrink-0 ml-4">
+              <p className="text-lg font-bold text-gray-700">{terapeuta.pacientes_activos}</p>
+              <p className="text-xs text-gray-400">pacientes activos</p>
+            </div>
+          </div>
+          {/* Lista de pacientes */}
           {vinculos.length > 0 ? (
             <table className="w-full">
               <thead>
