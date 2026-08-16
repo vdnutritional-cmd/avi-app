@@ -368,6 +368,11 @@ export default function ReportesClient({ terapeutas, vinculos, empresas }: Props
           body[data-printing="3"] .report-section[data-id="3"] { display: block !important; }
           body[data-printing="4"] .report-section[data-id="4"] { display: block !important; }
 
+          /* Ocultar nav del admin y reducir padding del contenedor */
+          header { display: none !important; }
+          main { padding: 8px 16px !important; }
+          .report-section { margin-top: 4px !important; }
+
           /* Tamaño base para todo el reporte impreso */
           .report-section * { font-size: 9px !important; line-height: 1.4 !important; }
 
