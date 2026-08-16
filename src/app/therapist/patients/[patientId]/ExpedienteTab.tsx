@@ -302,11 +302,27 @@ export default function ExpedienteTab({ patientId, therapistId, patientEmail, pa
 
   const changed = JSON.stringify(data) !== JSON.stringify(saved)
 
+  // Tabs bloqueados según el tipo de caso seleccionado
+  const tipoCaso = data.tipo_caso // 'Individual' | 'Familiar' | 'Pareja' | ''
+  const tabBloqueado = (id: string) => {
+    if (!tipoCaso) return false
+    if (id === 'individual') return tipoCaso !== 'Individual'
+    if (id === 'familiar')   return tipoCaso !== 'Familiar'
+    if (id === 'pareja')     return tipoCaso !== 'Pareja'
+    return false
+  }
+
+  // Si el sub-tab activo queda bloqueado al cambiar tipo_caso, volver a Datos generales
+  useEffect(() => {
+    if (tabBloqueado(subTab)) setSubTab('datos-generales')
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tipoCaso])
+
   const SUB_TABS = [
     { id: 'datos-generales', label: 'Datos generales', ready: true },
-    { id: 'individual',      label: 'Individual',      ready: true },
-    { id: 'familiar',        label: 'Familiar',        ready: true },
-    { id: 'pareja',          label: 'Pareja',          ready: true },
+    { id: 'individual',      label: 'Individual',      ready: !tabBloqueado('individual') },
+    { id: 'familiar',        label: 'Familiar',        ready: !tabBloqueado('familiar') },
+    { id: 'pareja',          label: 'Pareja',          ready: !tabBloqueado('pareja') },
     { id: 'prediagnostico',  label: 'Prediagnóstico',  ready: true },
     { id: 'impresiones',     label: 'Impresiones',     ready: true },
   ]
