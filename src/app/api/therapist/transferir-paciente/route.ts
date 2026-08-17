@@ -153,7 +153,8 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const { error: vinculoError } = await supabase
+  // Usar cliente admin para escrituras con therapist_id del receptor (bypass RLS)
+  const { error: vinculoError } = await admin
     .from('therapist_patients')
     .upsert(nuevoVinculo, { onConflict: 'therapist_id,patient_id' })
 
@@ -173,7 +174,7 @@ export async function POST(request: NextRequest) {
       ...rest,
       therapist_id: receptorId,
     }))
-    await supabase.from('therapist_session_notes').insert(nuevasSesiones)
+    await admin.from('therapist_session_notes').insert(nuevasSesiones)
   }
 
   // ── 3. Copiar análisis ────────────────────────────────────────────────────
@@ -188,7 +189,7 @@ export async function POST(request: NextRequest) {
       ...rest,
       therapist_id: receptorId,
     }))
-    await supabase.from('analyses').insert(nuevosAnalisis)
+    await admin.from('analyses').insert(nuevosAnalisis)
   }
 
   // ── 4. Copiar expediente ──────────────────────────────────────────────────
@@ -201,7 +202,7 @@ export async function POST(request: NextRequest) {
 
   if (expediente) {
     const { id: _id, created_at: _ca, updated_at: _ua, ...expRest } = expediente
-    await supabase.from('patient_expediente').upsert({
+    await admin.from('patient_expediente').upsert({
       ...expRest,
       therapist_id: receptorId,
     }, { onConflict: 'therapist_id,patient_id' })
@@ -209,7 +210,7 @@ export async function POST(request: NextRequest) {
 
   // ── 5. Si es traslado completo: marcar vínculo original como transferred ──
   if (modalidad === 'completo') {
-    await supabase
+    await admin
       .from('therapist_patients')
       .update({ is_active: false, status: 'transferred' })
       .eq('therapist_id', user.id)
