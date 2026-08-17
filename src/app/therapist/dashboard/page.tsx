@@ -152,6 +152,26 @@ export default async function TherapistDashboardPage() {
         <span className="text-gray-300 group-hover:text-primary-400 transition-colors text-sm">Ver detalle →</span>
       </Link>
 
+      {/* Tutoriales */}
+      <Link
+        href="/therapist/tutoriales"
+        className="flex items-center justify-between bg-white rounded-2xl border border-gray-100
+                   p-5 hover:border-primary-200 hover:bg-primary-50 transition-colors group"
+      >
+        <div className="flex items-center gap-4">
+          <span className="text-3xl">🎬</span>
+          <div>
+            <p className="font-semibold text-gray-800 group-hover:text-primary-700 transition-colors">
+              Consejos prácticos y Tutoriales
+            </p>
+            <p className="text-sm text-gray-500 mt-0.5">
+              Videos de capacitación para sacar el máximo provecho de AVI
+            </p>
+          </div>
+        </div>
+        <span className="text-gray-300 group-hover:text-primary-400 transition-colors text-sm">Ver →</span>
+      </Link>
+
       <div className="space-y-3">
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Acciones rápidas</h2>
         <div className="grid grid-cols-1 gap-3">
