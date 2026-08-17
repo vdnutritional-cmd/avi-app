@@ -208,13 +208,19 @@ export async function POST(request: NextRequest) {
     }, { onConflict: 'therapist_id,patient_id' })
   }
 
-  // ── 5. Si es traslado completo: marcar vínculo original como transferred ──
+  // ── 5. Si es traslado completo: desactivar vínculo original ─────────────
   if (modalidad === 'completo') {
-    await admin
+    const { error: deactivateError } = await admin
       .from('therapist_patients')
-      .update({ is_active: false, status: 'transferred' })
+      .update({ is_active: false, status: 'archived' })
       .eq('therapist_id', user.id)
       .eq('patient_id', patientId)
+
+    if (deactivateError) {
+      return NextResponse.json({
+        error: 'Traslado realizado pero no se pudo desactivar el vínculo original: ' + deactivateError.message
+      }, { status: 500 })
+    }
   }
 
   return NextResponse.json({
