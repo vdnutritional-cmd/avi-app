@@ -10,15 +10,15 @@ const VIDEOS = [
 
 export default function TutorialesPage() {
   return (
-    <div className="space-y-8 max-w-3xl">
+    <div className="space-y-8 max-w-5xl">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Consejos prácticos y Tutoriales</h1>
         <p className="text-gray-500 mt-1">Videos de capacitación para terapeutas AVI</p>
       </div>
 
-      <div className="space-y-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         {VIDEOS.map(video => (
-          <div key={video.id} className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+          <div key={video.id} className="bg-white rounded-2xl border border-gray-100 overflow-hidden flex flex-col">
             {/* Video embed */}
             <div className="w-full aspect-video">
               <iframe
@@ -31,13 +31,13 @@ export default function TutorialesPage() {
             </div>
 
             {/* Info */}
-            <div className="p-5">
+            <div className="p-4 flex-1">
               <p className="text-xs font-semibold text-primary-500 uppercase tracking-wide mb-1">
                 Tutorial {video.numero}
               </p>
-              <h2 className="text-base font-semibold text-gray-800">{video.titulo}</h2>
+              <h2 className="text-sm font-semibold text-gray-800">{video.titulo}</h2>
               {video.descripcion && (
-                <p className="text-sm text-gray-500 mt-1">{video.descripcion}</p>
+                <p className="text-xs text-gray-500 mt-1 leading-relaxed">{video.descripcion}</p>
               )}
             </div>
           </div>
