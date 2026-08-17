@@ -1,4 +1,11 @@
-// AVI — Service Worker para notificaciones push de crisis
+// AVI — Service Worker
+
+// Requerido por Chrome para reconocer el sitio como PWA instalable
+self.addEventListener('fetch', (event) => {
+  event.respondWith(fetch(event.request))
+})
+
+// Notificaciones push de crisis
 
 self.addEventListener('push', (event) => {
   const data = event.data?.json() ?? {}
