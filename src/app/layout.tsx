@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
+import SwRegistrar from './SwRegistrar'
 
 export const metadata: Metadata = {
   title: 'AVI — Acompañamiento Integral',
@@ -30,6 +31,7 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body className="min-h-screen bg-white antialiased">
+        <SwRegistrar />
         {children}
       </body>
     </html>
