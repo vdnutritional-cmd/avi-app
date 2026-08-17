@@ -4,8 +4,8 @@
   "description": "Acompañamiento emocional entre sesiones de terapia",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#7c3aed",
-  "theme_color": "#7c3aed",
+  "background_color": "#b243d5",
+  "theme_color": "#b243d5",
   "orientation": "portrait",
   "lang": "es",
   "icons": [
