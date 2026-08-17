@@ -47,10 +47,6 @@ export async function GET(request: NextRequest) {
     .eq('id', receptorUser.id)
     .single()
 
-  if (receptorProfile?.role !== 'therapist') {
-    return NextResponse.json({ error: 'El receptor no es un terapeuta registrado en AVI' }, { status: 400 })
-  }
-
   // Datos del paciente
   const { data: pacienteProfile } = await supabase
     .from('profiles')
