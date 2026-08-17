@@ -504,9 +504,9 @@ export default function PatientDetailPage() {
       <div className="flex border-b border-gray-200 overflow-x-auto">
         {[
           { id: 'sesiones',     label: `Sesiones AVI (${patterns.length})`,     locked: false },
+          { id: 'nota',         label: 'Nota inicial' + (savedNote ? ' ✓' : ' ⚠️'), locked: false },
           { id: 'presenciales', label: `Sesiones presenciales (${sessionNotes.length}/${MAX_SESIONES_PRESENCIALES})`, locked: false },
           { id: 'analisis',     label: `Análisis (${analyses.length})`,          locked: false },
-          { id: 'nota',         label: 'Nota inicial' + (savedNote ? ' ✓' : ' ⚠️'), locked: false },
           { id: 'expediente',   label: tier === 'clinico' ? 'EXPEDIENTE' : '🔒 EXPEDIENTE', locked: tier !== 'clinico' },
         ].map(tab => (
           <button key={tab.id}
