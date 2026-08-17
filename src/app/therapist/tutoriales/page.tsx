@@ -20,13 +20,13 @@ export default function TutorialesPage() {
         {VIDEOS.map(video => (
           <div key={video.id} className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
             {/* Video embed */}
-            <div className="relative w-full" style={{ paddingBottom: '56.25%' /* 16:9 */ }}>
+            <div className="w-full aspect-video">
               <iframe
                 src={`https://www.youtube.com/embed/${video.id}`}
                 title={video.titulo}
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
-                className="absolute inset-0 w-full h-full"
+                className="w-full h-full"
               />
             </div>
 
