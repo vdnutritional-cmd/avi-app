@@ -70,8 +70,9 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
           <NavLink href="/therapist/dashboard"  icon="🏠" label="Dashboard" />
           <NavLink href="/therapist/patients"   icon="👥" label="Mis pacientes" />
           <NavLink href="/therapist/codes"      icon="🔑" label="Códigos de acceso" />
-          <NavLink href="/therapist/asesorias"   icon="📊" label="Mis asesorías" />
-          <NavLink href="/therapist/tutoriales" icon="🎬" label="Consejos prácticos y Tutoriales" />
+          <NavLink href="/therapist/asesorias"             icon="📊" label="Mis asesorías" />
+          <NavLink href="/therapist/transferir-paciente"  icon="🔄" label="Transferir paciente" />
+          <NavLink href="/therapist/tutoriales"           icon="🎬" label="Consejos prácticos y Tutoriales" />
         </nav>
 
         {/* Separador + Plan + Logout — justo bajo el nav */}
