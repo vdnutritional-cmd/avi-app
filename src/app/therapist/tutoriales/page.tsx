@@ -5,6 +5,12 @@ const VIDEOS = [
     descripcion: 'Recorrido completo por la plataforma: acceso, módulos principales y flujo de trabajo con tus pacientes.',
     numero: 1,
   },
+  {
+    id: 'FpKTnPaivPI',
+    titulo: 'Cómo administrar a tus pacientes con AVI',
+    descripcion: 'Conoce todas las funcionalidades y alcance de AVI para administrar y hacer la evaluación clínica de tus pacientes.',
+    numero: 2,
+  },
   // Aquí se irán agregando más videos
 ]
 
