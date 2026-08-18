@@ -4,24 +4,28 @@ const VIDEOS = [
     titulo: 'Vista y funciones generales de AVI',
     descripcion: 'Recorrido completo por la plataforma: acceso, módulos principales y flujo de trabajo con tus pacientes.',
     numero: 1,
+    duracion: '8:46',
   },
   {
     id: 'FpKTnPaivPI',
     titulo: 'Cómo administrar a tus pacientes con AVI',
     descripcion: 'Conoce todas las funcionalidades y alcance de AVI para administrar y hacer la evaluación clínica de tus pacientes.',
     numero: 2,
+    duracion: '12:36',
   },
   {
     id: 'hESY7xfHCaE',
     titulo: 'Creación de cuentas temporales para pacientes nuevos',
     descripcion: 'Aprende cómo crear una Cuenta Temporal para un nuevo paciente y poder registrar, desde la Sesión Inicial, toda la información y detalles del paciente.',
     numero: 3,
+    duracion: '7:38',
   },
   {
     id: 'zyVogCXln5c',
     titulo: 'Cómo registrar las sesiones rápidamente y hacer el Análisis de los Casos',
     descripcion: 'Te presentamos una forma de registrar en menos de 5 minutos tus sesiones en AVI y cómo se realiza el Análisis de los Casos.',
     numero: 4,
+    duracion: '15:24',
   },
   // Aquí se irán agregando más videos
 ]
@@ -50,8 +54,11 @@ export default function TutorialesPage() {
 
             {/* Info */}
             <div className="p-4 flex-1">
-              <p className="text-xs font-semibold text-primary-500 uppercase tracking-wide mb-1">
-                Tutorial {video.numero}
+              <p className="text-xs font-semibold uppercase tracking-wide mb-1">
+                <span style={{ color: '#b243d5' }}>Tutorial {video.numero}</span>
+                {video.duracion && (
+                  <span style={{ color: '#b243d5' }} className="ml-1 font-normal">({video.duracion})</span>
+                )}
               </p>
               <h2 className="text-sm font-semibold text-gray-800">{video.titulo}</h2>
               {video.descripcion && (
