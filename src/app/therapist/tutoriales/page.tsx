@@ -11,6 +11,12 @@ const VIDEOS = [
     descripcion: 'Conoce todas las funcionalidades y alcance de AVI para administrar y hacer la evaluación clínica de tus pacientes.',
     numero: 2,
   },
+  {
+    id: 'hESY7xfHCaE',
+    titulo: 'Creación de cuentas temporales para pacientes nuevos',
+    descripcion: 'Aprende cómo crear una Cuenta Temporal para un nuevo paciente y poder registrar, desde la Sesión Inicial, toda la información y detalles del paciente.',
+    numero: 3,
+  },
   // Aquí se irán agregando más videos
 ]
 
