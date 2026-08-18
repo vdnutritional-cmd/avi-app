@@ -100,12 +100,15 @@ function countWords(text: string): number {
 }
 
 // ── Sub-componentes ───────────────────────────────────────────────────────────
-function SectionCard({ num, title, children }: { num: string; title: string; children: React.ReactNode }) {
+function SectionCard({ num, title, note, children }: { num: string; title: string; note?: string; children: React.ReactNode }) {
   return (
     <div className="bg-white rounded-2xl border border-gray-100 p-6">
       <div className="flex items-baseline gap-2 border-b border-gray-100 pb-3 mb-5">
         <span className="text-xs font-bold text-primary-600 bg-primary-50 px-2 py-0.5 rounded-full">{num}</span>
-        <h4 className="text-sm font-semibold text-gray-700">{title}</h4>
+        <h4 className="text-sm font-semibold text-gray-700">
+          {title}
+          {note && <span className="ml-2 text-xs font-normal text-gray-400">{note}</span>}
+        </h4>
       </div>
       {children}
     </div>
@@ -457,7 +460,7 @@ export default function FamiliarTab({ patientId, therapistId }: Props) {
       </SectionCard>
 
       {/* ── Apartado 6: Referentes de Disfuncionalidad ── */}
-      <SectionCard num="6" title="Referentes de Disfuncionalidad">
+      <SectionCard num="6" title="Referentes de Disfuncionalidad" note="Base: Análisis McMaster">
         <div className="space-y-4">
           <div>
             <label className="text-xs font-medium text-gray-500 block mb-1.5">Tipo de familia</label>
