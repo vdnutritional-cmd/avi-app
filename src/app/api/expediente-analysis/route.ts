@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
-import { retrieveRelevantChunks } from '@/lib/rag/retrieve-chunks'
+import { retrieveRelevantChunks, retrieveChunksFromBooks } from '@/lib/rag/retrieve-chunks'
 
 export const maxDuration = 180
 
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
     const body = await request.json()
-    const { type, patientId, dimensiones, contexto, antecedentes, sintomatologia, prediagnostico } = body
+    const { type, patientId, dimensiones, contexto, antecedentes, sintomatologia, prediagnostico, familiar } = body
 
     if (!type || !patientId) {
       return NextResponse.json({ error: 'Faltan parámetros: type y patientId' }, { status: 400 })
@@ -366,6 +366,130 @@ export async function POST(request: NextRequest) {
           Connection: 'keep-alive',
         },
       })
+    }
+
+    // ── CICLO VITAL (RAG: El_Ciclo_Vital_de_La_Familia) ──────────────────────
+    if (type === 'ciclo_vital') {
+      // Serializar datos familiares para RAG query
+      const famCtx = familiar ? [
+        familiar.sintomas       ? `Síntomas: ${familiar.sintomas}`               : '',
+        familiar.detonadores    ? `Detonadores: ${familiar.detonadores}`          : '',
+        familiar.factores_riesgo? `Factores de riesgo: ${familiar.factores_riesgo}` : '',
+        familiar.ciclo_vital    ? `Etapa ciclo vital: ${familiar.ciclo_vital}`    : '',
+      ].filter(Boolean).join('\n') : ''
+
+      const ragQuery = [notaInicial, famCtx].filter(Boolean).join('\n\n').slice(0, 6000)
+      const fuentes = await retrieveChunksFromBooks(ragQuery, ['El_Ciclo_Vital_de_La_Familia'])
+
+      // Texto legible de los apartados familiares
+      const famTexto = familiar ? [
+        familiar.sintomas         ? `Síntomas: ${familiar.sintomas}`               : '',
+        familiar.detonadores      ? `Detonadores: ${familiar.detonadores}`          : '',
+        familiar.factores_riesgo  ? `Factores de riesgo y protección: ${familiar.factores_riesgo}` : '',
+        familiar.funciones_texto  ? `Funciones familiares:\n${familiar.funciones_texto}` : '',
+        familiar.maternaje?.length? `Maternaje: ${familiar.maternaje.join(', ')}`  : '',
+        familiar.paternaje?.length? `Paternaje: ${familiar.paternaje.join(', ')}`  : '',
+        familiar.disfunc_tipo     ? `Disfuncionalidad: ${familiar.disfunc_tipo}${familiar.disfunc_opciones?.length ? ` — ${familiar.disfunc_opciones.join(', ')}` : ''}` : '',
+        familiar.tipo_disfunc?.length ? `Tipo de disfuncionalidad observada: ${familiar.tipo_disfunc.join('; ')}` : '',
+        familiar.ciclo_vital      ? `Etapa del ciclo vital: ${familiar.ciclo_vital}` : '',
+      ].filter(Boolean).join('\n') : '(Sin datos familiares aún)'
+
+      const prompt = [
+        'Eres supervisor clínico con amplia experiencia en terapia familiar.',
+        `Analiza la etapa del ciclo vital de esta familia basándote en todos los datos del caso.`,
+        'Máximo 250 palabras. Sé clínico, directo y práctico — nada genérico.',
+        'Responde directamente con el análisis, sin título ni encabezado.',
+        '',
+        ...(fuentes ? ['FUENTE CLÍNICA (El Ciclo Vital de La Familia):', fuentes, ''] : []),
+        'NOTA INICIAL DEL CASO:',
+        notaInicial,
+        ...(sesionesPresencialesTexto ? ['', 'SESIONES PRESENCIALES:', sesionesPresencialesTexto] : []),
+        '',
+        'DATOS SECCIÓN FAMILIAR:',
+        famTexto,
+      ].join('\n')
+
+      const response = await anthropic.messages.create({
+        model: 'claude-sonnet-5',
+        max_tokens: 600,
+        messages: [{ role: 'user', content: prompt }],
+      })
+
+      const text = extractTextFromResponse(response.content)
+      console.log('[ciclo_vital] stop_reason:', response.stop_reason, '| chars:', text.length)
+
+      if (!text) {
+        return NextResponse.json(
+          { error: 'El modelo no generó contenido. Asegúrate de que la Nota Inicial tenga información.' },
+          { status: 422 }
+        )
+      }
+      return NextResponse.json({ result: text })
+    }
+
+    // ── PROCESOS FAMILIARES (RAG: Satir + Minuchin) ───────────────────────────
+    if (type === 'procesos_familiares') {
+      const famCtx = familiar ? [
+        familiar.sintomas         ? `Síntomas: ${familiar.sintomas}`         : '',
+        familiar.detonadores      ? `Detonadores: ${familiar.detonadores}`   : '',
+        familiar.disfunc_tipo     ? `Disfuncionalidad: ${familiar.disfunc_tipo}` : '',
+        familiar.tipo_disfunc?.length ? familiar.tipo_disfunc.join('; ')     : '',
+      ].filter(Boolean).join('\n') : ''
+
+      const ragQuery = [notaInicial, famCtx].filter(Boolean).join('\n\n').slice(0, 6000)
+      const fuentes = await retrieveChunksFromBooks(ragQuery, [
+        'Virginia_Satir_Relaciones_Humanas_Nucleo_Familiar',
+        'Tecnicas_de_Terapia_Familiar_Minuchin',
+      ])
+
+      const famTexto = familiar ? [
+        familiar.sintomas         ? `Síntomas: ${familiar.sintomas}`               : '',
+        familiar.detonadores      ? `Detonadores: ${familiar.detonadores}`          : '',
+        familiar.factores_riesgo  ? `Factores de riesgo y protección: ${familiar.factores_riesgo}` : '',
+        familiar.funciones_texto  ? `Funciones familiares:\n${familiar.funciones_texto}` : '',
+        familiar.maternaje?.length? `Maternaje: ${familiar.maternaje.join(', ')}`  : '',
+        familiar.paternaje?.length? `Paternaje: ${familiar.paternaje.join(', ')}`  : '',
+        familiar.disfunc_tipo     ? `Disfuncionalidad: ${familiar.disfunc_tipo}${familiar.disfunc_opciones?.length ? ` — ${familiar.disfunc_opciones.join(', ')}` : ''}` : '',
+        familiar.tipo_disfunc?.length ? `Tipo de disfuncionalidad: ${familiar.tipo_disfunc.join('; ')}` : '',
+        familiar.ciclo_vital      ? `Etapa del ciclo vital: ${familiar.ciclo_vital}` : '',
+      ].filter(Boolean).join('\n') : '(Sin datos familiares aún)'
+
+      const prompt = [
+        'Eres supervisor clínico con amplia experiencia en terapia familiar.',
+        'Analiza los PROCESOS FAMILIARES de este caso, abordando específicamente:',
+        '  1. LÍMITES — tipos, claridad y permeabilidad en el sistema familiar',
+        '  2. PODER — estructura jerárquica, quién ejerce autoridad y cómo',
+        '  3. COMUNICACIÓN — patrones, congruencia, doble vínculo, apertura',
+        '  4. AFECTO — vínculo emocional, expresión afectiva, apego',
+        '',
+        'Fundamenta el análisis EXCLUSIVAMENTE en los libros de Virginia Satir y Salvador Minuchin indicados.',
+        'Máximo 250 palabras. Estructura los 4 procesos claramente pero en prosa fluida, sin sub-encabezados.',
+        'Responde directamente con el análisis, sin título ni introducción.',
+        '',
+        ...(fuentes ? ['FUENTES CLÍNICAS (Satir y Minuchin):', fuentes, ''] : []),
+        'NOTA INICIAL DEL CASO:',
+        notaInicial,
+        '',
+        'DATOS SECCIÓN FAMILIAR:',
+        famTexto,
+      ].join('\n')
+
+      const response = await anthropic.messages.create({
+        model: 'claude-sonnet-5',
+        max_tokens: 600,
+        messages: [{ role: 'user', content: prompt }],
+      })
+
+      const text = extractTextFromResponse(response.content)
+      console.log('[procesos_familiares] stop_reason:', response.stop_reason, '| chars:', text.length)
+
+      if (!text) {
+        return NextResponse.json(
+          { error: 'El modelo no generó contenido. Asegúrate de que la Nota Inicial tenga información.' },
+          { status: 422 }
+        )
+      }
+      return NextResponse.json({ result: text })
     }
 
     return NextResponse.json({ error: `Tipo no reconocido: ${type}` }, { status: 400 })

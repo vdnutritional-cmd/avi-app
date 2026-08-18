@@ -59,6 +59,60 @@ export async function retrieveRelevantChunks(
   return sections.join('\n\n---\n\n')
 }
 
+/**
+ * Igual que retrieveRelevantChunks pero filtra los resultados
+ * para incluir solo chunks de los libros indicados en `books`.
+ */
+export async function retrieveChunksFromBooks(
+  caseContext: string,
+  books: string[],
+  matchCount = 24
+): Promise<string> {
+  const embeddingResponse = await openai.embeddings.create({
+    model: 'text-embedding-3-small',
+    input: caseContext.slice(0, 8000),
+  })
+  const queryEmbedding = embeddingResponse.data[0].embedding
+
+  const supabase = getSupabaseAdmin()
+  const { data: chunks, error } = await supabase.rpc('match_document_chunks', {
+    query_embedding: queryEmbedding,
+    match_count: matchCount,
+    min_similarity: 0.15,
+  })
+
+  if (error) {
+    console.error('[RAG] Error en búsqueda semántica (filtrada):', error.message)
+    return ''
+  }
+  if (!chunks || chunks.length === 0) return ''
+
+  // Filtrar por los nombres de libro indicados (búsqueda parcial)
+  const filtered = (chunks as { doc_name: string; content: string }[]).filter(c =>
+    books.some(b => c.doc_name.includes(b))
+  )
+  if (filtered.length === 0) {
+    console.warn('[RAG] Sin chunks en los libros solicitados:', books)
+    return ''
+  }
+
+  console.log(`[RAG] ${filtered.length} chunks filtrados de ${books.join(', ')}`)
+
+  const grouped = new Map<string, string[]>()
+  for (const chunk of filtered) {
+    const existing = grouped.get(chunk.doc_name) ?? []
+    existing.push(chunk.content)
+    grouped.set(chunk.doc_name, existing)
+  }
+
+  const sections: string[] = []
+  for (const [docName, contents] of grouped.entries()) {
+    sections.push(`### ${docName}\n\n${contents.join('\n\n[...]\n\n')}`)
+  }
+
+  return sections.join('\n\n---\n\n')
+}
+
 export function buildRagQuery(params: {
   initialNote: string
   recentPatterns: Array<{
