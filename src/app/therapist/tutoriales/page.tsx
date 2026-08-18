@@ -17,6 +17,12 @@ const VIDEOS = [
     descripcion: 'Aprende cómo crear una Cuenta Temporal para un nuevo paciente y poder registrar, desde la Sesión Inicial, toda la información y detalles del paciente.',
     numero: 3,
   },
+  {
+    id: 'zyVogCXln5c',
+    titulo: 'Cómo registrar las sesiones rápidamente y hacer el Análisis de los Casos',
+    descripcion: 'Te presentamos una forma de registrar en menos de 5 minutos tus sesiones en AVI y cómo se realiza el Análisis de los Casos.',
+    numero: 4,
+  },
   // Aquí se irán agregando más videos
 ]
 
