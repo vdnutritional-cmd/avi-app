@@ -19,16 +19,54 @@ const FUNCIONES_FAMILIARES = [
   { key: 'red_apoyo',                  label: 'Red de apoyo social.' },
 ]
 
-const MATERNAJE_OPTS = ['Sincronía', 'Mutualidad', 'Apoyo emocional', 'Afecto']
+const MATERNAJE_OPTS = [
+  {
+    label: 'Sincronía',
+    desc:  'Es la coordinación temporal de las interacciones entre la madre y sus hijos. Implica que la madre ajusta su ritmo (vocalizaciones, miradas, pausas) al estado de alerta o necesidad de sus hijos.',
+  },
+  {
+    label: 'Mutualidad',
+    desc:  'Es el compromiso compartido y la reciprocidad en la relación entre madre e hijos. Demuestra que los hijos no son un receptor pasivo, sino agentes activos que co-construyen la relación.',
+  },
+  {
+    label: 'Apoyo emocional',
+    desc:  'Es la capacidad de la madre para actuar como una base segura y un regulador externo del estrés de los hijos. Proporciona a los hijos la seguridad necesaria para explorar su entorno sabiendo que pueden regresar a un refugio seguro.',
+  },
+  {
+    label: 'Afecto',
+    desc:  'Es la expresión de calidez, ternura, amor y aceptación incondicional hacia los hijos. Sienta las bases de la autoestima del niño y su capacidad futura para confiar en los demás.',
+  },
+]
 
 const PATERNAJE_OPTS = [
-  'Ausencia de conductas paternas',
-  'Aversión',
-  'Queja de los hijos',
-  'Respuestas violentas o agresivas',
-  'Refuerzo de conductas',
-  'Respuesta reactiva (acting out)',
-  'Respuesta aversiva',
+  {
+    label: 'Ausencia de conductas paternas',
+    desc:  'Falta total o parcial de respuestas afectivas, de cuidado, guía o supervisión por parte de los padres.',
+  },
+  {
+    label: 'Aversión',
+    desc:  'Sentimiento profundo de rechazo, desagrado o antipatía sistemática de un progenitor hacia un hijo.',
+  },
+  {
+    label: 'Queja de los hijos',
+    desc:  'Expresión verbal o conductual del malestar, insatisfacción o sufrimiento de los hijos ante las fallas del sistema parental.',
+  },
+  {
+    label: 'Respuestas violentas o agresivas',
+    desc:  'Reacciones parentales basadas en la fuerza física, el castigo corporal, los gritos, los insultos o la humillación psicológica.',
+  },
+  {
+    label: 'Refuerzo de conductas',
+    desc:  'Acciones de los padres que, de forma voluntaria o involuntaria, aumentan la probabilidad de que un hijo repita un comportamiento específico.',
+  },
+  {
+    label: 'Respuesta reactiva (acting out)',
+    desc:  'Reacción automática, impulsiva y sin reflexión orientada por el estrés, el enojo o la frustración inmediata del momento.',
+  },
+  {
+    label: 'Respuesta aversiva',
+    desc:  'Contestación parental que incluye un estímulo desagradable o punitivo (como el sarcasmo, el retiro del habla o el desprecio) ante una acción del hijo.',
+  },
 ]
 
 const DISFUNC_FUNCIONAL_OPTS = [
@@ -493,16 +531,19 @@ export default function FamiliarTab({ patientId, therapistId }: Props) {
             <p className="text-xs font-semibold mb-3" style={{ color: '#b243d5' }}>
               Características de maternaje
             </p>
-            <div className="space-y-2.5">
-              {MATERNAJE_OPTS.map(opt => (
-                <label key={opt} className="flex items-center gap-2.5 cursor-pointer group">
+            <div className="space-y-3">
+              {MATERNAJE_OPTS.map(f => (
+                <label key={f.label} className="flex items-start gap-2.5 cursor-pointer group">
                   <input
                     type="checkbox"
-                    checked={data.maternaje.includes(opt)}
-                    onChange={() => toggleArray('maternaje', opt)}
-                    className="w-4 h-4 rounded accent-primary-600 flex-shrink-0"
+                    checked={data.maternaje.includes(f.label)}
+                    onChange={() => toggleArray('maternaje', f.label)}
+                    className="w-4 h-4 rounded mt-0.5 accent-primary-600 flex-shrink-0"
                   />
-                  <span className="text-sm text-gray-600 group-hover:text-gray-800">{opt}</span>
+                  <div>
+                    <p className="text-sm font-medium text-gray-700 leading-snug group-hover:text-gray-900">{f.label}</p>
+                    <p className="text-xs text-gray-400 leading-snug mt-0.5">{f.desc}</p>
+                  </div>
                 </label>
               ))}
             </div>
@@ -512,16 +553,19 @@ export default function FamiliarTab({ patientId, therapistId }: Props) {
             <p className="text-xs font-semibold mb-3" style={{ color: '#b243d5' }}>
               Características de paternaje
             </p>
-            <div className="space-y-2.5">
-              {PATERNAJE_OPTS.map(opt => (
-                <label key={opt} className="flex items-center gap-2.5 cursor-pointer group">
+            <div className="space-y-3">
+              {PATERNAJE_OPTS.map(f => (
+                <label key={f.label} className="flex items-start gap-2.5 cursor-pointer group">
                   <input
                     type="checkbox"
-                    checked={data.paternaje.includes(opt)}
-                    onChange={() => toggleArray('paternaje', opt)}
-                    className="w-4 h-4 rounded accent-primary-600 flex-shrink-0"
+                    checked={data.paternaje.includes(f.label)}
+                    onChange={() => toggleArray('paternaje', f.label)}
+                    className="w-4 h-4 rounded mt-0.5 accent-primary-600 flex-shrink-0"
                   />
-                  <span className="text-sm text-gray-600 group-hover:text-gray-800">{opt}</span>
+                  <div>
+                    <p className="text-sm font-medium text-gray-700 leading-snug group-hover:text-gray-900">{f.label}</p>
+                    <p className="text-xs text-gray-400 leading-snug mt-0.5">{f.desc}</p>
+                  </div>
                 </label>
               ))}
             </div>
