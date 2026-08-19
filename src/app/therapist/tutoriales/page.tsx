@@ -76,7 +76,7 @@ export default function TutorialesPage() {
                   <p className="text-xs font-semibold uppercase tracking-wide mb-1">
                     <span style={{ color: '#b243d5' }}>Tutorial {video.numero}</span>
                     {video.duracion && (
-                      <span style={{ color: '#b243d5' }} className="ml-1 font-normal">({video.duracion})</span>
+                      <span style={{ color: '#b243d5' }} className="ml-1 font-normal normal-case">({video.duracion})</span>
                     )}
                   </p>
                   <h2 className="text-sm font-semibold text-gray-800">{video.titulo}</h2>
