@@ -52,6 +52,24 @@ const TIPO_DISFUNC_OPTS = [
   'Dinámica traumática: congelamiento, pelea, fenómenos contextuales.',
 ]
 
+const FACTORES_RIESGO = [
+  { key: 'limites_difusos',         titulo: 'Límites difusos o rígidos',              desc: 'Familias aglutinadas (donde no hay individualidad ni privacidad) o familias desligadas (donde hay desapego extremo y falta de apoyo).' },
+  { key: 'triangulacion',           titulo: 'Triangulación',                           desc: 'Involucrar a un tercero (frecuentemente un hijo) para desviar el conflicto entre dos miembros (generalmente la pareja).' },
+  { key: 'parentificacion',         titulo: 'Parentificación',                         desc: 'Inversión de roles donde un hijo asume responsabilidades parentales, emocionales o económicas que no corresponden a su edad.' },
+  { key: 'comunicacion_patologica', titulo: 'Comunicación patológica',                 desc: 'Presencia de dobles mensajes (mensajes contradictorios), descalificaciones continuas o secretos familiares disfuncionales.' },
+  { key: 'rigidez_homeostatica',    titulo: 'Rigidez homeostática',                    desc: 'Incapacidad del sistema para cambiar y adaptarse a las nuevas etapas del ciclo vital (ej. tratar a un adolescente como si fuera un niño pequeño).' },
+  { key: 'alianzas_destructivas',   titulo: 'Alianzas e interacciones destructivas',   desc: 'Coaliciones (unión de dos miembros contra un tercero) que rompen las jerarquías naturales de la familia.' },
+]
+
+const FACTORES_PROTECCION = [
+  { key: 'limites_claros',          titulo: 'Límites claros y flexibles',              desc: 'Reglas comprensibles que definen los roles de cada uno, permitiendo la cercanía emocional sin perder la autonomía individual.' },
+  { key: 'cohesion_familiar',       titulo: 'Cohesión familiar',                       desc: 'Sentimiento de pertenencia, afecto mutuo y apoyo emocional disponible entre los miembros del grupo.' },
+  { key: 'comunicacion_asertiva',   titulo: 'Comunicación asertiva y abierta',         desc: 'Capacidad para expresar emociones, resolver conflictos de forma directa y validar los puntos de vista de los demás.' },
+  { key: 'flexibilidad',            titulo: 'Flexibilidad y adaptabilidad',             desc: 'Capacidad del sistema para reorganizar sus reglas, roles y jerarquías ante crisis o cambios del entorno.' },
+  { key: 'jerarquia_parental',      titulo: 'Jerarquía parental clara',                desc: 'Figuras de autoridad (padres/cuidadores) coordinadas, que actúan de mutuo acuerdo y ejercen un liderazgo nutridor.' },
+  { key: 'redes_apoyo',             titulo: 'Redes de apoyo externas',                 desc: 'Conexiones saludables con la familia extensa, la escuela, amigos o la comunidad que sostienen al sistema familiar.' },
+]
+
 const CICLO_VITAL_OPTS = [
   'Desprendimiento',
   'El encuentro',
@@ -67,7 +85,8 @@ type FuncionesMap = Record<string, string>
 interface FamiliarData {
   sintomas: string
   detonadores: string
-  factores_riesgo: string
+  riesgo_items: string[]
+  proteccion_items: string[]
   funciones: FuncionesMap
   maternaje: string[]
   paternaje: string[]
@@ -82,7 +101,8 @@ interface FamiliarData {
 const vacio = (): FamiliarData => ({
   sintomas: '',
   detonadores: '',
-  factores_riesgo: '',
+  riesgo_items: [],
+  proteccion_items: [],
   funciones: {},
   maternaje: [],
   paternaje: [],
@@ -100,7 +120,7 @@ function countWords(text: string): number {
 }
 
 // ── Sub-componentes ───────────────────────────────────────────────────────────
-function SectionCard({ num, title, note, children }: { num: string; title: string; note?: string; children: React.ReactNode }) {
+function SectionCard({ num, title, note, desc, children }: { num: string; title: string; note?: string; desc?: string; children: React.ReactNode }) {
   return (
     <div className="bg-white rounded-2xl border border-gray-100 p-6">
       <div className="flex items-baseline gap-2 border-b border-gray-100 pb-3 mb-5">
@@ -110,6 +130,7 @@ function SectionCard({ num, title, note, children }: { num: string; title: strin
           {note && <span className="ml-2 text-xs font-normal text-gray-400">{note}</span>}
         </h4>
       </div>
+      {desc && <p className="text-xs text-gray-400 mb-4">{desc}</p>}
       {children}
     </div>
   )
@@ -204,7 +225,8 @@ export default function FamiliarTab({ patientId, therapistId }: Props) {
       const { data: row } = await supabase
         .from('patient_expediente')
         .select(`
-          fam_sintomas, fam_detonadores, fam_factores_riesgo,
+          fam_sintomas, fam_detonadores,
+          fam_riesgo_items, fam_proteccion_items,
           fam_funciones, fam_maternaje, fam_paternaje,
           fam_disfunc_tipo, fam_disfunc_opciones, fam_tipo_disfunc,
           fam_ciclo_vital, fam_ciclo_vital_analisis, fam_procesos_analisis
@@ -217,7 +239,8 @@ export default function FamiliarTab({ patientId, therapistId }: Props) {
         const parsed: FamiliarData = {
           sintomas:            row.fam_sintomas          ?? '',
           detonadores:         row.fam_detonadores       ?? '',
-          factores_riesgo:     row.fam_factores_riesgo   ?? '',
+          riesgo_items:        Array.isArray(row.fam_riesgo_items)      ? row.fam_riesgo_items      : [],
+          proteccion_items:    Array.isArray(row.fam_proteccion_items)  ? row.fam_proteccion_items  : [],
           funciones:           (row.fam_funciones && typeof row.fam_funciones === 'object' && !Array.isArray(row.fam_funciones))
                                  ? (row.fam_funciones as FuncionesMap) : {},
           maternaje:           Array.isArray(row.fam_maternaje)       ? row.fam_maternaje       : [],
@@ -241,7 +264,7 @@ export default function FamiliarTab({ patientId, therapistId }: Props) {
     setData(prev => ({ ...prev, [key]: value }))
   }
 
-  function toggleArray(key: 'maternaje' | 'paternaje' | 'disfunc_opciones' | 'tipo_disfunc', val: string) {
+  function toggleArray(key: 'maternaje' | 'paternaje' | 'disfunc_opciones' | 'tipo_disfunc' | 'riesgo_items' | 'proteccion_items', val: string) {
     setData(prev => {
       const arr = prev[key] as string[]
       const next = arr.includes(val) ? arr.filter(v => v !== val) : [...arr, val]
@@ -259,11 +282,15 @@ export default function FamiliarTab({ patientId, therapistId }: Props) {
       .map(f => `  - ${f.label}: ${data.funciones[f.key] ?? 'Sin seleccionar'}`)
       .join('\n')
 
+    const riesgoTexto     = data.riesgo_items.map(k => FACTORES_RIESGO.find(f => f.key === k)?.titulo ?? k).join(', ')
+    const proteccionTexto = data.proteccion_items.map(k => FACTORES_PROTECCION.find(f => f.key === k)?.titulo ?? k).join(', ')
+
     return {
-      sintomas:       data.sintomas,
-      detonadores:    data.detonadores,
-      factores_riesgo:data.factores_riesgo,
-      funciones_texto:funcionesTexto,
+      sintomas:         data.sintomas,
+      detonadores:      data.detonadores,
+      factores_riesgo:  riesgoTexto     || 'Ninguno seleccionado',
+      factores_proteccion: proteccionTexto || 'Ninguno seleccionado',
+      funciones_texto:  funcionesTexto,
       maternaje:      data.maternaje,
       paternaje:      data.paternaje,
       disfunc_tipo:   data.disfunc_tipo,
@@ -319,9 +346,10 @@ export default function FamiliarTab({ patientId, therapistId }: Props) {
       const { error } = await supabase.from('patient_expediente').upsert({
         therapist_id:            therapistId,
         patient_id:              patientId,
-        fam_sintomas:            data.sintomas          || null,
-        fam_detonadores:         data.detonadores       || null,
-        fam_factores_riesgo:     data.factores_riesgo   || null,
+        fam_sintomas:            data.sintomas              || null,
+        fam_detonadores:         data.detonadores           || null,
+        fam_riesgo_items:        data.riesgo_items.length   > 0 ? data.riesgo_items    : null,
+        fam_proteccion_items:    data.proteccion_items.length > 0 ? data.proteccion_items : null,
         fam_funciones:           Object.keys(data.funciones).length > 0 ? data.funciones : null,
         fam_maternaje:           data.maternaje.length  > 0 ? data.maternaje  : null,
         fam_paternaje:           data.paternaje.length  > 0 ? data.paternaje  : null,
@@ -368,7 +396,7 @@ export default function FamiliarTab({ patientId, therapistId }: Props) {
       </div>
 
       {/* ── Apartado 1: Síntomas ── */}
-      <SectionCard num="1" title="Síntomas">
+      <SectionCard num="1" title="Síntomas" desc="Las observaciones que expresa el paciente o asesorado de uno o varios conflictos.">
         <WordLimitTextarea
           value={data.sintomas}
           onChange={v => set('sintomas', v)}
@@ -377,7 +405,7 @@ export default function FamiliarTab({ patientId, therapistId }: Props) {
       </SectionCard>
 
       {/* ── Apartado 2: Detonadores ── */}
-      <SectionCard num="2" title="Detonadores">
+      <SectionCard num="2" title="Detonadores" desc="Estímulos específicos que activan un patrón de comportamiento automático, repetitivo y disfuncional dentro de un sistema familiar.">
         <WordLimitTextarea
           value={data.detonadores}
           onChange={v => set('detonadores', v)}
@@ -386,12 +414,54 @@ export default function FamiliarTab({ patientId, therapistId }: Props) {
       </SectionCard>
 
       {/* ── Apartado 3: Factores de riesgo y de protección ── */}
-      <SectionCard num="3" title="Factores de riesgo y de protección">
-        <WordLimitTextarea
-          value={data.factores_riesgo}
-          onChange={v => set('factores_riesgo', v)}
-          placeholder="Describe los factores de riesgo y de protección presentes en la familia…"
-        />
+      <SectionCard num="3" title="Factores de riesgo y de protección" desc="Selecciona los factores de riesgo y protección que actualmente vive o ha desarrollado la familia.">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+
+          {/* Factores de Riesgo */}
+          <div>
+            <p className="text-xs font-semibold mb-3 text-red-500">Factores de Riesgo</p>
+            <div className="space-y-3">
+              {FACTORES_RIESGO.map(f => (
+                <label key={f.key} className="flex items-start gap-2.5 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={data.riesgo_items.includes(f.key)}
+                    onChange={() => toggleArray('riesgo_items', f.key)}
+                    className="w-4 h-4 rounded mt-0.5 flex-shrink-0"
+                    style={{ accentColor: '#ef4444' }}
+                  />
+                  <div>
+                    <p className="text-sm font-medium text-gray-700 leading-snug group-hover:text-gray-900">{f.titulo}</p>
+                    <p className="text-xs text-gray-400 leading-snug mt-0.5">{f.desc}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Factores de Protección */}
+          <div>
+            <p className="text-xs font-semibold mb-3 text-emerald-600">Factores de Protección</p>
+            <div className="space-y-3">
+              {FACTORES_PROTECCION.map(f => (
+                <label key={f.key} className="flex items-start gap-2.5 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={data.proteccion_items.includes(f.key)}
+                    onChange={() => toggleArray('proteccion_items', f.key)}
+                    className="w-4 h-4 rounded mt-0.5 flex-shrink-0"
+                    style={{ accentColor: '#059669' }}
+                  />
+                  <div>
+                    <p className="text-sm font-medium text-gray-700 leading-snug group-hover:text-gray-900">{f.titulo}</p>
+                    <p className="text-xs text-gray-400 leading-snug mt-0.5">{f.desc}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
+
+        </div>
       </SectionCard>
 
       {/* ── Apartado 4: Funciones familiares ── */}
