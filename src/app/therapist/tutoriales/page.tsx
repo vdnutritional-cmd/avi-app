@@ -1,4 +1,20 @@
 const VIDEOS = [
+  // ── Videos cortos (sin número de tutorial) ───────────────────────────────
+  {
+    id: 'adzDVQED6XE',
+    titulo: '¿Cómo genero un código para cada paciente?',
+    descripcion: 'Breve explicación de cómo generar un código para que tus pacientes puedan entrar y usar AVI.',
+    duracion: '0:29 seg',
+    numero: null,
+  },
+  {
+    id: 'iDqr7B-kSes',
+    titulo: '¿Cómo ayudo a mi paciente entrar a AVI?',
+    descripcion: 'Sigue un procedimiento muy rápido para que tu paciente pueda entrar a AVI.',
+    duracion: '2:29 min',
+    numero: null,
+  },
+  // ── Tutoriales completos ──────────────────────────────────────────────────
   {
     id: '6F8uq80IFIg',
     titulo: 'Vista y funciones generales de AVI',
@@ -54,13 +70,26 @@ export default function TutorialesPage() {
 
             {/* Info */}
             <div className="p-4 flex-1">
-              <p className="text-xs font-semibold uppercase tracking-wide mb-1">
-                <span style={{ color: '#b243d5' }}>Tutorial {video.numero}</span>
-                {video.duracion && (
-                  <span style={{ color: '#b243d5' }} className="ml-1 font-normal">({video.duracion})</span>
-                )}
-              </p>
-              <h2 className="text-sm font-semibold text-gray-800">{video.titulo}</h2>
+              {video.numero !== null ? (
+                // Tutoriales completos: etiqueta "Tutorial N (duración)" + título en negro
+                <>
+                  <p className="text-xs font-semibold uppercase tracking-wide mb-1">
+                    <span style={{ color: '#b243d5' }}>Tutorial {video.numero}</span>
+                    {video.duracion && (
+                      <span style={{ color: '#b243d5' }} className="ml-1 font-normal">({video.duracion})</span>
+                    )}
+                  </p>
+                  <h2 className="text-sm font-semibold text-gray-800">{video.titulo}</h2>
+                </>
+              ) : (
+                // Videos cortos: solo nombre + duración en color AVI
+                <h2 className="text-sm font-semibold mb-0.5">
+                  <span style={{ color: '#b243d5' }}>{video.titulo}</span>
+                  {video.duracion && (
+                    <span style={{ color: '#b243d5' }} className="ml-1.5 font-normal text-xs">({video.duracion})</span>
+                  )}
+                </h2>
+              )}
               {video.descripcion && (
                 <p className="text-xs text-gray-500 mt-1 leading-relaxed">{video.descripcion}</p>
               )}
