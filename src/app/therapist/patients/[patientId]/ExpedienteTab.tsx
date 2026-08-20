@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import IndividualTab from './IndividualTab'
 import ImpresionesTab from './ImpresionesTab'
 import FamiliarTab from './FamiliarTab'
+import PrediagnosticoTab from './PrediagnosticoTab'
 
 // ──────────────────────────────────────────────
 // Types
@@ -712,11 +713,10 @@ export default function ExpedienteTab({ patientId, therapistId, patientEmail, pa
 
       {/* ── Prediagnóstico ── */}
       {subTab === 'prediagnostico' && (
-        <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
-          <p className="text-gray-300 text-3xl mb-4">🔍</p>
-          <p className="text-gray-500 text-sm font-medium">Sección Prediagnóstico</p>
-          <p className="text-gray-400 text-xs mt-1">En construcción — disponible próximamente.</p>
-        </div>
+        <PrediagnosticoTab
+          patientId={patientId}
+          therapistId={therapistId}
+        />
       )}
 
       {/* ── Pareja ── */}
