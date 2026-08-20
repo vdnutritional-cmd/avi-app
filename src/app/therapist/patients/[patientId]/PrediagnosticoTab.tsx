@@ -123,6 +123,9 @@ export default function PrediagnosticoTab({ patientId, therapistId }: Props) {
   const [saving, setSaving]   = useState(false)
   const [saveOk, setSaveOk]   = useState(false)
 
+  // Sesiones presenciales que el terapeuta quiere incluir (máx. primeras 3)
+  const [sesiones, setSesiones] = useState({ s1: false, s2: false, s3: false })
+
   const [loadingPre,  setLoadingPre]  = useState(false)
   const [loadingVias, setLoadingVias] = useState(false)
   const [viasStream,  setViasStream]  = useState('')
@@ -199,10 +202,11 @@ export default function PrediagnosticoTab({ patientId, therapistId }: Props) {
         body: JSON.stringify({
           type: 'prediagnostico',
           patientId,
-          dimensiones:    data.dimensiones,
-          contexto:       data.contexto,
-          antecedentes:   data.antecedentes,
-          sintomatologia: data.sintomatologia,
+          sesiones_incluidas: [
+            sesiones.s1 ? 1 : null,
+            sesiones.s2 ? 2 : null,
+            sesiones.s3 ? 3 : null,
+          ].filter(Boolean),
         }),
       })
       const json = await res.json()
@@ -242,10 +246,11 @@ export default function PrediagnosticoTab({ patientId, therapistId }: Props) {
         body: JSON.stringify({
           type: 'vias-accion',
           patientId,
-          dimensiones:    data.dimensiones,
-          contexto:       data.contexto,
-          antecedentes:   data.antecedentes,
-          sintomatologia: data.sintomatologia,
+          sesiones_incluidas: [
+            sesiones.s1 ? 1 : null,
+            sesiones.s2 ? 2 : null,
+            sesiones.s3 ? 3 : null,
+          ].filter(Boolean),
           prediagnostico: {
             impresion:       data.prediag_impresion,
             diagnostico:     data.prediag_diagnostico,
@@ -352,6 +357,39 @@ export default function PrediagnosticoTab({ patientId, therapistId }: Props) {
         </p>
       </div>
 
+      {/* ── Selector de sesiones presenciales ── */}
+      <div className="bg-white rounded-2xl border border-gray-100 px-6 py-5">
+        <p className="text-sm font-medium text-gray-700 mb-4">
+          El presente Prediagnóstico tomará como base de análisis:
+        </p>
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+          <span className="text-sm text-gray-500 font-medium">Nota inicial</span>
+          <span className="text-gray-300 font-light">+</span>
+          {([1, 2, 3] as const).map(n => {
+            const key = `s${n}` as 's1' | 's2' | 's3'
+            return (
+              <label key={n} className="flex items-center gap-2 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={sesiones[key]}
+                  onChange={() => setSesiones(prev => ({ ...prev, [key]: !prev[key] }))}
+                  className="w-4 h-4 rounded accent-primary-600 flex-shrink-0"
+                />
+                <span className="text-sm text-gray-600 group-hover:text-gray-800">
+                  Sesión presencial {n}
+                </span>
+              </label>
+            )
+          })}
+          <span className="text-gray-300 font-light">+</span>
+          <span className="text-sm text-gray-500">3 últimas sesiones AVI</span>
+          <span className="text-gray-300 font-light">+</span>
+          <span className="text-sm text-gray-500">Sub-sección del tipo de caso</span>
+          <span className="text-gray-300 font-light">+</span>
+          <span className="text-sm text-gray-500">RAG ConsultoriaFuentes</span>
+        </div>
+      </div>
+
       {/* ── Apartado 1: Prediagnóstico ── */}
       <SectionCard num="1" title="Prediagnóstico">
         <p className="text-xs text-gray-400 mb-4">
@@ -416,7 +454,7 @@ export default function PrediagnosticoTab({ patientId, therapistId }: Props) {
       </SectionCard>
 
       {/* ── Apartado 2: Vías de Acción ── */}
-      <SectionCard num="2" title="Vías de acción — Plan de 10 sesiones">
+      <SectionCard num="2" title="Vías de acción — Plan de 10 a 12 sesiones">
         <p className="text-xs text-gray-400 mb-4">
           Análisis AVI con RAG ConsultoriaFuentes — elabora un plan clínico de 10 sesiones basado en toda la información del caso.
         </p>

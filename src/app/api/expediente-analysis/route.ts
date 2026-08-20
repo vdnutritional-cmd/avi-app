@@ -33,6 +33,102 @@ function extractTextFromResponse(content: Anthropic.ContentBlock[]): string {
   return ''
 }
 
+// ── Mapas de etiquetas para Familiar ─────────────────────────────────────────
+const RIESGO_LABELS: Record<string, string> = {
+  limites_difusos:         'Límites difusos o rígidos',
+  triangulacion:           'Triangulación',
+  parentificacion:         'Parentificación',
+  comunicacion_patologica: 'Comunicación patológica',
+  rigidez_homeostatica:    'Rigidez homeostática',
+  alianzas_destructivas:   'Alianzas e interacciones destructivas',
+}
+
+const PROTECCION_LABELS: Record<string, string> = {
+  limites_claros:        'Límites claros y flexibles',
+  cohesion_familiar:     'Cohesión familiar',
+  comunicacion_asertiva: 'Comunicación asertiva y abierta',
+  flexibilidad:          'Flexibilidad y adaptabilidad',
+  jerarquia_parental:    'Jerarquía parental clara',
+  redes_apoyo:           'Redes de apoyo externas',
+}
+
+// Construye el texto de contexto de la sub-sección según tipo de caso
+function buildSubseccionContexto(
+  tipoCaso: string | null,
+  exp: Record<string, unknown> | null
+): string {
+  if (!tipoCaso || !exp) return '(Tipo de caso o sub-sección no definidos aún)'
+
+  if (tipoCaso === 'Individual') {
+    const dims = Array.isArray(exp.individual_dimensiones)
+      ? (exp.individual_dimensiones as string[]).join(', ')
+      : ''
+    return [
+      dims                          ? `Dimensiones evolutivas: ${dims}`                             : '',
+      exp.individual_contexto       ? `Contexto: ${exp.individual_contexto}`                        : '',
+      exp.individual_antecedentes   ? `Antecedentes de relevancia:\n${exp.individual_antecedentes}` : '',
+      exp.individual_sintomatologia ? `Sintomatología observada: ${exp.individual_sintomatologia}`  : '',
+    ].filter(Boolean).join('\n') || '(Sin datos registrados en sub-sección Individual)'
+  }
+
+  if (tipoCaso === 'Familiar') {
+    const riesgo = Array.isArray(exp.fam_riesgo_items)
+      ? (exp.fam_riesgo_items as string[]).map(k => RIESGO_LABELS[k] ?? k).join(', ')
+      : ''
+    const proteccion = Array.isArray(exp.fam_proteccion_items)
+      ? (exp.fam_proteccion_items as string[]).map(k => PROTECCION_LABELS[k] ?? k).join(', ')
+      : ''
+    return [
+      exp.fam_sintomas    ? `Síntomas: ${exp.fam_sintomas}`       : '',
+      exp.fam_detonadores ? `Detonadores: ${exp.fam_detonadores}` : '',
+      riesgo              ? `Factores de riesgo: ${riesgo}`       : '',
+      proteccion          ? `Factores de protección: ${proteccion}` : '',
+      Array.isArray(exp.fam_maternaje) && (exp.fam_maternaje as string[]).length > 0
+        ? `Maternaje: ${(exp.fam_maternaje as string[]).join(', ')}` : '',
+      Array.isArray(exp.fam_paternaje) && (exp.fam_paternaje as string[]).length > 0
+        ? `Paternaje: ${(exp.fam_paternaje as string[]).join(', ')}` : '',
+      exp.fam_disfunc_tipo ? `Tipo de familia: ${exp.fam_disfunc_tipo}${
+        Array.isArray(exp.fam_disfunc_opciones) && (exp.fam_disfunc_opciones as string[]).length > 0
+          ? ` — ${(exp.fam_disfunc_opciones as string[]).join(', ')}`
+          : ''
+      }` : '',
+      Array.isArray(exp.fam_tipo_disfunc) && (exp.fam_tipo_disfunc as string[]).length > 0
+        ? `Tipo de disfuncionalidad observada: ${(exp.fam_tipo_disfunc as string[]).join('; ')}` : '',
+      exp.fam_ciclo_vital         ? `Etapa del ciclo vital: ${exp.fam_ciclo_vital}`          : '',
+      exp.fam_ciclo_vital_analisis  ? `Análisis ciclo vital:\n${exp.fam_ciclo_vital_analisis}` : '',
+      exp.fam_procesos_analisis     ? `Procesos familiares:\n${exp.fam_procesos_analisis}`    : '',
+    ].filter(Boolean).join('\n') || '(Sin datos registrados en sub-sección Familiar)'
+  }
+
+  if (tipoCaso === 'Pareja') {
+    return '(Sub-sección Pareja en construcción — sin datos disponibles aún)'
+  }
+
+  return '(Tipo de caso no reconocido)'
+}
+
+// Filtra y formatea las sesiones presenciales seleccionadas (máx. primeras 3)
+function buildSesionesPreTexto(
+  sesiones: Array<{ session_number: number; session_date: string; session_objetivo: string | null; session_desarrollo: string | null; notes: string | null }>,
+  incluidas: number[] | undefined
+): string {
+  const filtradas = sesiones.filter(s => {
+    if (s.session_number > 3) return false
+    if (!incluidas || incluidas.length === 0) return false
+    return incluidas.includes(s.session_number)
+  })
+  if (filtradas.length === 0) return ''
+  return filtradas.map(s => {
+    const partes = [
+      `Sesión Presencial ${s.session_number} (${new Date(s.session_date).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })})`,
+      s.session_objetivo   ? `Objetivo: ${s.session_objetivo}`     : '',
+      s.session_desarrollo ? `Desarrollo: ${s.session_desarrollo}` : '',
+      s.notes              ? `Observaciones: ${s.notes}`           : '',
+    ].filter(Boolean)
+    return partes.join(' | ')
+  }).join('\n')
+}
+
 // ── Ruta POST ─────────────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
@@ -42,7 +138,7 @@ export async function POST(request: NextRequest) {
     if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
     const body = await request.json()
-    const { type, patientId, dimensiones, contexto, antecedentes, sintomatologia, prediagnostico, familiar } = body
+    const { type, patientId, dimensiones, contexto, antecedentes, sintomatologia, prediagnostico, familiar, sesiones_incluidas } = body
 
     if (!type || !patientId) {
       return NextResponse.json({ error: 'Faltan parámetros: type y patientId' }, { status: 400 })
@@ -61,7 +157,7 @@ export async function POST(request: NextRequest) {
     const notaInicial = buildNotaInicial(relation)
 
     // ── Sesiones presenciales + últimas 4 AVI (base compartida por varios análisis) ──
-    const [inPersonRes, patternsRes] = await Promise.all([
+    const [inPersonRes, patternsRes, expedienteRes] = await Promise.all([
       supabase
         .from('therapist_session_notes')
         .select('session_number, session_date, session_objetivo, session_desarrollo, notes')
@@ -73,11 +169,25 @@ export async function POST(request: NextRequest) {
         .select('summary, emotional_patterns, predominant_emotions, crisis_detected, created_at')
         .eq('patient_id', patientId)
         .order('created_at', { ascending: false })
-        .limit(4),
+        .limit(3),
+      supabase
+        .from('patient_expediente')
+        .select(`
+          tipo_caso,
+          individual_dimensiones, individual_contexto, individual_antecedentes, individual_sintomatologia,
+          fam_sintomas, fam_detonadores, fam_riesgo_items, fam_proteccion_items,
+          fam_maternaje, fam_paternaje, fam_disfunc_tipo, fam_disfunc_opciones,
+          fam_tipo_disfunc, fam_ciclo_vital, fam_ciclo_vital_analisis, fam_procesos_analisis
+        `)
+        .eq('therapist_id', user.id)
+        .eq('patient_id', patientId)
+        .maybeSingle(),
     ])
 
     const sesionesPresenciales = inPersonRes.data ?? []
     const ultimasAVI = (patternsRes.data ?? []).reverse()
+    const expediente = expedienteRes.data as Record<string, unknown> | null
+    const tipoCaso: string | null = expediente?.tipo_caso as string | null ?? null
 
     const sesionesPresencialesTexto = sesionesPresenciales.length > 0
       ? sesionesPresenciales.map(s => {
@@ -188,23 +298,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ result: text })
     }
 
-    // ── PREDIAGNÓSTICO (6 incisos, máx. 75 palabras c/u) ────────────────────
+    // ── PREDIAGNÓSTICO (5 bloques de información + RAG ConsultoriaFuentes) ───
     if (type === 'prediagnostico') {
-      // RAG: recuperar documentos ConsultoriaFuentes relevantes para el prediagnóstico
-      const prediagRagQuery = [
-        notaInicial,
-        `Dimensiones: ${(dimensiones ?? []).join(', ')}`,
-        `Contexto: ${contexto || ''}`,
-        antecedentes || '',
-        sintomatologia || '',
-      ].filter(Boolean).join('\n\n').slice(0, 6000)
-
-      const fuentesPrediag = await retrieveRelevantChunks(prediagRagQuery)
+      // Bloque 1: Nota Inicial (ya disponible como notaInicial)
+      // Bloque 2: Sesiones presenciales 1-3 seleccionadas por el terapeuta
+      const sesPreTexto = buildSesionesPreTexto(sesionesPresenciales, sesiones_incluidas)
+      // Bloque 3: Últimas 3 sesiones AVI (ultimasAVI ya tiene máx. 3)
+      // Bloque 4: Sub-sección según tipo de caso
+      const subseccionTexto = buildSubseccionContexto(tipoCaso, expediente)
+      // Bloque 5: RAG ConsultoriaFuentes
+      const ragQuery = [notaInicial, sesPreTexto, subseccionTexto]
+        .filter(Boolean).join('\n\n').slice(0, 6000)
+      const fuentesPrediag = await retrieveRelevantChunks(ragQuery)
 
       const prompt = [
-        'Eres supervisor clínico con amplia experiencia en consulta. Elabora un prediagnóstico clínico del caso.',
+        'Eres supervisor clínico con amplia experiencia en consulta.',
+        'Elabora un prediagnóstico clínico del caso basándote EXCLUSIVAMENTE en la información proporcionada.',
         'Devuelve ÚNICAMENTE un objeto JSON con exactamente estas 6 claves.',
-        'Máximo 75 palabras por campo. Sintetiza con claridad — no truncues, condensa toda la información relevante de cada inciso dentro del límite indicado.',
+        'Máximo 75 palabras por campo. Sintetiza con claridad — no truncues, condensa toda la información relevante dentro del límite.',
         'Escribe como lo haría un clínico experimentado: directo, profesional y accesible, sin jerga académica excesiva.',
         'Genera contenido sustantivo en cada campo — si hay poca información explícita, razona a partir del contexto disponible.',
         'Solo usa cadena vacía "" si definitivamente no hay ningún dato para ese campo.',
@@ -219,15 +330,14 @@ export async function POST(request: NextRequest) {
         '  "guia_accion": "..."',
         '}',
         '',
-        ...(fuentesPrediag ? ['FUENTES CLÍNICAS (ConsultoriaFuentes — úsalas para fundamentar el prediagnóstico):', fuentesPrediag, ''] : []),
-        'NOTA INICIAL:',
+        ...(fuentesPrediag ? ['FUENTES CLÍNICAS (ConsultoriaFuentes):', fuentesPrediag, ''] : []),
+        '── BLOQUE 1: NOTA INICIAL ──',
         notaInicial,
+        ...(sesPreTexto ? ['', '── BLOQUE 2: SESIONES PRESENCIALES SELECCIONADAS ──', sesPreTexto] : ['', '── BLOQUE 2: SESIONES PRESENCIALES ── (ninguna seleccionada por el terapeuta)'] ),
+        ...(sesionesAVITexto ? ['', '── BLOQUE 3: SESIONES AVI (últimas 3) ──', sesionesAVITexto] : []),
         '',
-        'INFORMACIÓN ADICIONAL DEL CASO:',
-        `- Dimensiones evolutivas: ${(dimensiones ?? []).join(', ') || 'No especificadas'}`,
-        `- Contexto: ${contexto || 'No especificado'}`,
-        `- Antecedentes de relevancia: ${antecedentes || 'No disponible aún'}`,
-        `- Sintomatología observada: ${sintomatologia || 'No disponible aún'}`,
+        `── BLOQUE 4: SUB-SECCIÓN ${(tipoCaso ?? 'del caso').toUpperCase()} ──`,
+        subseccionTexto,
       ].join('\n')
 
       const response = await anthropic.messages.create({
@@ -277,20 +387,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ result: parsed })
     }
 
-    // ── VÍAS DE ACCIÓN — Plan 10 sesiones (streaming + RAG) ──────────────────
+    // ── VÍAS DE ACCIÓN — Plan 10 a 12 sesiones (streaming + RAG ConsultoriaFuentes) ──
     if (type === 'vias-accion') {
-      const ragQuery = [
-        notaInicial,
-        `Dimensiones: ${(dimensiones ?? []).join(', ')}`,
-        `Contexto: ${contexto || ''}`,
-        antecedentes || '',
-        sintomatologia || '',
-      ].filter(Boolean).join('\n\n').slice(0, 6000)
+      const sesPreTexto = buildSesionesPreTexto(sesionesPresenciales, sesiones_incluidas)
+      const subseccionTexto = buildSubseccionContexto(tipoCaso, expediente)
 
+      const ragQuery = [notaInicial, sesPreTexto, subseccionTexto]
+        .filter(Boolean).join('\n\n').slice(0, 6000)
       const fuentes = await retrieveRelevantChunks(ragQuery)
 
       const prediagBloque = prediagnostico ? [
-        'PREDIAGNÓSTICO DEL CASO:',
+        '── PREDIAGNÓSTICO DEL CASO ──',
         `- Impresión del sujeto: ${prediagnostico.impresion || '—'}`,
         `- Diagnóstico presuntivo: ${prediagnostico.diagnostico || '—'}`,
         `- Áreas de conflicto: ${prediagnostico.areas_conflicto || '—'}`,
@@ -301,35 +408,41 @@ export async function POST(request: NextRequest) {
 
       const prompt = [
         'Eres supervisor clínico de ConsultoriaFuentes.',
-        'Elabora un plan clínico detallado de 10 sesiones basado en toda la información del caso y las fuentes de referencia.',
-        'Para cada sesión: objetivo clínico concreto, técnica específica (nombre y autor de las fuentes), cómo aplicarla exactamente con este paciente, resultado esperado.',
-        'Nada genérico — todo aplicado al caso.',
+        'Elabora un plan clínico de atención de 10 a 12 sesiones para este caso.',
         '',
-        'FUENTES CLÍNICAS (ConsultoriaFuentes):',
-        fuentes || '(Sin fuentes recuperadas — elabora con base en el caso)',
+        'RESTRICCIONES ABSOLUTAS — léelas antes de generar:',
+        '1. Usa EXCLUSIVAMENTE las técnicas y enfoques presentes en los documentos de ConsultoriaFuentes proporcionados.',
+        '   Si una técnica no está en esos documentos, NO la incluyas.',
+        '2. No incorpores ninguna práctica, filosofía o enfoque ajeno al contexto católico-cristiano.',
+        '3. No incluyas ninguna práctica asociada con la Nueva Era (meditación trascendental, chakras, reiki, astrología, visualizaciones energéticas, etc.) ni ningún sincretismo espiritual.',
+        '4. No recurras a información externa a las fuentes. Si las fuentes no cubren algún punto, deja esa sesión más breve, pero no inventes técnicas.',
         '',
-        'NOTA INICIAL:',
+        'Para cada sesión: objetivo clínico concreto, técnica específica (nombre y autor tal como aparece en las fuentes), cómo aplicarla con este paciente, resultado esperado.',
+        'Nada genérico — todo aplicado al caso específico.',
+        '',
+        '── FUENTES CLÍNICAS (ConsultoriaFuentes — base exclusiva del plan) ──',
+        fuentes || '(Sin fragmentos recuperados — construye el plan únicamente con lo que conozcas de ConsultoriaFuentes)',
+        '',
+        '── BLOQUE 1: NOTA INICIAL ──',
         notaInicial,
+        ...(sesPreTexto ? ['', '── BLOQUE 2: SESIONES PRESENCIALES SELECCIONADAS ──', sesPreTexto] : []),
+        ...(sesionesAVITexto ? ['', '── BLOQUE 3: SESIONES AVI (últimas 3) ──', sesionesAVITexto] : []),
         '',
-        'INFORMACIÓN DEL CASO:',
-        `- Dimensiones evolutivas: ${(dimensiones ?? []).join(', ') || 'No especificadas'}`,
-        `- Contexto: ${contexto || 'No especificado'}`,
-        `- Antecedentes de relevancia: ${antecedentes || 'No disponible'}`,
-        `- Sintomatología observada: ${sintomatologia || 'No disponible'}`,
-        prediagBloque,
-        ...(sesionesBloque ? ['', 'SESIONES DEL CONSULTANTE:', sesionesBloque] : []),
+        `── BLOQUE 4: SUB-SECCIÓN ${(tipoCaso ?? 'del caso').toUpperCase()} ──`,
+        subseccionTexto,
+        ...(prediagBloque ? ['', prediagBloque] : []),
         '',
-        'Formato de cada sesión (respeta este formato exacto y NO excedas 120 palabras por sesión en total):',
+        'Formato de cada sesión (respeta este formato exacto y NO excedas 120 palabras por sesión):',
         '**Sesión [N] — [Objetivo principal]**',
-        'Técnica: [nombre y autor — una línea]',
+        'Técnica: [nombre y autor de ConsultoriaFuentes — una línea]',
         '',
         'Aplicación: [2-3 oraciones concretas de cómo se aplica con este paciente]',
         'Meta: [una oración con el resultado esperado]',
         '',
         'IMPORTANTE:',
-        '- Máximo 120 palabras por sesión. Sé clínico y directo, sin relleno.',
+        '- Genera entre 10 y 12 sesiones completas. No te detengas antes de la Sesión 10.',
+        '- Máximo 120 palabras por sesión. Sé clínico y directo.',
         '- Entre "Técnica:" y "Aplicación:" deja siempre una línea en blanco.',
-        '- Debes generar las 10 sesiones completas. No te detengas antes de la Sesión 10.',
         '- Sin introducción ni conclusión. Empieza directo con la Sesión 1. Todo en español.',
       ].join('\n')
 
