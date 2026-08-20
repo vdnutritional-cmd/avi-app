@@ -86,22 +86,34 @@ function AnalysisButton({
 }
 
 function ResultTextarea({
-  value, onChange, rows = 4, placeholder,
+  value, onChange, rows = 4, placeholder, maxWords,
 }: {
   value: string
   onChange: (v: string) => void
   rows?: number
   placeholder?: string
+  maxWords?: number
 }) {
+  const wordCount = value.trim() === '' ? 0 : value.trim().split(/\s+/).length
+  const overLimit = maxWords !== undefined && wordCount > maxWords
+
   return (
-    <textarea
-      value={value}
-      onChange={e => onChange(e.target.value)}
-      rows={rows}
-      placeholder={placeholder ?? 'El análisis aparecerá aquí…'}
-      className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-700
-                 focus:outline-none focus:ring-2 focus:ring-primary-300 leading-relaxed resize-none"
-    />
+    <div>
+      <textarea
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        rows={rows}
+        placeholder={placeholder ?? 'El análisis aparecerá aquí…'}
+        className={`w-full px-4 py-3 rounded-xl border text-sm text-gray-700
+                   focus:outline-none focus:ring-2 focus:ring-primary-300 leading-relaxed resize-none
+                   ${overLimit ? 'border-red-300 focus:ring-red-300' : 'border-gray-200'}`}
+      />
+      {maxWords !== undefined && (
+        <p className={`text-xs mt-1 text-right ${overLimit ? 'text-red-500' : 'text-gray-400'}`}>
+          {wordCount} / {maxWords} palabras
+        </p>
+      )}
+    </div>
   )
 }
 
@@ -381,19 +393,13 @@ export default function PrediagnosticoTab({ patientId, therapistId }: Props) {
               </label>
             )
           })}
-          <span className="text-gray-300 font-light">+</span>
-          <span className="text-sm text-gray-500">3 últimas sesiones AVI</span>
-          <span className="text-gray-300 font-light">+</span>
-          <span className="text-sm text-gray-500">Sub-sección del tipo de caso</span>
-          <span className="text-gray-300 font-light">+</span>
-          <span className="text-sm text-gray-500">RAG ConsultoriaFuentes</span>
         </div>
       </div>
 
       {/* ── Apartado 1: Prediagnóstico ── */}
       <SectionCard num="1" title="Prediagnóstico">
         <p className="text-xs text-gray-400 mb-4">
-          Análisis AVI — basado en la Nota Inicial y en la información de los apartados anteriores. Máx. 75 palabras por inciso.
+          Análisis AVI — basado en la Nota Inicial y en la información de los apartados anteriores.
           Puedes editar cada inciso directamente.
         </p>
         <div className="mb-5">
@@ -446,6 +452,7 @@ export default function PrediagnosticoTab({ patientId, therapistId }: Props) {
                 value={data[item.key as keyof PrediagData] as string}
                 onChange={v => set(item.key as keyof PrediagData, v)}
                 rows={3}
+                maxWords={150}
                 placeholder={loadingPre ? 'Analizando…' : 'El análisis aparecerá aquí. También puedes escribir o editar directamente.'}
               />
             </div>
@@ -455,9 +462,6 @@ export default function PrediagnosticoTab({ patientId, therapistId }: Props) {
 
       {/* ── Apartado 2: Vías de Acción ── */}
       <SectionCard num="2" title="Vías de acción — Plan de 10 a 12 sesiones">
-        <p className="text-xs text-gray-400 mb-4">
-          Análisis AVI con RAG ConsultoriaFuentes — elabora un plan clínico de 10 sesiones basado en toda la información del caso.
-        </p>
         <div className="space-y-3">
           {viasLocked ? (
             <div className="flex flex-wrap items-center gap-3">

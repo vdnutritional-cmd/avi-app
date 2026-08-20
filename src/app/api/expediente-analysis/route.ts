@@ -315,7 +315,7 @@ export async function POST(request: NextRequest) {
         'Eres supervisor clínico con amplia experiencia en consulta.',
         'Elabora un prediagnóstico clínico del caso basándote EXCLUSIVAMENTE en la información proporcionada.',
         'Devuelve ÚNICAMENTE un objeto JSON con exactamente estas 6 claves.',
-        'Máximo 75 palabras por campo. Sintetiza con claridad — no truncues, condensa toda la información relevante dentro del límite.',
+        'Máximo 100 palabras por campo. Tu exposición debe ser completa y concluir dentro del límite — no truncues, sintetiza con criterio clínico.',
         'Escribe como lo haría un clínico experimentado: directo, profesional y accesible, sin jerga académica excesiva.',
         'Genera contenido sustantivo en cada campo — si hay poca información explícita, razona a partir del contexto disponible.',
         'Solo usa cadena vacía "" si definitivamente no hay ningún dato para ese campo.',
