@@ -60,9 +60,12 @@ export default function CodesPage() {
   async function loadCodes() {
     setLoading(true)
     const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setLoading(false); return }
     const { data } = await supabase
       .from('authorization_codes')
       .select('code, is_active, created_at')
+      .eq('therapist_id', user.id)
       .order('created_at', { ascending: false })
       .limit(50)
     setCodes(data?.map(d => ({ ...d, used: !d.is_active })) ?? [])
