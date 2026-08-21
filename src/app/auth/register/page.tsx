@@ -54,23 +54,35 @@ export default function RegisterPage() {
     setLoading(true)
     const supabase = createClient()
 
-    const { error: authError } = await supabase.auth.signUp({
-      email: form.email,
-      password: form.password,
-      options: {
-        data: { full_name: form.fullName, role: 'therapist', whatsapp_phone: form.whatsapp },
-        emailRedirectTo: `${window.location.origin}/api/auth/callback`,
-      },
-    })
+    try {
+      const { data, error: authError } = await supabase.auth.signUp({
+        email: form.email,
+        password: form.password,
+        options: {
+          data: { full_name: form.fullName, role: 'therapist', whatsapp_phone: form.whatsapp },
+          emailRedirectTo: `${window.location.origin}/api/auth/callback`,
+        },
+      })
 
-    if (authError) {
-      setError(authError.message)
+      if (authError) {
+        setError(authError.message || `Error al crear la cuenta (código ${(authError as { status?: number }).status ?? 'desconocido'}). Intenta de nuevo.`)
+        setLoading(false)
+        return
+      }
+
+      // signUp devuelve user=null cuando el email ya existe (anti-enumeración de Supabase)
+      if (!data?.user) {
+        setError('No se pudo crear la cuenta. Es posible que el correo ya esté registrado o que los registros estén deshabilitados. Contacta a soporte si el problema persiste.')
+        setLoading(false)
+        return
+      }
+
+      setSuccess(true)
+    } catch (err) {
+      setError(`Error inesperado: ${err instanceof Error ? err.message : String(err)}`)
+    } finally {
       setLoading(false)
-      return
     }
-
-    setSuccess(true)
-    setLoading(false)
   }
 
   if (success) {
