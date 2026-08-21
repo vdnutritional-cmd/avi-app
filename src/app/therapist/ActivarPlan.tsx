@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 import {
   ESENCIAL_PLANS,
   CLINICO_PLANS,
@@ -240,10 +242,25 @@ function CheckoutButton({
 
 // ── Componente principal ───────────────────────────────────────
 export default function ActivarPlan({ therapistName }: { therapistName: string }) {
+  const router = useRouter()
   const [tier, setTier] = useState<PlanTier>('esencial')
   const [customSlots, setCustomSlots] = useState(3)
   const [empresas, setEmpresas] = useState<{ id: string; nombre: string }[]>([])
   const [empresasSeleccionadas, setEmpresasSeleccionadas] = useState<string[]>([])
+  const [whatsappEnviado, setWhatsappEnviado] = useState(false)
+  const [loggingOut, setLoggingOut] = useState(false)
+
+  async function handleLogoutAndHome() {
+    setLoggingOut(true)
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push('/')
+  }
+
+  function abrirWhatsApp(url: string) {
+    window.open(url, '_blank')
+    setWhatsappEnviado(true)
+  }
 
   useEffect(() => {
     fetch('/api/convenio-empresas')
@@ -440,15 +457,14 @@ export default function ActivarPlan({ therapistName }: { therapistName: string }
             <p className="text-xs text-purple-200 mb-3">
               ¿Eres Asesor o Terapeuta activo en una institución en CONVENIO? Solicita por WhatsApp obtener precio en descuento o acceso gratuito.
             </p>
-            <a
-              href={`https://wa.me/523318830312?text=${encodeURIComponent(
+            <button
+              onClick={() => abrirWhatsApp(`https://wa.me/523318830312?text=${encodeURIComponent(
                 `Hola, soy Asesor/Terapeuta activo en ${empresasNombres || '<empresa en convenio>'}. Solicito acceso a AVI en la modalidad del Convenio con ${empresasNombres || '<empresa en convenio>'}. Mi nombre es: `
-              )}`}
-              target="_blank" rel="noopener noreferrer"
+              )}`)}
               className="inline-flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white text-sm px-4 py-2 rounded-xl font-medium transition-colors"
             >
               💬 Solicitar por WhatsApp
-            </a>
+            </button>
           </div>
         </section>
 
@@ -458,14 +474,32 @@ export default function ActivarPlan({ therapistName }: { therapistName: string }
           <p className="text-xs text-gray-500 max-w-sm mx-auto mb-4">
             Contamos con programas de patrocinio. Contáctanos y te orientamos.
           </p>
-          <a
-            href="https://wa.me/523318830312?text=Hola%2C%20deseo%20información%20sobre%20el%20programa%20de%20patrocinio%20de%20AVI"
-            target="_blank" rel="noopener noreferrer"
+          <button
+            onClick={() => abrirWhatsApp('https://wa.me/523318830312?text=Hola%2C%20deseo%20información%20sobre%20el%20programa%20de%20patrocinio%20de%20AVI')}
             className="inline-flex items-center gap-2 border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-2 rounded-xl transition-colors"
           >
             💬 Contáctanos
-          </a>
+          </button>
         </section>
+
+        {/* ── Confirmación WhatsApp ── */}
+        {whatsappEnviado && (
+          <section className="bg-green-50 border border-green-200 rounded-2xl p-6 text-center space-y-4">
+            <div className="text-4xl">✅</div>
+            <p className="text-sm font-semibold text-green-800">¡Mensaje enviado!</p>
+            <p className="text-sm text-green-700 max-w-md mx-auto">
+              En un lapso de 24 a 48 horas se validará tu participación en la empresa de Convenio
+              y recibirás respuesta por WhatsApp de la viabilidad de patrocinio al 100% o con descuento.
+            </p>
+            <button
+              onClick={handleLogoutAndHome}
+              disabled={loggingOut}
+              className="mt-2 inline-flex items-center gap-2 bg-purple-700 hover:bg-purple-800 text-white text-sm px-6 py-2.5 rounded-xl font-medium transition-colors disabled:opacity-50"
+            >
+              {loggingOut ? 'Saliendo…' : 'Entendido — Volver al inicio'}
+            </button>
+          </section>
+        )}
 
       </main>
     </div>
