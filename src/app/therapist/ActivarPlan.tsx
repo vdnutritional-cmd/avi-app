@@ -292,7 +292,14 @@ export default function ActivarPlan({ therapistName }: { therapistName: string }
     <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white flex flex-col">
 
       {/* Header */}
-      <header className="py-8 px-6 text-center">
+      <header className="py-8 px-6 text-center relative">
+        <button
+          onClick={handleLogoutAndHome}
+          disabled={loggingOut}
+          className="absolute top-4 right-4 text-xs text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
+        >
+          {loggingOut ? 'Saliendo…' : 'Cerrar sesión →'}
+        </button>
         <span className="text-2xl font-bold text-purple-700">AVI</span>
         <h1 className="mt-4 text-2xl font-bold text-gray-900">
           Hola{therapistName ? `, ${therapistName}` : ''}
