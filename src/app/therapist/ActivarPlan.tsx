@@ -296,7 +296,8 @@ export default function ActivarPlan({ therapistName }: { therapistName: string }
         <button
           onClick={handleLogoutAndHome}
           disabled={loggingOut}
-          className="absolute top-4 right-4 text-xs text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
+          className="absolute top-4 right-4 text-xs font-bold transition-colors disabled:opacity-50"
+          style={{ color: '#b243d5' }}
         >
           {loggingOut ? 'Saliendo…' : 'Cerrar sesión →'}
         </button>
@@ -474,6 +475,18 @@ export default function ActivarPlan({ therapistName }: { therapistName: string }
             </button>
           </div>
         </section>
+
+        {/* ── Cerrar sesión (medio página) ── */}
+        <div className="text-center">
+          <button
+            onClick={handleLogoutAndHome}
+            disabled={loggingOut}
+            className="text-sm font-bold transition-colors disabled:opacity-50"
+            style={{ color: '#b243d5' }}
+          >
+            {loggingOut ? 'Saliendo…' : 'Cerrar sesión →'}
+          </button>
+        </div>
 
         {/* ── Patrocinio ── */}
         <section className="text-center border border-dashed border-gray-200 rounded-2xl p-6">
