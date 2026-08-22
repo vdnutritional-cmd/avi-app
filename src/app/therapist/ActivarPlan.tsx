@@ -246,9 +246,16 @@ export default function ActivarPlan({ therapistName }: { therapistName: string }
   const [tier, setTier] = useState<PlanTier>('esencial')
   const [customSlots, setCustomSlots] = useState(3)
   const [empresas, setEmpresas] = useState<{ id: string; nombre: string }[]>([])
-  const [empresasSeleccionadas, setEmpresasSeleccionadas] = useState<string[]>([])
+  const [empresa1, setEmpresa1] = useState('')
+  const [empresa2, setEmpresa2] = useState('')
+  const [empresa3, setEmpresa3] = useState('')
   const [whatsappEnviado, setWhatsappEnviado] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
+
+  // IDs únicos no vacíos seleccionados en los 3 dropdowns
+  const empresasSeleccionadas = [empresa1, empresa2, empresa3]
+    .filter(Boolean)
+    .filter((v, i, arr) => arr.indexOf(v) === i)
 
   async function handleLogoutAndHome() {
     setLoggingOut(true)
@@ -268,12 +275,6 @@ export default function ActivarPlan({ therapistName }: { therapistName: string }
       .then(d => setEmpresas(d.empresas ?? []))
       .catch(() => {})
   }, [])
-
-  function toggleEmpresa(id: string) {
-    setEmpresasSeleccionadas(prev =>
-      prev.includes(id) ? prev.filter(e => e !== id) : [...prev, id]
-    )
-  }
 
   const empresasNombres = empresas
     .filter(e => empresasSeleccionadas.includes(e.id))
@@ -420,21 +421,29 @@ export default function ActivarPlan({ therapistName }: { therapistName: string }
               </p>
             </div>
             {empresas.length > 0 && (
-              <div className="shrink-0">
-                <p className="text-xs text-purple-300 mb-2">Empresas en CONVENIO en que participas</p>
-                <div className="space-y-1.5">
-                  {empresas.map(emp => (
-                    <label key={emp.id} className="flex items-center gap-2.5 cursor-pointer group">
-                      <input
-                        type="checkbox"
-                        checked={empresasSeleccionadas.includes(emp.id)}
-                        onChange={() => toggleEmpresa(emp.id)}
-                        className="w-4 h-4 accent-purple-300 rounded cursor-pointer"
-                      />
-                      <span className="text-sm text-white/90 group-hover:text-white transition-colors">
-                        {emp.nombre}
-                      </span>
-                    </label>
+              <div className="shrink-0 min-w-[280px]">
+                <p className="text-xs text-white font-semibold mb-3">Empresas en CONVENIO en que participas</p>
+                <div className="space-y-2">
+                  {([
+                    { label: 'Empresa 1:', value: empresa1, set: setEmpresa1 },
+                    { label: 'Empresa 2:', value: empresa2, set: setEmpresa2 },
+                    { label: 'Empresa 3:', value: empresa3, set: setEmpresa3 },
+                  ] as const).map(({ label, value, set }) => (
+                    <div key={label} className="flex items-center gap-2">
+                      <span className="text-xs text-white/80 w-20 shrink-0">{label}</span>
+                      <select
+                        value={value}
+                        onChange={e => set(e.target.value)}
+                        className="flex-1 bg-white/10 border border-white/30 text-white text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-white/50"
+                      >
+                        <option value="" className="text-gray-800 bg-white">— Ninguna —</option>
+                        {empresas.map(emp => (
+                          <option key={emp.id} value={emp.id} className="text-gray-800 bg-white">
+                            {emp.nombre}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   ))}
                 </div>
                 {empresasSeleccionadas.length > 0 && (
