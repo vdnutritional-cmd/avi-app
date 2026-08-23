@@ -11,25 +11,8 @@ export default function InstallBanner() {
   const [dismissed, setDismissed] = useState(false)
 
   useEffect(() => {
-    const isStandalone =
-      (window.navigator as { standalone?: boolean }).standalone === true ||
-      window.matchMedia('(display-mode: standalone)').matches
-    if (isStandalone) return // ya instalada
-
-    const ua = navigator.userAgent
-    // iOS Safari — excluir Chrome en iOS (CriOS)
-    if (/iPhone|iPad|iPod/.test(ua) && !/CriOS/.test(ua)) {
-      setPlatform('ios')
-    }
-
-    // Android — Chrome dispara beforeinstallprompt
-    const handler = (e: Event) => {
-      e.preventDefault()
-      setDeferredPrompt(e)
-      setPlatform('android')
-    }
-    window.addEventListener('beforeinstallprompt', handler)
-    return () => window.removeEventListener('beforeinstallprompt', handler)
+    // SOLO PARA PRUEBA — quitar después
+    setPlatform('android')
   }, [])
 
   async function handleAndroidInstall() {
