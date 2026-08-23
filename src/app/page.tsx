@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import WhatsAppSupport from '@/components/WhatsAppSupport'
+import InstallBanner from '@/components/InstallBanner'
 
 /**
  * Página de inicio / landing de AVI
@@ -74,6 +75,7 @@ export default function HomePage() {
         </div>
       </div>
       <WhatsAppSupport />
+      <InstallBanner />
     </main>
   )
 }

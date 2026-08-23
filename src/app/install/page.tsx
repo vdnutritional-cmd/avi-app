@@ -1,4 +1,10 @@
 import Link from 'next/link'
+import InstallBanner, {
+  SafariBarSVG,
+  ShareButtonSVG,
+  AddToHomeSVG,
+  ConfirmSVG,
+} from '@/components/InstallBanner'
 
 export default function InstallPage() {
   return (
@@ -15,8 +21,8 @@ export default function InstallPage() {
           </p>
         </div>
 
-        {/* iPhone / Safari */}
-        <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 space-y-4">
+        {/* ── iPhone / Safari ── */}
+        <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 space-y-5">
           <div className="flex items-center gap-3">
             <span className="text-3xl">🍎</span>
             <div>
@@ -25,27 +31,34 @@ export default function InstallPage() {
             </div>
           </div>
 
-          <ol className="space-y-3 text-sm text-gray-700">
-            <Step number={1}>
+          <ol className="space-y-5 text-sm text-gray-700">
+
+            <Step number={1} illustration={<SafariBarSVG />}>
               Abre <strong>Safari</strong> y entra a{' '}
               <span className="font-mono text-primary-700 text-xs">avi-app.com.mx</span>
             </Step>
-            <Step number={2}>
-              Toca el botón de <strong>compartir</strong>{' '}
-              <span className="inline-block bg-gray-100 rounded px-2 py-0.5 text-xs">⬆</span>{' '}
-              que aparece en la barra inferior del navegador
+
+            <Step number={2} illustration={<ShareButtonSVG />}>
+              Toca el botón de <strong>Compartir</strong>{' '}
+              (cuadro con flecha hacia arriba) en la barra de Safari.
+              Puede estar en la <strong>barra inferior</strong> o en la{' '}
+              <strong>esquina superior derecha</strong>, según tus ajustes.
             </Step>
-            <Step number={3}>
-              Desliza hacia abajo en el menú y toca{' '}
-              <strong>"Agregar a pantalla de inicio"</strong>
+
+            <Step number={3} illustration={<AddToHomeSVG />}>
+              Desliza el menú hacia abajo hasta encontrar{' '}
+              <strong>&ldquo;Agregar a pantalla de inicio&rdquo;</strong> y tócalo.
             </Step>
-            <Step number={4}>
-              Escribe <strong>"AVI"</strong> como nombre (o deja el que aparece) y toca{' '}
-              <strong>"Agregar"</strong>
+
+            <Step number={4} illustration={<ConfirmSVG />}>
+              Escribe <strong>&ldquo;AVI&rdquo;</strong> como nombre (o deja el que aparece)
+              y toca <strong>&ldquo;Agregar&rdquo;</strong> en la esquina superior derecha.
             </Step>
+
             <Step number={5}>
               ¡Listo! El ícono de AVI aparecerá en tu pantalla de inicio como cualquier otra app.
             </Step>
+
           </ol>
 
           <div className="bg-amber-50 rounded-xl px-4 py-3 text-xs text-amber-700">
@@ -53,7 +66,7 @@ export default function InstallPage() {
           </div>
         </div>
 
-        {/* Android / Chrome */}
+        {/* ── Android / Chrome ── */}
         <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 space-y-4">
           <div className="flex items-center gap-3">
             <span className="text-3xl">🤖</span>
@@ -69,16 +82,19 @@ export default function InstallPage() {
               <span className="font-mono text-primary-700 text-xs">avi-app.com.mx</span>
             </Step>
             <Step number={2}>
-              Toca el menú de tres puntos{' '}
-              <span className="inline-block bg-gray-100 rounded px-2 py-0.5 text-xs">⋮</span>{' '}
-              en la esquina superior derecha
+              Chrome mostrará automáticamente un banner en la parte inferior con el botón{' '}
+              <strong>&ldquo;Instalar&rdquo;</strong> — tócalo directamente.
             </Step>
             <Step number={3}>
-              Toca <strong>"Agregar a pantalla de inicio"</strong> o{' '}
-              <strong>"Instalar app"</strong>
+              Si el banner no aparece, toca el menú de tres puntos{' '}
+              <span className="inline-block bg-gray-100 rounded px-2 py-0.5 text-xs">⋮</span>{' '}
+              (esquina superior derecha) y selecciona{' '}
+              <strong>&ldquo;Agregar a pantalla de inicio&rdquo;</strong> o{' '}
+              <strong>&ldquo;Instalar app&rdquo;</strong>.
             </Step>
             <Step number={4}>
-              Confirma tocando <strong>"Agregar"</strong> o <strong>"Instalar"</strong>
+              Confirma tocando <strong>&ldquo;Agregar&rdquo;</strong> o{' '}
+              <strong>&ldquo;Instalar&rdquo;</strong>.
             </Step>
             <Step number={5}>
               ¡Listo! AVI aparecerá en tu pantalla de inicio y funciona como app nativa.
@@ -86,8 +102,7 @@ export default function InstallPage() {
           </ol>
 
           <div className="bg-green-50 rounded-xl px-4 py-3 text-xs text-green-700">
-            💡 En algunos Android también verás un banner automático en la parte inferior
-            de Chrome que dice "Instalar AVI" — puedes tocarlo directamente.
+            💡 El banner de instalación aparece automáticamente al abrir la página.
           </div>
         </div>
 
@@ -122,18 +137,36 @@ export default function InstallPage() {
           </Link>
         </div>
       </div>
+
+      {/* Banner flotante de instalación */}
+      <InstallBanner />
     </main>
   )
 }
 
-function Step({ number, children }: { number: number; children: React.ReactNode }) {
+function Step({
+  number,
+  children,
+  illustration,
+}: {
+  number: number
+  children: React.ReactNode
+  illustration?: React.ReactNode
+}) {
   return (
-    <li className="flex gap-3">
-      <span className="shrink-0 w-6 h-6 rounded-full bg-primary-100 text-primary-700
-                       text-xs font-bold flex items-center justify-center mt-0.5">
-        {number}
-      </span>
-      <span className="leading-relaxed">{children}</span>
+    <li className="space-y-2">
+      <div className="flex gap-3">
+        <span className="shrink-0 w-6 h-6 rounded-full bg-primary-100 text-primary-700
+                         text-xs font-bold flex items-center justify-center mt-0.5">
+          {number}
+        </span>
+        <span className="leading-relaxed">{children}</span>
+      </div>
+      {illustration && (
+        <div className="ml-9 bg-gray-50 rounded-xl p-3 flex justify-center">
+          {illustration}
+        </div>
+      )}
     </li>
   )
 }
