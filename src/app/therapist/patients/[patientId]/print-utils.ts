@@ -390,9 +390,9 @@ export async function imprimirHistoriaClinica(
     `).join('')}
   </div>
 
-  <!-- VI. PLAN DE 10 SESIONES -->
+  <!-- VI. PLAN DE INTERVENCIÓN -->
   <div class="section">
-    <div class="section-title"><span class="num">VI.</span> Plan Propuesto de 10 Sesiones (Vías de Acción)</div>
+    <div class="section-title"><span class="num">VI.</span> Plan de Intervención — Plan de 10 a 12 sesiones</div>
     ${data.vias_accion
       ? `<div class="vias-content">${vias2html(data.vias_accion)}</div>`
       : '<p class="empty">Sin registrar</p>'

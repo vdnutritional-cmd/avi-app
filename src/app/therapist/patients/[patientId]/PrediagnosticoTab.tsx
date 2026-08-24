@@ -478,7 +478,7 @@ export default function PrediagnosticoTab({ patientId, therapistId }: Props) {
       </SectionCard>
 
       {/* ── Apartado 2: Vías de Acción ── */}
-      <SectionCard num="2" title="Vías de acción — Plan de 10 a 12 sesiones">
+      <SectionCard num="2" title="Plan de Intervención — Plan de 10 a 12 sesiones">
         <div className="space-y-3">
           {viasLocked ? (
             <div className="flex flex-wrap items-center gap-3">
