@@ -8,10 +8,10 @@ const VIDEOS = [
     numero: null,
   },
   {
-    id: 'iDqr7B-kSes',
+    id: 'LCsi3SvEra0',
     titulo: '¿Cómo ayudo a mi paciente entrar a AVI?',
     descripcion: 'Sigue un procedimiento muy rápido para que tu paciente pueda entrar a AVI.',
-    duracion: '2:29 min',
+    duracion: '2:07 min',
     numero: null,
   },
   // ── Tutoriales completos ──────────────────────────────────────────────────
