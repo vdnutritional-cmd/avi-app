@@ -22,6 +22,7 @@ interface PrediagData {
   antecedentes:   string
   sintomatologia: string
   // Propios del Prediagnóstico
+  prediag_fecha:       string
   prediag_impresion:   string
   prediag_diagnostico: string
   prediag_areas:       string
@@ -36,6 +37,7 @@ const vacio = (): PrediagData => ({
   contexto:            '',
   antecedentes:        '',
   sintomatologia:      '',
+  prediag_fecha:       '',
   prediag_impresion:   '',
   prediag_diagnostico: '',
   prediag_areas:       '',
@@ -164,6 +166,7 @@ export default function PrediagnosticoTab({ patientId, therapistId }: Props) {
         .select(`
           individual_dimensiones, individual_contexto,
           individual_antecedentes, individual_sintomatologia,
+          prediag_fecha,
           individual_prediag_impresion, individual_prediag_diagnostico,
           individual_prediag_areas, individual_prediag_tipo,
           individual_prediag_detonadores, individual_prediag_guia,
@@ -180,6 +183,7 @@ export default function PrediagnosticoTab({ patientId, therapistId }: Props) {
           contexto:            row.individual_contexto       ?? '',
           antecedentes:        row.individual_antecedentes   ?? '',
           sintomatologia:      row.individual_sintomatologia ?? '',
+          prediag_fecha:       row.prediag_fecha             ?? '',
           prediag_impresion:   row.individual_prediag_impresion   ?? '',
           prediag_diagnostico: row.individual_prediag_diagnostico ?? '',
           prediag_areas:       row.individual_prediag_areas       ?? '',
@@ -327,6 +331,7 @@ export default function PrediagnosticoTab({ patientId, therapistId }: Props) {
       const { error } = await supabase.from('patient_expediente').upsert({
         therapist_id: therapistId,
         patient_id:   patientId,
+        prediag_fecha:                  data.prediag_fecha       || null,
         individual_prediag_impresion:   data.prediag_impresion   || null,
         individual_prediag_diagnostico: data.prediag_diagnostico || null,
         individual_prediag_areas:       data.prediag_areas       || null,
@@ -362,11 +367,23 @@ export default function PrediagnosticoTab({ patientId, therapistId }: Props) {
     <div className="space-y-5">
 
       {/* Banner de sección */}
-      <div className="bg-primary-50 border border-primary-100 rounded-2xl px-6 py-4">
-        <h3 className="text-sm font-semibold text-primary-800">Prediagnóstico y Plan de Sesiones</h3>
-        <p className="text-xs text-primary-600 mt-0.5">
-          Análisis clínico basado en la información registrada en los apartados previos del expediente.
-        </p>
+      <div className="bg-primary-50 border border-primary-100 rounded-2xl px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h3 className="text-sm font-semibold text-primary-800">Prediagnóstico y Plan de Sesiones</h3>
+          <p className="text-xs text-primary-600 mt-0.5">
+            Análisis clínico basado en la información registrada en los apartados previos del expediente.
+          </p>
+        </div>
+        <div className="shrink-0">
+          <label className="text-xs font-medium text-primary-700 block mb-1">Fecha del prediagnóstico</label>
+          <input
+            type="date"
+            value={data.prediag_fecha}
+            onChange={e => set('prediag_fecha', e.target.value)}
+            className="border border-primary-200 bg-white rounded-lg px-3 py-1.5 text-sm text-gray-700
+                       focus:outline-none focus:ring-2 focus:ring-primary-300"
+          />
+        </div>
       </div>
 
       {/* ── Selector de sesiones presenciales ── */}
