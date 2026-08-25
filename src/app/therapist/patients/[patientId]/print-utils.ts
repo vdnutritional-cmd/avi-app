@@ -786,3 +786,217 @@ export async function imprimirBitacoraSesiones(
   win.document.close()
   win.focus()
 }
+
+// ──────────────────────────────────────────────────────────
+// Historia Clínica V2 — Modelo Personalista Bio-Psico-Social
+// ──────────────────────────────────────────────────────────
+
+export interface HistoriaClinicaV2 {
+  motivos_consulta:         string
+  motivos_subyacente:       string
+  premisas:                 string
+  generalidades:            string
+  contexto:                 string
+  antecedentes:             string
+  referentes_estructurales: string
+  dinamica_relacional:      string
+  sintomatologia:           string
+  plan_intervencion:        string
+}
+
+export async function imprimirHistoriaClinicaV2(
+  patientId:   string,
+  therapistId: string,
+  patientName: string | null,
+  data: HistoriaClinicaV2,
+) {
+  const supabase = createClient()
+
+  const [expedienteRes, terapeutaRes, patientRes] = await Promise.all([
+    supabase.from('patient_expediente').select('*').eq('therapist_id', therapistId).eq('patient_id', patientId).maybeSingle(),
+    supabase.from('profiles').select('full_name').eq('id', therapistId).single(),
+    supabase.from('profiles').select('email').eq('id', patientId).single(),
+  ])
+
+  const dg              = expedienteRes.data as Record<string, unknown> | null
+  const terapeutaNombre = terapeutaRes.data?.full_name ?? '—'
+  const patientEmail    = patientRes.data?.email ?? ''
+  const fechaHoy        = new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })
+
+  type HijoRow = { nombre: string; edad: string; ocupacion: string; vive_en_casa: string }
+  const hijos: HijoRow[] = (dg?.hijos as HijoRow[]) ?? []
+  const hijosConDatos = hijos.filter(h => h.nombre || h.edad || h.ocupacion || h.vive_en_casa)
+
+  const hijosHTML = hijosConDatos.length > 0
+    ? `<table class="table-data">
+        <thead><tr><th>#</th><th>Nombre</th><th>Edad</th><th>Ocupación</th><th>Viven en casa</th></tr></thead>
+        <tbody>
+          ${hijosConDatos.map((h, i) => `<tr><td>${i + 1}</td><td>${h.nombre || '—'}</td><td>${h.edad || '—'}</td><td>${h.ocupacion || '—'}</td><td>${h.vive_en_casa || '—'}</td></tr>`).join('')}
+        </tbody>
+      </table>`
+    : '<p class="empty">No registrado</p>'
+
+  const tipoCaso = (dg?.tipo_caso as string) ?? '—'
+
+  function dgField(label: string, val: unknown, fallback = '—') {
+    return `<div class="dg-field"><span class="label">${label}:</span> <span class="value">${val || fallback}</span></div>`
+  }
+
+  function sectionBlock(num: string, title: string, content: string, breakBefore = false) {
+    const cls  = breakBefore ? 'section-break-before' : 'section'
+    const body = content?.trim()
+      ? `<div class="section-body">${content.trim().replace(/\n/g, '<br>')}</div>`
+      : '<p class="empty">Sin registrar</p>'
+    return `
+      <div class="${cls}">
+        <div class="section-title"><span class="num">${num}.</span> ${title}</div>
+        ${body}
+      </div>`
+  }
+
+  const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Historia Clínica — ${patientName ?? 'Paciente'}</title>
+  <style>
+    ${sharedCSS()}
+
+    .dg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3pt 14pt; margin-bottom: 6pt; }
+    .dg-field { font-size: 10pt; margin-bottom: 2pt; }
+    .label { font-weight: bold; color: #333; }
+    .value { color: #1a1a1a; }
+    .subsection-title {
+      font-size: 9.5pt; font-weight: bold; color: #444;
+      text-decoration: underline; text-underline-offset: 2pt; margin: 7pt 0 4pt;
+    }
+    .table-data { width: 100%; border-collapse: collapse; font-size: 9.5pt; margin-top: 4pt; }
+    .table-data th { background: #eef1f8; font-weight: bold; padding: 4pt 6pt; text-align: left; border: 0.5pt solid #c5cfe0; font-size: 9pt; }
+    .table-data td { padding: 3pt 6pt; border: 0.5pt solid #dde3ee; }
+    .vias-content { font-size: 9.5pt; line-height: 1.65; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+
+  <div class="no-print" style="text-align:right;padding:10pt 0 14pt;">
+    <button onclick="window.print()" style="padding:8pt 18pt;background:#2d3a8c;color:white;border:none;border-radius:8pt;font-size:10pt;cursor:pointer;">
+      🖨 Imprimir / Guardar PDF
+    </button>
+  </div>
+
+  <div class="pre-header">
+    <div class="pre-header-row">
+      <span><strong>Asesorado:</strong> ${patientName ?? '—'}</span>
+      <span><strong>Asesor/Terapeuta:</strong> ${terapeutaNombre}</span>
+    </div>
+    <div class="pre-header-row">
+      <span><strong>Tipo de caso:</strong> ${tipoCaso}</span>
+      <span><strong>Correo:</strong> ${patientEmail || '—'}</span>
+    </div>
+  </div>
+
+  <div class="header">
+    <h1>Historia Clínica</h1>
+    <div class="subtitle">Modelo Personalista Bio-Psico-Social</div>
+  </div>
+
+  <div class="meta">
+    <div><strong>Consultante:</strong> ${patientName ?? '—'}</div>
+    <div><strong>Fecha de elaboración:</strong> ${fechaHoy}</div>
+  </div>
+
+  <!-- DATOS GENERALES -->
+  <div class="section">
+    <div class="section-title">Datos Generales</div>
+
+    <div class="subsection-title">Datos del Asesorado</div>
+    <div class="dg-grid">
+      ${dgField('Nombre', dg?.asesorado_nombre)}
+      ${dgField('Sexo', dg?.asesorado_sexo)}
+      ${dgField('Edad', dg?.asesorado_edad)}
+      ${dgField('Fecha de nacimiento', dg?.asesorado_fecha_nacimiento ? new Date(String(dg.asesorado_fecha_nacimiento) + 'T00:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' }) : '')}
+      ${dgField('Lugar de nacimiento', dg?.asesorado_lugar_nacimiento)}
+      ${dgField('Estado civil', dg?.asesorado_estado_civil)}
+      ${dgField('Escolaridad', dg?.asesorado_escolaridad)}
+      ${dgField('Ocupación', dg?.asesorado_ocupacion)}
+      ${dgField('Religión', dg?.asesorado_religion)}
+      ${dgField('Parroquia', dg?.asesorado_parroquia)}
+    </div>
+
+    <div class="subsection-title">Datos de Contacto</div>
+    <div class="dg-grid">
+      ${dgField('Teléfono', dg?.contacto_telefono)}
+      ${dgField('Correo electrónico', patientEmail)}
+      ${dgField('Domicilio', dg?.contacto_domicilio)}
+    </div>
+
+    ${dg?.pareja_nombre || dg?.pareja_edad ? `
+    <div class="subsection-title">Datos de la Pareja</div>
+    <div class="dg-grid">
+      ${dgField('Nombre', dg?.pareja_nombre)}
+      ${dgField('Sexo', dg?.pareja_sexo)}
+      ${dgField('Edad', dg?.pareja_edad)}
+      ${dgField('Fecha de nacimiento', dg?.pareja_fecha_nacimiento ? new Date(String(dg.pareja_fecha_nacimiento) + 'T00:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' }) : '')}
+    </div>` : ''}
+
+    ${hijosConDatos.length > 0 ? `
+    <div class="subsection-title">Hijos</div>
+    ${hijosHTML}` : ''}
+
+    ${dg?.salud_padece_enfermedad || dg?.salud_medicamentos || dg?.salud_ayuda_psicologica ? `
+    <div class="subsection-title">Salud</div>
+    <div class="dg-grid">
+      ${dgField('¿Padece alguna enfermedad?', dg?.salud_padece_enfermedad)}
+      ${dgField('¿Ha recibido ayuda psicológica?', dg?.salud_ayuda_psicologica)}
+      ${dg?.salud_ayuda_psicologica === 'Sí' ? dgField('¿Hace cuánto tiempo?', dg?.salud_ayuda_tiempo) : ''}
+      ${dgField('¿Toma medicamentos?', dg?.salud_medicamentos)}
+      ${dg?.salud_medicamentos === 'Sí' ? dgField('¿Cuál(es)?', dg?.salud_medicamentos_cual) : ''}
+    </div>` : ''}
+  </div>
+
+  ${sectionBlock('I',    'Motivos de Consulta',                        data.motivos_consulta)}
+  ${sectionBlock('II',   'Motivo de Consulta Subyacente',             data.motivos_subyacente)}
+  ${sectionBlock('III',  'Premisas ante el Motivo de Consulta (NOM-004)', data.premisas)}
+  ${sectionBlock('IV',   'Generalidades del Caso',                    data.generalidades)}
+  ${sectionBlock('V',    'Contexto',                                   data.contexto)}
+  ${sectionBlock('VI',   'Antecedentes de Relevancia',                data.antecedentes, true)}
+  ${sectionBlock('VII',  'Referentes Estructurales',                  data.referentes_estructurales)}
+  ${sectionBlock('VIII', 'Dinámica Relacional',                       data.dinamica_relacional)}
+  ${sectionBlock('IX',   'Sintomatología Observada',                  data.sintomatologia)}
+
+  <!-- X. PLAN DE INTERVENCIÓN -->
+  <div class="section">
+    <div class="section-title"><span class="num">X.</span> Plan de Intervención — Plan de 10 a 12 sesiones</div>
+    ${data.plan_intervencion?.trim()
+      ? `<div class="vias-content">${vias2html(data.plan_intervencion)}</div>`
+      : '<p class="empty">Sin registrar</p>'
+    }
+  </div>
+
+  <!-- FIRMAS -->
+  <div class="firma-section">
+    <div class="firma-item">
+      <div class="firma-label">Elabora</div>
+      <div class="firma-linea">
+        <div class="firma-name">${terapeutaNombre}</div>
+        <div style="font-size:8.5pt;color:#666;">Nombre y firma del Terapeuta</div>
+      </div>
+    </div>
+    <div class="firma-item">
+      <div class="firma-label">VoBo</div>
+      <div class="firma-linea">
+        <div class="firma-name">&nbsp;</div>
+        <div style="font-size:8.5pt;color:#666;">Nombre y firma</div>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>`
+
+  const winV2 = window.open('', '_blank', 'width=900,height=700')
+  if (!winV2) { alert('Permite ventanas emergentes para imprimir.'); return }
+  winV2.document.write(html)
+  winV2.document.close()
+  winV2.focus()
+}
