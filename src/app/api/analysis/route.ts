@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
 
     if (!relation) return NextResponse.json({ error: 'Paciente no encontrado' }, { status: 404 })
 
-    // Verificar límite: 1 análisis on-demand por paciente por mes calendario
+    // Límite: 2 análisis on-demand por paciente por mes calendario
     const ahora = new Date()
     const primerDiaMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1).toISOString()
 
@@ -48,24 +48,36 @@ export async function POST(request: NextRequest) {
       }, { status: 429 })
     }
 
-    // Perfil del paciente
+    // ── Obtener tier del terapeuta ────────────────────────────────────────────
+    const { data: subData } = await supabase
+      .from('subscriptions')
+      .select('tier')
+      .eq('therapist_id', user.id)
+      .in('status', ['active', 'trialing'])
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    const tier: 'esencial' | 'clinico' = subData?.tier === 'clinico' ? 'clinico' : 'esencial'
+
+    // ── Perfil del paciente ───────────────────────────────────────────────────
     const { data: profile } = await supabase
       .from('profiles')
       .select('full_name')
       .eq('id', patientId)
       .single()
 
-    // Últimas 4 sesiones AVI (cronológico)
-    const { data: patternsDesc } = await supabase
+    // ── Sesiones AVI: últimas 4 para Esencial, todas para Clínico ────────────
+    const patternsBase = supabase
       .from('patterns')
       .select('summary, emotional_patterns, predominant_emotions, reformulation, crisis_detected, created_at')
       .eq('patient_id', patientId)
       .order('created_at', { ascending: false })
-      .limit(4)
 
+    const { data: patternsDesc } = await (tier === 'esencial' ? patternsBase.limit(4) : patternsBase)
     const patterns = (patternsDesc ?? []).reverse()
 
-    // Sesiones presenciales del terapeuta
+    // ── Sesiones presenciales (todas, siempre) ────────────────────────────────
     const { data: inPersonRaw } = await supabase
       .from('therapist_session_notes')
       .select('session_number, session_date, session_objetivo, session_desarrollo, notes')
@@ -73,7 +85,18 @@ export async function POST(request: NextRequest) {
       .eq('patient_id', patientId)
       .order('session_number', { ascending: true })
 
-    const sessionSummaries = (patterns ?? []).map(p => ({
+    // ── Expediente: siempre SELECT * (el prompt builder filtra por tier) ──────
+    const { data: expedienteRow } = await supabase
+      .from('patient_expediente')
+      .select('*')
+      .eq('therapist_id', user.id)
+      .eq('patient_id', patientId)
+      .maybeSingle()
+
+    const patientName = profile?.full_name ?? 'el consultante'
+
+    // ── Normalizar sesiones ───────────────────────────────────────────────────
+    const sessionSummaries = patterns.map(p => ({
       date: new Date(p.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' }),
       rawDate: p.created_at,
       summary: p.summary,
@@ -92,74 +115,97 @@ export async function POST(request: NextRequest) {
       notes:      s.notes              ?? '',
     }))
 
-    // Historia Clínica / Prediagnóstico del expediente
-    const { data: expedienteRow } = await supabase
-      .from('patient_expediente')
-      .select(`
-        individual_antecedentes, individual_sintomatologia,
-        individual_prediag_impresion, individual_prediag_diagnostico,
-        individual_prediag_areas, individual_prediag_tipo,
-        individual_prediag_detonadores, individual_prediag_guia
-      `)
-      .eq('therapist_id', user.id)
-      .eq('patient_id', patientId)
-      .maybeSingle()
+    // ── Lógica de decisión del Plan (solo para Clínico) ───────────────────────
+    type PlanDecision =
+      | { tipo: 'sin-prediag' }
+      | { tipo: 'prediag-mayor'; viasAccion: string }
+      | { tipo: 'prediag-menor'; viasAccion: string; sesionesPost: typeof inPersonSessions }
 
-    const patientName = profile?.full_name ?? 'el consultante'
+    let planDecision: PlanDecision = { tipo: 'sin-prediag' }
 
-    // ── RAG: recuperar solo los fragmentos clínicos relevantes para ESTE caso
-    // Query = nota inicial + últimas 3 sesiones AVI + última sesión presencial
+    if (tier === 'clinico' && expedienteRow) {
+      const exp = expedienteRow as Record<string, unknown>
+      const prediagFecha  = exp.prediag_fecha            as string | null
+      const viasAccion    = exp.individual_vias_accion   as string | null
+      const tienePrediag  = !!(prediagFecha && viasAccion?.trim())
+
+      if (tienePrediag) {
+        const prediagDate  = new Date(prediagFecha! + 'T00:00:00')
+        const lastPresencial = inPersonSessions.length > 0
+          ? inPersonSessions[inPersonSessions.length - 1]
+          : null
+
+        if (!lastPresencial || prediagDate >= new Date(lastPresencial.rawDate)) {
+          // Prediagnóstico es igual o más reciente que la última sesión presencial
+          planDecision = { tipo: 'prediag-mayor', viasAccion: viasAccion! }
+        } else {
+          // Hay sesiones presenciales con fecha posterior al prediagnóstico
+          const sesionesPost = inPersonSessions.filter(
+            s => new Date(s.rawDate) > prediagDate
+          )
+          planDecision = { tipo: 'prediag-menor', viasAccion: viasAccion!, sesionesPost }
+        }
+      }
+    }
+
+    // ── RAG ConsultoriaFuentes ────────────────────────────────────────────────
     const lastInPerson = inPersonSessions.length > 0
       ? inPersonSessions[inPersonSessions.length - 1]
       : undefined
 
     const ragQuery = buildRagQuery({
       initialNote: relation.initial_note ?? '',
-      recentPatterns: (patterns ?? []).map(p => ({
-        summary: p.summary ?? '',
-        emotionalPatterns: p.emotional_patterns ?? [],
+      recentPatterns: patterns.map(p => ({
+        summary:             p.summary ?? '',
+        emotionalPatterns:   p.emotional_patterns ?? [],
         predominantEmotions: p.predominant_emotions ?? [],
       })),
-      lastInPersonSession: lastInPerson
-        ? {
-            notes: [lastInPerson.objetivo, lastInPerson.desarrollo, lastInPerson.notes].filter(Boolean).join(' '),
-            sessionNumber: lastInPerson.sessionNumber,
-          }
-        : undefined,
+      lastInPersonSession: lastInPerson ? {
+        notes: [lastInPerson.objetivo, lastInPerson.desarrollo, lastInPerson.notes].filter(Boolean).join(' '),
+        sessionNumber: lastInPerson.sessionNumber,
+      } : undefined,
     })
 
     console.log('[analysis] Recuperando chunks relevantes con RAG...')
     const fuentes = await retrieveRelevantChunks(ragQuery)
     console.log('[analysis] Fuentes RAG:', fuentes ? `${fuentes.length} chars` : 'sin resultados')
+    console.log('[analysis] Tier:', tier, '| Plan decision:', planDecision.tipo)
 
+    // ── Construir prompt ──────────────────────────────────────────────────────
     const prompt = buildConsultamePrompt({
+      tier,
+      planDecision,
       patientName,
-      initialNote: relation.initial_note ?? '',
-      initialNoteMotivo: relation.initial_note_motivo ?? '',
-      initialNoteSubyacente: relation.initial_note_subyacente ?? '',
-      initialNotePremisas: relation.initial_note_premisas ?? '',
+      initialNote:            relation.initial_note           ?? '',
+      initialNoteMotivo:      relation.initial_note_motivo    ?? '',
+      initialNoteSubyacente:  relation.initial_note_subyacente ?? '',
+      initialNotePremisas:    relation.initial_note_premisas  ?? '',
       sessionSummaries,
       inPersonSessions,
       fuentes,
+      // Expediente básico (siempre, para compatibilidad)
       expediente: expedienteRow ? {
-        antecedentes:        expedienteRow.individual_antecedentes       ?? '',
-        sintomatologia:      expedienteRow.individual_sintomatologia      ?? '',
-        prediag_impresion:   expedienteRow.individual_prediag_impresion   ?? '',
-        prediag_diagnostico: expedienteRow.individual_prediag_diagnostico ?? '',
-        prediag_areas:       expedienteRow.individual_prediag_areas       ?? '',
-        prediag_tipo:        expedienteRow.individual_prediag_tipo        ?? '',
-        prediag_detonadores: expedienteRow.individual_prediag_detonadores ?? '',
-        prediag_guia:        expedienteRow.individual_prediag_guia        ?? '',
+        antecedentes:        (expedienteRow as Record<string, string>).individual_antecedentes       ?? '',
+        sintomatologia:      (expedienteRow as Record<string, string>).individual_sintomatologia      ?? '',
+        prediag_impresion:   (expedienteRow as Record<string, string>).individual_prediag_impresion   ?? '',
+        prediag_diagnostico: (expedienteRow as Record<string, string>).individual_prediag_diagnostico ?? '',
+        prediag_areas:       (expedienteRow as Record<string, string>).individual_prediag_areas       ?? '',
+        prediag_tipo:        (expedienteRow as Record<string, string>).individual_prediag_tipo        ?? '',
+        prediag_detonadores: (expedienteRow as Record<string, string>).individual_prediag_detonadores ?? '',
+        prediag_guia:        (expedienteRow as Record<string, string>).individual_prediag_guia        ?? '',
       } : undefined,
+      // Expediente completo (solo para plan Clínico)
+      expedienteClinico: tier === 'clinico' && expedienteRow
+        ? (expedienteRow as Record<string, unknown>)
+        : undefined,
     })
 
-    // Streaming SSE
+    // ── Streaming SSE ─────────────────────────────────────────────────────────
     const encoder = new TextEncoder()
 
     const stream = new ReadableStream({
       async start(controller) {
         let fullContent = ''
-
         try {
           console.log('[analysis] Iniciando stream con Anthropic...')
           console.log('[analysis] Longitud del prompt:', prompt.length, 'chars')
@@ -171,17 +217,14 @@ export async function POST(request: NextRequest) {
           })
 
           for await (const chunk of response) {
-            if (
-              chunk.type === 'content_block_delta' &&
-              chunk.delta.type === 'text_delta'
-            ) {
+            if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
               const text = chunk.delta.text
               fullContent += text
               controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`))
             }
           }
 
-          console.log('[analysis] Stream completado. Tokens generados:', fullContent.length)
+          console.log('[analysis] Stream completado. Chars generados:', fullContent.length)
 
           if (fullContent) {
             await supabase.from('analyses').insert({
@@ -199,9 +242,7 @@ export async function POST(request: NextRequest) {
         } catch (error) {
           console.error('[analysis] Error en stream:', error)
           const msg = error instanceof Error ? error.message : 'Error generando análisis'
-          controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify({ error: msg })}\n\n`)
-          )
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: msg })}\n\n`))
         } finally {
           controller.close()
         }
@@ -221,7 +262,8 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Guardar o actualizar nota inicial del terapeuta
+// ── PATCH: guardar nota inicial del terapeuta ─────────────────────────────────
+
 export async function PATCH(request: NextRequest) {
   try {
     const supabase = await createClient()
@@ -238,12 +280,12 @@ export async function PATCH(request: NextRequest) {
       initial_note: initialNote,
       initial_note_updated_at: new Date().toISOString(),
     }
-    if (initialNoteDate !== undefined) updateData.initial_note_date = initialNoteDate
-    if (initialNoteProBono !== undefined) updateData.initial_note_pro_bono = initialNoteProBono
-    if (initialNoteVirtual !== undefined) updateData.initial_note_virtual = initialNoteVirtual
-    if (initialNoteMotivo !== undefined) updateData.initial_note_motivo = initialNoteMotivo
+    if (initialNoteDate      !== undefined) updateData.initial_note_date       = initialNoteDate
+    if (initialNoteProBono   !== undefined) updateData.initial_note_pro_bono   = initialNoteProBono
+    if (initialNoteVirtual   !== undefined) updateData.initial_note_virtual     = initialNoteVirtual
+    if (initialNoteMotivo    !== undefined) updateData.initial_note_motivo      = initialNoteMotivo
     if (initialNoteSubyacente !== undefined) updateData.initial_note_subyacente = initialNoteSubyacente
-    if (initialNotePremisas !== undefined) updateData.initial_note_premisas = initialNotePremisas
+    if (initialNotePremisas  !== undefined) updateData.initial_note_premisas    = initialNotePremisas
 
     const { data: updated, error } = await supabase
       .from('therapist_patients')
@@ -257,7 +299,6 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Error al guardar nota: ' + error.message }, { status: 500 })
     }
     if (!updated || updated.length === 0) {
-      // RLS bloqueó el update o la relación no existe
       console.error('[analysis PATCH] 0 filas actualizadas — falta política RLS de UPDATE en therapist_patients')
       return NextResponse.json({ error: 'No se pudo guardar la nota. Falta política RLS de UPDATE en therapist_patients.' }, { status: 403 })
     }
