@@ -416,8 +416,16 @@ export default function PrediagnosticoTab({ patientId, therapistId }: Props) {
       {/* ── Apartado 1: Prediagnóstico ── */}
       <SectionCard num="1" title="Prediagnóstico">
         <p className="text-xs text-gray-400 mb-4">
-          Análisis AVI — basado en la Nota Inicial y en la información de los apartados anteriores.
-          Puedes editar cada inciso directamente.
+          {(() => {
+            const nums = ([sesiones.s1 ? 1 : null, sesiones.s2 ? 2 : null, sesiones.s3 ? 3 : null] as (number | null)[])
+              .filter((n): n is number => n !== null)
+            const fmt = nums.length === 0
+              ? ''
+              : nums.length === 1
+                ? ` y en la Sesión presencial ${nums[0]}`
+                : ` y en las Sesiones presenciales ${nums.slice(0, -1).join(', ')} y ${nums[nums.length - 1]}`
+            return `Análisis AVI — basado en la Nota Inicial${fmt}. Puedes editar cada inciso directamente.`
+          })()}
         </p>
         <div className="mb-5">
           {preLocked ? (
