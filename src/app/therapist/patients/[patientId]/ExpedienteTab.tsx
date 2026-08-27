@@ -6,6 +6,7 @@ import IndividualTab from './IndividualTab'
 import ImpresionesTab from './ImpresionesTab'
 import FamiliarTab from './FamiliarTab'
 import PrediagnosticoTab from './PrediagnosticoTab'
+import AnalisisClanicosTab from './AnalisisClanicosTab'
 
 // ──────────────────────────────────────────────
 // Types
@@ -175,7 +176,7 @@ export default function ExpedienteTab({ patientId, therapistId, patientEmail, pa
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saveOk, setSaveOk] = useState(false)
-  const [subTab, setSubTab] = useState<'datos-generales' | 'individual' | 'familiar' | 'pareja' | 'prediagnostico' | 'impresiones'>('datos-generales')
+  const [subTab, setSubTab] = useState<'datos-generales' | 'individual' | 'familiar' | 'pareja' | 'prediagnostico' | 'analisis-clinicos' | 'impresiones'>('datos-generales')
 
   // Cargar expediente al montar
   useEffect(() => {
@@ -325,8 +326,9 @@ export default function ExpedienteTab({ patientId, therapistId, patientEmail, pa
     { id: 'individual',      label: 'Individual',      ready: !tabBloqueado('individual') },
     { id: 'familiar',        label: 'Familiar',        ready: !tabBloqueado('familiar') },
     { id: 'pareja',          label: 'Pareja',          ready: !tabBloqueado('pareja') },
-    { id: 'prediagnostico',  label: 'Prediagnóstico',  ready: true },
-    { id: 'impresiones',     label: 'Impresiones',     ready: true },
+    { id: 'prediagnostico',   label: 'Prediagnóstico',   ready: true },
+    { id: 'analisis-clinicos', label: 'Análisis Clínicos', ready: true },
+    { id: 'impresiones',      label: 'Impresiones',      ready: true },
   ]
 
   if (loading) {
@@ -346,7 +348,7 @@ export default function ExpedienteTab({ patientId, therapistId, patientEmail, pa
           <button
             key={tab.id}
             disabled={!tab.ready}
-            onClick={() => tab.ready && setSubTab(tab.id as 'datos-generales' | 'individual' | 'familiar' | 'pareja' | 'prediagnostico' | 'impresiones')}
+            onClick={() => tab.ready && setSubTab(tab.id as 'datos-generales' | 'individual' | 'familiar' | 'pareja' | 'prediagnostico' | 'analisis-clinicos' | 'impresiones')}
             className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap
               ${subTab === tab.id && tab.ready
                 ? 'bg-primary-600 text-white'
@@ -714,6 +716,14 @@ export default function ExpedienteTab({ patientId, therapistId, patientEmail, pa
       {/* ── Prediagnóstico ── */}
       {subTab === 'prediagnostico' && (
         <PrediagnosticoTab
+          patientId={patientId}
+          therapistId={therapistId}
+        />
+      )}
+
+      {/* ── Análisis Clínicos ── */}
+      {subTab === 'analisis-clinicos' && (
+        <AnalisisClanicosTab
           patientId={patientId}
           therapistId={therapistId}
         />
