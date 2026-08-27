@@ -6,6 +6,7 @@ import {
   imprimirHistoriaClinicaV2,
   imprimirNotaInicial,
   imprimirBitacoraSesiones,
+  imprimirReporteValorativo,
   type HistoriaClinicaV2,
   type NotaInicialPrint,
   type SessionPresencialPrint,
@@ -255,6 +256,13 @@ export default function ImpresionesTab({ patientId, therapistId, patientName }: 
     finally { setPrinting(null) }
   }
 
+  // ── Reporte Valorativo ───────────────────────────────────
+  async function printReporteValorativo() {
+    setPrinting('valorativo')
+    try { await imprimirReporteValorativo(patientId, therapistId, patientName) }
+    finally { setPrinting(null) }
+  }
+
   const hasNota     = !!(notaInicial?.initial_note?.trim())
   const hasSesiones = sesiones.length > 0
   const anyBusy     = printing !== null || generatingOrig || generatingAct || confirmingOrig
@@ -263,6 +271,20 @@ export default function ImpresionesTab({ patientId, therapistId, patientName }: 
 
   return (
     <div className="space-y-5">
+
+      {/* ══ REPORTE VALORATIVO ══════════════════════════════ */}
+      <PrintCard
+        title="Reporte Valorativo"
+        description="Incluye Datos Generales, Prediagnóstico, Motivo de Consulta y los Análisis Clínicos activos (Genograma, McMaster, FODA)."
+      >
+        <Btn
+          onClick={printReporteValorativo}
+          disabled={anyBusy}
+          loading={printing === 'valorativo'}
+          label="🖨 Reporte Valorativo"
+          variant="amber"
+        />
+      </PrintCard>
 
       {/* ══ HISTORIA CLÍNICA ORIGINAL ══════════════════════ */}
       <div className="bg-white rounded-2xl border border-gray-100 p-6">

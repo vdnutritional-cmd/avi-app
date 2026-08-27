@@ -795,6 +795,404 @@ export async function imprimirBitacoraSesiones(
 }
 
 // ──────────────────────────────────────────────────────────
+// Reporte Valorativo
+// ──────────────────────────────────────────────────────────
+
+export async function imprimirReporteValorativo(
+  patientId:   string,
+  therapistId: string,
+  patientName: string | null,
+) {
+  const supabase = createClient()
+
+  const [expedienteRes, notaRes, terapeutaRes, patientRes] = await Promise.all([
+    supabase.from('patient_expediente')
+      .select(`
+        tipo_caso, asesorado_nombre, asesorado_sexo, asesorado_edad,
+        asesorado_fecha_nacimiento, asesorado_lugar_nacimiento, asesorado_estado_civil,
+        asesorado_escolaridad, asesorado_ocupacion, asesorado_religion, asesorado_parroquia,
+        contacto_telefono, contacto_domicilio,
+        pareja_nombre, pareja_sexo, pareja_edad, pareja_fecha_nacimiento,
+        hijos,
+        salud_padece_enfermedad, salud_ayuda_psicologica, salud_ayuda_tiempo,
+        salud_medicamentos, salud_medicamentos_cual,
+        prediag_fecha,
+        individual_prediag_impresion, individual_prediag_diagnostico,
+        individual_prediag_areas, individual_prediag_tipo,
+        individual_prediag_detonadores, individual_prediag_guia,
+        ac_apartados_visibles,
+        ac_genograma_url, ac_genograma_interpretacion,
+        ac_mcmaster_archivo1_url, ac_mcmaster_archivo2_url,
+        ac_mcmaster_valores, ac_mcmaster_interpretacion,
+        ac_foda_url, ac_foda_interpretacion
+      `)
+      .eq('therapist_id', therapistId).eq('patient_id', patientId).maybeSingle(),
+    supabase.from('therapist_patients')
+      .select('initial_note_motivo, initial_note_subyacente')
+      .eq('therapist_id', therapistId).eq('patient_id', patientId).single(),
+    supabase.from('profiles').select('full_name').eq('id', therapistId).single(),
+    supabase.from('profiles').select('email').eq('id', patientId).single(),
+  ])
+
+  const dg              = expedienteRes.data as Record<string, unknown> | null
+  const nota            = notaRes.data
+  const terapeutaNombre = terapeutaRes.data?.full_name ?? '—'
+  const patientEmail    = patientRes.data?.email ?? ''
+  const fechaHoy        = new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })
+
+  // ── Helpers ──────────────────────────────────────────────────
+  function f(label: string, val: unknown, fallback = '—') {
+    return `<div class="dg-field"><span class="label">${label}:</span> <span class="value">${val || fallback}</span></div>`
+  }
+
+  function fmtFecha(iso: string | null | undefined) {
+    if (!iso) return '—'
+    return new Date(String(iso) + 'T00:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })
+  }
+
+  function textBlock(content: string | null | undefined) {
+    return content?.trim()
+      ? `<div class="text-block">${content.trim().replace(/\n/g, '<br>')}</div>`
+      : '<p class="empty">Sin registrar</p>'
+  }
+
+  // ── Hijos ────────────────────────────────────────────────────
+  type HijoRow = { nombre: string; edad: string; ocupacion: string; vive_en_casa: string }
+  const hijos: HijoRow[] = (dg?.hijos as HijoRow[]) ?? []
+  const hijosConDatos = hijos.filter(h => h.nombre || h.edad || h.ocupacion || h.vive_en_casa)
+  const hijosHTML = hijosConDatos.length > 0
+    ? `<table class="table-data">
+        <thead><tr><th>#</th><th>Nombre</th><th>Edad</th><th>Ocupación</th><th>¿Vive en casa?</th></tr></thead>
+        <tbody>${hijosConDatos.map((h, i) =>
+          `<tr><td>${i + 1}</td><td>${h.nombre || '—'}</td><td>${h.edad || '—'}</td><td>${h.ocupacion || '—'}</td><td>${h.vive_en_casa || '—'}</td></tr>`
+        ).join('')}</tbody>
+      </table>`
+    : ''
+
+  // ── McMaster ─────────────────────────────────────────────────
+  const FACTORES_RV = [
+    { id: 1, label: 'Involucramiento afectivo funcional',    vmin: 17, vmax: 85, invertido: false },
+    { id: 2, label: 'Involucramiento afectivo disfuncional', vmin: 11, vmax: 55, invertido: true  },
+    { id: 3, label: 'Patrones de comunicación disfuncional', vmin:  4, vmax: 20, invertido: true  },
+    { id: 4, label: 'Patrones de comunicación funcional',    vmin:  3, vmax: 15, invertido: false },
+    { id: 5, label: 'Resolución de problemas',               vmin:  3, vmax: 15, invertido: false },
+    { id: 6, label: 'Patrones de control de conducta',       vmin:  2, vmax: 10, invertido: false },
+  ]
+  const rd1 = (n: number) => Math.round(n * 10) / 10
+  function calcFactor(vdStr: string, vmin: number, vmax: number, invertido: boolean) {
+    const vd = parseFloat(vdStr)
+    if (isNaN(vd) || vd < vmin || vd > vmax) return null
+    const base     = rd1((vd - vmin) / (vmax - vmin) * 100)
+    const clamped  = Math.max(0, Math.min(100, base))
+    const funcional = invertido ? rd1(100 - clamped) : clamped
+    return { funcional, disfuncional: rd1(100 - funcional) }
+  }
+
+  const valores  = (dg?.ac_mcmaster_valores as Record<string, string> | null) ?? {}
+  const mcRows   = FACTORES_RV.map(fac => ({
+    ...fac,
+    vd:  valores[String(fac.id)] ?? '',
+    res: valores[String(fac.id)] ? calcFactor(valores[String(fac.id)], fac.vmin, fac.vmax, fac.invertido) : null,
+  }))
+  const withRes  = mcRows.filter(r => r.res !== null)
+  const rfAvg    = withRes.length > 0 ? rd1(withRes.reduce((s, r) => s + r.res!.funcional,    0) / withRes.length) : null
+  const rdAvg    = withRes.length > 0 ? rd1(withRes.reduce((s, r) => s + r.res!.disfuncional, 0) / withRes.length) : null
+  const effVal   = rfAvg !== null && rdAvg !== null ? rd1((rfAvg + rdAvg) / 2) : null
+  const funcional = effVal !== null && effVal >= 60
+
+  const mcTableHTML = withRes.length > 0
+    ? `<table class="mc-table">
+        <thead>
+          <tr>
+            <th>Factor</th>
+            <th>VD</th>
+            <th class="num-col">Funcional %</th>
+            <th class="num-col">Disfuncional %</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${mcRows.map(r => r.res ? `
+          <tr>
+            <td>Factor ${r.id}. ${r.label}</td>
+            <td class="num-col">${r.vd}</td>
+            <td class="num-col">${r.res.funcional}%</td>
+            <td class="num-col">${r.res.disfuncional}%</td>
+          </tr>` : '').join('')}
+        </tbody>
+        <tfoot>
+          <tr class="result-row">
+            <td colspan="2"><strong>RF (promedio Funcional)</strong></td>
+            <td class="num-col"><strong>${rfAvg}%</strong></td>
+            <td class="num-col">—</td>
+          </tr>
+          <tr class="result-row">
+            <td colspan="2"><strong>RD (promedio Disfuncional)</strong></td>
+            <td class="num-col">—</td>
+            <td class="num-col"><strong>${rdAvg}%</strong></td>
+          </tr>
+          <tr class="result-row eff-row">
+            <td colspan="2"><strong>EFF (Eficiencia Familiar)</strong></td>
+            <td colspan="2" class="num-col">
+              <strong>${effVal}%</strong>
+              <span class="eff-badge ${funcional ? 'eff-func' : 'eff-disfunc'}">
+                ${funcional ? 'Funcional' : 'Disfuncional'}
+              </span>
+            </td>
+          </tr>
+        </tfoot>
+      </table>`
+    : '<p class="empty">Sin datos McMaster registrados</p>'
+
+  // ── Apartados activos ────────────────────────────────────────
+  const visibles: string[] = (dg?.ac_apartados_visibles as string[] | null) ?? ['genograma', 'mcmaster', 'foda']
+
+  function apartadoImg(url: string | null | undefined, alt: string) {
+    if (!url) return ''
+    const isPdf = url.toLowerCase().includes('.pdf') || url.includes('application/pdf')
+    if (isPdf) {
+      return `<iframe src="${url}" style="width:100%;height:500pt;border:0.5pt solid #c8d0e8;border-radius:4pt;margin:8pt 0;" title="${alt}"></iframe>`
+    }
+    return `<img src="${url}" alt="${alt}" style="max-width:100%;height:auto;border:0.5pt solid #c8d0e8;border-radius:4pt;margin:8pt 0;display:block;" />`
+  }
+
+  const analisisHTML = visibles.map((id, idx) => {
+    const num = idx + 1
+    if (id === 'genograma') {
+      return `
+      <div class="apartado-block">
+        <div class="apartado-title">${num}. Genograma</div>
+        ${apartadoImg(dg?.ac_genograma_url as string, 'Genograma')}
+        ${(dg?.ac_genograma_interpretacion as string)?.trim() ? `
+        <div class="interp-label">Interpretación clínica:</div>
+        ${textBlock(dg?.ac_genograma_interpretacion as string)}` : ''}
+      </div>`
+    }
+    if (id === 'mcmaster') {
+      return `
+      <div class="apartado-block">
+        <div class="apartado-title">${num}. Análisis McMaster</div>
+        ${mcTableHTML}
+        ${apartadoImg(dg?.ac_mcmaster_archivo1_url as string, 'McMaster Archivo 1')}
+        ${apartadoImg(dg?.ac_mcmaster_archivo2_url as string, 'McMaster Archivo 2')}
+        ${(dg?.ac_mcmaster_interpretacion as string)?.trim() ? `
+        <div class="interp-label">Interpretación clínica:</div>
+        ${textBlock(dg?.ac_mcmaster_interpretacion as string)}` : ''}
+      </div>`
+    }
+    if (id === 'foda') {
+      return `
+      <div class="apartado-block">
+        <div class="apartado-title">${num}. Análisis FODA</div>
+        ${apartadoImg(dg?.ac_foda_url as string, 'FODA')}
+        ${(dg?.ac_foda_interpretacion as string)?.trim() ? `
+        <div class="interp-label">Interpretación clínica:</div>
+        ${textBlock(dg?.ac_foda_interpretacion as string)}` : ''}
+      </div>`
+    }
+    return ''
+  }).join('')
+
+  // ── Prediagnóstico ───────────────────────────────────────────
+  const prediagFecha = dg?.prediag_fecha
+    ? fmtFecha(dg.prediag_fecha as string)
+    : ''
+
+  const prediagItems = [
+    { label: 'Impresión del sujeto de evaluación',                  val: dg?.individual_prediag_impresion   },
+    { label: 'Diagnóstico presuntivo',                               val: dg?.individual_prediag_diagnostico },
+    { label: 'Áreas de conflicto (áreas afectadas)',                val: dg?.individual_prediag_areas       },
+    { label: 'Tipo de problema',                                     val: dg?.individual_prediag_tipo        },
+    { label: 'Detonadores',                                         val: dg?.individual_prediag_detonadores },
+    { label: 'Guía de acción o trabajo',                            val: dg?.individual_prediag_guia        },
+  ]
+
+  const prediagHTML = prediagItems.map(item => `
+    <div class="prediag-item">
+      <span class="prediag-label">${item.label}:</span>
+      ${item.val
+        ? `<div class="prediag-text">${String(item.val)}</div>`
+        : '<div class="prediag-empty">—</div>'
+      }
+    </div>`).join('')
+
+  // ── HTML final ───────────────────────────────────────────────
+  const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Reporte Valorativo — ${patientName ?? 'Paciente'}</title>
+  <style>
+    ${sharedCSS()}
+
+    .dg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3pt 14pt; margin-bottom: 6pt; }
+    .dg-field { font-size: 10pt; margin-bottom: 2pt; }
+    .label { font-weight: bold; color: #333; }
+    .value { color: #1a1a1a; }
+    .subsection-title {
+      font-size: 9.5pt; font-weight: bold; color: #444;
+      text-decoration: underline; text-underline-offset: 2pt; margin: 7pt 0 4pt;
+    }
+    .table-data { width: 100%; border-collapse: collapse; font-size: 9.5pt; margin-top: 4pt; }
+    .table-data th { background: #eef1f8; font-weight: bold; padding: 4pt 6pt; text-align: left; border: 0.5pt solid #c5cfe0; font-size: 9pt; }
+    .table-data td { padding: 3pt 6pt; border: 0.5pt solid #dde3ee; }
+    .text-block { font-size: 10pt; line-height: 1.65; color: #1a1a1a; white-space: pre-wrap; }
+    .prediag-item { margin-bottom: 8pt; }
+    .prediag-label { font-weight: bold; font-size: 10pt; color: #2d3a8c; display: block; margin-bottom: 2pt; }
+    .prediag-text  { font-size: 10pt; color: #1a1a1a; padding-left: 8pt; font-style: italic; }
+    .prediag-empty { font-size: 9.5pt; color: #999; padding-left: 8pt; font-style: italic; }
+    .apartado-block { margin-bottom: 20pt; page-break-inside: avoid; }
+    .apartado-title { font-size: 11pt; font-weight: bold; color: #2d3a8c; margin-bottom: 8pt; border-bottom: 0.5pt solid #b0bbd4; padding-bottom: 4pt; }
+    .interp-label { font-size: 9pt; font-weight: bold; color: #555; text-transform: uppercase; letter-spacing: 0.3pt; margin-top: 8pt; margin-bottom: 3pt; }
+    .mc-table { width: 100%; border-collapse: collapse; font-size: 9.5pt; margin: 6pt 0 10pt; }
+    .mc-table th { background: #eef1f8; font-weight: bold; padding: 5pt 8pt; text-align: left; border: 0.5pt solid #c5cfe0; font-size: 9pt; }
+    .mc-table td { padding: 4pt 8pt; border: 0.5pt solid #dde3ee; }
+    .mc-table .num-col { text-align: center; }
+    .mc-table tfoot .result-row td { background: #f4f6fb; font-size: 9.5pt; }
+    .mc-table tfoot .eff-row td { background: #e8f0fe; }
+    .eff-badge { display: inline-block; margin-left: 8pt; padding: 1pt 8pt; border-radius: 20pt; font-size: 8.5pt; font-weight: bold; }
+    .eff-func    { background: #d1fae5; color: #065f46; }
+    .eff-disfunc { background: #fee2e2; color: #991b1b; }
+  </style>
+</head>
+<body>
+
+  <div class="no-print" style="text-align:right;padding:10pt 0 14pt;">
+    <button onclick="window.print()" style="padding:8pt 18pt;background:#2d3a8c;color:white;border:none;border-radius:8pt;font-size:10pt;cursor:pointer;">
+      🖨 Imprimir / Guardar PDF
+    </button>
+  </div>
+
+  <!-- Pre-header -->
+  <div class="pre-header">
+    <div class="pre-header-row">
+      <span><strong>Asesorado:</strong> ${patientName ?? '—'}</span>
+      <span><strong>Asesor/Terapeuta:</strong> ${terapeutaNombre}</span>
+    </div>
+    <div class="pre-header-row">
+      <span><strong>Tipo de caso:</strong> ${(dg?.tipo_caso as string) || '—'}</span>
+      <span><strong>Correo:</strong> ${patientEmail || '—'}</span>
+    </div>
+  </div>
+
+  <!-- Título -->
+  <div class="header">
+    <h1>Reporte Valorativo</h1>
+    <div class="subtitle">Consultoría Fuentes</div>
+  </div>
+
+  <!-- Meta -->
+  <div class="meta">
+    <div><strong>Consultante:</strong> ${patientName ?? '—'}</div>
+    <div><strong>Fecha de elaboración:</strong> ${fechaHoy}</div>
+  </div>
+
+  <!-- I. DATOS GENERALES -->
+  <div class="section">
+    <div class="section-title"><span class="num">I.</span> Datos Generales</div>
+
+    <div class="subsection-title">Datos del Asesorado</div>
+    <div class="dg-grid">
+      ${f('Nombre',             dg?.asesorado_nombre)}
+      ${f('Sexo',               dg?.asesorado_sexo)}
+      ${f('Edad',               dg?.asesorado_edad)}
+      ${f('Fecha de nacimiento', fmtFecha(dg?.asesorado_fecha_nacimiento as string))}
+      ${f('Lugar de nacimiento', dg?.asesorado_lugar_nacimiento)}
+      ${f('Estado civil',        dg?.asesorado_estado_civil)}
+      ${f('Escolaridad',         dg?.asesorado_escolaridad)}
+      ${f('Ocupación',           dg?.asesorado_ocupacion)}
+      ${f('Religión',            dg?.asesorado_religion)}
+      ${f('Parroquia',           dg?.asesorado_parroquia)}
+    </div>
+
+    <div class="subsection-title">Datos de Contacto</div>
+    <div class="dg-grid">
+      ${f('Teléfono',           dg?.contacto_telefono)}
+      ${f('Correo electrónico', patientEmail)}
+      ${f('Domicilio',          dg?.contacto_domicilio)}
+    </div>
+
+    ${dg?.pareja_nombre || dg?.pareja_edad ? `
+    <div class="subsection-title">Datos de la Pareja</div>
+    <div class="dg-grid">
+      ${f('Nombre',             dg?.pareja_nombre)}
+      ${f('Sexo',               dg?.pareja_sexo)}
+      ${f('Edad',               dg?.pareja_edad)}
+      ${f('Fecha de nacimiento', fmtFecha(dg?.pareja_fecha_nacimiento as string))}
+    </div>` : ''}
+
+    ${hijosConDatos.length > 0 ? `
+    <div class="subsection-title">Hijos</div>
+    ${hijosHTML}` : ''}
+
+    ${dg?.salud_padece_enfermedad || dg?.salud_medicamentos || dg?.salud_ayuda_psicologica ? `
+    <div class="subsection-title">Salud</div>
+    <div class="dg-grid">
+      ${f('¿Padece alguna enfermedad?',        dg?.salud_padece_enfermedad)}
+      ${f('¿Ha recibido ayuda psicológica?',   dg?.salud_ayuda_psicologica)}
+      ${dg?.salud_ayuda_psicologica === 'Sí'  ? f('¿Hace cuánto tiempo?', dg?.salud_ayuda_tiempo) : ''}
+      ${f('¿Toma medicamentos?',               dg?.salud_medicamentos)}
+      ${dg?.salud_medicamentos === 'Sí'       ? f('¿Cuál(es)?', dg?.salud_medicamentos_cual) : ''}
+    </div>` : ''}
+  </div>
+
+  <!-- II. PREDIAGNÓSTICO -->
+  <div class="section">
+    <div class="section-title">
+      <span class="num">II.</span> Prediagnóstico
+      ${prediagFecha ? `<span style="font-size:9pt;font-weight:normal;color:#555;margin-left:8pt;">(${prediagFecha})</span>` : ''}
+    </div>
+    ${prediagHTML}
+  </div>
+
+  <!-- III. MOTIVO DE CONSULTA -->
+  <div class="section">
+    <div class="section-title"><span class="num">III.</span> Motivo de Consulta</div>
+
+    <div class="subsection-title" style="margin-top:0;">Motivo de consulta del paciente</div>
+    ${textBlock(nota?.initial_note_motivo)}
+
+    <div class="subsection-title" style="margin-top:10pt;">Motivo de consulta subyacente</div>
+    ${textBlock(nota?.initial_note_subyacente)}
+  </div>
+
+  <!-- IV. ANÁLISIS CLÍNICOS -->
+  <div class="section-break-before">
+    <div class="section-title"><span class="num">IV.</span> Análisis Clínicos</div>
+    ${visibles.length === 0
+      ? '<p class="empty">No hay análisis activos en el índice de Análisis Clínicos.</p>'
+      : analisisHTML
+    }
+  </div>
+
+  <!-- FIRMAS -->
+  <div class="firma-section">
+    <div class="firma-item">
+      <div class="firma-label">Elabora</div>
+      <div class="firma-linea">
+        <div class="firma-name">${terapeutaNombre}</div>
+        <div style="font-size:8.5pt;color:#666;">Nombre y firma del Terapeuta</div>
+      </div>
+    </div>
+    <div class="firma-item">
+      <div class="firma-label">VoBo</div>
+      <div class="firma-linea">
+        <div class="firma-name">&nbsp;</div>
+        <div style="font-size:8.5pt;color:#666;">Nombre y firma</div>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>`
+
+  const win = window.open('', '_blank', 'width=900,height=700')
+  if (!win) { alert('Permite ventanas emergentes para imprimir.'); return }
+  win.document.write(html)
+  win.document.close()
+  win.focus()
+}
+
+// ──────────────────────────────────────────────────────────
 // Historia Clínica V2 — Modelo Personalista Bio-Psico-Social
 // ──────────────────────────────────────────────────────────
 
