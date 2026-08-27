@@ -477,6 +477,13 @@ function sharedCSS() {
       font-style: italic;
       margin-top: 2pt;
     }
+    .header .badge-original {
+      margin-top: 6pt;
+      font-size: 8.5pt;
+      color: #b243d5;
+      font-weight: bold;
+      letter-spacing: 0.3pt;
+    }
 
     /* ─── Meta ─── */
     .meta {
@@ -809,6 +816,7 @@ export async function imprimirHistoriaClinicaV2(
   therapistId: string,
   patientName: string | null,
   data: HistoriaClinicaV2,
+  isOriginal = false,
 ) {
   const supabase = createClient()
 
@@ -898,6 +906,7 @@ export async function imprimirHistoriaClinicaV2(
   <div class="header">
     <h1>Historia Clínica</h1>
     <div class="subtitle">Modelo Personalista Bio-Psico-Social</div>
+    ${isOriginal ? `<div class="badge-original">★ VERSIÓN ORIGINAL AVI — generada automáticamente</div>` : ''}
   </div>
 
   <div class="meta">

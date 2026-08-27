@@ -21,7 +21,7 @@ interface Props {
 }
 
 // ──────────────────────────────────────────────────────────
-// Secciones de la Historia Clínica V2
+// Secciones editables de la HC
 // ──────────────────────────────────────────────────────────
 const HC_SECTIONS: { key: keyof HistoriaClinicaV2; label: string; rows: number }[] = [
   { key: 'motivos_consulta',         label: 'I. Motivos de Consulta',                             rows: 5  },
@@ -37,44 +37,32 @@ const HC_SECTIONS: { key: keyof HistoriaClinicaV2; label: string; rows: number }
 ]
 
 // ──────────────────────────────────────────────────────────
-// Sub-componentes UI
+// UI atoms
 // ──────────────────────────────────────────────────────────
-function PrintCard({
-  title, description, children,
-}: {
-  title: string
-  description?: string
-  children: React.ReactNode
+function PrintCard({ title, description, children }: {
+  title: string; description?: string; children: React.ReactNode
 }) {
   return (
     <div className="bg-white rounded-2xl border border-gray-100 p-6">
       <div className="border-b border-gray-100 pb-3 mb-5">
         <h4 className="text-sm font-semibold text-gray-700">{title}</h4>
-        {description && (
-          <p className="text-xs text-gray-400 mt-1">{description}</p>
-        )}
+        {description && <p className="text-xs text-gray-400 mt-1">{description}</p>}
       </div>
-      <div className="flex flex-wrap gap-3">
-        {children}
-      </div>
+      <div className="flex flex-wrap gap-3">{children}</div>
     </div>
   )
 }
 
-function ActionButton({
-  onClick, disabled, loading, label, variant = 'default',
-}: {
-  onClick: () => void
-  disabled?: boolean
-  loading?: boolean
-  label: string
-  variant?: 'default' | 'purple' | 'blue' | 'green'
+function Btn({ onClick, disabled, loading, label, variant = 'default' }: {
+  onClick: () => void; disabled?: boolean; loading?: boolean; label: string
+  variant?: 'default' | 'blue' | 'green' | 'purple' | 'amber'
 }) {
   const styles: Record<string, string> = {
     default: 'border-gray-300 text-gray-700 hover:bg-gray-50',
-    purple:  'border-purple-200 text-purple-700 hover:bg-purple-50',
     blue:    'border-blue-300 text-blue-700 hover:bg-blue-50',
     green:   'border-emerald-300 text-emerald-700 hover:bg-emerald-50',
+    purple:  'border-purple-200 text-purple-700 hover:bg-purple-50',
+    amber:   'border-amber-300 text-amber-700 hover:bg-amber-50',
   }
   return (
     <button
@@ -83,9 +71,9 @@ function ActionButton({
       className={`flex items-center gap-2 px-5 py-3 border rounded-xl text-sm font-medium
                   transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${styles[variant]}`}
     >
-      {loading ? (
-        <><span className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />Generando…</>
-      ) : label}
+      {loading
+        ? <><span className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin"/>Generando…</>
+        : label}
     </button>
   )
 }
@@ -97,17 +85,22 @@ export default function ImpresionesTab({ patientId, therapistId, patientName }: 
   const [loadingData, setLoadingData] = useState(true)
   const [printing,    setPrinting]    = useState<string | null>(null)
 
-  // Historia Clínica V2
-  const [hcv2Data,     setHcv2Data]    = useState<HistoriaClinicaV2 | null>(null)
-  const [hcEdits,      setHcEdits]     = useState<Partial<HistoriaClinicaV2>>({})
-  const [generatingHC, setGeneratingHC] = useState(false)
-  const [hcError,      setHcError]     = useState<string | null>(null)
+  // HC Original (inmutable una vez confirmada)
+  const [hcOriginalSaved,   setHcOriginalSaved]   = useState<HistoriaClinicaV2 | null>(null)
+  const [hcOriginalPreview, setHcOriginalPreview] = useState<HistoriaClinicaV2 | null>(null)
+  const [generatingOrig,    setGeneratingOrig]    = useState(false)
+  const [confirmingOrig,    setConfirmingOrig]    = useState(false)
+  const [errorOrig,         setErrorOrig]         = useState<string | null>(null)
 
-  // Nota Inicial
+  // HC Actualizada (regenerable, editable)
+  const [hcActData,     setHcActData]    = useState<HistoriaClinicaV2 | null>(null)
+  const [hcActEdits,    setHcActEdits]   = useState<Partial<HistoriaClinicaV2>>({})
+  const [generatingAct, setGeneratingAct] = useState(false)
+  const [errorAct,      setErrorAct]     = useState<string | null>(null)
+
+  // Nota Inicial + Sesiones
   const [notaInicial, setNotaInicial] = useState<NotaInicialPrint | null>(null)
-
-  // Sesiones presenciales
-  const [sesiones, setSesiones] = useState<SessionPresencialPrint[]>([])
+  const [sesiones,    setSesiones]    = useState<SessionPresencialPrint[]>([])
 
   useEffect(() => { loadData() }, [patientId]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -115,23 +108,29 @@ export default function ImpresionesTab({ patientId, therapistId, patientName }: 
     setLoadingData(true)
     try {
       const supabase = createClient()
-
-      const [notaRes, sesionesRes] = await Promise.all([
+      const [expedienteRes, notaRes, sesionesRes] = await Promise.all([
+        supabase
+          .from('patient_expediente')
+          .select('hc_original, hc_actualizada')
+          .eq('therapist_id', therapistId).eq('patient_id', patientId).maybeSingle(),
         supabase
           .from('therapist_patients')
           .select('initial_note, initial_note_date, initial_note_motivo, initial_note_subyacente, initial_note_premisas, initial_note_pro_bono, initial_note_virtual')
-          .eq('therapist_id', therapistId)
-          .eq('patient_id', patientId)
-          .single(),
-
+          .eq('therapist_id', therapistId).eq('patient_id', patientId).single(),
         supabase
           .from('therapist_session_notes')
           .select('session_number, session_date, session_objetivo, session_desarrollo, notes, is_pro_bono, is_virtual')
-          .eq('therapist_id', therapistId)
-          .eq('patient_id', patientId)
+          .eq('therapist_id', therapistId).eq('patient_id', patientId)
           .order('session_number', { ascending: true }),
       ])
 
+      if (expedienteRes.data?.hc_original) {
+        setHcOriginalSaved(expedienteRes.data.hc_original as HistoriaClinicaV2)
+      }
+      if (expedienteRes.data?.hc_actualizada) {
+        setHcActData(expedienteRes.data.hc_actualizada as HistoriaClinicaV2)
+        setHcActEdits({})
+      }
       if (notaRes.data) {
         setNotaInicial({
           initial_note:            notaRes.data.initial_note            ?? '',
@@ -143,7 +142,6 @@ export default function ImpresionesTab({ patientId, therapistId, patientName }: 
           initial_note_virtual:    notaRes.data.initial_note_virtual    ?? false,
         })
       }
-
       setSesiones((sesionesRes.data ?? []).map(s => ({
         session_number:     s.session_number,
         session_date:       s.session_date,
@@ -158,51 +156,86 @@ export default function ImpresionesTab({ patientId, therapistId, patientName }: 
     }
   }
 
-  // ── Generar Historia Clínica V2 ──────────────────────────
-  async function generateHistoriaClinica() {
-    setGeneratingHC(true)
-    setHcError(null)
-    setHcv2Data(null)
-    setHcEdits({})
+  // ── Generar HC (POST — no guarda) ────────────────────────
+  async function generateHC(type: 'original' | 'actualizada') {
+    if (type === 'original') { setGeneratingOrig(true); setErrorOrig(null); setHcOriginalPreview(null) }
+    else                     { setGeneratingAct(true);  setErrorAct(null) }
+
     try {
-      const res = await fetch('/api/historia-clinica', {
+      const res  = await fetch('/api/historia-clinica', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ patientId }),
+        body: JSON.stringify({ patientId, type }),
       })
       const json = await res.json()
       if (!res.ok || json.error) {
-        setHcError(json.error ?? 'Error al generar la Historia Clínica.')
+        if (type === 'original') setErrorOrig(json.error ?? 'Error al generar')
+        else                     setErrorAct(json.error  ?? 'Error al generar')
         return
       }
-      setHcv2Data(json.sections as HistoriaClinicaV2)
+      if (type === 'original') {
+        setHcOriginalPreview(json.sections as HistoriaClinicaV2)
+      } else {
+        setHcActData(json.sections as HistoriaClinicaV2)
+        setHcActEdits({})
+      }
     } catch {
-      setHcError('Error de conexión. Intenta de nuevo.')
+      if (type === 'original') setErrorOrig('Error de conexión.')
+      else                     setErrorAct('Error de conexión.')
     } finally {
-      setGeneratingHC(false)
+      if (type === 'original') setGeneratingOrig(false)
+      else                     setGeneratingAct(false)
     }
   }
 
-  // ── Edición de secciones ─────────────────────────────────
-  function handleHcEdit(key: keyof HistoriaClinicaV2, value: string) {
-    setHcEdits(prev => ({ ...prev, [key]: value }))
+  // ── Confirmar HC Original (PATCH — guarda inmutable) ────
+  async function confirmarOriginal() {
+    if (!hcOriginalPreview) return
+    setConfirmingOrig(true)
+    try {
+      const res  = await fetch('/api/historia-clinica', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ patientId, type: 'original', sections: hcOriginalPreview }),
+      })
+      const json = await res.json()
+      if (!res.ok || json.error) { setErrorOrig(json.error ?? 'Error al guardar'); return }
+      setHcOriginalSaved(hcOriginalPreview)
+      setHcOriginalPreview(null)
+    } catch { setErrorOrig('Error de conexión.') }
+    finally  { setConfirmingOrig(false) }
   }
 
-  function mergedHC(): HistoriaClinicaV2 | null {
-    if (!hcv2Data) return null
-    return { ...hcv2Data, ...hcEdits }
-  }
-
-  // ── Impresión Historia Clínica V2 ─────────────────────────
-  async function printHistoriaClinicaV2() {
-    const data = mergedHC()
+  // ── Guardar + Imprimir HC Actualizada ────────────────────
+  async function imprimirActualizada() {
+    const data = mergedAct()
     if (!data) return
-    setPrinting('hcv2')
-    try { await imprimirHistoriaClinicaV2(patientId, therapistId, patientName, data) }
+    setPrinting('act')
+    try {
+      // Guardar en DB (sobrescribe)
+      await fetch('/api/historia-clinica', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ patientId, type: 'actualizada', sections: data }),
+      })
+      await imprimirHistoriaClinicaV2(patientId, therapistId, patientName, data, false)
+    } finally { setPrinting(null) }
+  }
+
+  function mergedAct(): HistoriaClinicaV2 | null {
+    if (!hcActData) return null
+    return { ...hcActData, ...hcActEdits }
+  }
+
+  // ── Imprimir HC Original ─────────────────────────────────
+  async function imprimirOriginal() {
+    if (!hcOriginalSaved) return
+    setPrinting('orig')
+    try { await imprimirHistoriaClinicaV2(patientId, therapistId, patientName, hcOriginalSaved, true) }
     finally { setPrinting(null) }
   }
 
-  // ── Impresión: Nota Inicial ───────────────────────────────
+  // ── Nota Inicial ─────────────────────────────────────────
   async function printNotaInicial() {
     if (!notaInicial) return
     setPrinting('nota')
@@ -210,9 +243,9 @@ export default function ImpresionesTab({ patientId, therapistId, patientName }: 
     finally { setPrinting(null) }
   }
 
-  // ── Impresión: Bitácora ───────────────────────────────────
+  // ── Bitácora ─────────────────────────────────────────────
   async function printBitacora() {
-    if (sesiones.length === 0) return
+    if (!sesiones.length) return
     setPrinting('bitacora')
     try { await imprimirBitacoraSesiones(therapistId, patientName, sesiones) }
     finally { setPrinting(null) }
@@ -220,63 +253,139 @@ export default function ImpresionesTab({ patientId, therapistId, patientName }: 
 
   const hasNota     = !!(notaInicial?.initial_note?.trim())
   const hasSesiones = sesiones.length > 0
+  const anyBusy     = printing !== null || generatingOrig || generatingAct || confirmingOrig
 
-  if (loadingData) {
-    return <div className="flex justify-center py-16 text-gray-400 text-sm">Cargando…</div>
-  }
+  if (loadingData) return <div className="flex justify-center py-16 text-gray-400 text-sm">Cargando…</div>
 
   return (
     <div className="space-y-5">
 
-      {/* ── Historia Clínica V2 ────────────────────────────── */}
+      {/* ══ HISTORIA CLÍNICA ORIGINAL ══════════════════════ */}
       <div className="bg-white rounded-2xl border border-gray-100 p-6">
         <div className="border-b border-gray-100 pb-3 mb-5">
-          <h4 className="text-sm font-semibold text-gray-700">Historia Clínica</h4>
+          <div className="flex items-center gap-2">
+            <h4 className="text-sm font-semibold text-gray-700">Historia Clínica Original</h4>
+            <span className="text-xs bg-purple-50 text-purple-600 border border-purple-100 px-2 py-0.5 rounded-full font-medium">
+              Inamovible
+            </span>
+          </div>
           <p className="text-xs text-gray-400 mt-1">
-            Modelo Personalista Bio-Psico-Social — 10 secciones clínicas generadas por IA.
+            Se genera una sola vez con el Prediagnóstico Original y las sesiones presenciales del prediagnóstico.
+            Una vez confirmada, no puede modificarse.
           </p>
         </div>
 
-        {/* Estado: sin generar */}
-        {!hcv2Data && !generatingHC && (
-          <div className="space-y-3">
-            <p className="text-xs text-gray-500">
-              Genera la Historia Clínica a partir de la Nota Inicial, el Expediente, las sesiones AVI y el Prediagnóstico.
-              Podrás revisar y editar cada sección antes de imprimir.
-            </p>
-            <ActionButton
-              onClick={generateHistoriaClinica}
-              label="✦ Generar Historia Clínica"
-              variant="blue"
+        {/* Estado A: ya guardada → solo imprimir */}
+        {hcOriginalSaved && (
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-purple-700 bg-purple-50 border border-purple-200 px-3 py-1.5 rounded-xl">
+              🔒 Historia Clínica Original registrada
+            </span>
+            <Btn
+              onClick={imprimirOriginal}
+              disabled={anyBusy}
+              loading={printing === 'orig'}
+              label="🖨 Imprimir Historia Clínica Original"
+              variant="purple"
             />
-            {hcError && (
-              <p className="text-xs text-red-500 mt-2">{hcError}</p>
+          </div>
+        )}
+
+        {/* Estado B: preview generado — revisar y confirmar */}
+        {!hcOriginalSaved && hcOriginalPreview && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl">
+              <span className="text-amber-600 text-xs font-medium">
+                Revisa el contenido antes de confirmar. Una vez guardada, la Historia Clínica Original no podrá modificarse.
+              </span>
+            </div>
+
+            {HC_SECTIONS.map(({ key, label, rows }) => (
+              <div key={key}>
+                <p className="text-xs font-semibold text-purple-700 uppercase tracking-wide mb-1">{label}</p>
+                <div
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-700
+                             bg-gray-50 leading-relaxed whitespace-pre-wrap"
+                  style={{ minHeight: `${rows * 1.5}rem` }}
+                >
+                  {hcOriginalPreview[key] || <span className="text-gray-400 italic">Sin contenido</span>}
+                </div>
+              </div>
+            ))}
+
+            <div className="flex flex-wrap gap-3 pt-3 border-t border-gray-100">
+              <Btn
+                onClick={confirmarOriginal}
+                disabled={anyBusy}
+                loading={confirmingOrig}
+                label="✓ Confirmar y guardar como Original"
+                variant="purple"
+              />
+              <Btn
+                onClick={() => setHcOriginalPreview(null)}
+                disabled={anyBusy}
+                label="✕ Cancelar"
+                variant="default"
+              />
+            </div>
+            {errorOrig && <p className="text-xs text-red-500">{errorOrig}</p>}
+          </div>
+        )}
+
+        {/* Estado C: sin generar */}
+        {!hcOriginalSaved && !hcOriginalPreview && (
+          <div className="space-y-3">
+            {generatingOrig ? (
+              <div className="flex items-center gap-3 py-4 text-sm text-gray-500">
+                <span className="w-5 h-5 border-2 border-purple-400 border-t-transparent rounded-full animate-spin"/>
+                Generando Historia Clínica Original…
+              </div>
+            ) : (
+              <>
+                <p className="text-xs text-gray-500">
+                  Requiere tener el Prediagnóstico Original guardado en el Expediente.
+                </p>
+                <Btn
+                  onClick={() => generateHC('original')}
+                  disabled={anyBusy}
+                  label="✦ Generar Historia Clínica Original"
+                  variant="purple"
+                />
+                {errorOrig && <p className="text-xs text-red-500">{errorOrig}</p>}
+              </>
             )}
           </div>
         )}
+      </div>
 
-        {/* Estado: generando */}
-        {generatingHC && (
-          <div className="flex items-center gap-3 py-6 text-sm text-gray-500">
-            <span className="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
-            Generando Historia Clínica… esto puede tardar un momento.
+      {/* ══ HISTORIA CLÍNICA ACTUALIZADA ═══════════════════ */}
+      <div className="bg-white rounded-2xl border border-gray-100 p-6">
+        <div className="border-b border-gray-100 pb-3 mb-5">
+          <h4 className="text-sm font-semibold text-gray-700">Historia Clínica Actualizada</h4>
+          <p className="text-xs text-gray-400 mt-1">
+            Usa el Prediagnóstico o Análisis Caso más reciente y todas las sesiones presenciales.
+            Puede regenerarse en cualquier momento — cada nueva versión reemplaza la anterior.
+          </p>
+        </div>
+
+        {generatingAct ? (
+          <div className="flex items-center gap-3 py-4 text-sm text-gray-500">
+            <span className="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"/>
+            Generando Historia Clínica Actualizada…
           </div>
-        )}
-
-        {/* Estado: generado — secciones editables */}
-        {hcv2Data && !generatingHC && (
+        ) : hcActData ? (
           <div className="space-y-5">
             {HC_SECTIONS.map(({ key, label, rows }) => {
-              const val = hcEdits[key] ?? hcv2Data[key] ?? ''
+              const val = hcActEdits[key] ?? hcActData[key] ?? ''
               return (
                 <div key={key}>
-                  <label className="block text-xs font-semibold text-blue-700 mb-1 uppercase tracking-wide">
+                  <label className="block text-xs font-semibold text-blue-700 uppercase tracking-wide mb-1">
                     {label}
                   </label>
                   <textarea
                     rows={rows}
                     value={val}
-                    onChange={e => handleHcEdit(key, e.target.value)}
+                    onChange={e => setHcActEdits(prev => ({ ...prev, [key]: e.target.value }))}
                     className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-800
                                focus:outline-none focus:ring-2 focus:ring-blue-300 resize-y leading-relaxed"
                   />
@@ -284,73 +393,69 @@ export default function ImpresionesTab({ patientId, therapistId, patientName }: 
               )
             })}
 
-            {/* Botones de acción */}
             <div className="flex flex-wrap gap-3 pt-3 border-t border-gray-100">
-              <ActionButton
-                onClick={printHistoriaClinicaV2}
-                disabled={printing !== null}
-                loading={printing === 'hcv2'}
-                label="🖨 Imprimir Historia Clínica"
+              <Btn
+                onClick={imprimirActualizada}
+                disabled={anyBusy}
+                loading={printing === 'act'}
+                label="🖨 Imprimir Historia Clínica Actualizada"
                 variant="green"
               />
-              <ActionButton
-                onClick={generateHistoriaClinica}
-                disabled={printing !== null || generatingHC}
+              <Btn
+                onClick={() => generateHC('actualizada')}
+                disabled={anyBusy}
                 label="↺ Regenerar"
                 variant="default"
               />
             </div>
-
-            {hcError && (
-              <p className="text-xs text-red-500">{hcError}</p>
-            )}
+            {errorAct && <p className="text-xs text-red-500">{errorAct}</p>}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-xs text-gray-500">
+              Genera la Historia Clínica actualizada a partir de toda la información disponible a la fecha.
+            </p>
+            <Btn
+              onClick={() => generateHC('actualizada')}
+              disabled={anyBusy}
+              label="✦ Generar Historia Clínica Actualizada"
+              variant="blue"
+            />
+            {errorAct && <p className="text-xs text-red-500">{errorAct}</p>}
           </div>
         )}
       </div>
 
-      {/* ── Entrevista Inicial ─────────────────────────────── */}
+      {/* ══ ENTREVISTA INICIAL ══════════════════════════════ */}
       <PrintCard
         title="Entrevista Inicial (Nota inicial)"
         description="Imprime los 4 apartados de la Nota Inicial del caso."
       >
-        <div className="w-full">
-          {hasNota ? (
-            <ActionButton
-              onClick={printNotaInicial}
-              disabled={printing !== null}
-              loading={printing === 'nota'}
-              label="🖨 Entrevista Inicial (Nota inicial)"
-            />
-          ) : (
-            <p className="text-xs text-gray-400 italic">
-              Aún no hay nota inicial registrada. Completa la pestaña &quot;Nota inicial&quot; para habilitar esta impresión.
-            </p>
-          )}
-        </div>
+        {hasNota ? (
+          <Btn onClick={printNotaInicial} disabled={anyBusy} loading={printing === 'nota'}
+               label="🖨 Entrevista Inicial (Nota inicial)" />
+        ) : (
+          <p className="text-xs text-gray-400 italic">
+            Aún no hay nota inicial registrada. Completa la pestaña &quot;Nota inicial&quot; para habilitar esta impresión.
+          </p>
+        )}
       </PrintCard>
 
-      {/* ── Bitácora de Sesiones ───────────────────────────── */}
+      {/* ══ BITÁCORA DE SESIONES ════════════════════════════ */}
       <PrintCard
         title="Bitácora de Asesoría (Sesiones presenciales)"
         description={hasSesiones
-          ? `Imprime las ${sesiones.length} sesiones presenciales registradas con sus 3 apartados.`
-          : 'No hay sesiones presenciales registradas aún.'
-        }
+          ? `Imprime las ${sesiones.length} sesiones presenciales registradas.`
+          : 'No hay sesiones presenciales registradas aún.'}
       >
-        <div className="w-full">
-          {hasSesiones ? (
-            <ActionButton
-              onClick={printBitacora}
-              disabled={printing !== null}
-              loading={printing === 'bitacora'}
-              label={`🖨 Bitácora de Asesoría (${sesiones.length} sesión${sesiones.length !== 1 ? 'es' : ''})`}
-            />
-          ) : (
-            <p className="text-xs text-gray-400 italic">
-              Registra al menos una sesión presencial para habilitar esta impresión.
-            </p>
-          )}
-        </div>
+        {hasSesiones ? (
+          <Btn onClick={printBitacora} disabled={anyBusy} loading={printing === 'bitacora'}
+               label={`🖨 Bitácora de Asesoría (${sesiones.length} sesión${sesiones.length !== 1 ? 'es' : ''})`} />
+        ) : (
+          <p className="text-xs text-gray-400 italic">
+            Registra al menos una sesión presencial para habilitar esta impresión.
+          </p>
+        )}
       </PrintCard>
 
     </div>

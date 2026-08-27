@@ -328,6 +328,13 @@ export default function PrediagnosticoTab({ patientId, therapistId }: Props) {
         guia:        data.prediag_guia,
       } : null
 
+      // Sesiones presenciales incluidas en este prediagnóstico (solo se guarda en el primero)
+      const sesionesIncluidas = [
+        sesiones.s1 ? 1 : null,
+        sesiones.s2 ? 2 : null,
+        sesiones.s3 ? 3 : null,
+      ].filter((n): n is number => n !== null)
+
       const { error } = await supabase.from('patient_expediente').upsert({
         therapist_id: therapistId,
         patient_id:   patientId,
@@ -339,7 +346,7 @@ export default function PrediagnosticoTab({ patientId, therapistId }: Props) {
         individual_prediag_detonadores: data.prediag_detonadores || null,
         individual_prediag_guia:        data.prediag_guia        || null,
         individual_vias_accion:         data.vias_accion         || null,
-        ...(origPrediag  ? { individual_prediag_original: origPrediag }     : {}),
+        ...(origPrediag  ? { individual_prediag_original: origPrediag, prediag_sesiones_incluidas: sesionesIncluidas } : {}),
         ...(esNuevasVias ? { individual_vias_original:    data.vias_accion } : {}),
         updated_at: new Date().toISOString(),
       }, { onConflict: 'therapist_id,patient_id' })
