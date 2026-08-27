@@ -644,7 +644,7 @@ export default function AnalisisClanicosTab({ patientId, therapistId }: Props) {
               >
                 {generandoMc ? (
                   <><span className="w-3 h-3 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />Generando…</>
-                ) : '✦ Generar con IA (RAG McMaster)'}
+                ) : '✦ Generar interpretación editable'}
               </button>
             </div>
             <InterpretacionArea

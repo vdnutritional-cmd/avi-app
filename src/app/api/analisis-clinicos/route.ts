@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
         '- Señala las áreas de fortaleza y las áreas de riesgo o disfuncionalidad.',
         '- Relaciona los resultados con el contexto del caso (nota inicial).',
         '- Proporciona 2-3 sugerencias de intervención concretas fundamentadas en el Modelo McMaster.',
-        '- Máximo 350 palabras. Lenguaje profesional, directo y clínico.',
+        '- Lenguaje profesional, directo y clínico. Extiéndete lo necesario para cubrir todos los factores.',
         '- Responde directamente con la interpretación, sin título ni encabezado.',
         '',
         ...(fuentes ? ['FUENTE CLÍNICA (Modelo McMaster de Familias):', fuentes, ''] : []),
@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
 
       const response = await anthropic.messages.create({
         model: 'claude-sonnet-5',
-        max_tokens: 900,
+        max_tokens: 2000,
         messages: [{ role: 'user', content: prompt }],
       })
 
