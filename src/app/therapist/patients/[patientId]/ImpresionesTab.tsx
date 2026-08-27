@@ -88,6 +88,7 @@ export default function ImpresionesTab({ patientId, therapistId, patientName }: 
   // HC Original (inmutable una vez confirmada)
   const [hcOriginalSaved,   setHcOriginalSaved]   = useState<HistoriaClinicaV2 | null>(null)
   const [hcOriginalPreview, setHcOriginalPreview] = useState<HistoriaClinicaV2 | null>(null)
+  const [hcOrigEdits,       setHcOrigEdits]       = useState<Partial<HistoriaClinicaV2>>({})
   const [generatingOrig,    setGeneratingOrig]    = useState(false)
   const [confirmingOrig,    setConfirmingOrig]    = useState(false)
   const [errorOrig,         setErrorOrig]         = useState<string | null>(null)
@@ -175,6 +176,7 @@ export default function ImpresionesTab({ patientId, therapistId, patientName }: 
       }
       if (type === 'original') {
         setHcOriginalPreview(json.sections as HistoriaClinicaV2)
+        setHcOrigEdits({})
       } else {
         setHcActData(json.sections as HistoriaClinicaV2)
         setHcActEdits({})
@@ -192,16 +194,18 @@ export default function ImpresionesTab({ patientId, therapistId, patientName }: 
   async function confirmarOriginal() {
     if (!hcOriginalPreview) return
     setConfirmingOrig(true)
+    const finalSections = { ...hcOriginalPreview, ...hcOrigEdits }
     try {
       const res  = await fetch('/api/historia-clinica', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ patientId, type: 'original', sections: hcOriginalPreview }),
+        body: JSON.stringify({ patientId, type: 'original', sections: finalSections }),
       })
       const json = await res.json()
       if (!res.ok || json.error) { setErrorOrig(json.error ?? 'Error al guardar'); return }
-      setHcOriginalSaved(hcOriginalPreview)
+      setHcOriginalSaved(finalSections as HistoriaClinicaV2)
       setHcOriginalPreview(null)
+      setHcOrigEdits({})
     } catch { setErrorOrig('Error de conexión.') }
     finally  { setConfirmingOrig(false) }
   }
@@ -294,24 +298,29 @@ export default function ImpresionesTab({ patientId, therapistId, patientName }: 
         {/* Estado B: preview generado — revisar y confirmar */}
         {!hcOriginalSaved && hcOriginalPreview && (
           <div className="space-y-4">
-            <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl">
-              <span className="text-amber-600 text-xs font-medium">
-                Revisa el contenido antes de confirmar. Una vez guardada, la Historia Clínica Original no podrá modificarse.
-              </span>
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl">
+              <p className="text-amber-700 text-xs font-medium">
+                Revisa y edita el contenido. Una vez que confirmes, la Historia Clínica Original quedará guardada de forma permanente y no podrá modificarse.
+              </p>
             </div>
 
-            {HC_SECTIONS.map(({ key, label, rows }) => (
-              <div key={key}>
-                <p className="text-xs font-semibold text-purple-700 uppercase tracking-wide mb-1">{label}</p>
-                <div
-                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-700
-                             bg-gray-50 leading-relaxed whitespace-pre-wrap"
-                  style={{ minHeight: `${rows * 1.5}rem` }}
-                >
-                  {hcOriginalPreview[key] || <span className="text-gray-400 italic">Sin contenido</span>}
+            {HC_SECTIONS.map(({ key, label, rows }) => {
+              const val = hcOrigEdits[key] ?? hcOriginalPreview[key] ?? ''
+              return (
+                <div key={key}>
+                  <label className="block text-xs font-semibold text-purple-700 uppercase tracking-wide mb-1">
+                    {label}
+                  </label>
+                  <textarea
+                    rows={rows}
+                    value={val}
+                    onChange={e => setHcOrigEdits(prev => ({ ...prev, [key]: e.target.value }))}
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-800
+                               focus:outline-none focus:ring-2 focus:ring-purple-300 resize-y leading-relaxed"
+                  />
                 </div>
-              </div>
-            ))}
+              )
+            })}
 
             <div className="flex flex-wrap gap-3 pt-3 border-t border-gray-100">
               <Btn
