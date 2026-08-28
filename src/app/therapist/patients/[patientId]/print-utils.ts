@@ -961,16 +961,29 @@ export async function imprimirReporteValorativo(
 
   function mcmasterDualImg(url1: string | null | undefined, url2: string | null | undefined) {
     if (!url1 && !url2) return ''
+
+    // Renderiza imagen/PDF llenando al 100% su contenedor de altura fija
+    function fillImg(url: string, alt: string) {
+      const isPdf = url.toLowerCase().includes('.pdf') || url.includes('application/pdf')
+      if (isPdf) {
+        return `<iframe src="${url}" style="width:100%;height:100%;border:0.5pt solid #c8d0e8;border-radius:4pt;" title="${alt}"></iframe>`
+      }
+      return `<img src="${url}" alt="${alt}" style="width:100%;height:100%;object-fit:contain;display:block;border:0.5pt solid #c8d0e8;border-radius:4pt;" />`
+    }
+
     if (url1 && url2) {
-      // Dos archivos: imagen 1 en la mitad superior, imagen 2 en la mitad inferior
-      // La hoja se divide con una raya horizontal: —  (NO vertical)
-      return `<div style="margin:10pt 0;">
-        <div style="margin-bottom:8pt;">${singleImg(url1, 'McMaster Archivo 1', '280pt')}</div>
-        <div>${singleImg(url2, 'McMaster Archivo 2', '280pt')}</div>
+      // Imagen 1 arriba, imagen 2 abajo — cada una en contenedor de altura fija (205pt ≈ mitad del 80% de la hoja disponible)
+      // page-break-inside:avoid mantiene ambas imágenes juntas en la misma hoja
+      return `<div style="page-break-inside:avoid;break-inside:avoid;margin:8pt 0;">
+        <div style="height:205pt;overflow:hidden;margin-bottom:6pt;">${fillImg(url1, 'McMaster Archivo 1')}</div>
+        <div style="height:205pt;overflow:hidden;">${fillImg(url2, 'McMaster Archivo 2')}</div>
       </div>`
     }
-    // Un solo archivo: ocupa el espacio restante de la hoja
-    return `<div style="margin:10pt 0;">${singleImg(url1 ?? url2 ?? '', 'McMaster Archivo', '480pt')}</div>`
+
+    // Un solo archivo: ocupa el espacio restante de la hoja con altura fija
+    return `<div style="margin:8pt 0;">
+      <div style="height:430pt;overflow:hidden;">${fillImg(url1 ?? url2 ?? '', 'McMaster Archivo')}</div>
+    </div>`
   }
 
   const analisisHTML = visibles.map((id, idx) => {
