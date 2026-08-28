@@ -66,7 +66,7 @@ export async function retrieveRelevantChunks(
 export async function retrieveChunksFromBooks(
   caseContext: string,
   books: string[],
-  matchCount = 24
+  matchCount = 12
 ): Promise<string> {
   const embeddingResponse = await openai.embeddings.create({
     model: 'text-embedding-3-small',
@@ -75,28 +75,25 @@ export async function retrieveChunksFromBooks(
   const queryEmbedding = embeddingResponse.data[0].embedding
 
   const supabase = getSupabaseAdmin()
+  // El filtro por libro se aplica en SQL (más eficiente que JS post-filter)
   const { data: chunks, error } = await supabase.rpc('match_document_chunks', {
     query_embedding: queryEmbedding,
     match_count: matchCount,
     min_similarity: 0.15,
+    filter_books: books,
   })
 
   if (error) {
     console.error('[RAG] Error en búsqueda semántica (filtrada):', error.message)
     return ''
   }
-  if (!chunks || chunks.length === 0) return ''
-
-  // Filtrar por los nombres de libro indicados (búsqueda parcial)
-  const filtered = (chunks as { doc_name: string; content: string }[]).filter(c =>
-    books.some(b => c.doc_name.includes(b))
-  )
-  if (filtered.length === 0) {
+  if (!chunks || chunks.length === 0) {
     console.warn('[RAG] Sin chunks en los libros solicitados:', books)
     return ''
   }
 
-  console.log(`[RAG] ${filtered.length} chunks filtrados de ${books.join(', ')}`)
+  const filtered = chunks as { doc_name: string; content: string }[]
+  console.log(`[RAG] ${filtered.length} chunks de ${books.join(', ')}`)
 
   const grouped = new Map<string, string[]>()
   for (const chunk of filtered) {
@@ -112,6 +109,7 @@ export async function retrieveChunksFromBooks(
 
   return sections.join('\n\n---\n\n')
 }
+
 
 export function buildRagQuery(params: {
   initialNote: string
