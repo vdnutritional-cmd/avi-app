@@ -962,12 +962,14 @@ export async function imprimirReporteValorativo(
   function mcmasterDualImg(url1: string | null | undefined, url2: string | null | undefined) {
     if (!url1 && !url2) return ''
     if (url1 && url2) {
-      return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10pt;margin:8pt 0;page-break-inside:avoid;">
-        <div>${singleImg(url1, 'McMaster Archivo 1', '240pt')}</div>
-        <div>${singleImg(url2, 'McMaster Archivo 2', '240pt')}</div>
+      // Dos archivos: lado a lado (horizontal), cada uno al 100% de su mitad
+      return `<div style="display:flex;flex-direction:row;gap:12pt;margin:10pt 0;">
+        <div style="flex:1;min-width:0;">${singleImg(url1, 'McMaster Archivo 1', '300pt')}</div>
+        <div style="flex:1;min-width:0;">${singleImg(url2, 'McMaster Archivo 2', '300pt')}</div>
       </div>`
     }
-    return apartadoImg(url1 ?? url2, 'McMaster')
+    // Un solo archivo: ocupa el espacio restante de la hoja
+    return `<div style="margin:10pt 0;">${singleImg(url1 ?? url2 ?? '', 'McMaster Archivo', '420pt')}</div>`
   }
 
   const analisisHTML = visibles.map((id, idx) => {
@@ -983,14 +985,20 @@ export async function imprimirReporteValorativo(
       </div>`
     }
     if (id === 'mcmaster') {
+      const url1mc = dg?.ac_mcmaster_archivo1_url as string | null | undefined
+      const url2mc = dg?.ac_mcmaster_archivo2_url as string | null | undefined
+      const hasImages = !!(url1mc || url2mc)
+      const interpMc = (dg?.ac_mcmaster_interpretacion as string)?.trim()
       return `
       <div class="apartado-block">
         <div class="apartado-title">${num}. Análisis McMaster</div>
         ${mcTableHTML}
-        ${mcmasterDualImg(dg?.ac_mcmaster_archivo1_url as string, dg?.ac_mcmaster_archivo2_url as string)}
-        ${(dg?.ac_mcmaster_interpretacion as string)?.trim() ? `
-        <div class="interp-label">Interpretación clínica:</div>
-        ${textBlock(dg?.ac_mcmaster_interpretacion as string)}` : ''}
+        ${mcmasterDualImg(url1mc, url2mc)}
+        ${interpMc ? `
+        <div${hasImages ? ' style="page-break-before:always;"' : ''}>
+          <div class="interp-label">Interpretación clínica:</div>
+          ${textBlock(interpMc)}
+        </div>` : ''}
       </div>`
     }
     if (id === 'foda') {
@@ -1054,7 +1062,7 @@ export async function imprimirReporteValorativo(
     .prediag-label { font-weight: bold; font-size: 10pt; color: #2d3a8c; display: block; margin-bottom: 2pt; }
     .prediag-text  { font-size: 10pt; color: #1a1a1a; padding-left: 8pt; font-style: italic; }
     .prediag-empty { font-size: 9.5pt; color: #999; padding-left: 8pt; font-style: italic; }
-    .apartado-block { margin-bottom: 20pt; page-break-inside: avoid; }
+    .apartado-block { margin-bottom: 20pt; }
     .apartado-title { font-size: 11pt; font-weight: bold; color: #2d3a8c; margin-bottom: 8pt; border-bottom: 0.5pt solid #b0bbd4; padding-bottom: 4pt; }
     .interp-label { font-size: 9pt; font-weight: bold; color: #555; text-transform: uppercase; letter-spacing: 0.3pt; margin-top: 8pt; margin-bottom: 3pt; }
     .mc-table { width: 100%; border-collapse: collapse; font-size: 9.5pt; margin: 6pt 0 10pt; }
@@ -1170,7 +1178,7 @@ export async function imprimirReporteValorativo(
   </div>
 
   <!-- IV. ANÁLISIS CLÍNICOS -->
-  <div class="section-break-before">
+  <div class="section">
     <div class="section-title"><span class="num">IV.</span> Análisis Clínicos</div>
     ${visibles.length === 0
       ? '<p class="empty">No hay análisis activos en el índice de Análisis Clínicos.</p>'
