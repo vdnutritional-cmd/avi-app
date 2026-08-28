@@ -962,14 +962,15 @@ export async function imprimirReporteValorativo(
   function mcmasterDualImg(url1: string | null | undefined, url2: string | null | undefined) {
     if (!url1 && !url2) return ''
     if (url1 && url2) {
-      // Dos archivos: lado a lado (horizontal), cada uno al 100% de su mitad
-      return `<div style="display:flex;flex-direction:row;gap:12pt;margin:10pt 0;">
-        <div style="flex:1;min-width:0;">${singleImg(url1, 'McMaster Archivo 1', '300pt')}</div>
-        <div style="flex:1;min-width:0;">${singleImg(url2, 'McMaster Archivo 2', '300pt')}</div>
+      // Dos archivos: imagen 1 en la mitad superior, imagen 2 en la mitad inferior
+      // La hoja se divide con una raya horizontal: —  (NO vertical)
+      return `<div style="margin:10pt 0;">
+        <div style="margin-bottom:8pt;">${singleImg(url1, 'McMaster Archivo 1', '280pt')}</div>
+        <div>${singleImg(url2, 'McMaster Archivo 2', '280pt')}</div>
       </div>`
     }
     // Un solo archivo: ocupa el espacio restante de la hoja
-    return `<div style="margin:10pt 0;">${singleImg(url1 ?? url2 ?? '', 'McMaster Archivo', '420pt')}</div>`
+    return `<div style="margin:10pt 0;">${singleImg(url1 ?? url2 ?? '', 'McMaster Archivo', '480pt')}</div>`
   }
 
   const analisisHTML = visibles.map((id, idx) => {
