@@ -974,68 +974,29 @@ export async function imprimirReporteValorativo(
       return `
       <div class="apartado-block">
         <div class="apartado-title">${num}. Genograma</div>
-        ${apartadoImg(dg?.ac_genograma_url as string, 'Genograma')}
         ${(dg?.ac_genograma_interpretacion as string)?.trim() ? `
         <div class="interp-label">Interpretación clínica:</div>
-        ${textBlock(dg?.ac_genograma_interpretacion as string)}` : ''}
+        ${textBlock(dg?.ac_genograma_interpretacion as string)}` : '<p class="empty">Sin interpretación registrada.</p>'}
       </div>`
     }
     if (id === 'mcmaster') {
-      const url1mc = dg?.ac_mcmaster_archivo1_url as string | null | undefined
-      const url2mc = dg?.ac_mcmaster_archivo2_url as string | null | undefined
       const interpMc = (dg?.ac_mcmaster_interpretacion as string)?.trim()
-      const has1 = !!url1mc
-      const has2 = !!url2mc
-
-      // Imagen 1: llena el espacio restante de la hoja después de los 2 títulos
-      const img1HTML = has1
-        ? `<div style="margin:8pt 0;">${mkMcImg(url1mc!, 'McMaster Archivo 1', '460pt')}</div>`
-        : ''
-
-      // Imagen 2: primera mitad de la siguiente hoja (salto de página forzado antes)
-      // Tabla McMaster + Interpretación: fluyen inmediatamente después de Imagen 2
-      const img2AndRest = has2
-        ? `<div style="page-break-before:always;">
-            <div style="margin-bottom:10pt;">${mkMcImg(url2mc!, 'McMaster Archivo 2', '300pt')}</div>
-            ${mcTableHTML}
-            ${interpMc ? `
-            <div class="interp-label">Interpretación clínica:</div>
-            ${textBlock(interpMc)}` : ''}
-          </div>`
-        : `${mcTableHTML}${interpMc ? `
-          <div class="interp-label">Interpretación clínica:</div>
-          ${textBlock(interpMc)}` : ''}`
-
-      // Si solo hay 1 imagen (sin img2), la tabla y la interpretación van después
-      const singleImgRest = !has2
-        ? `${mcTableHTML}${interpMc ? `
-          <div class="interp-label">Interpretación clínica:</div>
-          ${textBlock(interpMc)}` : ''}`
-        : ''
-
       return `
       <div class="apartado-block">
         <div class="apartado-title">${num}. Análisis McMaster</div>
-        ${has1 && has2
-          ? `${img1HTML}${img2AndRest}`
-          : has1
-            ? `${img1HTML}${singleImgRest}`
-            : has2
-              ? `${img2AndRest}`
-              : `${mcTableHTML}${interpMc ? `
-                <div class="interp-label">Interpretación clínica:</div>
-                ${textBlock(interpMc)}` : ''}`
-        }
+        ${mcTableHTML}
+        ${interpMc ? `
+        <div class="interp-label">Interpretación clínica:</div>
+        ${textBlock(interpMc)}` : ''}
       </div>`
     }
     if (id === 'foda') {
       return `
       <div class="apartado-block">
         <div class="apartado-title">${num}. Análisis FODA</div>
-        ${apartadoImg(dg?.ac_foda_url as string, 'FODA')}
         ${(dg?.ac_foda_interpretacion as string)?.trim() ? `
         <div class="interp-label">Interpretación clínica:</div>
-        ${textBlock(dg?.ac_foda_interpretacion as string)}` : ''}
+        ${textBlock(dg?.ac_foda_interpretacion as string)}` : '<p class="empty">Sin interpretación registrada.</p>'}
       </div>`
     }
     return ''
@@ -1101,6 +1062,11 @@ export async function imprimirReporteValorativo(
     .eff-badge { display: inline-block; margin-left: 8pt; padding: 1pt 8pt; border-radius: 20pt; font-size: 8.5pt; font-weight: bold; }
     .eff-func    { background: #d1fae5; color: #065f46; }
     .eff-disfunc { background: #fee2e2; color: #991b1b; }
+    /* Impresión continua — sin saltos ni páginas en blanco */
+    .section, .section-break-before, .apartado-block, .firma-section {
+      page-break-before: auto !important; break-before: auto !important;
+      page-break-inside: auto !important; break-inside: auto !important;
+    }
   </style>
 </head>
 <body>
