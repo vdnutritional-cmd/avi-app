@@ -891,8 +891,8 @@ export async function imprimirReporteValorativo(
   const valores  = (dg?.ac_mcmaster_valores as Record<string, string> | null) ?? {}
   const mcRows   = FACTORES_RV.map(fac => ({
     ...fac,
-    vd:  valores[String(fac.id)] ?? '',
-    res: valores[String(fac.id)] ? calcFactor(valores[String(fac.id)], fac.vmin, fac.vmax, fac.invertido) : null,
+    vd:  valores[`vd${fac.id}`] ?? '',
+    res: valores[`vd${fac.id}`] ? calcFactor(valores[`vd${fac.id}`], fac.vmin, fac.vmax, fac.invertido) : null,
   }))
   const withRes  = mcRows.filter(r => r.res !== null)
   const rfAvg    = withRes.length > 0 ? rd1(withRes.reduce((s, r) => s + r.res!.funcional,    0) / withRes.length) : null
