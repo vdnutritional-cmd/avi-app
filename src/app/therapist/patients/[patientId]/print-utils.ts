@@ -959,31 +959,13 @@ export async function imprimirReporteValorativo(
     return singleImg(url, alt)
   }
 
-  function mcmasterDualImg(url1: string | null | undefined, url2: string | null | undefined) {
-    if (!url1 && !url2) return ''
-
-    // Renderiza imagen/PDF llenando al 100% su contenedor de altura fija
-    function fillImg(url: string, alt: string) {
-      const isPdf = url.toLowerCase().includes('.pdf') || url.includes('application/pdf')
-      if (isPdf) {
-        return `<iframe src="${url}" style="width:100%;height:100%;border:0.5pt solid #c8d0e8;border-radius:4pt;" title="${alt}"></iframe>`
-      }
-      return `<img src="${url}" alt="${alt}" style="width:100%;height:100%;object-fit:contain;display:block;border:0.5pt solid #c8d0e8;border-radius:4pt;" />`
+  // Helper: renderiza imagen o PDF con max-height (para McMaster)
+  function mkMcImg(url: string, alt: string, maxH: string) {
+    const isPdf = url.toLowerCase().includes('.pdf') || url.includes('application/pdf')
+    if (isPdf) {
+      return `<iframe src="${url}" style="width:100%;height:${maxH};border:0.5pt solid #c8d0e8;border-radius:4pt;display:block;margin:6pt 0;" title="${alt}"></iframe>`
     }
-
-    if (url1 && url2) {
-      // Imagen 1 arriba, imagen 2 abajo — cada una en contenedor de altura fija (205pt ≈ mitad del 80% de la hoja disponible)
-      // page-break-inside:avoid mantiene ambas imágenes juntas en la misma hoja
-      return `<div style="page-break-inside:avoid;break-inside:avoid;margin:8pt 0;">
-        <div style="height:205pt;overflow:hidden;margin-bottom:6pt;">${fillImg(url1, 'McMaster Archivo 1')}</div>
-        <div style="height:205pt;overflow:hidden;">${fillImg(url2, 'McMaster Archivo 2')}</div>
-      </div>`
-    }
-
-    // Un solo archivo: ocupa el espacio restante de la hoja con altura fija
-    return `<div style="margin:8pt 0;">
-      <div style="height:430pt;overflow:hidden;">${fillImg(url1 ?? url2 ?? '', 'McMaster Archivo')}</div>
-    </div>`
+    return `<img src="${url}" alt="${alt}" style="width:100%;max-height:${maxH};height:auto;object-fit:contain;display:block;border:0.5pt solid #c8d0e8;border-radius:4pt;margin:6pt 0;" />`
   }
 
   const analisisHTML = visibles.map((id, idx) => {
@@ -1001,18 +983,49 @@ export async function imprimirReporteValorativo(
     if (id === 'mcmaster') {
       const url1mc = dg?.ac_mcmaster_archivo1_url as string | null | undefined
       const url2mc = dg?.ac_mcmaster_archivo2_url as string | null | undefined
-      const hasImages = !!(url1mc || url2mc)
       const interpMc = (dg?.ac_mcmaster_interpretacion as string)?.trim()
+      const has1 = !!url1mc
+      const has2 = !!url2mc
+
+      // Imagen 1: llena el espacio restante de la hoja después de los 2 títulos
+      const img1HTML = has1
+        ? `<div style="margin:8pt 0;">${mkMcImg(url1mc!, 'McMaster Archivo 1', '460pt')}</div>`
+        : ''
+
+      // Imagen 2: primera mitad de la siguiente hoja (salto de página forzado antes)
+      // Tabla McMaster + Interpretación: fluyen inmediatamente después de Imagen 2
+      const img2AndRest = has2
+        ? `<div style="page-break-before:always;">
+            <div style="margin-bottom:10pt;">${mkMcImg(url2mc!, 'McMaster Archivo 2', '300pt')}</div>
+            ${mcTableHTML}
+            ${interpMc ? `
+            <div class="interp-label">Interpretación clínica:</div>
+            ${textBlock(interpMc)}` : ''}
+          </div>`
+        : `${mcTableHTML}${interpMc ? `
+          <div class="interp-label">Interpretación clínica:</div>
+          ${textBlock(interpMc)}` : ''}`
+
+      // Si solo hay 1 imagen (sin img2), la tabla y la interpretación van después
+      const singleImgRest = !has2
+        ? `${mcTableHTML}${interpMc ? `
+          <div class="interp-label">Interpretación clínica:</div>
+          ${textBlock(interpMc)}` : ''}`
+        : ''
+
       return `
       <div class="apartado-block">
         <div class="apartado-title">${num}. Análisis McMaster</div>
-        ${mcTableHTML}
-        ${mcmasterDualImg(url1mc, url2mc)}
-        ${interpMc ? `
-        <div${hasImages ? ' style="page-break-before:always;"' : ''}>
-          <div class="interp-label">Interpretación clínica:</div>
-          ${textBlock(interpMc)}
-        </div>` : ''}
+        ${has1 && has2
+          ? `${img1HTML}${img2AndRest}`
+          : has1
+            ? `${img1HTML}${singleImgRest}`
+            : has2
+              ? `${img2AndRest}`
+              : `${mcTableHTML}${interpMc ? `
+                <div class="interp-label">Interpretación clínica:</div>
+                ${textBlock(interpMc)}` : ''}`
+        }
       </div>`
     }
     if (id === 'foda') {
