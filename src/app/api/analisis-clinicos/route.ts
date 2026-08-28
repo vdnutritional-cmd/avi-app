@@ -182,7 +182,8 @@ export async function POST(request: NextRequest) {
           .single(),
         supabase
           .from('patient_expediente')
-          .select(`asesorado_nombre, tipo_caso, prediagnostico_texto,
+          .select(`asesorado_nombre, tipo_caso,
+                   individual_prediag_impresion, individual_prediag_diagnostico,
                    ac_apartados_visibles,
                    ac_genograma_interpretacion,
                    ac_mcmaster_valores, ac_mcmaster_interpretacion,
@@ -200,21 +201,21 @@ export async function POST(request: NextRequest) {
       ])
 
       const relation   = relationRes.data
-      const expediente = expedienteRes.data
+      const expediente = expedienteRes.data   // puede ser null si aún no hay expediente
 
-      if (!relation || !expediente) {
+      if (!relation) {
         return NextResponse.json({ error: 'Paciente no encontrado' }, { status: 404 })
       }
 
-      const visibles: string[] = expediente.ac_apartados_visibles ?? ['genograma', 'mcmaster', 'foda']
-      const nombreAsesorado    = expediente.asesorado_nombre ?? ''
-      const tipoCaso           = expediente.tipo_caso ?? ''
+      const visibles: string[] = expediente?.ac_apartados_visibles ?? ['genograma', 'mcmaster', 'foda']
+      const nombreAsesorado    = expediente?.asesorado_nombre ?? ''
+      const tipoCaso           = expediente?.tipo_caso ?? ''
 
       // ── 2. Resumen cuantitativo McMaster ──────────────────
       let cuantitativoTexto = ''
       let mcResumen = ''
 
-      if (visibles.includes('mcmaster') && expediente.ac_mcmaster_valores) {
+      if (visibles.includes('mcmaster') && expediente?.ac_mcmaster_valores) {
         const vals = expediente.ac_mcmaster_valores as Record<string, number | null>
         const mcRows = FACTORES_MC.map(f => {
           const vd = vals[`vd${f.id}`]
@@ -256,13 +257,13 @@ export async function POST(request: NextRequest) {
       ].filter(Boolean).join('\n\n') || '(Sin nota inicial)'
 
       const interpretaciones: string[] = []
-      if (visibles.includes('genograma') && expediente.ac_genograma_interpretacion?.trim()) {
+      if (visibles.includes('genograma') && expediente?.ac_genograma_interpretacion?.trim()) {
         interpretaciones.push(`GENOGRAMA — Interpretación del terapeuta:\n${expediente.ac_genograma_interpretacion}`)
       }
-      if (visibles.includes('mcmaster') && expediente.ac_mcmaster_interpretacion?.trim()) {
-        interpretaciones.push(`McMaSTER — Interpretación del terapeuta:\n${expediente.ac_mcmaster_interpretacion}`)
+      if (visibles.includes('mcmaster') && expediente?.ac_mcmaster_interpretacion?.trim()) {
+        interpretaciones.push(`McMASTER — Interpretación del terapeuta:\n${expediente.ac_mcmaster_interpretacion}`)
       }
-      if (visibles.includes('foda') && expediente.ac_foda_interpretacion?.trim()) {
+      if (visibles.includes('foda') && expediente?.ac_foda_interpretacion?.trim()) {
         interpretaciones.push(`FODA — Interpretación del terapeuta:\n${expediente.ac_foda_interpretacion}`)
       }
 
@@ -313,7 +314,8 @@ export async function POST(request: NextRequest) {
         '── DATOS DEL CASO ──',
         nombreAsesorado ? `Asesorado/a: ${nombreAsesorado}` : '',
         tipoCaso        ? `Tipo de caso: ${tipoCaso}`       : '',
-        expediente.prediagnostico_texto ? `Prediagnóstico: ${expediente.prediagnostico_texto.slice(0, 500)}` : '',
+        expediente?.individual_prediag_impresion ? `Impresión clínica: ${(expediente.individual_prediag_impresion as string).slice(0, 400)}` : '',
+        expediente?.individual_prediag_diagnostico ? `Diagnóstico: ${(expediente.individual_prediag_diagnostico as string).slice(0, 300)}` : '',
         '',
         '── NOTA INICIAL ──',
         notaInicial,
