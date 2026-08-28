@@ -219,6 +219,13 @@ export default function AnalisisClanicosTab({ patientId, therapistId }: Props) {
   const [visibles,       setVisibles]       = useState<string[]>(['genograma', 'mcmaster', 'foda'])
   const [savingIndex,    setSavingIndex]    = useState(false)
 
+  // Conclusiones
+  const [conclusiones,      setConclusiones]      = useState('')
+  const [generandoConc,     setGenerandoConc]     = useState(false)
+  const [savingConc,        setSavingConc]        = useState(false)
+  const [savedConc,         setSavedConc]         = useState(false)
+  const [errorConc,         setErrorConc]         = useState<string | null>(null)
+
   // Genograma
   const [genogramaUrl,   setGenogramaUrl]   = useState<string | null>(null)
   const [genogramaInterp,setGenogramaInterp]= useState('')
@@ -259,7 +266,8 @@ export default function AnalisisClanicosTab({ patientId, therapistId }: Props) {
                  ac_genograma_url, ac_genograma_interpretacion,
                  ac_mcmaster_archivo1_url, ac_mcmaster_archivo2_url,
                  ac_mcmaster_valores, ac_mcmaster_interpretacion,
-                 ac_foda_url, ac_foda_interpretacion`)
+                 ac_foda_url, ac_foda_interpretacion,
+                 ac_conclusiones`)
         .eq('therapist_id', therapistId)
         .eq('patient_id', patientId)
         .maybeSingle()
@@ -282,6 +290,7 @@ export default function AnalisisClanicosTab({ patientId, therapistId }: Props) {
         setMcInterp(data.ac_mcmaster_interpretacion ?? '')
         setFodaUrl(data.ac_foda_url ?? null)
         setFodaInterp(data.ac_foda_interpretacion ?? '')
+        setConclusiones((data as Record<string, unknown>).ac_conclusiones as string ?? '')
       }
     } finally {
       setLoading(false)
@@ -435,6 +444,31 @@ export default function AnalisisClanicosTab({ patientId, therapistId }: Props) {
       setSavedFoda(true); setTimeout(() => setSavedFoda(false), 3000)
     } catch (e) { alert(`Error: ${(e as Error).message}`) }
     finally { setSavingFoda(false) }
+  }
+
+  // ── Conclusiones ───────────────────────────────────────
+  async function generarConclusiones() {
+    setGenerandoConc(true); setErrorConc(null)
+    try {
+      const res = await fetch('/api/analisis-clinicos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ patientId, therapistId, type: 'conclusiones' }),
+      })
+      const json = await res.json()
+      if (!res.ok || json.error) { setErrorConc(json.error ?? 'Error al generar'); return }
+      setConclusiones(json.conclusiones)
+    } catch { setErrorConc('Error de conexión.') }
+    finally { setGenerandoConc(false) }
+  }
+
+  async function saveConclusiones() {
+    setSavingConc(true)
+    try {
+      await upsert({ ac_conclusiones: conclusiones })
+      setSavedConc(true); setTimeout(() => setSavedConc(false), 3000)
+    } catch (e) { alert(`Error: ${(e as Error).message}`) }
+    finally { setSavingConc(false) }
   }
 
   // ──────────────────────────────────────────────────────
@@ -699,6 +733,80 @@ export default function AnalisisClanicosTab({ patientId, therapistId }: Props) {
           >
             Abrir índice
           </button>
+        </div>
+      )}
+
+      {/* ══ CONCLUSIONES ═════════════════════════════════════ */}
+      {visibles.length > 0 && (
+        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+          {/* Header */}
+          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <p className="text-sm font-semibold text-gray-800">
+                Resultados generales <span className="text-gray-400 font-normal">(cuantitativos y cualitativos)</span>
+              </p>
+              <p className="text-xs text-gray-400 mt-0.5">
+                Integra los análisis activos: {visibles.map(id => ({ genograma: 'Genograma', mcmaster: 'McMaster', foda: 'FODA' }[id] ?? id)).join(', ')}
+              </p>
+            </div>
+            <button
+              onClick={generarConclusiones}
+              disabled={generandoConc}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white
+                         transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{ background: generandoConc ? '#ccc' : AVI }}
+            >
+              {generandoConc ? (
+                <><span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />Generando Conclusiones…</>
+              ) : (
+                '✦ Conclusiones'
+              )}
+            </button>
+          </div>
+
+          {/* Body */}
+          <div className="px-6 py-5 space-y-4">
+            {errorConc && (
+              <p className="text-xs text-red-500 bg-red-50 border border-red-100 rounded-xl px-3 py-2">{errorConc}</p>
+            )}
+
+            {!conclusiones && !generandoConc && (
+              <p className="text-xs text-gray-400 italic text-center py-6">
+                Presiona <strong>✦ Conclusiones</strong> para generar la evaluación cuantitativa y cualitativa integrando todos los análisis activos.
+              </p>
+            )}
+
+            {generandoConc && (
+              <div className="flex items-center gap-3 py-8 justify-center text-sm text-gray-400">
+                <span className="w-5 h-5 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+                Analizando datos y consultando fuentes clínicas…
+              </div>
+            )}
+
+            {conclusiones && !generandoConc && (
+              <>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                    Texto generado — edita antes de guardar
+                  </label>
+                  <textarea
+                    rows={20}
+                    value={conclusiones}
+                    onChange={e => setConclusiones(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm text-gray-800
+                               focus:outline-none focus:ring-2 resize-y leading-relaxed font-mono"
+                    style={{ '--tw-ring-color': AVI } as React.CSSProperties}
+                  />
+                </div>
+                <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                  <p className="text-xs text-gray-400">
+                    Al presionar Conclusiones de nuevo se reescribirá el texto anterior.
+                  </p>
+                  <SaveBtn onClick={saveConclusiones} loading={savingConc} saved={savedConc} />
+                </div>
+              </>
+            )}
+          </div>
         </div>
       )}
 

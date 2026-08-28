@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
-import { retrieveChunksFromBooks } from '@/lib/rag/retrieve-chunks'
+import { retrieveChunksFromBooks, retrieveRelevantChunks } from '@/lib/rag/retrieve-chunks'
 
 export const maxDuration = 120
 
@@ -14,6 +14,27 @@ function extractText(content: Anthropic.ContentBlock[]): string {
     }
   }
   return ''
+}
+
+// Factores McMaster (para calcular en el servidor también)
+const FACTORES_MC = [
+  { id: 1, label: 'Factor 1. Involucramiento afectivo funcional',    vmin: 17, vmax: 85, invertido: false },
+  { id: 2, label: 'Factor 2. Involucramiento afectivo disfuncional', vmin: 11, vmax: 55, invertido: true  },
+  { id: 3, label: 'Factor 3. Patrones de comunicación disfuncional', vmin:  4, vmax: 20, invertido: true  },
+  { id: 4, label: 'Factor 4. Patrones de comunicación funcional',    vmin:  3, vmax: 15, invertido: false },
+  { id: 5, label: 'Factor 5. Resolución de problemas',              vmin:  3, vmax: 15, invertido: false },
+  { id: 6, label: 'Factor 6. Patrones de control de conducta',      vmin:  2, vmax: 10, invertido: false },
+]
+
+function rd1(n: number) { return Math.round(n * 10) / 10 }
+
+function calcFactor(vdStr: string | number | null, vmin: number, vmax: number, invertido: boolean) {
+  if (vdStr === null || vdStr === '') return null
+  const vd = typeof vdStr === 'number' ? vdStr : parseFloat(vdStr)
+  if (isNaN(vd) || vd < vmin || vd > vmax) return null
+  const base      = rd1((vd - vmin) / (vmax - vmin) * 100)
+  const funcional = invertido ? rd1(100 - base) : base
+  return { funcional, disfuncional: rd1(100 - funcional) }
 }
 
 // ── POST /api/analisis-clinicos ─────────────────────────────────────────────
@@ -147,6 +168,178 @@ export async function POST(request: NextRequest) {
       }
 
       return NextResponse.json({ interpretacion: text })
+    }
+
+    // ── CONCLUSIONES: Evaluación cuantitativa + cualitativa ───────────────────
+    if (type === 'conclusiones') {
+      // 1. Datos del paciente
+      const [relationRes, expedienteRes, sesionesRes] = await Promise.all([
+        supabase
+          .from('therapist_patients')
+          .select('initial_note, initial_note_motivo, initial_note_subyacente, initial_note_premisas')
+          .eq('therapist_id', user.id)
+          .eq('patient_id', patientId)
+          .single(),
+        supabase
+          .from('patient_expediente')
+          .select(`asesorado_nombre, tipo_caso, prediagnostico_texto,
+                   ac_apartados_visibles,
+                   ac_genograma_interpretacion,
+                   ac_mcmaster_valores, ac_mcmaster_interpretacion,
+                   ac_foda_interpretacion`)
+          .eq('therapist_id', user.id)
+          .eq('patient_id', patientId)
+          .maybeSingle(),
+        supabase
+          .from('therapist_session_notes')
+          .select('session_number, session_date, notes, session_objetivo, session_desarrollo')
+          .eq('therapist_id', user.id)
+          .eq('patient_id', patientId)
+          .order('session_number', { ascending: false })
+          .limit(3),
+      ])
+
+      const relation   = relationRes.data
+      const expediente = expedienteRes.data
+
+      if (!relation || !expediente) {
+        return NextResponse.json({ error: 'Paciente no encontrado' }, { status: 404 })
+      }
+
+      const visibles: string[] = expediente.ac_apartados_visibles ?? ['genograma', 'mcmaster', 'foda']
+      const nombreAsesorado    = expediente.asesorado_nombre ?? ''
+      const tipoCaso           = expediente.tipo_caso ?? ''
+
+      // ── 2. Resumen cuantitativo McMaster ──────────────────
+      let cuantitativoTexto = ''
+      let mcResumen = ''
+
+      if (visibles.includes('mcmaster') && expediente.ac_mcmaster_valores) {
+        const vals = expediente.ac_mcmaster_valores as Record<string, number | null>
+        const mcRows = FACTORES_MC.map(f => {
+          const vd = vals[`vd${f.id}`]
+          const res = vd !== null && vd !== undefined ? calcFactor(vd, f.vmin, f.vmax, f.invertido) : null
+          return { label: f.label, vd, res }
+        })
+        const validRows = mcRows.filter(r => r.res !== null)
+
+        if (validRows.length > 0) {
+          const rf  = rd1(validRows.reduce((s, r) => s + r.res!.funcional,    0) / validRows.length)
+          const rd  = rd1(validRows.reduce((s, r) => s + r.res!.disfuncional, 0) / validRows.length)
+          const eff = rd1((rf + rd) / 2)
+          const conclusion = eff >= 60 ? 'Funcional' : 'Disfuncional'
+
+          const factoresLineas = mcRows.map(r =>
+            r.res
+              ? `  • ${r.label}: Funcional ${r.res.funcional}% / Disfuncional ${r.res.disfuncional}%`
+              : `  • ${r.label}: sin dato`
+          ).join('\n')
+
+          mcResumen = [
+            'ANÁLISIS McMASTER (Modelo de Funcionalidad Familiar):',
+            factoresLineas,
+            `  RF (promedio funcional): ${rf}%`,
+            `  RD (promedio disfuncional): ${rd}%`,
+            `  EFF = (RF+RD)/2 = ${eff}% → FAMILIA ${conclusion.toUpperCase()}`,
+          ].join('\n')
+
+          cuantitativoTexto = mcResumen
+        }
+      }
+
+      // ── 3. Contexto clínico completo ──────────────────────
+      const notaInicial = [
+        relation.initial_note           ? `CASO CLÍNICO:\n${relation.initial_note}`          : '',
+        relation.initial_note_motivo    ? `MOTIVO DE CONSULTA:\n${relation.initial_note_motivo}` : '',
+        relation.initial_note_subyacente ? `MOTIVO SUBYACENTE:\n${relation.initial_note_subyacente}` : '',
+        relation.initial_note_premisas  ? `PREMISAS:\n${relation.initial_note_premisas}`     : '',
+      ].filter(Boolean).join('\n\n') || '(Sin nota inicial)'
+
+      const interpretaciones: string[] = []
+      if (visibles.includes('genograma') && expediente.ac_genograma_interpretacion?.trim()) {
+        interpretaciones.push(`GENOGRAMA — Interpretación del terapeuta:\n${expediente.ac_genograma_interpretacion}`)
+      }
+      if (visibles.includes('mcmaster') && expediente.ac_mcmaster_interpretacion?.trim()) {
+        interpretaciones.push(`McMaSTER — Interpretación del terapeuta:\n${expediente.ac_mcmaster_interpretacion}`)
+      }
+      if (visibles.includes('foda') && expediente.ac_foda_interpretacion?.trim()) {
+        interpretaciones.push(`FODA — Interpretación del terapeuta:\n${expediente.ac_foda_interpretacion}`)
+      }
+
+      const sesionesTexto = (sesionesRes.data ?? [])
+        .map(s => `  Sesión ${s.session_number}: ${s.notes ?? s.session_desarrollo ?? ''}`.slice(0, 300))
+        .join('\n')
+
+      // ── 4. RAG: fuentes amplias de ConsultoríaFuentes ────
+      const ragQuery = [
+        notaInicial.slice(0, 2000),
+        cuantitativoTexto.slice(0, 500),
+        interpretaciones.join('\n\n').slice(0, 2000),
+      ].filter(Boolean).join('\n\n')
+
+      const fuentes = await retrieveRelevantChunks(ragQuery, 12)
+
+      // ── 5. Prompt de conclusiones ─────────────────────────
+      const analisisActivos = visibles
+        .map(id => ({ genograma: 'Genograma', mcmaster: 'McMaster', foda: 'FODA' }[id] ?? id))
+        .join(', ')
+
+      const prompt = [
+        'Eres un supervisor clínico con amplio dominio en terapia familiar, sistémica y de pareja.',
+        `Redacta los "Resultados generales (cuantitativos y cualitativos)" del caso basándote en los análisis activos: ${analisisActivos}.`,
+        '',
+        'ESTRUCTURA REQUERIDA — redacta con estos encabezados exactos:',
+        '',
+        '## 1. Evaluación Cuantitativa',
+        'Presenta y explica los datos numéricos disponibles (especialmente McMaster si aplica).',
+        'Interpreta cada métrica con criterio clínico, no como simple enunciado de números.',
+        'Si no hay datos cuantitativos de algún análisis, indícalo brevemente.',
+        '',
+        '## 2. Evaluación Cualitativa',
+        'Integra todos los análisis activos en una narrativa clínica coherente.',
+        'Conecta los hallazgos del Genograma, McMaster y FODA con el motivo de consulta.',
+        'Señala los patrones relacionales, recursos y áreas de vulnerabilidad del sistema familiar.',
+        '',
+        '## 3. Conclusión Clínica Integradora',
+        'Síntesis de 2-3 párrafos con el estado actual del caso, pronóstico y líneas prioritarias de intervención.',
+        'Fundamenta con marcos teóricos cuando aplique (ej. Modelo McMaster, Satir, sistémico).',
+        '',
+        'INSTRUCCIONES GENERALES:',
+        '- Lenguaje profesional, clínico y directo. No repitas datos sin interpretarlos.',
+        '- Sé específico sobre este caso, no genérico.',
+        '- Extiéndete lo necesario para que sea útil como documento clínico de referencia.',
+        '',
+        ...(fuentes ? ['── FUENTES TEÓRICAS (ConsultoríaFuentes) ──', fuentes, ''] : []),
+        '── DATOS DEL CASO ──',
+        nombreAsesorado ? `Asesorado/a: ${nombreAsesorado}` : '',
+        tipoCaso        ? `Tipo de caso: ${tipoCaso}`       : '',
+        expediente.prediagnostico_texto ? `Prediagnóstico: ${expediente.prediagnostico_texto.slice(0, 500)}` : '',
+        '',
+        '── NOTA INICIAL ──',
+        notaInicial,
+        '',
+        ...(cuantitativoTexto ? ['── DATOS CUANTITATIVOS ──', cuantitativoTexto, ''] : []),
+        ...(interpretaciones.length ? ['── INTERPRETACIONES DE LOS ANÁLISIS ──', ...interpretaciones, ''] : []),
+        ...(sesionesTexto ? ['── ÚLTIMAS SESIONES PRESENCIALES ──', sesionesTexto] : []),
+      ].filter(v => v !== undefined && v !== '').join('\n')
+
+      const response = await anthropic.messages.create({
+        model: 'claude-sonnet-5',
+        max_tokens: 3500,
+        messages: [{ role: 'user', content: prompt }],
+      })
+
+      const text = extractText(response.content)
+      console.log('[conclusiones] stop_reason:', response.stop_reason, '| chars:', text.length)
+
+      if (!text) {
+        return NextResponse.json(
+          { error: 'No se pudo generar el análisis. Asegúrate de que al menos un análisis tenga datos registrados.' },
+          { status: 422 }
+        )
+      }
+
+      return NextResponse.json({ conclusiones: text, cuantitativo: cuantitativoTexto })
     }
 
     return NextResponse.json({ error: `Tipo no reconocido: ${type}` }, { status: 400 })
