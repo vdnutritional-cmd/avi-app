@@ -1120,13 +1120,6 @@ export async function imprimirReporteValorativo(
       ${f('Parroquia',           dg?.asesorado_parroquia)}
     </div>
 
-    <div class="subsection-title">Datos de Contacto</div>
-    <div class="dg-grid">
-      ${f('Teléfono',           dg?.contacto_telefono)}
-      ${f('Correo electrónico', patientEmail)}
-      ${f('Domicilio',          dg?.contacto_domicilio)}
-    </div>
-
     ${dg?.pareja_nombre || dg?.pareja_edad ? `
     <div class="subsection-title">Datos de la Pareja</div>
     <div class="dg-grid">
@@ -1135,6 +1128,10 @@ export async function imprimirReporteValorativo(
       ${f('Edad',               dg?.pareja_edad)}
       ${f('Fecha de nacimiento', fmtFecha(dg?.pareja_fecha_nacimiento as string))}
     </div>` : ''}
+
+    ${hijosConDatos.length > 0 ? `
+    <div class="subsection-title">Hijos</div>
+    ${hijosHTML}` : ''}
 
   </div>
 
