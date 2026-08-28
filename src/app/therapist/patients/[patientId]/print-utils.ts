@@ -901,11 +901,14 @@ export async function imprimirReporteValorativo(
   const funcional = effVal !== null && effVal >= 60
 
   const mcTableHTML = withRes.length > 0
-    ? `<table class="mc-table">
+    ? `<p style="font-size:9pt;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.3pt;margin:6pt 0 4pt;">
+        Evaluación de la Funcionalidad Familiar
+      </p>
+      <table class="mc-table">
         <thead>
           <tr>
             <th>Factor</th>
-            <th>VD</th>
+            <th class="num-col">VD</th>
             <th class="num-col">Funcional %</th>
             <th class="num-col">Disfuncional %</th>
           </tr>
@@ -915,23 +918,21 @@ export async function imprimirReporteValorativo(
           <tr>
             <td>Factor ${r.id}. ${r.label}</td>
             <td class="num-col">${r.vd}</td>
-            <td class="num-col">${r.res.funcional}%</td>
-            <td class="num-col">${r.res.disfuncional}%</td>
+            <td class="num-col" style="color:#065f46;font-weight:600;">${r.res.funcional}%</td>
+            <td class="num-col" style="color:#991b1b;font-weight:600;">${r.res.disfuncional}%</td>
           </tr>` : '').join('')}
         </tbody>
         <tfoot>
           <tr class="result-row">
-            <td colspan="2"><strong>RF (promedio Funcional)</strong></td>
-            <td class="num-col"><strong>${rfAvg}%</strong></td>
-            <td class="num-col">—</td>
-          </tr>
-          <tr class="result-row">
-            <td colspan="2"><strong>RD (promedio Disfuncional)</strong></td>
-            <td class="num-col">—</td>
-            <td class="num-col"><strong>${rdAvg}%</strong></td>
+            <td colspan="2" style="font-size:9pt;"><strong>Resultados por evaluación funcional</strong></td>
+            <td class="num-col" style="color:#065f46;"><strong>${rfAvg}%</strong> <span style="font-size:8pt;color:#999;">RF</span></td>
+            <td class="num-col" style="color:#991b1b;"><strong>${rdAvg}%</strong> <span style="font-size:8pt;color:#999;">RD</span></td>
           </tr>
           <tr class="result-row eff-row">
-            <td colspan="2"><strong>EFF (Eficiencia Familiar)</strong></td>
+            <td colspan="2">
+              <strong>Evaluación de la Funcionalidad Familiar</strong>
+              <span style="font-size:8pt;font-weight:normal;color:#666;"> = (RF% + RD%) / 2</span>
+            </td>
             <td colspan="2" class="num-col">
               <strong>${effVal}%</strong>
               <span class="eff-badge ${funcional ? 'eff-func' : 'eff-disfunc'}">
@@ -1135,19 +1136,6 @@ export async function imprimirReporteValorativo(
       ${f('Fecha de nacimiento', fmtFecha(dg?.pareja_fecha_nacimiento as string))}
     </div>` : ''}
 
-    ${hijosConDatos.length > 0 ? `
-    <div class="subsection-title">Hijos</div>
-    ${hijosHTML}` : ''}
-
-    ${dg?.salud_padece_enfermedad || dg?.salud_medicamentos || dg?.salud_ayuda_psicologica ? `
-    <div class="subsection-title">Salud</div>
-    <div class="dg-grid">
-      ${f('¿Padece alguna enfermedad?',        dg?.salud_padece_enfermedad)}
-      ${f('¿Ha recibido ayuda psicológica?',   dg?.salud_ayuda_psicologica)}
-      ${dg?.salud_ayuda_psicologica === 'Sí'  ? f('¿Hace cuánto tiempo?', dg?.salud_ayuda_tiempo) : ''}
-      ${f('¿Toma medicamentos?',               dg?.salud_medicamentos)}
-      ${dg?.salud_medicamentos === 'Sí'       ? f('¿Cuál(es)?', dg?.salud_medicamentos_cual) : ''}
-    </div>` : ''}
   </div>
 
   <!-- II. PREDIAGNÓSTICO -->
