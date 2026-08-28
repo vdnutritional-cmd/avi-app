@@ -281,37 +281,48 @@ export async function POST(request: NextRequest) {
       const fuentes = await retrieveRelevantChunks(ragQuery, 12)
 
       // ── 5. Prompt de conclusiones ─────────────────────────
-      const analisisActivos = visibles
-        .map(id => ({ genograma: 'Genograma', mcmaster: 'McMaster', foda: 'FODA' }[id] ?? id))
-        .join(', ')
+      const LABEL: Record<string, string> = { genograma: 'Genograma', mcmaster: 'McMaster', foda: 'FODA' }
+      const analisisActivos = visibles.map(id => LABEL[id] ?? id).join(', ')
+
+      // Descripciones dinámicas por sección según qué está activo
+      const descCuantitativa = visibles.includes('mcmaster') && cuantitativoTexto
+        ? 'Presenta e interpreta con criterio clínico los resultados numéricos del Análisis McMaster (factores, RF%, RD%, EFF% y conclusión Funcional/Disfuncional). No repitas los números sin interpretarlos.'
+        : 'No hay datos cuantitativos disponibles para los análisis seleccionados. Indícalo en una sola oración y omite esta sección.'
+
+      const descCualitativa = interpretaciones.length > 0
+        ? `Redacta una narrativa clínica coherente basada EXCLUSIVAMENTE en las interpretaciones de los análisis seleccionados (${analisisActivos}) que se proporcionan más abajo. Señala hallazgos, recursos y áreas de atención del caso.`
+        : `No hay interpretaciones registradas para los análisis seleccionados (${analisisActivos}). Indica brevemente que el terapeuta aún no ha registrado interpretación.`
 
       const prompt = [
         'Eres un supervisor clínico con amplio dominio en terapia familiar, sistémica y de pareja.',
-        `Redacta los "Resultados generales (cuantitativos y cualitativos)" del caso basándote en los análisis activos: ${analisisActivos}.`,
         '',
-        'ESTRUCTURA REQUERIDA — redacta con estos encabezados exactos:',
+        '══ ANÁLISIS SELECCIONADOS (ÚNICOS QUE DEBES ANALIZAR) ══',
+        analisisActivos,
+        '',
+        'RESTRICCIÓN ABSOLUTA: Analiza SOLAMENTE los análisis listados arriba.',
+        'PROHIBIDO mencionar, inferir o analizar cualquier análisis que NO esté en esa lista,',
+        'aunque cuentes con información clínica general del caso que podría sugerir otros análisis.',
+        'El contexto del caso (nota inicial, sesiones) es solo para dar sentido clínico a los',
+        'análisis seleccionados — no autoriza analizar dimensiones adicionales.',
+        '',
+        'ESTRUCTURA REQUERIDA — usa estos encabezados exactos:',
         '',
         '## 1. Evaluación Cuantitativa',
-        'Presenta y explica los datos numéricos disponibles (especialmente McMaster si aplica).',
-        'Interpreta cada métrica con criterio clínico, no como simple enunciado de números.',
-        'Si no hay datos cuantitativos de algún análisis, indícalo brevemente.',
+        descCuantitativa,
         '',
         '## 2. Evaluación Cualitativa',
-        'Integra todos los análisis activos en una narrativa clínica coherente.',
-        'Conecta los hallazgos del Genograma, McMaster y FODA con el motivo de consulta.',
-        'Señala los patrones relacionales, recursos y áreas de vulnerabilidad del sistema familiar.',
+        descCualitativa,
         '',
         '## 3. Conclusión Clínica Integradora',
-        'Síntesis de 2-3 párrafos con el estado actual del caso, pronóstico y líneas prioritarias de intervención.',
-        'Fundamenta con marcos teóricos cuando aplique (ej. Modelo McMaster, Satir, sistémico).',
+        `Síntesis de 2-3 párrafos integrando únicamente ${analisisActivos}. Incluye estado actual del caso, pronóstico y líneas prioritarias de intervención fundamentadas en los hallazgos de los análisis seleccionados.`,
         '',
-        'INSTRUCCIONES GENERALES:',
-        '- Lenguaje profesional, clínico y directo. No repitas datos sin interpretarlos.',
+        'INSTRUCCIONES ADICIONALES:',
+        '- Lenguaje profesional, clínico y directo.',
         '- Sé específico sobre este caso, no genérico.',
-        '- Extiéndete lo necesario para que sea útil como documento clínico de referencia.',
+        '- Si un análisis seleccionado no tiene datos suficientes, indícalo brevemente en esa sección.',
         '',
         ...(fuentes ? ['── FUENTES TEÓRICAS (ConsultoríaFuentes) ──', fuentes, ''] : []),
-        '── DATOS DEL CASO ──',
+        '── CONTEXTO DEL CASO (solo para dar sentido clínico, NO para analizar otras dimensiones) ──',
         nombreAsesorado ? `Asesorado/a: ${nombreAsesorado}` : '',
         tipoCaso        ? `Tipo de caso: ${tipoCaso}`       : '',
         expediente?.individual_prediag_impresion ? `Impresión clínica: ${(expediente.individual_prediag_impresion as string).slice(0, 400)}` : '',
@@ -320,9 +331,9 @@ export async function POST(request: NextRequest) {
         '── NOTA INICIAL ──',
         notaInicial,
         '',
-        ...(cuantitativoTexto ? ['── DATOS CUANTITATIVOS ──', cuantitativoTexto, ''] : []),
-        ...(interpretaciones.length ? ['── INTERPRETACIONES DE LOS ANÁLISIS ──', ...interpretaciones, ''] : []),
-        ...(sesionesTexto ? ['── ÚLTIMAS SESIONES PRESENCIALES ──', sesionesTexto] : []),
+        ...(cuantitativoTexto ? [`── DATOS CUANTITATIVOS (${analisisActivos}) ──`, cuantitativoTexto, ''] : []),
+        ...(interpretaciones.length ? [`── INTERPRETACIONES DEL TERAPEUTA (${analisisActivos}) ──`, ...interpretaciones, ''] : []),
+        ...(sesionesTexto ? ['── ÚLTIMAS SESIONES PRESENCIALES (contexto, no adicionar análisis) ──', sesionesTexto] : []),
       ].filter(v => v !== undefined && v !== '').join('\n')
 
       const response = await anthropic.messages.create({
