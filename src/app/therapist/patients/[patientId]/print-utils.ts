@@ -824,7 +824,8 @@ export async function imprimirReporteValorativo(
         ac_genograma_url, ac_genograma_interpretacion,
         ac_mcmaster_archivo1_url, ac_mcmaster_archivo2_url,
         ac_mcmaster_valores, ac_mcmaster_interpretacion,
-        ac_foda_url, ac_foda_interpretacion
+        ac_foda_url, ac_foda_interpretacion,
+        ac_conclusiones
       `)
       .eq('therapist_id', therapistId).eq('patient_id', patientId).maybeSingle(),
     supabase.from('therapist_patients')
@@ -1163,6 +1164,14 @@ export async function imprimirReporteValorativo(
       : analisisHTML
     }
   </div>
+
+  <!-- V. RESULTADOS GENERALES -->
+  ${(dg?.ac_conclusiones as string)?.trim() ? `
+  <div class="section">
+    <div class="section-title"><span class="num">V.</span> Resultados Generales</div>
+    <div class="subsection-title" style="margin-top:0;">Evaluación cuantitativa y cualitativa</div>
+    ${textBlock(dg?.ac_conclusiones as string)}
+  </div>` : ''}
 
   <!-- FIRMAS -->
   <div class="firma-section">
