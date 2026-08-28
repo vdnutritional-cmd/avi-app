@@ -946,13 +946,28 @@ export async function imprimirReporteValorativo(
   // ── Apartados activos ────────────────────────────────────────
   const visibles: string[] = (dg?.ac_apartados_visibles as string[] | null) ?? ['genograma', 'mcmaster', 'foda']
 
-  function apartadoImg(url: string | null | undefined, alt: string) {
-    if (!url) return ''
+  function singleImg(url: string, alt: string, maxHeight = '360pt') {
     const isPdf = url.toLowerCase().includes('.pdf') || url.includes('application/pdf')
     if (isPdf) {
-      return `<iframe src="${url}" style="width:100%;height:500pt;border:0.5pt solid #c8d0e8;border-radius:4pt;margin:8pt 0;" title="${alt}"></iframe>`
+      return `<iframe src="${url}" style="width:100%;height:${maxHeight};border:0.5pt solid #c8d0e8;border-radius:4pt;margin:6pt 0;" title="${alt}"></iframe>`
     }
-    return `<img src="${url}" alt="${alt}" style="max-width:100%;height:auto;border:0.5pt solid #c8d0e8;border-radius:4pt;margin:8pt 0;display:block;" />`
+    return `<img src="${url}" alt="${alt}" style="width:100%;max-height:${maxHeight};object-fit:contain;border:0.5pt solid #c8d0e8;border-radius:4pt;margin:6pt 0;display:block;" />`
+  }
+
+  function apartadoImg(url: string | null | undefined, alt: string) {
+    if (!url) return ''
+    return singleImg(url, alt)
+  }
+
+  function mcmasterDualImg(url1: string | null | undefined, url2: string | null | undefined) {
+    if (!url1 && !url2) return ''
+    if (url1 && url2) {
+      return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10pt;margin:8pt 0;page-break-inside:avoid;">
+        <div>${singleImg(url1, 'McMaster Archivo 1', '240pt')}</div>
+        <div>${singleImg(url2, 'McMaster Archivo 2', '240pt')}</div>
+      </div>`
+    }
+    return apartadoImg(url1 ?? url2, 'McMaster')
   }
 
   const analisisHTML = visibles.map((id, idx) => {
@@ -972,8 +987,7 @@ export async function imprimirReporteValorativo(
       <div class="apartado-block">
         <div class="apartado-title">${num}. Análisis McMaster</div>
         ${mcTableHTML}
-        ${apartadoImg(dg?.ac_mcmaster_archivo1_url as string, 'McMaster Archivo 1')}
-        ${apartadoImg(dg?.ac_mcmaster_archivo2_url as string, 'McMaster Archivo 2')}
+        ${mcmasterDualImg(dg?.ac_mcmaster_archivo1_url as string, dg?.ac_mcmaster_archivo2_url as string)}
         ${(dg?.ac_mcmaster_interpretacion as string)?.trim() ? `
         <div class="interp-label">Interpretación clínica:</div>
         ${textBlock(dg?.ac_mcmaster_interpretacion as string)}` : ''}
