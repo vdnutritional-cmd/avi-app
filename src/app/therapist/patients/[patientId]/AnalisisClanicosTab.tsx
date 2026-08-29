@@ -96,7 +96,7 @@ function ApartadoCard({
 }: {
   id: string; icon: string; label: string; hasData: boolean; children: React.ReactNode
 }) {
-  const [open, setOpen] = useState(hasData)
+  const [open, setOpen] = useState(false)
   return (
     <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
       <button
@@ -738,7 +738,7 @@ export default function AnalisisClanicosTab({ patientId, therapistId }: Props) {
 
       {/* ══ CONCLUSIONES ═════════════════════════════════════ */}
       {visibles.length > 0 && (
-        <ApartadoCard id="conclusiones" icon="🔬" label="Resultados generales (cuantitativos y cualitativos)" hasData={!!conclusiones}>
+        <ApartadoCard id="conclusiones" icon="🔬" label="Resultados generales de los análisis técnicos (cuantitativos y cualitativos)" hasData={!!conclusiones}>
           {/* Botón generar */}
           <div className="flex items-center justify-between flex-wrap gap-3 -mt-1">
             <p className="text-xs text-gray-400">
