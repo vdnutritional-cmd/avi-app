@@ -738,17 +738,12 @@ export default function AnalisisClanicosTab({ patientId, therapistId }: Props) {
 
       {/* ══ CONCLUSIONES ═════════════════════════════════════ */}
       {visibles.length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-          {/* Header */}
-          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between flex-wrap gap-3">
-            <div>
-              <p className="text-sm font-semibold text-gray-800">
-                Resultados generales <span className="text-gray-400 font-normal">(cuantitativos y cualitativos)</span>
-              </p>
-              <p className="text-xs text-gray-400 mt-0.5">
-                Integra los análisis activos: {visibles.map(id => ({ genograma: 'Genograma', mcmaster: 'McMaster', foda: 'FODA' }[id] ?? id)).join(', ')}
-              </p>
-            </div>
+        <ApartadoCard id="conclusiones" icon="🔬" label="Resultados generales (cuantitativos y cualitativos)" hasData={!!conclusiones}>
+          {/* Botón generar */}
+          <div className="flex items-center justify-between flex-wrap gap-3 -mt-1">
+            <p className="text-xs text-gray-400">
+              Análisis activos: {visibles.map(id => ({ genograma: 'Genograma', mcmaster: 'McMaster', foda: 'FODA' }[id] ?? id)).join(', ')}
+            </p>
             <button
               onClick={generarConclusiones}
               disabled={generandoConc}
@@ -765,7 +760,7 @@ export default function AnalisisClanicosTab({ patientId, therapistId }: Props) {
           </div>
 
           {/* Body */}
-          <div className="px-6 py-5 space-y-4">
+          <div className="space-y-4">
             {errorConc && (
               <p className="text-xs text-red-500 bg-red-50 border border-red-100 rounded-xl px-3 py-2">{errorConc}</p>
             )}
@@ -807,7 +802,7 @@ export default function AnalisisClanicosTab({ patientId, therapistId }: Props) {
               </>
             )}
           </div>
-        </div>
+        </ApartadoCard>
       )}
 
     </div>
