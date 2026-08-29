@@ -496,7 +496,7 @@ export default function AnalisisClanicosTab({ patientId, therapistId }: Props) {
         {indexOpen && (
           <div className="border-t border-gray-100 px-6 py-4">
             <p className="text-xs text-gray-400 mb-3">
-              Marca los análisis que quieres mostrar en esta sección. En el futuro podrás agregar más.
+              Marca los análisis que quieres mostrar en esta sección.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {TODOS_APARTADOS.map(ap => (
@@ -782,7 +782,7 @@ export default function AnalisisClanicosTab({ patientId, therapistId }: Props) {
               <>
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                    Texto generado — edita antes de guardar
+                    Resumen del Terapeuta — edita antes de guardar
                   </label>
                   <textarea
                     rows={20}
