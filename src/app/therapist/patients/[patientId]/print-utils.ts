@@ -1165,14 +1165,6 @@ export async function imprimirReporteValorativo(
     }
   </div>
 
-  <!-- V. RESULTADOS GENERALES -->
-  ${(dg?.ac_conclusiones as string)?.trim() ? `
-  <div class="section">
-    <div class="section-title"><span class="num">V.</span> Resultados Generales</div>
-    <div class="subsection-title" style="margin-top:0;">Evaluación cuantitativa y cualitativa</div>
-    ${textBlock(dg?.ac_conclusiones as string)}
-  </div>` : ''}
-
   <!-- FIRMAS -->
   <div class="firma-section">
     <div class="firma-item">
