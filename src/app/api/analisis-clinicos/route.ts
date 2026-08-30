@@ -51,6 +51,54 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Faltan parámetros: type y patientId' }, { status: 400 })
     }
 
+    // ── GENOGRAMA: Descripción de relaciones familiares ───────────────────────
+    if (type === 'genograma_descripcion') {
+      const { data: rel } = await supabase
+        .from('therapist_patients')
+        .select('initial_note, initial_note_motivo, initial_note_subyacente')
+        .eq('therapist_id', user.id).eq('patient_id', patientId).single()
+
+      if (!rel) return NextResponse.json({ error: 'Paciente no encontrado' }, { status: 404 })
+
+      const contexto = [
+        rel.initial_note       ? `CASO:\n${rel.initial_note}`                          : '',
+        rel.initial_note_motivo    ? `MOTIVO DE CONSULTA:\n${rel.initial_note_motivo}` : '',
+        rel.initial_note_subyacente ? `MOTIVOS SUBYACENTES:\n${rel.initial_note_subyacente}` : '',
+      ].filter(Boolean).join('\n\n') || '(Sin información registrada en la Sesión inicial)'
+
+      const prompt = [
+        'Eres un terapeuta clínico. Basándote EXCLUSIVAMENTE en la información de la Sesión inicial proporcionada abajo,',
+        'redacta una descripción breve y ordenada de las relaciones familiares mencionadas.',
+        '',
+        'OBJETIVO: que esta descripción sirva de guía para dibujar el Genograma correctamente.',
+        '',
+        'ESTRUCTURA DE LA DESCRIPCIÓN:',
+        '1. Nombra a cada persona mencionada con su rol (ej. "madre", "padre", "cónyuge", "hijo mayor", etc.).',
+        '2. Describe brevemente la relación entre ellos (convivencia, cercanía, conflicto, separación, etc.).',
+        '3. Si se mencionan generaciones, organízalas de mayor a menor (abuelos → padres → hijos).',
+        '4. Si hay datos relevantes de algún miembro (enfermedad, fallecimiento, separación), inclúyelos.',
+        '',
+        'RESTRICCIONES:',
+        '- Solo usa lo que está explícito en la Sesión inicial. NO inventes ni infiere personas no mencionadas.',
+        '- Lenguaje formal y conciso. Máximo 15 líneas.',
+        '- Si la Sesión inicial no menciona familia, indícalo en una oración.',
+        '',
+        '── SESIÓN INICIAL ──',
+        contexto,
+      ].join('\n')
+
+      const response = await anthropic.messages.create({
+        model: 'claude-sonnet-5',
+        max_tokens: 800,
+        messages: [{ role: 'user', content: prompt }],
+      })
+
+      const text = extractText(response.content)
+      if (!text) return NextResponse.json({ error: 'No se pudo generar la descripción.' }, { status: 422 })
+
+      return NextResponse.json({ descripcion: text })
+    }
+
     // ── MCMASTER: Interpretación con RAG ──────────────────────────────────────
     if (type === 'mcmaster_interpretacion') {
       // 1. Nota inicial del paciente

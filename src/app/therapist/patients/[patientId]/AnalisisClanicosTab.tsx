@@ -247,6 +247,7 @@ export default function AnalisisClanicosTab({ patientId, therapistId }: Props) {
   const [upGenograma,    setUpGenograma]    = useState(false)
   const [savingGeno,     setSavingGeno]     = useState(false)
   const [savedGeno,      setSavedGeno]      = useState(false)
+  const [generandoDescGeno, setGenerandoDescGeno] = useState(false)
 
   // McMaster
   const [mc1Url,         setMc1Url]         = useState<string | null>(null)
@@ -365,6 +366,21 @@ export default function AnalisisClanicosTab({ patientId, therapistId }: Props) {
       await upsert({ ac_genograma_url: url })
     } catch (e) { alert(`Error al subir imagen: ${(e as Error).message}`) }
     finally { setUpGenograma(false) }
+  }
+
+  async function generarDescripcionGenograma() {
+    setGenerandoDescGeno(true)
+    try {
+      const res = await fetch('/api/analisis-clinicos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ patientId, therapistId, type: 'genograma_descripcion' }),
+      })
+      const json = await res.json()
+      if (!res.ok || json.error) { alert(json.error ?? 'Error al generar'); return }
+      setGenogramaInterp(json.descripcion)
+    } catch { alert('Error de conexión.') }
+    finally { setGenerandoDescGeno(false) }
   }
 
   async function saveGenograma() {
@@ -599,10 +615,27 @@ export default function AnalisisClanicosTab({ patientId, therapistId }: Props) {
             uploading={upGenograma}
             label="Sube aquí la imagen del Genograma (PNG / JPG)"
           />
+          {/* Botón generar descripción */}
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              Descripción / Interpretación del Terapeuta
+            </label>
+            <button
+              onClick={generarDescripcionGenograma}
+              disabled={generandoDescGeno}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium border
+                         border-purple-200 text-purple-700 hover:bg-purple-50 transition-colors
+                         disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {generandoDescGeno ? (
+                <><span className="w-3 h-3 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />Generando…</>
+              ) : '✦ Generar descripción desde Sesión inicial'}
+            </button>
+          </div>
           <InterpretacionArea
             value={genogramaInterp}
             onChange={setGenogramaInterp}
-            placeholder="Describe tu interpretación del genograma: estructura familiar, patrones relacionales, vínculos significativos…"
+            placeholder="Presiona 'Generar descripción' para obtener una guía de las relaciones familiares basada en la Sesión inicial, o escribe tu interpretación directamente…"
             rows={7}
           />
           <div className="flex justify-end pt-2">
