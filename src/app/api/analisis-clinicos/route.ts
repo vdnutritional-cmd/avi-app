@@ -416,25 +416,52 @@ export async function POST(request: NextRequest) {
         datosEspecificos = lineas || '(Sin datos Individual registrados)'
       } else if (tipoCaso === 'Familiar' && exp) {
         const toStr = (v: unknown) => Array.isArray(v) ? (v as string[]).join(', ') : ''
-        const funcObj = exp.fam_funciones && typeof exp.fam_funciones === 'object'
-          ? Object.entries(exp.fam_funciones as Record<string, unknown>)
-              .map(([k, v]) => `${k}: ${Array.isArray(v) ? (v as string[]).join(', ') : v}`)
-              .join(' | ')
+
+        // Mapa key → etiqueta (igual que FamiliarTab)
+        const FUNC_LABELS: Record<string, string> = {
+          necesidades_fisicas:        'Satisfacer necesidades físicas y afectivas',
+          socializacion:              'Socialización de los miembros',
+          reproduccion:               'Reproducción, incorporación y liberación de sus miembros',
+          distribucion_recursos:      'Distribución de recursos y División del trabajo',
+          desarrollo_individual:      'Favorecer el desarrollo individual de sus miembros',
+          conservacion_orden:         'Conservación del orden (respeto por los límites)',
+          integracion_social:         'Integración en el núcleo social',
+          supervivencia_hijos:        'Asegurar la supervivencia de sus hijos',
+          construccion_adultos:       'Construcción de personas adultas con autoestima y sentido de sí mismos',
+          afrontar_retos:             'Aprender a afrontar retos, responsabilidades y compromisos',
+          encuentro_intergeneracional:'Encuentro intergeneracional',
+          red_apoyo:                  'Red de apoyo social',
+        }
+
+        const funcRaw = (exp.fam_funciones && typeof exp.fam_funciones === 'object' && !Array.isArray(exp.fam_funciones))
+          ? exp.fam_funciones as Record<string, string>
+          : {}
+
+        const funcPresentes   = Object.entries(funcRaw).filter(([, v]) => v === 'Presente')
+          .map(([k]) => `    • ${FUNC_LABELS[k] ?? k}`).join('\n')
+        const funcNoPresentes = Object.entries(funcRaw).filter(([, v]) => v === 'No presente')
+          .map(([k]) => `    • ${FUNC_LABELS[k] ?? k}`).join('\n')
+        const funcionesTexto  = (funcPresentes || funcNoPresentes)
+          ? [
+              funcPresentes   ? `  Presentes:\n${funcPresentes}`    : '',
+              funcNoPresentes ? `  No Presentes:\n${funcNoPresentes}` : '',
+            ].filter(Boolean).join('\n')
           : ''
+
         const lineas = [
-          exp.fam_sintomas       ? `Síntomas presentados: ${exp.fam_sintomas}` : '',
-          exp.fam_detonadores    ? `Detonadores: ${exp.fam_detonadores}` : '',
-          toStr(exp.fam_riesgo_items)      ? `Factores de riesgo: ${toStr(exp.fam_riesgo_items)}` : '',
-          toStr(exp.fam_proteccion_items)  ? `Factores de protección: ${toStr(exp.fam_proteccion_items)}` : '',
-          funcObj                ? `Funciones familiares: ${funcObj}` : '',
-          toStr(exp.fam_maternaje)  ? `Maternaje: ${toStr(exp.fam_maternaje)}` : '',
-          toStr(exp.fam_paternaje)  ? `Paternaje: ${toStr(exp.fam_paternaje)}` : '',
-          exp.fam_disfunc_tipo       ? `Tipo de disfunción: ${exp.fam_disfunc_tipo}` : '',
-          toStr(exp.fam_disfunc_opciones) ? `Disfunción — opciones: ${toStr(exp.fam_disfunc_opciones)}` : '',
-          toStr(exp.fam_tipo_disfunc)     ? `Tipo de disfuncionalidad: ${toStr(exp.fam_tipo_disfunc)}` : '',
-          exp.fam_ciclo_vital        ? `Ciclo vital familiar: ${exp.fam_ciclo_vital}` : '',
-          exp.fam_ciclo_vital_analisis ? `Análisis ciclo vital: ${exp.fam_ciclo_vital_analisis}` : '',
-          exp.fam_procesos_analisis   ? `Procesos familiares: ${exp.fam_procesos_analisis}` : '',
+          exp.fam_sintomas                  ? `Síntomas presentados: ${exp.fam_sintomas}` : '',
+          exp.fam_detonadores               ? `Detonadores: ${exp.fam_detonadores}` : '',
+          toStr(exp.fam_riesgo_items)       ? `Factores de riesgo: ${toStr(exp.fam_riesgo_items)}` : '',
+          toStr(exp.fam_proteccion_items)   ? `Factores de protección: ${toStr(exp.fam_proteccion_items)}` : '',
+          funcionesTexto                    ? `Funciones familiares:\n${funcionesTexto}` : '',
+          toStr(exp.fam_maternaje)          ? `Maternaje: ${toStr(exp.fam_maternaje)}` : '',
+          toStr(exp.fam_paternaje)          ? `Paternaje: ${toStr(exp.fam_paternaje)}` : '',
+          exp.fam_disfunc_tipo              ? `Tipo de familia: ${exp.fam_disfunc_tipo}` : '',
+          toStr(exp.fam_disfunc_opciones)   ? `Características disfuncionales: ${toStr(exp.fam_disfunc_opciones)}` : '',
+          toStr(exp.fam_tipo_disfunc)       ? `Tipo de disfuncionalidad observada: ${toStr(exp.fam_tipo_disfunc)}` : '',
+          exp.fam_ciclo_vital               ? `Ciclo vital familiar: ${exp.fam_ciclo_vital}` : '',
+          exp.fam_ciclo_vital_analisis      ? `Análisis ciclo vital: ${exp.fam_ciclo_vital_analisis}` : '',
+          exp.fam_procesos_analisis         ? `Procesos familiares: ${exp.fam_procesos_analisis}` : '',
         ].filter(Boolean).join('\n')
         datosEspecificos = lineas || '(Sin datos Familiar registrados)'
       } else {
