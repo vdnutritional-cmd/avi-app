@@ -357,11 +357,11 @@ export async function POST(request: NextRequest) {
 
     // ── DIAGNÓSTICO INTEGRADO ─────────────────────────────────────────────────
     if (type === 'diagnostico_integrado') {
-      // 1. Todos los datos del expediente relevantes
-      const [relRes, expRes, sesRes] = await Promise.all([
+      // 1. Verificar relación terapeuta-paciente + datos del expediente
+      const [relRes, expRes] = await Promise.all([
         supabase
           .from('therapist_patients')
-          .select('initial_note, initial_note_motivo, initial_note_subyacente, initial_note_premisas')
+          .select('patient_id')
           .eq('therapist_id', user.id).eq('patient_id', patientId).single(),
         supabase
           .from('patient_expediente')
@@ -377,27 +377,13 @@ export async function POST(request: NextRequest) {
                    fam_disfunc_tipo, fam_disfunc_opciones, fam_tipo_disfunc,
                    fam_ciclo_vital, fam_ciclo_vital_analisis, fam_procesos_analisis`)
           .eq('therapist_id', user.id).eq('patient_id', patientId).maybeSingle(),
-        supabase
-          .from('therapist_session_notes')
-          .select('session_number, session_date, notes, session_objetivo, session_desarrollo')
-          .eq('therapist_id', user.id).eq('patient_id', patientId)
-          .order('session_number', { ascending: false }).limit(3),
       ])
 
-      const rel = relRes.data
+      if (!relRes.data) return NextResponse.json({ error: 'Paciente no encontrado' }, { status: 404 })
+
       const exp = expRes.data
-
-      if (!rel) return NextResponse.json({ error: 'Paciente no encontrado' }, { status: 404 })
-
-      const tipoCaso       = (exp?.tipo_caso as string) ?? 'Individual'
+      const tipoCaso        = (exp?.tipo_caso as string) ?? 'Individual'
       const nombreAsesorado = exp?.asesorado_nombre ?? ''
-
-      const notaInicial = [
-        rel.initial_note           ? `CASO:\n${rel.initial_note}`                           : '',
-        rel.initial_note_motivo    ? `MOTIVO DE CONSULTA:\n${rel.initial_note_motivo}`      : '',
-        rel.initial_note_subyacente ? `MOTIVO SUBYACENTE:\n${rel.initial_note_subyacente}` : '',
-        rel.initial_note_premisas  ? `PREMISAS:\n${rel.initial_note_premisas}`              : '',
-      ].filter(Boolean).join('\n\n') || '(Sin nota inicial)'
 
       // 2. Construir bloque de datos según tipo de caso
       const DIMENSIONES_MAP: Record<string, string> = {
@@ -456,50 +442,40 @@ export async function POST(request: NextRequest) {
         datosEspecificos = '(Sección Pareja en construcción — se usa la Nota Inicial como base)'
       }
 
-      const sesionesTexto = (sesRes.data ?? [])
-        .map(s => `Sesión ${s.session_number}: ${s.notes ?? s.session_desarrollo ?? ''}`.slice(0, 300))
-        .join('\n')
+      // 3. RAG — basado únicamente en los datos de la sub-sección correspondiente
+      const fuentes = await retrieveRelevantChunks(datosEspecificos.slice(0, 2000), 10)
 
-      // 3. RAG — fuentes ConsultoríaFuentes orientadas al tipo de caso
-      const ragQuery = [notaInicial.slice(0, 2000), datosEspecificos.slice(0, 1500)].join('\n\n')
-      const fuentes = await retrieveRelevantChunks(ragQuery, 12)
-
-      // 4. Prompt
+      // 4. Prompt corregido
       const prompt = [
-        `Eres un supervisor clínico redactando el "Diagnóstico Integrado" de un caso ${tipoCaso}.`,
-        'Tu análisis se basa EXCLUSIVAMENTE en los datos del expediente y las fuentes teóricas proporcionadas.',
+        `Eres un terapeuta clínico redactando el "Diagnóstico Integrado" de un caso ${tipoCaso}.`,
+        'Trabaja EXCLUSIVAMENTE con los datos del expediente proporcionados abajo.',
         '',
         'ESTRUCTURA REQUERIDA — usa estos encabezados exactos:',
         '',
         `## Diagnóstico Integrado — Caso ${tipoCaso}`,
         '',
         '### Exposición Clínica',
-        `Redacta una narrativa fluida, profesional y formal que exponga cada punto registrado en el expediente ${tipoCaso}.`,
-        'No enumeres los datos; intégralos en párrafos continuos con lenguaje técnico-clínico.',
-        'Cubre todos los puntos disponibles de forma coherente, conectando entre sí las dimensiones del caso.',
+        `Presenta la información registrada en el expediente ${tipoCaso} tal como fue capturada por el terapeuta.`,
+        'Organiza cada campo bajo su etiqueta formal correspondiente, de forma ordenada y clara.',
+        'NO interpretes, NO parafrasees de forma extensa, NO agregues información.',
+        'Omite los campos vacíos. El objetivo es una presentación limpia y formal de los datos.',
         '',
         '### Resumen del Caso',
-        'Escribe un resumen en lenguaje coloquial pero formal (como si se lo explicaras a un colega).',
-        'Analiza el caso desde el marco teórico de ConsultoríaFuentes (fuentes proporcionadas).',
-        'NO salgas de ese marco teórico; fundamenta cada afirmación en las fuentes.',
-        'El resumen debe ser claro, accesible y útil como referencia rápida del estado del caso.',
-        '',
-        'INSTRUCCIONES:',
-        '- Extensión adecuada para un documento clínico de referencia.',
-        '- Lenguaje profesional en la Exposición, coloquial-formal en el Resumen.',
-        '- Sé específico sobre este caso; no uses frases genéricas.',
+        'Redacta un resumen-análisis conciso en lenguaje profesional y formal,',
+        `como si el terapeuta estuviera presentando el caso ${tipoCaso} a un supervisor o institución.`,
+        'NO incluyas historia clínica ni antecedentes generales.',
+        `Concéntrate EXCLUSIVAMENTE en los datos de la sub-sección ${tipoCaso} del expediente.`,
+        'Analiza esos datos desde el marco teórico de ConsultoríaFuentes (fuentes proporcionadas).',
+        'NO salgas de ese marco; fundamenta cada punto de análisis en las fuentes.',
+        'Extensión: máximo 3 párrafos — concreto y directo.',
         '',
         ...(fuentes ? ['── FUENTES TEÓRICAS (ConsultoríaFuentes) ──', fuentes, ''] : []),
-        '── DATOS DEL CASO ──',
+        '── DATOS DEL EXPEDIENTE ──',
         nombreAsesorado ? `Asesorado/a: ${nombreAsesorado}` : '',
         `Tipo de caso: ${tipoCaso}`,
         '',
-        '── NOTA INICIAL ──',
-        notaInicial,
-        '',
-        `── DATOS ${tipoCaso.toUpperCase()} (Expediente) ──`,
+        `── SUB-SECCIÓN ${tipoCaso.toUpperCase()} ──`,
         datosEspecificos,
-        ...(sesionesTexto ? ['', '── ÚLTIMAS SESIONES PRESENCIALES ──', sesionesTexto] : []),
       ].filter(v => v !== undefined && v !== '').join('\n')
 
       const response = await anthropic.messages.create({
