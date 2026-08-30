@@ -563,8 +563,8 @@ export async function POST(request: NextRequest) {
       if (fechaNota && fecha1Ses) {
         const diffDias = Math.round((fecha1Ses.getTime() - fechaNota.getTime()) / (1000 * 60 * 60 * 24))
         programacionTexto = diffDias <= 8
-          ? `Semanal (${diffDias} días entre Nota Inicial y 1ª sesión).`
-          : `Cada dos semanas (${diffDias} días entre Nota Inicial y 1ª sesión).`
+          ? `Semanal (${diffDias} días entre Sesión inicial y 1ª sesión de seguimiento).`
+          : `Cada dos semanas (${diffDias} días entre Sesión inicial y 1ª sesión de seguimiento).`
       }
 
       // ── Tipo de acompañamiento ───────────────────────────────────────────────
@@ -608,7 +608,7 @@ export async function POST(request: NextRequest) {
         'GENERA EL INFORME CON EXACTAMENTE ESTAS 7 SECCIONES (encabezados exactos):',
         '',
         '### 1. Inicio del proceso',
-        `Indica desde cuándo asiste (fecha de Nota Inicial: ${fechaNotaStr}) y el tipo de acompañamiento (${tipoAcomp}).`,
+        `Indica desde cuándo asiste (fecha de Sesión inicial: ${fechaNotaStr}) y el tipo de acompañamiento (${tipoAcomp}).`,
         '',
         '### 2. Asistencia y programación',
         `La atención se programó ${programacionTexto}`,
@@ -635,7 +635,7 @@ export async function POST(request: NextRequest) {
         'Para cada sesión propuesta, ubica la sesión presencial CUYO TEMA sea más cercano (no por orden cronológico, sino por temática).',
         'Escribe: "Sesión #N — [resumen en ≤50 palabras de lo ocurrido]".',
         'Si ninguna sesión presencial cubre esa temática, escribe "(Pendiente)".',
-        'Incluye la Nota Inicial como sesión de referencia (puede matchear con la primera sesión propuesta).',
+        'Incluye la Sesión inicial como sesión de referencia (puede matchear con la primera sesión propuesta).',
         '',
         '### 5. Acciones pendientes',
         'Lista muy breve de los temas del Plan 10 Sesiones que aún no han sido trabajados en sesiones presenciales.',
@@ -645,13 +645,14 @@ export async function POST(request: NextRequest) {
         'Fundamenta en las fuentes. Conciso y específico sobre este caso.',
         '',
         'INSTRUCCIONES FINALES:',
+        '- Completa TODAS las secciones (1 a 6) sin excepción — no te detengas antes.',
         '- Todo en español, lenguaje formal y profesional.',
         '- La tabla debe estar bien formateada en Markdown.',
         '- Sé específico sobre este caso; no uses frases genéricas.',
         '',
         ...(fuentes ? ['── FUENTES (ConsultoríaFuentes) ──', fuentes, ''] : []),
         '── DATOS DEL CASO ──',
-        `Fecha Nota Inicial: ${fechaNotaStr}`,
+        `Fecha Sesión inicial: ${fechaNotaStr}`,
         `Tipo de acompañamiento: ${tipoAcomp}`,
         `Programación detectada: ${programacionTexto}`,
         rel.initial_note_motivo    ? `Motivo de consulta: ${rel.initial_note_motivo}`       : '',
@@ -661,13 +662,13 @@ export async function POST(request: NextRequest) {
         sesionesTexto || '(Sin sesiones presenciales registradas)',
         '',
         primerAnalis
-          ? `── PRIMER ANÁLISIS CASO (${new Date(primerAnalis.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}) ──\n${primerAnalis.content.slice(0, 8000)}`
+          ? `── PRIMER ANÁLISIS CASO (${new Date(primerAnalis.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}) ──\n${primerAnalis.content.slice(0, 7000)}`
           : '── PRIMER ANÁLISIS CASO ──\n(No se ha generado ningún Análisis Caso todavía)',
       ].filter(v => v !== undefined && v !== '').join('\n')
 
       const response = await anthropic.messages.create({
         model: 'claude-sonnet-5',
-        max_tokens: 4000,
+        max_tokens: 7000,
         messages: [{ role: 'user', content: prompt }],
       })
 
@@ -676,7 +677,7 @@ export async function POST(request: NextRequest) {
 
       if (!text) {
         return NextResponse.json(
-          { error: 'No se pudo generar el informe. Verifica que haya datos registrados en Nota Inicial y Sesiones.' },
+          { error: 'No se pudo generar el informe. Verifica que haya datos registrados en Sesión inicial y Sesiones.' },
           { status: 422 }
         )
       }
