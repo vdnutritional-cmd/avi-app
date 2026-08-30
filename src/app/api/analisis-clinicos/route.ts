@@ -355,6 +355,172 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ conclusiones: text, cuantitativo: cuantitativoTexto })
     }
 
+    // ── DIAGNÓSTICO INTEGRADO ─────────────────────────────────────────────────
+    if (type === 'diagnostico_integrado') {
+      // 1. Todos los datos del expediente relevantes
+      const [relRes, expRes, sesRes] = await Promise.all([
+        supabase
+          .from('therapist_patients')
+          .select('initial_note, initial_note_motivo, initial_note_subyacente, initial_note_premisas')
+          .eq('therapist_id', user.id).eq('patient_id', patientId).single(),
+        supabase
+          .from('patient_expediente')
+          .select(`tipo_caso, asesorado_nombre,
+                   individual_dimensiones, individual_contexto,
+                   individual_antecedentes, individual_sintomatologia,
+                   individual_prediag_impresion, individual_prediag_diagnostico,
+                   individual_prediag_areas, individual_prediag_tipo,
+                   individual_prediag_detonadores, individual_prediag_guia,
+                   fam_sintomas, fam_detonadores,
+                   fam_riesgo_items, fam_proteccion_items,
+                   fam_funciones, fam_maternaje, fam_paternaje,
+                   fam_disfunc_tipo, fam_disfunc_opciones, fam_tipo_disfunc,
+                   fam_ciclo_vital, fam_ciclo_vital_analisis, fam_procesos_analisis`)
+          .eq('therapist_id', user.id).eq('patient_id', patientId).maybeSingle(),
+        supabase
+          .from('therapist_session_notes')
+          .select('session_number, session_date, notes, session_objetivo, session_desarrollo')
+          .eq('therapist_id', user.id).eq('patient_id', patientId)
+          .order('session_number', { ascending: false }).limit(3),
+      ])
+
+      const rel = relRes.data
+      const exp = expRes.data
+
+      if (!rel) return NextResponse.json({ error: 'Paciente no encontrado' }, { status: 404 })
+
+      const tipoCaso       = (exp?.tipo_caso as string) ?? 'Individual'
+      const nombreAsesorado = exp?.asesorado_nombre ?? ''
+
+      const notaInicial = [
+        rel.initial_note           ? `CASO:\n${rel.initial_note}`                           : '',
+        rel.initial_note_motivo    ? `MOTIVO DE CONSULTA:\n${rel.initial_note_motivo}`      : '',
+        rel.initial_note_subyacente ? `MOTIVO SUBYACENTE:\n${rel.initial_note_subyacente}` : '',
+        rel.initial_note_premisas  ? `PREMISAS:\n${rel.initial_note_premisas}`              : '',
+      ].filter(Boolean).join('\n\n') || '(Sin nota inicial)'
+
+      // 2. Construir bloque de datos según tipo de caso
+      const DIMENSIONES_MAP: Record<string, string> = {
+        volitiva: 'Volitiva — voluntad y toma de decisiones',
+        cognicion: 'Cognición — pensamiento, memoria, atención y lenguaje',
+        afecto: 'Afecto — vínculos emocionales',
+        social: 'Social/Relacional — vínculos interpersonales',
+        espiritual: 'Espiritual — sentido y trascendencia',
+        conductual: 'Conductual — comportamientos observables',
+        fisico: 'Físico — funciones vitales e imagen corporal',
+      }
+
+      let datosEspecificos = ''
+
+      if (tipoCaso === 'Individual' && exp) {
+        const dims = ((exp.individual_dimensiones as string[]) ?? [])
+          .map(id => DIMENSIONES_MAP[id] ?? id).join(', ')
+        const lineas = [
+          dims              ? `Dimensiones afectadas: ${dims}` : '',
+          exp.individual_contexto       ? `Contexto de la problemática: ${exp.individual_contexto}` : '',
+          exp.individual_antecedentes   ? `Antecedentes de relevancia: ${exp.individual_antecedentes}` : '',
+          exp.individual_sintomatologia ? `Sintomatología observada: ${exp.individual_sintomatologia}` : '',
+          exp.individual_prediag_impresion  ? `Impresión clínica: ${exp.individual_prediag_impresion}` : '',
+          exp.individual_prediag_diagnostico ? `Diagnóstico: ${exp.individual_prediag_diagnostico}` : '',
+          exp.individual_prediag_areas      ? `Áreas de atención: ${exp.individual_prediag_areas}` : '',
+          exp.individual_prediag_tipo       ? `Tipo de problemática: ${exp.individual_prediag_tipo}` : '',
+          exp.individual_prediag_detonadores ? `Detonadores: ${exp.individual_prediag_detonadores}` : '',
+          exp.individual_prediag_guia       ? `Guía de intervención: ${exp.individual_prediag_guia}` : '',
+        ].filter(Boolean).join('\n')
+        datosEspecificos = lineas || '(Sin datos Individual registrados)'
+      } else if (tipoCaso === 'Familiar' && exp) {
+        const toStr = (v: unknown) => Array.isArray(v) ? (v as string[]).join(', ') : ''
+        const funcObj = exp.fam_funciones && typeof exp.fam_funciones === 'object'
+          ? Object.entries(exp.fam_funciones as Record<string, unknown>)
+              .map(([k, v]) => `${k}: ${Array.isArray(v) ? (v as string[]).join(', ') : v}`)
+              .join(' | ')
+          : ''
+        const lineas = [
+          exp.fam_sintomas       ? `Síntomas presentados: ${exp.fam_sintomas}` : '',
+          exp.fam_detonadores    ? `Detonadores: ${exp.fam_detonadores}` : '',
+          toStr(exp.fam_riesgo_items)      ? `Factores de riesgo: ${toStr(exp.fam_riesgo_items)}` : '',
+          toStr(exp.fam_proteccion_items)  ? `Factores de protección: ${toStr(exp.fam_proteccion_items)}` : '',
+          funcObj                ? `Funciones familiares: ${funcObj}` : '',
+          toStr(exp.fam_maternaje)  ? `Maternaje: ${toStr(exp.fam_maternaje)}` : '',
+          toStr(exp.fam_paternaje)  ? `Paternaje: ${toStr(exp.fam_paternaje)}` : '',
+          exp.fam_disfunc_tipo       ? `Tipo de disfunción: ${exp.fam_disfunc_tipo}` : '',
+          toStr(exp.fam_disfunc_opciones) ? `Disfunción — opciones: ${toStr(exp.fam_disfunc_opciones)}` : '',
+          toStr(exp.fam_tipo_disfunc)     ? `Tipo de disfuncionalidad: ${toStr(exp.fam_tipo_disfunc)}` : '',
+          exp.fam_ciclo_vital        ? `Ciclo vital familiar: ${exp.fam_ciclo_vital}` : '',
+          exp.fam_ciclo_vital_analisis ? `Análisis ciclo vital: ${exp.fam_ciclo_vital_analisis}` : '',
+          exp.fam_procesos_analisis   ? `Procesos familiares: ${exp.fam_procesos_analisis}` : '',
+        ].filter(Boolean).join('\n')
+        datosEspecificos = lineas || '(Sin datos Familiar registrados)'
+      } else {
+        // Pareja — aún no implementada, usar nota inicial
+        datosEspecificos = '(Sección Pareja en construcción — se usa la Nota Inicial como base)'
+      }
+
+      const sesionesTexto = (sesRes.data ?? [])
+        .map(s => `Sesión ${s.session_number}: ${s.notes ?? s.session_desarrollo ?? ''}`.slice(0, 300))
+        .join('\n')
+
+      // 3. RAG — fuentes ConsultoríaFuentes orientadas al tipo de caso
+      const ragQuery = [notaInicial.slice(0, 2000), datosEspecificos.slice(0, 1500)].join('\n\n')
+      const fuentes = await retrieveRelevantChunks(ragQuery, 12)
+
+      // 4. Prompt
+      const prompt = [
+        `Eres un supervisor clínico redactando el "Diagnóstico Integrado" de un caso ${tipoCaso}.`,
+        'Tu análisis se basa EXCLUSIVAMENTE en los datos del expediente y las fuentes teóricas proporcionadas.',
+        '',
+        'ESTRUCTURA REQUERIDA — usa estos encabezados exactos:',
+        '',
+        `## Diagnóstico Integrado — Caso ${tipoCaso}`,
+        '',
+        '### Exposición Clínica',
+        `Redacta una narrativa fluida, profesional y formal que exponga cada punto registrado en el expediente ${tipoCaso}.`,
+        'No enumeres los datos; intégralos en párrafos continuos con lenguaje técnico-clínico.',
+        'Cubre todos los puntos disponibles de forma coherente, conectando entre sí las dimensiones del caso.',
+        '',
+        '### Resumen del Caso',
+        'Escribe un resumen en lenguaje coloquial pero formal (como si se lo explicaras a un colega).',
+        'Analiza el caso desde el marco teórico de ConsultoríaFuentes (fuentes proporcionadas).',
+        'NO salgas de ese marco teórico; fundamenta cada afirmación en las fuentes.',
+        'El resumen debe ser claro, accesible y útil como referencia rápida del estado del caso.',
+        '',
+        'INSTRUCCIONES:',
+        '- Extensión adecuada para un documento clínico de referencia.',
+        '- Lenguaje profesional en la Exposición, coloquial-formal en el Resumen.',
+        '- Sé específico sobre este caso; no uses frases genéricas.',
+        '',
+        ...(fuentes ? ['── FUENTES TEÓRICAS (ConsultoríaFuentes) ──', fuentes, ''] : []),
+        '── DATOS DEL CASO ──',
+        nombreAsesorado ? `Asesorado/a: ${nombreAsesorado}` : '',
+        `Tipo de caso: ${tipoCaso}`,
+        '',
+        '── NOTA INICIAL ──',
+        notaInicial,
+        '',
+        `── DATOS ${tipoCaso.toUpperCase()} (Expediente) ──`,
+        datosEspecificos,
+        ...(sesionesTexto ? ['', '── ÚLTIMAS SESIONES PRESENCIALES ──', sesionesTexto] : []),
+      ].filter(v => v !== undefined && v !== '').join('\n')
+
+      const response = await anthropic.messages.create({
+        model: 'claude-sonnet-5',
+        max_tokens: 3500,
+        messages: [{ role: 'user', content: prompt }],
+      })
+
+      const text = extractText(response.content)
+      console.log('[diagnostico_integrado] stop_reason:', response.stop_reason, '| chars:', text.length)
+
+      if (!text) {
+        return NextResponse.json(
+          { error: 'No se pudo generar el diagnóstico. Asegúrate de tener datos en la sub-sección correspondiente.' },
+          { status: 422 }
+        )
+      }
+
+      return NextResponse.json({ diagnostico: text })
+    }
+
     return NextResponse.json({ error: `Tipo no reconocido: ${type}` }, { status: 400 })
 
   } catch (error) {
