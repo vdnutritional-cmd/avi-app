@@ -219,6 +219,13 @@ export default function AnalisisClanicosTab({ patientId, therapistId }: Props) {
   const [visibles,       setVisibles]       = useState<string[]>(['genograma', 'mcmaster', 'foda'])
   const [savingIndex,    setSavingIndex]    = useState(false)
 
+  // Proceso Psicológico
+  const [procesoPsic,       setProcesoPsic]       = useState('')
+  const [generandoProc,     setGenerandoProc]     = useState(false)
+  const [savingProc,        setSavingProc]        = useState(false)
+  const [savedProc,         setSavedProc]         = useState(false)
+  const [errorProc,         setErrorProc]         = useState<string | null>(null)
+
   // Diagnóstico Integrado
   const [diagIntegrado,     setDiagIntegrado]     = useState('')
   const [generandoDiag,     setGenerandoDiag]     = useState(false)
@@ -270,7 +277,7 @@ export default function AnalisisClanicosTab({ patientId, therapistId }: Props) {
       const supabase = createClient()
       const { data } = await supabase
         .from('patient_expediente')
-        .select(`tipo_caso, ac_apartados_visibles,
+        .select(`tipo_caso, ac_proceso_psicologico, ac_apartados_visibles,
                  ac_genograma_url, ac_genograma_interpretacion,
                  ac_mcmaster_archivo1_url, ac_mcmaster_archivo2_url,
                  ac_mcmaster_valores, ac_mcmaster_interpretacion,
@@ -282,6 +289,7 @@ export default function AnalisisClanicosTab({ patientId, therapistId }: Props) {
 
       if (data) {
         if (data.tipo_caso) setTipoCaso(data.tipo_caso as string)
+        setProcesoPsic((data as Record<string, unknown>).ac_proceso_psicologico as string ?? '')
         if (data.ac_apartados_visibles?.length) setVisibles(data.ac_apartados_visibles)
         setGenogramaUrl(data.ac_genograma_url ?? null)
         setGenogramaInterp(data.ac_genograma_interpretacion ?? '')
@@ -454,6 +462,31 @@ export default function AnalisisClanicosTab({ patientId, therapistId }: Props) {
       setSavedFoda(true); setTimeout(() => setSavedFoda(false), 3000)
     } catch (e) { alert(`Error: ${(e as Error).message}`) }
     finally { setSavingFoda(false) }
+  }
+
+  // ── Proceso Psicológico ────────────────────────────────
+  async function generarProcesoPsicologico() {
+    setGenerandoProc(true); setErrorProc(null)
+    try {
+      const res = await fetch('/api/analisis-clinicos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ patientId, therapistId, type: 'proceso_psicologico' }),
+      })
+      const json = await res.json()
+      if (!res.ok || json.error) { setErrorProc(json.error ?? 'Error al generar'); return }
+      setProcesoPsic(json.proceso)
+    } catch { setErrorProc('Error de conexión.') }
+    finally { setGenerandoProc(false) }
+  }
+
+  async function saveProcesoPsicologico() {
+    setSavingProc(true)
+    try {
+      await upsert({ ac_proceso_psicologico: procesoPsic })
+      setSavedProc(true); setTimeout(() => setSavedProc(false), 3000)
+    } catch (e) { alert(`Error: ${(e as Error).message}`) }
+    finally { setSavingProc(false) }
   }
 
   // ── Diagnóstico Integrado ──────────────────────────────
@@ -904,6 +937,76 @@ export default function AnalisisClanicosTab({ patientId, therapistId }: Props) {
                   Al presionar el botón de nuevo se reescribirá el texto anterior.
                 </p>
                 <SaveBtn onClick={saveDiagnosticoIntegrado} loading={savingDiag} saved={savedDiag} />
+              </div>
+            </>
+          )}
+        </div>
+      </ApartadoCard>
+
+      {/* ══ INFORMACIÓN DEL PROCESO PSICOLÓGICO ═════════════ */}
+      <ApartadoCard
+        id="proceso_psicologico"
+        icon="📋"
+        label="Información del proceso psicológico"
+        hasData={!!procesoPsic}
+      >
+        <div className="flex items-center justify-between flex-wrap gap-3 -mt-1">
+          <p className="text-xs text-gray-400">
+            Informe integrado del proceso: asistencia, síntomas, cuadro comparativo de sesiones y conclusiones.
+          </p>
+          <button
+            onClick={generarProcesoPsicologico}
+            disabled={generandoProc}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white
+                       transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ background: generandoProc ? '#ccc' : AVI }}
+          >
+            {generandoProc ? (
+              <><span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />Generando…</>
+            ) : (
+              '✦ Generar Informe'
+            )}
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          {errorProc && (
+            <p className="text-xs text-red-500 bg-red-50 border border-red-100 rounded-xl px-3 py-2">{errorProc}</p>
+          )}
+
+          {!procesoPsic && !generandoProc && (
+            <p className="text-xs text-gray-400 italic text-center py-6">
+              Presiona <strong>✦ Generar Informe</strong> para crear el informe del proceso psicológico.
+            </p>
+          )}
+
+          {generandoProc && (
+            <div className="flex items-center gap-3 py-8 justify-center text-sm text-gray-400">
+              <span className="w-5 h-5 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+              Analizando proceso, sesiones y consultando fuentes clínicas…
+            </div>
+          )}
+
+          {procesoPsic && !generandoProc && (
+            <>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                  Informe del Terapeuta — edita antes de guardar
+                </label>
+                <textarea
+                  rows={28}
+                  value={procesoPsic}
+                  onChange={e => setProcesoPsic(e.target.value)}
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm text-gray-800
+                             focus:outline-none focus:ring-2 resize-y leading-relaxed font-mono"
+                  style={{ '--tw-ring-color': AVI } as React.CSSProperties}
+                />
+              </div>
+              <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                <p className="text-xs text-gray-400">
+                  Al generar de nuevo se reescribirá el texto anterior.
+                </p>
+                <SaveBtn onClick={saveProcesoPsicologico} loading={savingProc} saved={savedProc} />
               </div>
             </>
           )}

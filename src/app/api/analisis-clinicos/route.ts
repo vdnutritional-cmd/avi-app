@@ -524,6 +524,166 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ diagnostico: text })
     }
 
+    // ── INFORMACIÓN DEL PROCESO PSICOLÓGICO ──────────────────────────────────
+    if (type === 'proceso_psicologico') {
+      const [relRes, sesRes, analysesRes, patternsRes] = await Promise.all([
+        supabase
+          .from('therapist_patients')
+          .select('initial_note_date, initial_note_virtual, initial_note_subyacente, initial_note_motivo')
+          .eq('therapist_id', user.id).eq('patient_id', patientId).single(),
+        supabase
+          .from('therapist_session_notes')
+          .select('session_number, session_date, session_objetivo, session_desarrollo, notes')
+          .eq('therapist_id', user.id).eq('patient_id', patientId)
+          .order('session_date', { ascending: true }),
+        supabase
+          .from('analyses')
+          .select('content, created_at')
+          .eq('therapist_id', user.id).eq('patient_id', patientId)
+          .order('created_at', { ascending: true })
+          .limit(1),
+        supabase
+          .from('patterns')
+          .select('id', { count: 'exact', head: true })
+          .eq('patient_id', patientId),
+      ])
+
+      if (!relRes.data) return NextResponse.json({ error: 'Paciente no encontrado' }, { status: 404 })
+
+      const rel          = relRes.data
+      const sesiones     = sesRes.data ?? []
+      const primerAnalis = analysesRes.data?.[0] ?? null
+      const aviCount     = patternsRes.count ?? 0
+
+      // ── Determinar programación de asistencia ────────────────────────────────
+      const fechaNota = rel.initial_note_date ? new Date(rel.initial_note_date + 'T12:00:00') : null
+      const fecha1Ses = sesiones[0]?.session_date ? new Date(sesiones[0].session_date + 'T12:00:00') : null
+
+      let programacionTexto = '(Sin datos suficientes para determinar la programación)'
+      if (fechaNota && fecha1Ses) {
+        const diffDias = Math.round((fecha1Ses.getTime() - fechaNota.getTime()) / (1000 * 60 * 60 * 24))
+        programacionTexto = diffDias <= 8
+          ? `Semanal (${diffDias} días entre Nota Inicial y 1ª sesión).`
+          : `Cada dos semanas (${diffDias} días entre Nota Inicial y 1ª sesión).`
+      }
+
+      // ── Tipo de acompañamiento ───────────────────────────────────────────────
+      const esVirtual    = rel.initial_note_virtual === true
+      const esPresencial = sesiones.length > 0
+      const tipoAcomp = [
+        esPresencial ? 'Presencial' : '',
+        esVirtual && aviCount > 0 ? `Virtual (AVI — ${aviCount} sesiones)` : '',
+      ].filter(Boolean).join(' y ') || 'Presencial'
+
+      // ── Sesiones presenciales para el prompt ────────────────────────────────
+      const sesionesTexto = sesiones.map(s => {
+        const fecha = s.session_date
+          ? new Date(s.session_date + 'T12:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })
+          : ''
+        return [
+          `Sesión ${s.session_number} (${fecha}):`,
+          s.session_objetivo   ? `  Objetivo: ${s.session_objetivo}`   : '',
+          s.session_desarrollo ? `  Desarrollo: ${s.session_desarrollo}` : '',
+          s.notes              ? `  Observaciones: ${s.notes}`         : '',
+        ].filter(Boolean).join('\n')
+      }).join('\n\n')
+
+      const fechaNotaStr = fechaNota
+        ? fechaNota.toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })
+        : '(fecha no registrada)'
+
+      // ── RAG ─────────────────────────────────────────────────────────────────
+      const ragQuery = [
+        rel.initial_note_subyacente ?? '',
+        sesiones.slice(-2).map(s => s.session_desarrollo ?? s.notes ?? '').join(' '),
+      ].join('\n')
+      const fuentes = await retrieveRelevantChunks(ragQuery, 8)
+
+      // ── Prompt ──────────────────────────────────────────────────────────────
+      const prompt = [
+        'Eres un terapeuta clínico redactando el "Informe de Proceso Psicológico" de un caso.',
+        'Redacta en primera persona del plural o como si el terapeuta presentara el caso a un tercero.',
+        'Lenguaje formal y profesional. Texto fluido, concreto, no extendido.',
+        '',
+        'GENERA EL INFORME CON EXACTAMENTE ESTAS 7 SECCIONES (encabezados exactos):',
+        '',
+        '### 1. Inicio del proceso',
+        `Indica desde cuándo asiste (fecha de Nota Inicial: ${fechaNotaStr}) y el tipo de acompañamiento (${tipoAcomp}).`,
+        '',
+        '### 2. Asistencia y programación',
+        `La atención se programó ${programacionTexto}`,
+        'Analiza si las sesiones presenciales registradas abajo siguen o no esa programación.',
+        'Describe cómo se ha comportado la asistencia real vs. la programada, de forma concisa.',
+        '',
+        '### 3. Síntomas iniciales y Trastornos observados',
+        'Presenta en dos sub-puntos:',
+        '- **Síntomas iniciales**: extráelos del campo "Motivos subyacentes" proporcionado abajo.',
+        '- **Trastornos observados**: extráelos de la sección "APEGOS Y HERIDAS" del Primer Análisis Caso (proporcionado abajo).',
+        '  Si no hay Análisis Caso disponible, indica que aún no se ha generado.',
+        '',
+        '### 4. Cuadro comparativo de sesiones',
+        'Crea una tabla Markdown con dos columnas:',
+        '| Acciones propuestas (Plan 10 Sesiones) | Acciones realizadas |',
+        '|---|---|',
+        '',
+        'COLUMNA IZQUIERDA — "Acciones propuestas":',
+        'Extrae las sesiones 1 a 12 del "PLAN: DIEZ SESIONES" del Primer Análisis Caso.',
+        'Para cada sesión: una síntesis en no más de 20 palabras.',
+        'Si no hay Análisis Caso, escribe "(Análisis Caso no disponible)".',
+        '',
+        'COLUMNA DERECHA — "Acciones realizadas":',
+        'Para cada sesión propuesta, ubica la sesión presencial CUYO TEMA sea más cercano (no por orden cronológico, sino por temática).',
+        'Escribe: "Sesión #N — [resumen en ≤50 palabras de lo ocurrido]".',
+        'Si ninguna sesión presencial cubre esa temática, escribe "(Pendiente)".',
+        'Incluye la Nota Inicial como sesión de referencia (puede matchear con la primera sesión propuesta).',
+        '',
+        '### 5. Acciones pendientes',
+        'Lista muy breve de los temas del Plan 10 Sesiones que aún no han sido trabajados en sesiones presenciales.',
+        '',
+        '### 6. Conclusiones',
+        'Escribe 2-3 oraciones de conclusión clínica, basadas en las fuentes de ConsultoríaFuentes proporcionadas.',
+        'Fundamenta en las fuentes. Conciso y específico sobre este caso.',
+        '',
+        'INSTRUCCIONES FINALES:',
+        '- Todo en español, lenguaje formal y profesional.',
+        '- La tabla debe estar bien formateada en Markdown.',
+        '- Sé específico sobre este caso; no uses frases genéricas.',
+        '',
+        ...(fuentes ? ['── FUENTES (ConsultoríaFuentes) ──', fuentes, ''] : []),
+        '── DATOS DEL CASO ──',
+        `Fecha Nota Inicial: ${fechaNotaStr}`,
+        `Tipo de acompañamiento: ${tipoAcomp}`,
+        `Programación detectada: ${programacionTexto}`,
+        rel.initial_note_motivo    ? `Motivo de consulta: ${rel.initial_note_motivo}`       : '',
+        rel.initial_note_subyacente ? `Motivos subyacentes (Síntomas iniciales): ${rel.initial_note_subyacente}` : '',
+        '',
+        '── SESIONES PRESENCIALES REGISTRADAS ──',
+        sesionesTexto || '(Sin sesiones presenciales registradas)',
+        '',
+        primerAnalis
+          ? `── PRIMER ANÁLISIS CASO (${new Date(primerAnalis.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}) ──\n${primerAnalis.content.slice(0, 8000)}`
+          : '── PRIMER ANÁLISIS CASO ──\n(No se ha generado ningún Análisis Caso todavía)',
+      ].filter(v => v !== undefined && v !== '').join('\n')
+
+      const response = await anthropic.messages.create({
+        model: 'claude-sonnet-5',
+        max_tokens: 4000,
+        messages: [{ role: 'user', content: prompt }],
+      })
+
+      const text = extractText(response.content)
+      console.log('[proceso_psicologico] stop_reason:', response.stop_reason, '| chars:', text.length)
+
+      if (!text) {
+        return NextResponse.json(
+          { error: 'No se pudo generar el informe. Verifica que haya datos registrados en Nota Inicial y Sesiones.' },
+          { status: 422 }
+        )
+      }
+
+      return NextResponse.json({ proceso: text })
+    }
+
     return NextResponse.json({ error: `Tipo no reconocido: ${type}` }, { status: 400 })
 
   } catch (error) {
