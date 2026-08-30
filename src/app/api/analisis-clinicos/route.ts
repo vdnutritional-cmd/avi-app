@@ -79,9 +79,10 @@ export async function POST(request: NextRequest) {
         '4. Si hay datos relevantes de algún miembro (enfermedad, fallecimiento, separación), inclúyelos.',
         '',
         'RESTRICCIONES:',
-        '- Solo usa lo que está explícito en la Sesión inicial. NO inventes ni infiere personas no mencionadas.',
-        '- Lenguaje formal y conciso. Máximo 15 líneas.',
+        '- Solo usa lo que está explícito en la Sesión inicial. NO inventes ni infiereas personas no mencionadas.',
+        '- Lenguaje formal y conciso.',
         '- Si la Sesión inicial no menciona familia, indícalo en una oración.',
+        '- Comienza SIEMPRE con el título exacto: "# GENOGRAMA - Descripción de las relaciones familiares"',
         '',
         '── SESIÓN INICIAL ──',
         contexto,
@@ -89,7 +90,7 @@ export async function POST(request: NextRequest) {
 
       const response = await anthropic.messages.create({
         model: 'claude-sonnet-5',
-        max_tokens: 800,
+        max_tokens: 1500,
         messages: [{ role: 'user', content: prompt }],
       })
 
