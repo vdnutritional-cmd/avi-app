@@ -7,6 +7,7 @@ import {
   imprimirNotaInicial,
   imprimirBitacoraSesiones,
   imprimirReporteValorativo,
+  imprimirIntegracionPlan,
   type HistoriaClinicaV2,
   type NotaInicialPrint,
   type SessionPresencialPrint,
@@ -327,6 +328,13 @@ export default function ImpresionesTab({ patientId, therapistId, patientName }: 
     finally { setPrinting(null) }
   }
 
+  // ── Integración y Plan de Tratamiento ───────────────────
+  async function printIntegracionPlan() {
+    setPrinting('integracion')
+    try { await imprimirIntegracionPlan(patientId, therapistId, patientName) }
+    finally { setPrinting(null) }
+  }
+
   const hasNota     = !!(notaInicial?.initial_note?.trim())
   const hasSesiones = sesiones.length > 0
   const anyBusy     = printing !== null || generatingOrig || generatingAct || confirmingOrig
@@ -392,6 +400,14 @@ export default function ImpresionesTab({ patientId, therapistId, patientName }: 
             onPrint={hasSesiones ? printBitacora : undefined}
             loading={printing === 'bitacora'} disabled={anyBusy}
             unavailableMsg="Registra sesiones presenciales para habilitar."
+          />
+
+          {/* Integración y Plan de Tratamiento */}
+          <IndexCard
+            icon="🗂" title="Integración y Plan de Tratamiento" color="blue" status="ready"
+            desc="Datos generales, diagnóstico integrado, propuesta técnica y objetivos de trabajo"
+            onPrint={printIntegracionPlan}
+            loading={printing === 'integracion'} disabled={anyBusy}
           />
 
         </div>
