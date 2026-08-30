@@ -771,78 +771,6 @@ export default function AnalisisClanicosTab({ patientId, therapistId }: Props) {
         </div>
       )}
 
-      {/* ══ DIAGNÓSTICO INTEGRADO ════════════════════════════ */}
-      <ApartadoCard
-        id="diagnostico_integrado"
-        icon="🧬"
-        label={`Diagnóstico Integrado — ${tipoCaso}`}
-        hasData={!!diagIntegrado}
-      >
-        {/* Botón generar */}
-        <div className="flex items-center justify-between flex-wrap gap-3 -mt-1">
-          <p className="text-xs text-gray-400">
-            Genera una exposición clínica y resumen del caso a partir de los datos {tipoCaso}.
-          </p>
-          <button
-            onClick={generarDiagnosticoIntegrado}
-            disabled={generandoDiag}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white
-                       transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            style={{ background: generandoDiag ? '#ccc' : AVI }}
-          >
-            {generandoDiag ? (
-              <><span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />Generando…</>
-            ) : (
-              '✦ Diagnóstico Integrado'
-            )}
-          </button>
-        </div>
-
-        {/* Body */}
-        <div className="space-y-4">
-          {errorDiag && (
-            <p className="text-xs text-red-500 bg-red-50 border border-red-100 rounded-xl px-3 py-2">{errorDiag}</p>
-          )}
-
-          {!diagIntegrado && !generandoDiag && (
-            <p className="text-xs text-gray-400 italic text-center py-6">
-              Presiona <strong>✦ Diagnóstico Integrado</strong> para generar la exposición clínica y el resumen del caso.
-            </p>
-          )}
-
-          {generandoDiag && (
-            <div className="flex items-center gap-3 py-8 justify-center text-sm text-gray-400">
-              <span className="w-5 h-5 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
-              Elaborando diagnóstico integrado y consultando fuentes clínicas…
-            </div>
-          )}
-
-          {diagIntegrado && !generandoDiag && (
-            <>
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                  Diagnóstico del Terapeuta — edita antes de guardar
-                </label>
-                <textarea
-                  rows={22}
-                  value={diagIntegrado}
-                  onChange={e => setDiagIntegrado(e.target.value)}
-                  className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm text-gray-800
-                             focus:outline-none focus:ring-2 resize-y leading-relaxed font-mono"
-                  style={{ '--tw-ring-color': AVI } as React.CSSProperties}
-                />
-              </div>
-              <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-                <p className="text-xs text-gray-400">
-                  Al presionar el botón de nuevo se reescribirá el texto anterior.
-                </p>
-                <SaveBtn onClick={saveDiagnosticoIntegrado} loading={savingDiag} saved={savedDiag} />
-              </div>
-            </>
-          )}
-        </div>
-      </ApartadoCard>
-
       {/* ══ CONCLUSIONES ═════════════════════════════════════ */}
       {visibles.length > 0 && (
         <ApartadoCard id="conclusiones" icon="🔬" label="Resultados generales de los análisis técnicos (cuantitativos y cualitativos)" hasData={!!conclusiones}>
@@ -911,6 +839,76 @@ export default function AnalisisClanicosTab({ patientId, therapistId }: Props) {
           </div>
         </ApartadoCard>
       )}
+
+      {/* ══ DIAGNÓSTICO INTEGRADO ════════════════════════════ */}
+      <ApartadoCard
+        id="diagnostico_integrado"
+        icon="🧬"
+        label={`Diagnóstico Integrado — ${tipoCaso}`}
+        hasData={!!diagIntegrado}
+      >
+        <div className="flex items-center justify-between flex-wrap gap-3 -mt-1">
+          <p className="text-xs text-gray-400">
+            Genera una exposición clínica y resumen del caso a partir de los datos {tipoCaso}.
+          </p>
+          <button
+            onClick={generarDiagnosticoIntegrado}
+            disabled={generandoDiag}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white
+                       transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ background: generandoDiag ? '#ccc' : AVI }}
+          >
+            {generandoDiag ? (
+              <><span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />Generando…</>
+            ) : (
+              '✦ Diagnóstico Integrado'
+            )}
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          {errorDiag && (
+            <p className="text-xs text-red-500 bg-red-50 border border-red-100 rounded-xl px-3 py-2">{errorDiag}</p>
+          )}
+
+          {!diagIntegrado && !generandoDiag && (
+            <p className="text-xs text-gray-400 italic text-center py-6">
+              Presiona <strong>✦ Diagnóstico Integrado</strong> para generar la exposición clínica y el resumen del caso.
+            </p>
+          )}
+
+          {generandoDiag && (
+            <div className="flex items-center gap-3 py-8 justify-center text-sm text-gray-400">
+              <span className="w-5 h-5 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+              Elaborando diagnóstico integrado y consultando fuentes clínicas…
+            </div>
+          )}
+
+          {diagIntegrado && !generandoDiag && (
+            <>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                  Diagnóstico del Terapeuta — edita antes de guardar
+                </label>
+                <textarea
+                  rows={22}
+                  value={diagIntegrado}
+                  onChange={e => setDiagIntegrado(e.target.value)}
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm text-gray-800
+                             focus:outline-none focus:ring-2 resize-y leading-relaxed font-mono"
+                  style={{ '--tw-ring-color': AVI } as React.CSSProperties}
+                />
+              </div>
+              <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                <p className="text-xs text-gray-400">
+                  Al presionar el botón de nuevo se reescribirá el texto anterior.
+                </p>
+                <SaveBtn onClick={saveDiagnosticoIntegrado} loading={savingDiag} saved={savedDiag} />
+              </div>
+            </>
+          )}
+        </div>
+      </ApartadoCard>
 
     </div>
   )
