@@ -1418,6 +1418,11 @@ export async function imprimirReporteProceso(
   therapistId: string,
   patientName: string | null,
 ) {
+  // Abrir la ventana ANTES del await para que el browser lo considere acción del usuario
+  const win = window.open('', '_blank', 'width=900,height=700')
+  if (!win) { alert('Permite ventanas emergentes para imprimir.'); return }
+  win.document.write('<html><body style="font-family:Georgia,serif;padding:40px;color:#555;"><p>⏳ Generando Reporte de Proceso…</p></body></html>')
+
   const supabase = createClient()
 
   // Fetch de datos en paralelo
@@ -1618,8 +1623,7 @@ export async function imprimirReporteProceso(
 </body>
 </html>`
 
-  const win = window.open('', '_blank', 'width=900,height=700')
-  if (!win) { alert('Permite ventanas emergentes para imprimir.'); return }
+  win.document.open()
   win.document.write(html)
   win.document.close()
   win.focus()
