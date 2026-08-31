@@ -648,7 +648,15 @@ export async function imprimirNotaInicial(
 <head>
   <meta charset="UTF-8">
   <title>Entrevista Inicial — ${patientName ?? 'Paciente'}</title>
-  <style>${sharedCSS()}</style>
+  <style>${sharedCSS()}
+    .section, .section-break-before {
+      page-break-inside: auto !important;
+      break-inside: auto !important;
+      page-break-before: auto !important;
+      break-before: auto !important;
+      margin-bottom: 8pt !important;
+    }
+  </style>
 </head>
 <body>
 
