@@ -227,11 +227,11 @@ export async function POST(request: NextRequest) {
         'BLOQUE 1 — Antecedentes de relevancia:',
         'Historia familiar y de origen, relaciones estructurales significativas, eventos de vida relevantes y contexto de desarrollo del consultante.',
         'Si algún dato no es explícito, infiere lo razonable a partir del contexto.',
-        'Máximo 200 palabras. Condensa con criterio clínico — no truncues, sintetiza todo lo relevante dentro del límite.',
+        'Sé clínico y directo. Cubre todos los elementos relevantes sin truncar.',
         '',
         'BLOQUE 2 — Contexto del motivo de consulta:',
         'Síntesis del motivo de consulta del paciente, el motivo subyacente identificado y las premisas clínicas iniciales ante el caso.',
-        'Máximo 200 palabras. Mismo criterio: condensa sin truncar.',
+        'Mismo criterio: cubre todo sin truncar.',
         '',
         'Formato de respuesta (usa exactamente estas etiquetas):',
         '**Antecedentes de relevancia:**',
@@ -250,7 +250,7 @@ export async function POST(request: NextRequest) {
 
       const response = await anthropic.messages.create({
         model: 'claude-sonnet-5',
-        max_tokens: 900,
+        max_tokens: 1800,
         messages: [{ role: 'user', content: prompt }],
       })
 
@@ -272,8 +272,7 @@ export async function POST(request: NextRequest) {
         'Eres supervisor clínico con amplia experiencia en consulta.',
         'Basándote en la Nota Inicial, describe la sintomatología que presenta el consultante: lo que se observa o reporta en su conducta, afecto, pensamiento y relaciones.',
         'Lenguaje profesional pero accesible — sin jerga diagnóstica excesiva.',
-        'Sintetiza la sintomatología COMPLETA en máximo 100 palabras. No truncues: condensa con criterio clínico toda la información relevante dentro del límite.',
-        'Responde directamente con el párrafo, sin título ni encabezado.',
+        'Cubre toda la sintomatología relevante sin truncar. Responde directamente con el párrafo, sin título ni encabezado.',
         '',
         'NOTA INICIAL:',
         notaInicial,
@@ -282,7 +281,7 @@ export async function POST(request: NextRequest) {
 
       const response = await anthropic.messages.create({
         model: 'claude-sonnet-5',
-        max_tokens: 300,
+        max_tokens: 800,
         messages: [{ role: 'user', content: prompt }],
       })
 
