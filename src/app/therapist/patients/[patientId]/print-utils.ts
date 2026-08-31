@@ -1410,6 +1410,222 @@ export async function imprimirHistoriaClinicaV2(
 }
 
 // ──────────────────────────────────────────────────────────
+// Reporte de Proceso
+// ──────────────────────────────────────────────────────────
+
+export async function imprimirReporteProceso(
+  patientId:   string,
+  therapistId: string,
+  patientName: string | null,
+) {
+  const supabase = createClient()
+
+  // Fetch de datos en paralelo
+  const [expedienteRes, notaRes, terapeutaRes, patientRes, subsecuenteRes] = await Promise.all([
+    supabase.from('patient_expediente')
+      .select(`
+        tipo_caso,
+        asesorado_nombre, asesorado_sexo, asesorado_edad,
+        asesorado_fecha_nacimiento, asesorado_lugar_nacimiento, asesorado_estado_civil,
+        asesorado_escolaridad, asesorado_ocupacion, asesorado_religion, asesorado_parroquia,
+        pareja_nombre, pareja_sexo, pareja_edad, pareja_fecha_nacimiento,
+        hijos,
+        individual_prediag_diagnostico,
+        ac_informacion_interes,
+        ac_proceso_psicologico
+      `)
+      .eq('therapist_id', therapistId).eq('patient_id', patientId).maybeSingle(),
+    supabase.from('therapist_patients')
+      .select('initial_note_subyacente')
+      .eq('therapist_id', therapistId).eq('patient_id', patientId).single(),
+    supabase.from('profiles').select('full_name').eq('id', therapistId).single(),
+    supabase.from('profiles').select('email').eq('id', patientId).single(),
+    // Llamada a la IA para el resumen subsecuente
+    fetch('/api/analisis-clinicos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'proceso_subsecuente', patientId }),
+    }).then(r => r.json()).catch(() => ({ subsecuente: '' })),
+  ])
+
+  const dg              = expedienteRes.data as Record<string, unknown> | null
+  const nota            = notaRes.data
+  const terapeutaNombre = terapeutaRes.data?.full_name ?? '—'
+  const patientEmail    = patientRes.data?.email ?? ''
+  const fechaHoy        = new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })
+  const subsecuente     = (subsecuenteRes as Record<string, string>).subsecuente ?? ''
+
+  // ── Helpers ──────────────────────────────────────────────
+  function f(label: string, val: unknown, fallback = '—') {
+    return `<div class="dg-field"><span class="label">${label}:</span> <span class="value">${val || fallback}</span></div>`
+  }
+  function fmtFecha(iso: string | null | undefined) {
+    if (!iso) return '—'
+    return new Date(String(iso) + 'T00:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })
+  }
+  function textBlock(content: string | null | undefined) {
+    return content?.trim()
+      ? `<div class="text-block">${content.trim().replace(/\n/g, '<br>')}</div>`
+      : '<p class="empty">Sin registrar</p>'
+  }
+  function sectionBlock(num: string, title: string, body: string) {
+    return `
+      <div class="section">
+        <div class="section-title"><span class="num">${num}.</span> ${title}</div>
+        ${body}
+      </div>`
+  }
+
+  // ── Hijos ──────────────────────────────────────────────
+  type HijoRow = { nombre: string; edad: string; ocupacion: string; vive_en_casa: string }
+  const hijos: HijoRow[] = (dg?.hijos as HijoRow[]) ?? []
+  const hijosConDatos = hijos.filter(h => h.nombre || h.edad || h.ocupacion || h.vive_en_casa)
+  const hijosHTML = hijosConDatos.length > 0
+    ? `<table class="table-data">
+        <thead><tr><th>#</th><th>Nombre</th><th>Edad</th><th>Ocupación</th><th>¿Vive en casa?</th></tr></thead>
+        <tbody>${hijosConDatos.map((h, i) =>
+          `<tr><td>${i + 1}</td><td>${h.nombre || '—'}</td><td>${h.edad || '—'}</td><td>${h.ocupacion || '—'}</td><td>${h.vive_en_casa || '—'}</td></tr>`
+        ).join('')}</tbody>
+      </table>`
+    : ''
+
+  // ── Motivos de consulta inicial (subyacente + diagnóstico presuntivo sin títulos) ──
+  const motivoInicial = [
+    nota?.initial_note_subyacente?.trim(),
+    (dg?.individual_prediag_diagnostico as string)?.trim(),
+  ].filter(Boolean).join('\n\n')
+
+  const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Reporte de Proceso — ${patientName ?? 'Paciente'}</title>
+  <style>
+    ${sharedCSS()}
+    /* Flujo continuo sin huecos */
+    .section, .section-break-before {
+      page-break-inside: auto !important;
+      break-inside: auto !important;
+      page-break-before: auto !important;
+      break-before: auto !important;
+      margin-bottom: 8pt !important;
+    }
+    .dg-grid  { display: grid; grid-template-columns: 1fr 1fr; gap: 3pt 14pt; margin-bottom: 6pt; }
+    .dg-field { font-size: 10pt; margin-bottom: 2pt; }
+    .label    { font-weight: bold; color: #333; }
+    .value    { color: #1a1a1a; }
+    .subsection-title {
+      font-size: 9.5pt; font-weight: bold; color: #444;
+      text-decoration: underline; text-underline-offset: 2pt; margin: 8pt 0 4pt;
+    }
+    .table-data { width: 100%; border-collapse: collapse; font-size: 9.5pt; margin-top: 4pt; }
+    .table-data th { background: #eef1f8; font-weight: bold; padding: 4pt 6pt; text-align: left; border: 0.5pt solid #c5cfe0; font-size: 9pt; }
+    .table-data td { padding: 3pt 6pt; border: 0.5pt solid #dde3ee; }
+    .text-block { font-size: 10pt; line-height: 1.6; white-space: pre-wrap; }
+    .proceso-content { font-size: 10pt; line-height: 1.6; }
+    .proceso-content h3 { font-size: 10pt; font-weight: bold; color: #2d3a8c; margin: 8pt 0 3pt; }
+    .proceso-content strong { font-weight: bold; }
+  </style>
+</head>
+<body>
+
+  <div class="no-print" style="text-align:right;padding:10pt 0 14pt;">
+    <button onclick="window.print()" style="padding:8pt 18pt;background:#2d3a8c;color:white;border:none;border-radius:8pt;font-size:10pt;cursor:pointer;">
+      🖨 Imprimir / Guardar PDF
+    </button>
+  </div>
+
+  <div class="pre-header">
+    <div class="pre-header-row">
+      <span><strong>Asesorado:</strong> ${patientName ?? '—'}</span>
+      <span><strong>Asesor/Terapeuta:</strong> ${terapeutaNombre}</span>
+    </div>
+    <div class="pre-header-row">
+      <span><strong>Tipo de caso:</strong> ${(dg?.tipo_caso as string) || '—'}</span>
+      <span><strong>Correo:</strong> ${patientEmail || '—'}</span>
+    </div>
+  </div>
+
+  <div class="header">
+    <h1>Reporte de Proceso</h1>
+    <div class="subtitle">Consultoría Fuentes</div>
+  </div>
+
+  <div class="meta">
+    <div><strong>Consultante:</strong> ${patientName ?? '—'}</div>
+    <div><strong>Fecha de elaboración:</strong> ${fechaHoy}</div>
+  </div>
+
+  ${sectionBlock('I', 'Datos Generales', `
+    <div class="subsection-title">Datos del Asesorado</div>
+    <div class="dg-grid">
+      ${f('Nombre',              dg?.asesorado_nombre)}
+      ${f('Sexo',                dg?.asesorado_sexo)}
+      ${f('Edad',                dg?.asesorado_edad)}
+      ${f('Fecha de nacimiento', fmtFecha(dg?.asesorado_fecha_nacimiento as string))}
+      ${f('Lugar de nacimiento', dg?.asesorado_lugar_nacimiento)}
+      ${f('Estado civil',        dg?.asesorado_estado_civil)}
+      ${f('Escolaridad',         dg?.asesorado_escolaridad)}
+      ${f('Ocupación',           dg?.asesorado_ocupacion)}
+      ${f('Religión',            dg?.asesorado_religion)}
+      ${f('Parroquia',           dg?.asesorado_parroquia)}
+    </div>
+    ${(dg?.pareja_nombre || dg?.pareja_edad) ? `
+    <div class="subsection-title">Datos de la Pareja</div>
+    <div class="dg-grid">
+      ${f('Nombre',              dg?.pareja_nombre)}
+      ${f('Sexo',                dg?.pareja_sexo)}
+      ${f('Edad',                dg?.pareja_edad)}
+      ${f('Fecha de nacimiento', fmtFecha(dg?.pareja_fecha_nacimiento as string))}
+    </div>` : ''}
+    ${hijosConDatos.length > 0 ? `
+    <div class="subsection-title">Datos de los Hijos</div>
+    ${hijosHTML}` : ''}
+  `)}
+
+  ${sectionBlock('II', 'Motivos de Consulta Inicial',
+    textBlock(motivoInicial))}
+
+  ${sectionBlock('III', 'Motivos de Consulta Subsecuente',
+    textBlock(subsecuente))}
+
+  ${sectionBlock('IV', 'Información de Interés',
+    textBlock(dg?.ac_informacion_interes as string))}
+
+  ${sectionBlock('V', 'Información del Proceso Psicológico',
+    (dg?.ac_proceso_psicologico as string)?.trim()
+      ? `<div class="proceso-content">${bold2html(dg?.ac_proceso_psicologico as string)}</div>`
+      : '<p class="empty">Sin registrar</p>'
+  )}
+
+  <div class="firma-section">
+    <div class="firma-item">
+      <div class="firma-label">Elabora</div>
+      <div class="firma-linea">
+        <div class="firma-name">${terapeutaNombre}</div>
+        <div style="font-size:8.5pt;color:#666;">Nombre y firma del Terapeuta</div>
+      </div>
+    </div>
+    <div class="firma-item">
+      <div class="firma-label">VoBo</div>
+      <div class="firma-linea">
+        <div class="firma-name">&nbsp;</div>
+        <div style="font-size:8.5pt;color:#666;">Nombre y firma</div>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>`
+
+  const win = window.open('', '_blank', 'width=900,height=700')
+  if (!win) { alert('Permite ventanas emergentes para imprimir.'); return }
+  win.document.write(html)
+  win.document.close()
+  win.focus()
+}
+
+// ──────────────────────────────────────────────────────────
 // Integración y plan de tratamiento
 // ──────────────────────────────────────────────────────────
 

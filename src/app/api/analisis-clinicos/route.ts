@@ -729,6 +729,51 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ proceso: text })
     }
 
+    // ── REPORTE PROCESO: Resumen subsecuente de sesiones ─────────────────────
+    if (type === 'proceso_subsecuente') {
+      const sesRes = await supabase
+        .from('therapist_session_notes')
+        .select('session_number, session_date, session_objetivo, session_desarrollo, notes')
+        .eq('therapist_id', user.id).eq('patient_id', patientId)
+        .order('session_number', { ascending: true })
+
+      const sesiones = sesRes.data ?? []
+      if (sesiones.length === 0) {
+        return NextResponse.json({ subsecuente: '(Sin sesiones presenciales registradas)' })
+      }
+
+      const sesText = sesiones.map(s => {
+        const parts = [
+          s.session_objetivo   ? `Objetivo: ${s.session_objetivo}`     : '',
+          s.session_desarrollo ? `Desarrollo: ${s.session_desarrollo}` : '',
+          s.notes              ? `Notas adicionales: ${s.notes}`       : '',
+        ].filter(Boolean).join('\n')
+        return `Sesión ${s.session_number} (${s.session_date}):\n${parts}`
+      }).join('\n\n')
+
+      const prompt = [
+        'Eres un terapeuta clínico redactando un informe formal para expediente.',
+        'A partir de la información de las sesiones presenciales que se presentan a continuación,',
+        'redacta un breve resumen técnico de lo que se trabajó durante el proceso terapéutico.',
+        'El resumen debe ser formal, profesional y conciso.',
+        'NO uses viñetas ni listas — redacta en párrafos continuos.',
+        'NO repitas datos sesión por sesión; sintetiza acciones, avances y aspectos trabajados de manera global.',
+        'Máximo 3 párrafos.',
+        '',
+        '── SESIONES PRESENCIALES ──',
+        sesText,
+      ].join('\n')
+
+      const response = await anthropic.messages.create({
+        model: 'claude-sonnet-5',
+        max_tokens: 1200,
+        messages: [{ role: 'user', content: prompt }],
+      })
+
+      const text = extractText(response.content)
+      return NextResponse.json({ subsecuente: text || '(No se pudo generar el resumen)' })
+    }
+
     return NextResponse.json({ error: `Tipo no reconocido: ${type}` }, { status: 400 })
 
   } catch (error) {

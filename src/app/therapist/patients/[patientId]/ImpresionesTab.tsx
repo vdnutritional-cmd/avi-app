@@ -7,6 +7,7 @@ import {
   imprimirNotaInicial,
   imprimirBitacoraSesiones,
   imprimirReporteValorativo,
+  imprimirReporteProceso,
   imprimirIntegracionPlan,
   type HistoriaClinicaV2,
   type NotaInicialPrint,
@@ -328,6 +329,13 @@ export default function ImpresionesTab({ patientId, therapistId, patientName }: 
     finally { setPrinting(null) }
   }
 
+  // ── Reporte de Proceso ───────────────────────────────────
+  async function printReporteProceso() {
+    setPrinting('proceso')
+    try { await imprimirReporteProceso(patientId, therapistId, patientName) }
+    finally { setPrinting(null) }
+  }
+
   // ── Integración y Plan de Tratamiento ───────────────────
   async function printIntegracionPlan() {
     setPrinting('integracion')
@@ -400,6 +408,14 @@ export default function ImpresionesTab({ patientId, therapistId, patientName }: 
             onPrint={hasSesiones ? printBitacora : undefined}
             loading={printing === 'bitacora'} disabled={anyBusy}
             unavailableMsg="Registra sesiones presenciales para habilitar."
+          />
+
+          {/* Reporte de Proceso */}
+          <IndexCard
+            icon="📋" title="Reporte de Proceso" color="green" status="ready"
+            desc="Datos generales, motivos, información de interés e información del proceso psicológico"
+            onPrint={printReporteProceso}
+            loading={printing === 'proceso'} disabled={anyBusy}
           />
 
           {/* Integración y Plan de Tratamiento */}
