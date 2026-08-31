@@ -359,22 +359,6 @@ export default function ImpresionesTab({ patientId, therapistId, patientName }: 
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
 
-          {/* Reporte Valorativo */}
-          <IndexCard
-            icon="📋" title="Reporte Valorativo" color="amber" status="ready"
-            desc="Datos Generales, Prediagnóstico, Motivo de Consulta y Análisis Clínicos"
-            onPrint={printReporteValorativo}
-            loading={printing === 'valorativo'} disabled={anyBusy}
-          />
-
-          {/* Integración y Plan de Intervención */}
-          <IndexCard
-            icon="🗂" title="Integración y Plan de Intervención" color="blue" status="ready"
-            desc="Datos generales, diagnóstico integrado, propuesta técnica y objetivos de trabajo"
-            onPrint={printIntegracionPlan}
-            loading={printing === 'integracion'} disabled={anyBusy}
-          />
-
           {/* HC Original */}
           <IndexCard
             icon="🔒" title="Historia Clínica Original" color="purple"
@@ -396,14 +380,20 @@ export default function ImpresionesTab({ patientId, therapistId, patientName }: 
             generating={generatingAct} loading={printing === 'act'} disabled={anyBusy}
           />
 
-          {/* Entrevista Inicial */}
+          {/* Reporte Valorativo */}
           <IndexCard
-            icon="📝" title="Entrevista Inicial" color="gray"
-            status={hasNota ? 'ready' : 'unavailable'}
-            desc="Nota inicial del caso (4 apartados)"
-            onPrint={hasNota ? printNotaInicial : undefined}
-            loading={printing === 'nota'} disabled={anyBusy}
-            unavailableMsg="Completa la Nota Inicial para habilitar."
+            icon="📋" title="Reporte Valorativo" color="amber" status="ready"
+            desc="Datos Generales, Prediagnóstico, Motivo de Consulta y Análisis Clínicos"
+            onPrint={printReporteValorativo}
+            loading={printing === 'valorativo'} disabled={anyBusy}
+          />
+
+          {/* Integración y Plan de Intervención */}
+          <IndexCard
+            icon="🗂" title="Integración y Plan de Intervención" color="blue" status="ready"
+            desc="Datos generales, diagnóstico integrado, propuesta técnica y objetivos de trabajo"
+            onPrint={printIntegracionPlan}
+            loading={printing === 'integracion'} disabled={anyBusy}
           />
 
           {/* Bitácora */}
@@ -424,6 +414,16 @@ export default function ImpresionesTab({ patientId, therapistId, patientName }: 
             desc="Datos generales, motivos, información de interés e información del proceso psicológico"
             onPrint={printReporteProceso}
             loading={printing === 'proceso'} disabled={anyBusy}
+          />
+
+          {/* Entrevista Inicial */}
+          <IndexCard
+            icon="📝" title="Entrevista Inicial" color="gray"
+            status={hasNota ? 'ready' : 'unavailable'}
+            desc="Nota inicial del caso (4 apartados)"
+            onPrint={hasNota ? printNotaInicial : undefined}
+            loading={printing === 'nota'} disabled={anyBusy}
+            unavailableMsg="Completa la Nota Inicial para habilitar."
           />
 
 
