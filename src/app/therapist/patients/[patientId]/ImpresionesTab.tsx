@@ -367,6 +367,14 @@ export default function ImpresionesTab({ patientId, therapistId, patientName }: 
             loading={printing === 'valorativo'} disabled={anyBusy}
           />
 
+          {/* Integración y Plan de Intervención */}
+          <IndexCard
+            icon="🗂" title="Integración y Plan de Intervención" color="blue" status="ready"
+            desc="Datos generales, diagnóstico integrado, propuesta técnica y objetivos de trabajo"
+            onPrint={printIntegracionPlan}
+            loading={printing === 'integracion'} disabled={anyBusy}
+          />
+
           {/* HC Original */}
           <IndexCard
             icon="🔒" title="Historia Clínica Original" color="purple"
@@ -418,13 +426,6 @@ export default function ImpresionesTab({ patientId, therapistId, patientName }: 
             loading={printing === 'proceso'} disabled={anyBusy}
           />
 
-          {/* Integración y Plan de Tratamiento */}
-          <IndexCard
-            icon="🗂" title="Integración y Plan de Tratamiento" color="blue" status="ready"
-            desc="Datos generales, diagnóstico integrado, propuesta técnica y objetivos de trabajo"
-            onPrint={printIntegracionPlan}
-            loading={printing === 'integracion'} disabled={anyBusy}
-          />
 
         </div>
       </div>

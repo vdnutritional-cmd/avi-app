@@ -1779,7 +1779,7 @@ export async function imprimirIntegracionPlan(
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Integración y Plan de Tratamiento — ${patientName ?? 'Paciente'}</title>
+  <title>Integración y Plan de Intervención — ${patientName ?? 'Paciente'}</title>
   <style>
     ${sharedCSS()}
     /* Flujo continuo: sin saltos ni huecos entre secciones */
@@ -1828,7 +1828,7 @@ export async function imprimirIntegracionPlan(
   </div>
 
   <div class="header">
-    <h1>Integración y Plan de Tratamiento</h1>
+    <h1>Integración y Plan de Intervención</h1>
     <div class="subtitle">Consultoría Fuentes</div>
   </div>
 
