@@ -1514,6 +1514,14 @@ export async function imprimirIntegracionPlan(
   <title>Integración y Plan de Tratamiento — ${patientName ?? 'Paciente'}</title>
   <style>
     ${sharedCSS()}
+    /* Flujo continuo: sin saltos ni huecos entre secciones */
+    .section, .section-break-before {
+      page-break-inside: auto !important;
+      break-inside: auto !important;
+      page-break-before: auto !important;
+      break-before: auto !important;
+      margin-bottom: 8pt !important;
+    }
     .dg-grid  { display: grid; grid-template-columns: 1fr 1fr; gap: 3pt 14pt; margin-bottom: 6pt; }
     .dg-field { font-size: 10pt; margin-bottom: 2pt; }
     .label    { font-weight: bold; color: #333; }
