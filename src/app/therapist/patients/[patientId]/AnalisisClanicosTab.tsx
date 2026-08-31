@@ -226,6 +226,10 @@ export default function AnalisisClanicosTab({ patientId, therapistId }: Props) {
   const [savedProc,         setSavedProc]         = useState(false)
   const [errorProc,         setErrorProc]         = useState<string | null>(null)
 
+  const [infoInteres,    setInfoInteres]    = useState('')
+  const [savingInfo,     setSavingInfo]     = useState(false)
+  const [savedInfo,      setSavedInfo]      = useState(false)
+
   // Diagnóstico Integrado
   const [diagIntegrado,     setDiagIntegrado]     = useState('')
   const [generandoDiag,     setGenerandoDiag]     = useState(false)
@@ -283,7 +287,7 @@ export default function AnalisisClanicosTab({ patientId, therapistId }: Props) {
                  ac_mcmaster_archivo1_url, ac_mcmaster_archivo2_url,
                  ac_mcmaster_valores, ac_mcmaster_interpretacion,
                  ac_foda_url, ac_foda_interpretacion,
-                 ac_diagnostico_integrado, ac_conclusiones`)
+                 ac_diagnostico_integrado, ac_conclusiones, ac_informacion_interes`)
         .eq('therapist_id', therapistId)
         .eq('patient_id', patientId)
         .maybeSingle()
@@ -310,6 +314,7 @@ export default function AnalisisClanicosTab({ patientId, therapistId }: Props) {
         setFodaInterp(data.ac_foda_interpretacion ?? '')
         setDiagIntegrado((data as Record<string, unknown>).ac_diagnostico_integrado as string ?? '')
         setConclusiones((data as Record<string, unknown>).ac_conclusiones as string ?? '')
+        setInfoInteres((data as Record<string, unknown>).ac_informacion_interes as string ?? '')
       }
     } finally {
       setLoading(false)
@@ -544,6 +549,15 @@ export default function AnalisisClanicosTab({ patientId, therapistId }: Props) {
       setConclusiones(json.conclusiones)
     } catch { setErrorConc('Error de conexión.') }
     finally { setGenerandoConc(false) }
+  }
+
+  async function saveInfoInteres() {
+    setSavingInfo(true)
+    try {
+      await upsert({ ac_informacion_interes: infoInteres })
+      setSavedInfo(true); setTimeout(() => setSavedInfo(false), 3000)
+    } catch (e) { alert(`Error: ${(e as Error).message}`) }
+    finally { setSavingInfo(false) }
   }
 
   async function saveConclusiones() {
@@ -1043,6 +1057,31 @@ export default function AnalisisClanicosTab({ patientId, therapistId }: Props) {
               </div>
             </>
           )}
+        </div>
+      </ApartadoCard>
+
+      {/* Información de interés */}
+      <ApartadoCard
+        id="informacion_interes"
+        icon="📌"
+        label="Información de interés"
+        hasData={!!infoInteres}
+      >
+        <div className="space-y-3">
+          <p className="text-xs text-gray-400">
+            Espacio libre para añadir cualquier información relevante que el terapeuta considere pertinente.
+          </p>
+          <textarea
+            rows={8}
+            value={infoInteres}
+            onChange={e => setInfoInteres(e.target.value)}
+            placeholder="Escribe aquí la información adicional de interés…"
+            className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-800
+                       focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-y leading-relaxed"
+          />
+          <div className="flex justify-end">
+            <SaveBtn onClick={saveInfoInteres} loading={savingInfo} saved={savedInfo} />
+          </div>
         </div>
       </ApartadoCard>
 
