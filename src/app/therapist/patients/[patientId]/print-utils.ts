@@ -93,6 +93,50 @@ export function bold2html(text: string): string {
   return text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>')
 }
 
+/** Convierte Markdown básico (tablas, encabezados, negrita) a HTML para impresión */
+export function markdown2html(text: string): string {
+  function inline(s: string): string {
+    return s.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+  }
+  const lines = text.split('\n')
+  const out: string[] = []
+  let i = 0
+  while (i < lines.length) {
+    const line = lines[i]
+    // Tabla Markdown
+    if (line.trim().startsWith('|')) {
+      const tableLines: string[] = []
+      while (i < lines.length && lines[i].trim().startsWith('|')) {
+        tableLines.push(lines[i]); i++
+      }
+      // Separar encabezado, separador y filas
+      const [headerRow, , ...bodyRows] = tableLines
+      const parseCells = (r: string) =>
+        r.split('|').slice(1, -1).map(c => c.trim())
+      const hCells = parseCells(headerRow ?? '')
+      const bRows  = bodyRows.filter(r => !r.match(/^\s*\|[\s\-:|]+\|\s*$/))
+      out.push(`<table class="md-table">
+        <thead><tr>${hCells.map(c => `<th>${inline(c)}</th>`).join('')}</tr></thead>
+        <tbody>${bRows.map(r => `<tr>${parseCells(r).map(c => `<td>${inline(c)}</td>`).join('')}</tr>`).join('')}</tbody>
+      </table>`)
+      continue
+    }
+    // Encabezados
+    if (/^#{1,3} /.test(line)) {
+      const level = line.match(/^(#+)/)?.[1].length ?? 3
+      const tag   = level <= 2 ? 'h3' : 'h4'
+      out.push(`<${tag} class="md-h">${inline(line.replace(/^#+\s*/, ''))}</${tag}>`)
+      i++; continue
+    }
+    // Línea vacía
+    if (line.trim() === '') { out.push('<div style="height:6pt"></div>'); i++; continue }
+    // Párrafo normal
+    out.push(`<p class="md-p">${inline(line)}</p>`)
+    i++
+  }
+  return out.join('\n')
+}
+
 export function vias2html(text: string): string {
   return text
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
@@ -1528,8 +1572,12 @@ export async function imprimirReporteProceso(
     .table-data td { padding: 3pt 6pt; border: 0.5pt solid #dde3ee; }
     .text-block { font-size: 10pt; line-height: 1.6; white-space: pre-wrap; }
     .proceso-content { font-size: 10pt; line-height: 1.6; }
-    .proceso-content h3 { font-size: 10pt; font-weight: bold; color: #2d3a8c; margin: 8pt 0 3pt; }
+    .proceso-content .md-h  { font-size: 10pt; font-weight: bold; color: #2d3a8c; margin: 8pt 0 3pt; }
+    .proceso-content .md-p  { margin: 2pt 0; }
     .proceso-content strong { font-weight: bold; }
+    .md-table { width: 100%; border-collapse: collapse; font-size: 9.5pt; margin: 6pt 0; }
+    .md-table th { background: #eef1f8; font-weight: bold; padding: 4pt 6pt; text-align: left; border: 0.5pt solid #c5cfe0; }
+    .md-table td { padding: 3pt 6pt; border: 0.5pt solid #dde3ee; vertical-align: top; }
   </style>
 </head>
 <body>
@@ -1599,7 +1647,7 @@ export async function imprimirReporteProceso(
 
   ${sectionBlock('V', 'Información del Proceso Psicológico',
     (dg?.ac_proceso_psicologico as string)?.trim()
-      ? `<div class="proceso-content">${bold2html(dg?.ac_proceso_psicologico as string)}</div>`
+      ? `<div class="proceso-content">${markdown2html(dg?.ac_proceso_psicologico as string)}</div>`
       : '<p class="empty">Sin registrar</p>'
   )}
 
