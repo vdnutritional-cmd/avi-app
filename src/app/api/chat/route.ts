@@ -76,6 +76,50 @@ export async function POST(request: NextRequest) {
       .from('messages')
       .insert({ session_id: activeSessionId, role: 'user', content: message })
 
+    // Contexto personalizado del paciente: nota inicial + sesiones presenciales
+    const [relacionRes, sesionesRes] = await Promise.all([
+      supabase
+        .from('therapist_patients')
+        .select('initial_note, initial_note_motivo, initial_note_subyacente, initial_note_premisas')
+        .eq('patient_id', user.id)
+        .maybeSingle(),
+      supabase
+        .from('therapist_session_notes')
+        .select('session_number, session_date, session_objetivo, session_desarrollo, notes')
+        .eq('patient_id', user.id)
+        .order('session_number', { ascending: false })
+        .limit(5),
+    ])
+
+    const rel = relacionRes.data
+    const sesiones = (sesionesRes.data ?? []).reverse()
+
+    const bloqueNotaInicial = rel
+      ? [
+          rel.initial_note          ? `Desarrollo del caso: ${rel.initial_note}`                   : '',
+          rel.initial_note_motivo   ? `Motivo de consulta: ${rel.initial_note_motivo}`             : '',
+          rel.initial_note_subyacente ? `Motivo subyacente: ${rel.initial_note_subyacente}`       : '',
+          rel.initial_note_premisas ? `Premisas clínicas: ${rel.initial_note_premisas}`           : '',
+        ].filter(Boolean).join('\n')
+      : ''
+
+    const bloqueSesiones = sesiones.length > 0
+      ? sesiones.map(s => {
+          const partes = [
+            `Sesión ${s.session_number} (${s.session_date}):`,
+            s.session_objetivo   ? `  Objetivo: ${s.session_objetivo}`   : '',
+            s.session_desarrollo ? `  Desarrollo: ${s.session_desarrollo}` : '',
+            s.notes              ? `  Notas: ${s.notes}`                  : '',
+          ].filter(Boolean)
+          return partes.join('\n')
+        }).join('\n\n')
+      : ''
+
+    const contextoPaciente = [
+      bloqueNotaInicial ? `## CONTEXTO DEL PROCESO TERAPÉUTICO DE ESTE PACIENTE\nUsa esta información para personalizar tu acompañamiento. NO la menciones directamente ni la cites textualmente — solo úsala para que tus respuestas sean más cercanas y coherentes con su proceso real.\n\n### Sesión inicial\n${bloqueNotaInicial}` : '',
+      bloqueSesiones ? `### Sesiones presenciales recientes\n${bloqueSesiones}` : '',
+    ].filter(Boolean).join('\n\n')
+
     // Detectar crisis
     const hasCrisis = detectCrisis(message)
     if (hasCrisis) {
@@ -112,7 +156,10 @@ export async function POST(request: NextRequest) {
         // SDK 0.30.1: cache_control no está en TextBlockParam pero sí en la API.
         // Se castea el bloque completo. Actualizar SDK a 0.32+ elimina este cast.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        system: [{ type: 'text', text: RECUPERATE_SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }] as any,
+        system: [
+          { type: 'text', text: RECUPERATE_SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } },
+          ...(contextoPaciente ? [{ type: 'text', text: contextoPaciente }] : []),
+        ] as any,
         messages,
       },
       {
