@@ -166,6 +166,10 @@ export async function POST(req: NextRequest) {
     // Siempre usar el dominio del app (go.avi-app.com.mx), nunca el sitio marketing
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://go.avi-app.com.mx'
 
+    // IVA manual 16% inclusivo (built-in en el precio).
+    // Se aplica solo si está configurado el env var; si no, se omite.
+    const taxRateId = process.env.STRIPE_TAX_RATE_IVA_16
+
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       mode: 'subscription',
@@ -173,10 +177,9 @@ export async function POST(req: NextRequest) {
         {
           price: resolved.priceId,
           quantity: resolved.quantity,
+          ...(taxRateId ? { tax_rates: [taxRateId] } : {}),
         },
       ],
-      automatic_tax: { enabled: true },
-      customer_update: { address: 'auto' },
       success_url: `${appUrl}/therapist/dashboard?checkout=success`,
       cancel_url: `${appUrl}/therapist/dashboard`,
       metadata: {
