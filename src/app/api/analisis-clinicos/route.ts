@@ -804,8 +804,7 @@ export async function POST(request: NextRequest) {
         notaInicial.slice(0, 1500),
       ].filter(Boolean).join('\n')
 
-      const fuentes = await retrieveRelevantChunks(ragQuery, 8)
-      const fuentesTexto = fuentes.map((c: { content: string }) => c.content).join('\n\n---\n\n')
+      const fuentesTexto = await retrieveRelevantChunks(ragQuery, 8)
 
       // 3. Construir listado de síntomas seleccionados
       const sintomasTexto = [
