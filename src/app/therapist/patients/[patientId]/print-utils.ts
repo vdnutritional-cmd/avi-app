@@ -872,6 +872,7 @@ export async function imprimirReporteValorativo(
         individual_prediag_impresion, individual_prediag_diagnostico,
         individual_prediag_areas, individual_prediag_tipo,
         individual_prediag_detonadores, individual_prediag_guia,
+        par_eros, par_philia, par_agape, par_tipo_amor, par_estructura, par_conclusion,
         ac_apartados_visibles,
         ac_genograma_url, ac_genograma_interpretacion,
         ac_mcmaster_archivo1_url, ac_mcmaster_archivo2_url,
@@ -1056,28 +1057,61 @@ export async function imprimirReporteValorativo(
     return ''
   }).join('')
 
-  // ── Prediagnóstico ───────────────────────────────────────────
+  // ── Prediagnóstico / Sección Pareja ─────────────────────────
   const prediagFecha = dg?.prediag_fecha
     ? fmtFecha(dg.prediag_fecha as string)
     : ''
 
-  const prediagItems = [
-    { label: 'Impresión del sujeto de evaluación',                  val: dg?.individual_prediag_impresion   },
-    { label: 'Diagnóstico presuntivo',                               val: dg?.individual_prediag_diagnostico },
-    { label: 'Áreas de conflicto (áreas afectadas)',                val: dg?.individual_prediag_areas       },
-    { label: 'Tipo de problema',                                     val: dg?.individual_prediag_tipo        },
-    { label: 'Detonadores',                                         val: dg?.individual_prediag_detonadores },
-    { label: 'Guía de acción o trabajo',                            val: dg?.individual_prediag_guia        },
-  ]
+  const tipoCasoRV = (dg?.tipo_caso as string) ?? ''
 
-  const prediagHTML = prediagItems.map(item => `
-    <div class="prediag-item">
-      <span class="prediag-label">${item.label}:</span>
-      ${item.val
-        ? `<div class="prediag-text">${String(item.val)}</div>`
-        : '<div class="prediag-empty">—</div>'
-      }
-    </div>`).join('')
+  // Helper: convert jsonb array to comma-separated string
+  function toStrArr(v: unknown): string {
+    return Array.isArray(v) ? (v as string[]).join(', ') : ''
+  }
+
+  const prediagHTML = tipoCasoRV === 'Pareja'
+    ? (() => {
+        const erosStr   = toStrArr(dg?.par_eros)
+        const philiaStr = toStrArr(dg?.par_philia)
+        const agapeStr  = toStrArr(dg?.par_agape)
+        const parejaItems = [
+          { label: 'Áreas EROS (pasión / atracción)',          val: erosStr   || null },
+          { label: 'Áreas PHILIA (amistad / compañerismo)',    val: philiaStr || null },
+          { label: 'Áreas ÁGAPE (amor incondicional)',         val: agapeStr  || null },
+          { label: 'Tipo de amor predominante',                val: dg?.par_tipo_amor   },
+          { label: 'Estructura de la pareja',                  val: dg?.par_estructura  },
+        ]
+        const itemsHTML = parejaItems.map(item => `
+          <div class="prediag-item">
+            <span class="prediag-label">${item.label}:</span>
+            ${item.val
+              ? `<div class="prediag-text">${String(item.val)}</div>`
+              : '<div class="prediag-empty">—</div>'
+            }
+          </div>`).join('')
+        const conclusionHTML = dg?.par_conclusion
+          ? `<div class="prediag-item">
+               <span class="prediag-label">Conclusión clínica:</span>
+               <div class="prediag-text">${String(dg.par_conclusion).replace(/\n/g, '<br>')}</div>
+             </div>`
+          : ''
+        return itemsHTML + conclusionHTML
+      })()
+    : [
+        { label: 'Impresión del sujeto de evaluación',         val: dg?.individual_prediag_impresion   },
+        { label: 'Diagnóstico presuntivo',                      val: dg?.individual_prediag_diagnostico },
+        { label: 'Áreas de conflicto (áreas afectadas)',       val: dg?.individual_prediag_areas       },
+        { label: 'Tipo de problema',                            val: dg?.individual_prediag_tipo        },
+        { label: 'Detonadores',                                 val: dg?.individual_prediag_detonadores },
+        { label: 'Guía de acción o trabajo',                   val: dg?.individual_prediag_guia        },
+      ].map(item => `
+        <div class="prediag-item">
+          <span class="prediag-label">${item.label}:</span>
+          ${item.val
+            ? `<div class="prediag-text">${String(item.val)}</div>`
+            : '<div class="prediag-empty">—</div>'
+          }
+        </div>`).join('')
 
   // ── HTML final ───────────────────────────────────────────────
   const html = `<!DOCTYPE html>
@@ -1188,11 +1222,11 @@ export async function imprimirReporteValorativo(
 
   </div>
 
-  <!-- II. PREDIAGNÓSTICO -->
+  <!-- II. PREDIAGNÓSTICO / PAREJA -->
   <div class="section">
     <div class="section-title">
-      <span class="num">II.</span> Prediagnóstico
-      ${prediagFecha ? `<span style="font-size:9pt;font-weight:normal;color:#555;margin-left:8pt;">(${prediagFecha})</span>` : ''}
+      <span class="num">II.</span> ${tipoCasoRV === 'Pareja' ? 'Sección Pareja' : 'Prediagnóstico'}
+      ${prediagFecha && tipoCasoRV !== 'Pareja' ? `<span style="font-size:9pt;font-weight:normal;color:#555;margin-left:8pt;">(${prediagFecha})</span>` : ''}
     </div>
     ${prediagHTML}
   </div>

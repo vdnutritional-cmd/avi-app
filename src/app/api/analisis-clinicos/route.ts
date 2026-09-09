@@ -424,7 +424,8 @@ export async function POST(request: NextRequest) {
                    fam_riesgo_items, fam_proteccion_items,
                    fam_funciones, fam_maternaje, fam_paternaje,
                    fam_disfunc_tipo, fam_disfunc_opciones, fam_tipo_disfunc,
-                   fam_ciclo_vital, fam_ciclo_vital_analisis, fam_procesos_analisis`)
+                   fam_ciclo_vital, fam_ciclo_vital_analisis, fam_procesos_analisis,
+                   par_eros, par_philia, par_agape, par_tipo_amor, par_estructura, par_conclusion`)
           .eq('therapist_id', user.id).eq('patient_id', patientId).maybeSingle(),
       ])
 
@@ -513,9 +514,19 @@ export async function POST(request: NextRequest) {
           exp.fam_procesos_analisis         ? `Procesos familiares: ${exp.fam_procesos_analisis}` : '',
         ].filter(Boolean).join('\n')
         datosEspecificos = lineas || '(Sin datos Familiar registrados)'
+      } else if (tipoCaso === 'Pareja' && exp) {
+        const toArr = (v: unknown) => Array.isArray(v) ? (v as string[]).join(', ') : ''
+        const lineas = [
+          toArr(exp.par_eros)        ? `Áreas EROS (pasión/atracción): ${toArr(exp.par_eros)}`        : '',
+          toArr(exp.par_philia)      ? `Áreas PHILIA (amistad/compañerismo): ${toArr(exp.par_philia)}` : '',
+          toArr(exp.par_agape)       ? `Áreas ÁGAPE (amor incondicional): ${toArr(exp.par_agape)}`     : '',
+          exp.par_tipo_amor          ? `Tipo de amor predominante: ${exp.par_tipo_amor}`               : '',
+          exp.par_estructura         ? `Estructura de la pareja: ${exp.par_estructura}`                : '',
+          exp.par_conclusion         ? `Conclusión clínica Pareja:\n${exp.par_conclusion}`              : '',
+        ].filter(Boolean).join('\n')
+        datosEspecificos = lineas || '(Sin datos Pareja registrados)'
       } else {
-        // Pareja — aún no implementada, usar nota inicial
-        datosEspecificos = '(Sección Pareja en construcción — se usa la Nota Inicial como base)'
+        datosEspecificos = '(Sin datos de sub-sección registrados)'
       }
 
       // 3. RAG — basado únicamente en los datos de la sub-sección correspondiente

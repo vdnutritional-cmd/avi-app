@@ -257,6 +257,19 @@ export async function POST(request: NextRequest) {
           exp.fam_procesos_analisis    ? `Procesos familiares:\n${exp.fam_procesos_analisis}`    : '',
         ].filter(Boolean).join('\n')
       }
+      if (tipoCaso === 'Pareja') {
+        const eros   = Array.isArray(exp.par_eros)   ? (exp.par_eros   as string[]).join(', ') : ''
+        const philia = Array.isArray(exp.par_philia) ? (exp.par_philia as string[]).join(', ') : ''
+        const agape  = Array.isArray(exp.par_agape)  ? (exp.par_agape  as string[]).join(', ') : ''
+        return [
+          eros        ? `Áreas EROS (pasión/atracción): ${eros}`          : '',
+          philia      ? `Áreas PHILIA (amistad/compañerismo): ${philia}`  : '',
+          agape       ? `Áreas ÁGAPE (amor incondicional): ${agape}`      : '',
+          exp.par_tipo_amor  ? `Tipo de amor predominante: ${exp.par_tipo_amor}`  : '',
+          exp.par_estructura ? `Estructura de la pareja: ${exp.par_estructura}`   : '',
+          exp.par_conclusion ? `Conclusión clínica Pareja:\n${exp.par_conclusion}` : '',
+        ].filter(Boolean).join('\n')
+      }
       return ''
     }
 
