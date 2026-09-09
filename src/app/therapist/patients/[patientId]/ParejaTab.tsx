@@ -193,7 +193,7 @@ export default function ParejaTab({ patientId, therapistId }: Props) {
       const res = await fetch('/api/analisis-clinicos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'pareja_areas', patientId, eros, philia, agape }),
+        body: JSON.stringify({ type: 'pareja_areas', patientId, eros, philia, agape, tipoAmor, estructura }),
       })
       const json = await res.json()
       if (!res.ok || json.error) {
@@ -286,44 +286,6 @@ export default function ParejaTab({ patientId, therapistId }: Props) {
           </div>
         </div>
 
-        {/* Botón Generar análisis */}
-        <div className="pt-2 border-t border-gray-100 space-y-3">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={generarAnalisis}
-              disabled={generating}
-              className="px-4 py-2 rounded-xl text-sm font-semibold text-white transition-colors
-                         disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{ backgroundColor: '#b243d5' }}
-            >
-              {generating ? 'Generando análisis…' : '✦ Generar análisis'}
-            </button>
-            {generating && (
-              <span className="text-xs text-gray-400 animate-pulse">Consultando fuentes clínicas…</span>
-            )}
-          </div>
-          {genError && <p className="text-xs text-red-500">{genError}</p>}
-
-          {/* Textarea editable de conclusión */}
-          {(conclusion || generating) && (
-            <div className="space-y-1">
-              <p className="text-xs font-semibold" style={{ color: '#b243d5' }}>
-                Conclusión clínica
-                <span className="ml-2 font-normal text-gray-400">(editable)</span>
-              </p>
-              <textarea
-                value={conclusion}
-                onChange={e => setConclusion(e.target.value)}
-                rows={6}
-                disabled={generating}
-                placeholder="El análisis aparecerá aquí. Puedes editarlo antes de guardar."
-                className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-700
-                           focus:outline-none focus:ring-2 focus:ring-purple-300 transition resize-y
-                           disabled:opacity-60"
-              />
-            </div>
-          )}
-        </div>
       </SectionCard>
 
       {/* ── Apartado 2: Tipos de AMOR ── */}
@@ -380,6 +342,42 @@ export default function ParejaTab({ patientId, therapistId }: Props) {
                 onChange={() => setEstructura(opt.label)}
               />
             ))}
+          </div>
+        </div>
+      </SectionCard>
+
+      {/* ── Conclusión clínica ── */}
+      <SectionCard title="Conclusión clínica">
+        <Instruccion>
+          Una vez seleccionadas las opciones de los tres apartados, genera el análisis. Puedes editar el resultado antes de guardar.
+        </Instruccion>
+        <div className="space-y-3 pt-1">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={generarAnalisis}
+              disabled={generating}
+              className="px-4 py-2 rounded-xl text-sm font-semibold text-white transition-colors
+                         disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ backgroundColor: '#b243d5' }}
+            >
+              {generating ? 'Generando análisis…' : '✦ Generar análisis'}
+            </button>
+            {generating && (
+              <span className="text-xs text-gray-400 animate-pulse">Consultando fuentes clínicas…</span>
+            )}
+          </div>
+          {genError && <p className="text-xs text-red-500">{genError}</p>}
+          <div className="space-y-1">
+            <textarea
+              value={conclusion}
+              onChange={e => setConclusion(e.target.value)}
+              rows={6}
+              disabled={generating}
+              placeholder="El análisis aparecerá aquí. Puedes editarlo antes de guardar."
+              className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-700
+                         focus:outline-none focus:ring-2 focus:ring-purple-300 transition resize-y
+                         disabled:opacity-60"
+            />
           </div>
         </div>
       </SectionCard>

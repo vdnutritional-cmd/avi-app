@@ -776,10 +776,12 @@ export async function POST(request: NextRequest) {
 
     // ── ÁREAS FUNCIONALES Y DISFUNCIONALES DE PAREJA ─────────────────────────
     if (type === 'pareja_areas') {
-      const { eros = [], philia = [], agape = [] } = body as {
+      const { eros = [], philia = [], agape = [], tipoAmor = '', estructura = '' } = body as {
         eros?: string[]
         philia?: string[]
         agape?: string[]
+        tipoAmor?: string
+        estructura?: string
       }
 
       // 1. Nota inicial del paciente para contexto
@@ -806,15 +808,17 @@ export async function POST(request: NextRequest) {
 
       const fuentesTexto = await retrieveRelevantChunks(ragQuery, 8)
 
-      // 3. Construir listado de síntomas seleccionados
+      // 3. Construir listado de selecciones de los 3 apartados
       const sintomasTexto = [
-        eros.length   ? `EROS (fusión):\n${eros.map(s => `  • ${s}`).join('\n')}`     : '',
-        philia.length ? `PHILIA (intimidad):\n${philia.map(s => `  • ${s}`).join('\n')}` : '',
+        eros.length   ? `EROS (fusión):\n${eros.map(s => `  • ${s}`).join('\n')}`             : '',
+        philia.length ? `PHILIA (intimidad):\n${philia.map(s => `  • ${s}`).join('\n')}`       : '',
         agape.length  ? `ÁGAPE (compromiso auténtico):\n${agape.map(s => `  • ${s}`).join('\n')}` : '',
+        tipoAmor      ? `TIPO DE AMOR seleccionado: ${tipoAmor}`                               : '',
+        estructura    ? `ESTRUCTURA de la pareja: ${estructura}`                               : '',
       ].filter(Boolean).join('\n\n')
 
       if (!sintomasTexto) {
-        return NextResponse.json({ error: 'No hay síntomas seleccionados para analizar.' }, { status: 400 })
+        return NextResponse.json({ error: 'No hay información seleccionada para analizar.' }, { status: 400 })
       }
 
       // 4. Prompt con RAG
