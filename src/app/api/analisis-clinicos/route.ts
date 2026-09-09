@@ -774,6 +774,93 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ subsecuente: text || '(No se pudo generar el resumen)' })
     }
 
+    // ── ÁREAS FUNCIONALES Y DISFUNCIONALES DE PAREJA ─────────────────────────
+    if (type === 'pareja_areas') {
+      const { eros = [], philia = [], agape = [] } = body as {
+        eros?: string[]
+        philia?: string[]
+        agape?: string[]
+      }
+
+      // 1. Nota inicial del paciente para contexto
+      const { data: rel } = await supabase
+        .from('therapist_patients')
+        .select('initial_note, initial_note_motivo, initial_note_subyacente, initial_note_premisas')
+        .eq('therapist_id', user.id).eq('patient_id', patientId).maybeSingle()
+
+      const notaInicial = rel ? [
+        rel.initial_note            ? `DESARROLLO DEL CASO:\n${rel.initial_note}`            : '',
+        rel.initial_note_motivo     ? `MOTIVO DE CONSULTA:\n${rel.initial_note_motivo}`       : '',
+        rel.initial_note_subyacente ? `MOTIVO SUBYACENTE:\n${rel.initial_note_subyacente}`   : '',
+        rel.initial_note_premisas   ? `PREMISAS CLÍNICAS:\n${rel.initial_note_premisas}`      : '',
+      ].filter(Boolean).join('\n\n') : '(Sin nota inicial registrada)'
+
+      // 2. RAG: fuentes de ConsultoríaFuentes sobre terapia de pareja
+      const ragQuery = [
+        'EROS PHILIA ÁGAPE amor pareja disfuncional',
+        eros.length   ? `EROS: ${eros.join(', ')}`     : '',
+        philia.length ? `PHILIA: ${philia.join(', ')}` : '',
+        agape.length  ? `ÁGAPE: ${agape.join(', ')}`   : '',
+        notaInicial.slice(0, 1500),
+      ].filter(Boolean).join('\n')
+
+      const fuentes = await retrieveRelevantChunks(ragQuery, 8)
+      const fuentesTexto = fuentes.map((c: { content: string }) => c.content).join('\n\n---\n\n')
+
+      // 3. Construir listado de síntomas seleccionados
+      const sintomasTexto = [
+        eros.length   ? `EROS (fusión):\n${eros.map(s => `  • ${s}`).join('\n')}`     : '',
+        philia.length ? `PHILIA (intimidad):\n${philia.map(s => `  • ${s}`).join('\n')}` : '',
+        agape.length  ? `ÁGAPE (compromiso auténtico):\n${agape.map(s => `  • ${s}`).join('\n')}` : '',
+      ].filter(Boolean).join('\n\n')
+
+      if (!sintomasTexto) {
+        return NextResponse.json({ error: 'No hay síntomas seleccionados para analizar.' }, { status: 400 })
+      }
+
+      // 4. Prompt con RAG
+      const prompt = [
+        'Eres un supervisor clínico especializado en terapia de pareja con enfoque en Personalismo, Satir y Gottman.',
+        '',
+        'A partir de los SÍNTOMAS SELECCIONADOS del modelo EROS-PHILIA-ÁGAPE y apoyándote',
+        'en las FUENTES CLÍNICAS proporcionadas, redacta una conclusión clínica breve (máx. 3 párrafos) que:',
+        '',
+        '1. Identifique el patrón disfuncional predominante en la pareja según las áreas afectadas.',
+        '2. Describa cómo interactúan los síntomas entre sí y qué impacto tienen en el vínculo.',
+        '3. Señale una dirección terapéutica orientativa, congruente con el caso clínico.',
+        '',
+        'RESTRICCIONES:',
+        '- NO uses viñetas ni listas. Redacta en párrafos continuos y formales.',
+        '- NO inventes síntomas que no estén en la lista seleccionada.',
+        '- Usa el contexto del caso SOLO para dar sentido clínico a los síntomas — no para diagnosticar.',
+        '- Lenguaje técnico pero comprensible para el terapeuta.',
+        '',
+        '══ SÍNTOMAS SELECCIONADOS ══',
+        sintomasTexto,
+        '',
+        '══ CONTEXTO DEL CASO (solo referencia) ══',
+        notaInicial.slice(0, 2000),
+        '',
+        '══ FUENTES CLÍNICAS (ConsultoríaFuentes) ══',
+        fuentesTexto.slice(0, 6000),
+      ].join('\n')
+
+      const response = await anthropic.messages.create({
+        model: 'claude-sonnet-5',
+        max_tokens: 1200,
+        messages: [{ role: 'user', content: prompt }],
+      })
+
+      const text = extractText(response.content)
+      console.log('[pareja_areas] stop_reason:', response.stop_reason, '| chars:', text.length)
+
+      if (!text) {
+        return NextResponse.json({ error: 'No se pudo generar el análisis.' }, { status: 422 })
+      }
+
+      return NextResponse.json({ conclusion: text })
+    }
+
     return NextResponse.json({ error: `Tipo no reconocido: ${type}` }, { status: 400 })
 
   } catch (error) {

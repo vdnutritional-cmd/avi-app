@@ -26,72 +26,26 @@ const AGAPE_OPTS = [
 ]
 
 const TIPOS_AMOR = [
-  { label: 'Enamoramiento', desc: 'Basado predominantemente en la experiencia personal.', tag: 'funcional' },
-  { label: 'Amistad', desc: 'Compuesto de intimidad sin compromiso ni pasión.', tag: 'disfuncional' },
-  { label: 'Amor vacío', desc: 'Caracterizado por un compromiso sin pasión ni intimidad (mantener las apariencias o por el bien de los hijos).', tag: 'disfuncional' },
-  { label: 'Amor de compañeros', desc: 'Construido en base a la intimidad y compromiso, pero sin pasión (típico de parejas que llevan juntas mucho tiempo y conviven armoniosamente).', tag: 'ambiguo' },
-  { label: 'Amor ilusorio', desc: 'Mezcla de pasión y compromiso, pero sin ninguna intimidad ni conocimiento mutuo.', tag: 'disfuncional' },
-  { label: 'Amor romántico', desc: 'Compuesto de pasión e intimidad, en ausencia de compromiso.', tag: 'ambiguo' },
-  { label: 'Amor consumado', desc: 'Combinación de los 3 componentes: pasión, intimidad y compromiso.', tag: 'funcional' },
+  { label: 'Enamoramiento',       desc: 'Basado predominantemente en la experiencia personal.',                                                                                                      tag: 'funcional'    },
+  { label: 'Amistad',             desc: 'Compuesto de intimidad sin compromiso ni pasión.',                                                                                                          tag: 'disfuncional' },
+  { label: 'Amor vacío',          desc: 'Caracterizado por un compromiso sin pasión ni intimidad (mantener las apariencias o por el bien de los hijos).',                                            tag: 'disfuncional' },
+  { label: 'Amor de compañeros',  desc: 'Construido en base a la intimidad y compromiso, pero sin pasión (típico de parejas que llevan juntas mucho tiempo y conviven armoniosamente).',             tag: 'ambiguo'      },
+  { label: 'Amor ilusorio',       desc: 'Mezcla de pasión y compromiso, pero sin ninguna intimidad ni conocimiento mutuo.',                                                                          tag: 'disfuncional' },
+  { label: 'Amor romántico',      desc: 'Compuesto de pasión e intimidad, en ausencia de compromiso.',                                                                                               tag: 'ambiguo'      },
+  { label: 'Amor consumado',      desc: 'Combinación de los 3 componentes: pasión, intimidad y compromiso.',                                                                                         tag: 'funcional'    },
 ]
 
 const ESTRUCTURA_FUNCIONAL = [
-  {
-    label: 'Autónoma',
-    desc: 'Equilibrio entre la unión afectiva de sus miembros y la independencia individual de sus miembros.',
-  },
-  {
-    label: 'Nutricia',
-    desc: 'Entorno de crecimiento, salud mental y soporte emocional. Las relaciones se basan en el amor, el respeto y la confianza mutua.',
-  },
+  { label: 'Autónoma', desc: 'Equilibrio entre la unión afectiva de sus miembros y la independencia individual de sus miembros.' },
+  { label: 'Nutricia',  desc: 'Entorno de crecimiento, salud mental y soporte emocional. Las relaciones se basan en el amor, el respeto y la confianza mutua.' },
 ]
 
 const ESTRUCTURA_DISFUNCIONAL = [
-  {
-    label: 'Simbiótica',
-    desc: 'Los límites entre sus miembros no existen, perdiendo los miembros su identidad individual: familia muégano. No se respetan los límites y la afectividad puede ser muy exacerbada.',
-  },
-  {
-    label: 'Dependiente',
-    desc: 'Dependencia absoluta de uno o varios miembros, ya sea física, emocional, económica o adicción: fármacos, trabajo, deporte, etc.',
-  },
-  {
-    label: 'Doble vínculo',
-    desc: 'Comunicación o conductas ambivalentes, entre lo que dicen y lo que hacen o lo que piensan. Presencia de patrones de mensajes contradictorios que no se pueden resolver: Incongruencia.',
-  },
-  {
-    label: 'Reactiva',
-    desc: 'Reacciona de forma desadaptada en respuesta directa a un evento estresante: Familia impulsiva, agresiva o generalizaciones: minimizaciones o maximizaciones.',
-  },
+  { label: 'Simbiótica',    desc: 'Los límites entre sus miembros no existen, perdiendo los miembros su identidad individual: familia muégano. No se respetan los límites y la afectividad puede ser muy exacerbada.' },
+  { label: 'Dependiente',   desc: 'Dependencia absoluta de uno o varios miembros, ya sea física, emocional, económica o adicción: fármacos, trabajo, deporte, etc.' },
+  { label: 'Doble vínculo', desc: 'Comunicación o conductas ambivalentes, entre lo que dicen y lo que hacen o lo que piensan. Presencia de patrones de mensajes contradictorios que no se pueden resolver: Incongruencia.' },
+  { label: 'Reactiva',      desc: 'Reacciona de forma desadaptada en respuesta directa a un evento estresante: Familia impulsiva, agresiva o generalizaciones: minimizaciones o maximizaciones.' },
 ]
-
-// ── Lógica de conclusión ──────────────────────────────────────────────────────
-
-function calcularConclusion(eros: string[], philia: string[], agape: string[]): string | null {
-  const areas = [eros, philia, agape]
-  const areasConSintomas = areas.filter(a => a.length > 0)
-  const total = eros.length + philia.length + agape.length
-
-  if (total === 0) return null
-
-  // Criterio 4: síntomas en las 3 áreas
-  if (areasConSintomas.length === 3) {
-    return 'Daño visible en la estructura de la personalidad, elementos de riesgo más que de protección.'
-  }
-
-  // Criterio 3: síntomas en 2 áreas distintas
-  if (areasConSintomas.length === 2) {
-    return 'Indicador de psicopatología.'
-  }
-
-  // Criterio 2: 2 o más síntomas en 1 sola área
-  if (areasConSintomas.length === 1 && total >= 2) {
-    return 'Conducta disfuncional.'
-  }
-
-  // Criterio 1: 1 solo síntoma en 1 área
-  return 'Rasgos sintomatológicos, donde normalmente generan malestar, sin relación aparente.'
-}
 
 // ── Helper components ─────────────────────────────────────────────────────────
 
@@ -118,15 +72,7 @@ function AreaTitle({ children }: { children: React.ReactNode }) {
   )
 }
 
-function CheckItem({
-  label,
-  checked,
-  onChange,
-}: {
-  label: string
-  checked: boolean
-  onChange: (v: boolean) => void
-}) {
+function CheckItem({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
     <label className="flex items-start gap-2 cursor-pointer group">
       <input
@@ -136,9 +82,7 @@ function CheckItem({
         className="mt-0.5 h-4 w-4 rounded border-gray-300 cursor-pointer"
         style={{ accentColor: '#b243d5' }}
       />
-      <span className="text-sm text-gray-600 group-hover:text-gray-800 transition-colors leading-snug">
-        {label}
-      </span>
+      <span className="text-sm text-gray-600 group-hover:text-gray-800 transition-colors leading-snug">{label}</span>
     </label>
   )
 }
@@ -156,24 +100,12 @@ function TagBadge({ tag }: { tag: string }) {
   )
 }
 
-function RadioCard({
-  label,
-  desc,
-  tag,
-  checked,
-  onChange,
-}: {
-  label: string
-  desc: string
-  tag?: string
-  checked: boolean
-  onChange: () => void
+function RadioCard({ label, desc, tag, checked, onChange }: {
+  label: string; desc: string; tag?: string; checked: boolean; onChange: () => void
 }) {
   return (
-    <label
-      className={`flex items-start gap-3 cursor-pointer rounded-xl border p-3 transition-colors
-        ${checked ? 'border-purple-300 bg-purple-50' : 'border-gray-100 bg-white hover:border-gray-200'}`}
-    >
+    <label className={`flex items-start gap-3 cursor-pointer rounded-xl border p-3 transition-colors
+      ${checked ? 'border-purple-300 bg-purple-50' : 'border-gray-100 bg-white hover:border-gray-200'}`}>
       <input
         type="radio"
         checked={checked}
@@ -194,10 +126,7 @@ function RadioCard({
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
-interface Props {
-  patientId: string
-  therapistId: string
-}
+interface Props { patientId: string; therapistId: string }
 
 // ── Main component ────────────────────────────────────────────────────────────
 
@@ -205,15 +134,20 @@ export default function ParejaTab({ patientId, therapistId }: Props) {
   const [eros,       setEros]       = useState<string[]>([])
   const [philia,     setPhilia]     = useState<string[]>([])
   const [agape,      setAgape]      = useState<string[]>([])
-  const [tipoAmor,   setTipoAmor]   = useState<string>('')
-  const [estructura, setEstructura] = useState<string>('')
+  const [tipoAmor,   setTipoAmor]   = useState('')
+  const [estructura, setEstructura] = useState('')
+  const [conclusion, setConclusion] = useState('')
 
-  const [loading, setLoading] = useState(true)
-  const [saving,  setSaving]  = useState(false)
-  const [saveOk,  setSaveOk]  = useState(false)
+  const [loading,     setLoading]     = useState(true)
+  const [saving,      setSaving]      = useState(false)
+  const [saveOk,      setSaveOk]      = useState(false)
+  const [generating,  setGenerating]  = useState(false)
+  const [genError,    setGenError]    = useState('')
 
-  // Para detectar cambios
-  const [saved, setSaved] = useState({ eros: [] as string[], philia: [] as string[], agape: [] as string[], tipoAmor: '', estructura: '' })
+  const [saved, setSaved] = useState({
+    eros: [] as string[], philia: [] as string[], agape: [] as string[],
+    tipoAmor: '', estructura: '', conclusion: '',
+  })
 
   useEffect(() => { load() }, [patientId])
 
@@ -223,19 +157,20 @@ export default function ParejaTab({ patientId, therapistId }: Props) {
       const supabase = createClient()
       const { data: row } = await supabase
         .from('patient_expediente')
-        .select('par_eros, par_philia, par_agape, par_tipo_amor, par_estructura')
+        .select('par_eros, par_philia, par_agape, par_tipo_amor, par_estructura, par_conclusion')
         .eq('therapist_id', therapistId)
         .eq('patient_id', patientId)
         .maybeSingle()
 
       if (row) {
-        const e = Array.isArray(row.par_eros)    ? row.par_eros    : []
-        const p = Array.isArray(row.par_philia)  ? row.par_philia  : []
-        const a = Array.isArray(row.par_agape)   ? row.par_agape   : []
+        const e = Array.isArray(row.par_eros)   ? row.par_eros   : []
+        const p = Array.isArray(row.par_philia) ? row.par_philia : []
+        const a = Array.isArray(row.par_agape)  ? row.par_agape  : []
         const t = row.par_tipo_amor   ?? ''
         const s = row.par_estructura  ?? ''
-        setEros(e); setPhilia(p); setAgape(a); setTipoAmor(t); setEstructura(s)
-        setSaved({ eros: e, philia: p, agape: a, tipoAmor: t, estructura: s })
+        const c = row.par_conclusion  ?? ''
+        setEros(e); setPhilia(p); setAgape(a); setTipoAmor(t); setEstructura(s); setConclusion(c)
+        setSaved({ eros: e, philia: p, agape: a, tipoAmor: t, estructura: s, conclusion: c })
       }
     } finally {
       setLoading(false)
@@ -244,6 +179,33 @@ export default function ParejaTab({ patientId, therapistId }: Props) {
 
   function toggleCheck(list: string[], setList: (v: string[]) => void, val: string) {
     setList(list.includes(val) ? list.filter(x => x !== val) : [...list, val])
+  }
+
+  async function generarAnalisis() {
+    const total = eros.length + philia.length + agape.length
+    if (total === 0) {
+      setGenError('Selecciona al menos un síntoma antes de generar el análisis.')
+      return
+    }
+    setGenError('')
+    setGenerating(true)
+    try {
+      const res = await fetch('/api/analisis-clinicos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'pareja_areas', patientId, eros, philia, agape }),
+      })
+      const json = await res.json()
+      if (!res.ok || json.error) {
+        setGenError(json.error ?? 'Error al generar el análisis.')
+      } else {
+        setConclusion(json.conclusion ?? '')
+      }
+    } catch {
+      setGenError('Error de red al generar el análisis.')
+    } finally {
+      setGenerating(false)
+    }
   }
 
   async function save() {
@@ -258,13 +220,14 @@ export default function ParejaTab({ patientId, therapistId }: Props) {
           par_eros:       eros,
           par_philia:     philia,
           par_agape:      agape,
-          par_tipo_amor:  tipoAmor  || null,
+          par_tipo_amor:  tipoAmor   || null,
           par_estructura: estructura || null,
+          par_conclusion: conclusion || null,
           updated_at:     new Date().toISOString(),
         }, { onConflict: 'therapist_id,patient_id' })
 
       if (error) { alert(`Error al guardar: ${error.message}`); return }
-      setSaved({ eros, philia, agape, tipoAmor, estructura })
+      setSaved({ eros, philia, agape, tipoAmor, estructura, conclusion })
       setSaveOk(true)
       setTimeout(() => setSaveOk(false), 3000)
     } finally {
@@ -277,9 +240,8 @@ export default function ParejaTab({ patientId, therapistId }: Props) {
     JSON.stringify(philia) !== JSON.stringify(saved.philia) ||
     JSON.stringify(agape)  !== JSON.stringify(saved.agape)  ||
     tipoAmor   !== saved.tipoAmor   ||
-    estructura !== saved.estructura
-
-  const conclusion = calcularConclusion(eros, philia, agape)
+    estructura !== saved.estructura ||
+    conclusion !== saved.conclusion
 
   if (loading) {
     return <div className="flex justify-center py-16 text-gray-400 text-sm">Cargando…</div>
@@ -294,55 +256,74 @@ export default function ParejaTab({ patientId, therapistId }: Props) {
           De las 3 áreas EROS, PHILIA y ÁGAPE, selecciona los diferentes síntomas que vive la pareja; si es el caso.
         </Instruccion>
 
-        <div className="space-y-1">
+        <div>
           <AreaTitle>EROS (fusión)</AreaTitle>
           <div className="space-y-2 pl-1">
             {EROS_OPTS.map(opt => (
-              <CheckItem
-                key={opt}
-                label={opt}
-                checked={eros.includes(opt)}
-                onChange={() => toggleCheck(eros, setEros, opt)}
-              />
+              <CheckItem key={opt} label={opt} checked={eros.includes(opt)}
+                onChange={() => toggleCheck(eros, setEros, opt)} />
             ))}
           </div>
         </div>
 
-        <div className="space-y-1">
+        <div>
           <AreaTitle>PHILIA (intimidad)</AreaTitle>
           <div className="space-y-2 pl-1">
             {PHILIA_OPTS.map(opt => (
-              <CheckItem
-                key={opt}
-                label={opt}
-                checked={philia.includes(opt)}
-                onChange={() => toggleCheck(philia, setPhilia, opt)}
-              />
+              <CheckItem key={opt} label={opt} checked={philia.includes(opt)}
+                onChange={() => toggleCheck(philia, setPhilia, opt)} />
             ))}
           </div>
         </div>
 
-        <div className="space-y-1">
+        <div>
           <AreaTitle>ÁGAPE (compromiso auténtico)</AreaTitle>
           <div className="space-y-2 pl-1">
             {AGAPE_OPTS.map(opt => (
-              <CheckItem
-                key={opt}
-                label={opt}
-                checked={agape.includes(opt)}
-                onChange={() => toggleCheck(agape, setAgape, opt)}
-              />
+              <CheckItem key={opt} label={opt} checked={agape.includes(opt)}
+                onChange={() => toggleCheck(agape, setAgape, opt)} />
             ))}
           </div>
         </div>
 
-        {/* Conclusión automática */}
-        {conclusion && (
-          <div className="mt-4 rounded-xl border border-purple-200 bg-purple-50 px-4 py-3">
-            <p className="text-xs font-semibold text-purple-700 mb-0.5">Conclusión</p>
-            <p className="text-sm text-purple-800">{conclusion}</p>
+        {/* Botón Generar análisis */}
+        <div className="pt-2 border-t border-gray-100 space-y-3">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={generarAnalisis}
+              disabled={generating}
+              className="px-4 py-2 rounded-xl text-sm font-semibold text-white transition-colors
+                         disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ backgroundColor: '#b243d5' }}
+            >
+              {generating ? 'Generando análisis…' : '✦ Generar análisis'}
+            </button>
+            {generating && (
+              <span className="text-xs text-gray-400 animate-pulse">Consultando fuentes clínicas…</span>
+            )}
           </div>
-        )}
+          {genError && <p className="text-xs text-red-500">{genError}</p>}
+
+          {/* Textarea editable de conclusión */}
+          {(conclusion || generating) && (
+            <div className="space-y-1">
+              <p className="text-xs font-semibold" style={{ color: '#b243d5' }}>
+                Conclusión clínica
+                <span className="ml-2 font-normal text-gray-400">(editable)</span>
+              </p>
+              <textarea
+                value={conclusion}
+                onChange={e => setConclusion(e.target.value)}
+                rows={6}
+                disabled={generating}
+                placeholder="El análisis aparecerá aquí. Puedes editarlo antes de guardar."
+                className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-700
+                           focus:outline-none focus:ring-2 focus:ring-purple-300 transition resize-y
+                           disabled:opacity-60"
+              />
+            </div>
+          )}
+        </div>
       </SectionCard>
 
       {/* ── Apartado 2: Tipos de AMOR ── */}
@@ -370,7 +351,7 @@ export default function ParejaTab({ patientId, therapistId }: Props) {
           Selecciona el Tipo de ESTRUCTURA que viven como pareja.
         </Instruccion>
 
-        <div className="mt-1">
+        <div>
           <p className="text-xs font-bold uppercase tracking-wide text-green-700 mb-2">Funcional</p>
           <div className="space-y-2">
             {ESTRUCTURA_FUNCIONAL.map(opt => (
@@ -386,7 +367,7 @@ export default function ParejaTab({ patientId, therapistId }: Props) {
           </div>
         </div>
 
-        <div className="mt-4">
+        <div className="mt-2">
           <p className="text-xs font-bold uppercase tracking-wide text-red-600 mb-2">Disfuncional</p>
           <div className="space-y-2">
             {ESTRUCTURA_DISFUNCIONAL.map(opt => (
