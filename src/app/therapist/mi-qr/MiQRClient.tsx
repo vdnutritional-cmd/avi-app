@@ -7,7 +7,7 @@ interface Props {
   token: string
 }
 
-const BASE_URL = 'https://avi-app.com.mx'
+const BASE_URL = 'https://go.avi-app.com.mx'
 
 export default function MiQRClient({ therapistName, token }: Props) {
   const registroUrl = `${BASE_URL}/registro-consultorio?t=${token}`

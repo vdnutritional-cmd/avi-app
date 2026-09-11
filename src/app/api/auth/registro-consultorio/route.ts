@@ -5,12 +5,14 @@ import { createClient } from '@/lib/supabase/server'
 /**
  * POST /api/auth/registro-consultorio
  * Registra un paciente nuevo usando el token del terapeuta.
- * Crea la cuenta, el perfil y la vinculación therapist_patients en un solo paso.
+ * Crea la cuenta, el perfil, la vinculación therapist_patients
+ * y el registro de patient_expediente con Datos Generales en un solo paso.
  */
 export async function POST(req: NextRequest) {
-  const { token, fullName, email, password, whatsapp } = await req.json()
+  const body = await req.json()
+  const { token, email, password, datosGenerales } = body
 
-  if (!token || !fullName || !email || !password) {
+  if (!token || !email || !password || !datosGenerales?.asesorado_nombre) {
     return NextResponse.json({ error: 'Datos incompletos' }, { status: 400 })
   }
 
@@ -19,7 +21,7 @@ export async function POST(req: NextRequest) {
   // ── 1. Validar token y obtener terapeuta ──────────────────────────────────
   const { data: therapistProfile, error: tokenErr } = await admin
     .from('profiles')
-    .select('id, full_name, registro_token')
+    .select('id, full_name')
     .eq('registro_token', token)
     .eq('role', 'therapist')
     .single()
@@ -35,16 +37,15 @@ export async function POST(req: NextRequest) {
   const { data: authData, error: signUpErr } = await admin.auth.admin.createUser({
     email,
     password,
-    email_confirm: true,   // Auto-confirmado (es registro presencial, terapeuta presente)
+    email_confirm: true,   // Auto-confirmado — registro presencial
     user_metadata: {
-      full_name: fullName,
+      full_name: datosGenerales.asesorado_nombre,
       role: 'patient',
-      whatsapp_phone: whatsapp ?? '',
+      whatsapp_phone: datosGenerales.contacto_telefono ?? '',
     },
   })
 
   if (signUpErr || !authData?.user) {
-    // Error más común: email ya registrado
     const msg = signUpErr?.message?.includes('already')
       ? 'Este correo ya tiene una cuenta en AVI. Inicia sesión directamente.'
       : (signUpErr?.message ?? 'Error al crear la cuenta')
@@ -54,38 +55,60 @@ export async function POST(req: NextRequest) {
   const patientId = authData.user.id
 
   // ── 3. Crear perfil del paciente ──────────────────────────────────────────
-  const { error: profileErr } = await admin.from('profiles').upsert({
+  await admin.from('profiles').upsert({
     id: patientId,
-    full_name: fullName,
+    full_name: datosGenerales.asesorado_nombre,
     email,
     role: 'patient',
-    whatsapp_phone: whatsapp ?? '',
+    whatsapp_phone: datosGenerales.contacto_telefono ?? '',
   })
-
-  if (profileErr) {
-    console.error('[registro-consultorio] Error creando perfil:', profileErr)
-    // No bloqueamos el flujo — el trigger de Supabase suele crear el perfil
-  }
 
   // ── 4. Vincular paciente con terapeuta ────────────────────────────────────
-  const { error: linkErr } = await admin.from('therapist_patients').insert({
+  await admin.from('therapist_patients').insert({
     therapist_id: therapistProfile.id,
-    patient_id: patientId,
-    status: 'active',
-    is_active: true,
+    patient_id:   patientId,
+    status:       'active',
+    is_active:    true,
   })
 
-  if (linkErr) {
-    console.error('[registro-consultorio] Error vinculando paciente:', linkErr)
-    // Continúa — el terapeuta puede vincular manualmente desde el panel
-  }
+  // ── 5. Crear expediente con Datos Generales ───────────────────────────────
+  await admin.from('patient_expediente').upsert({
+    patient_id:   patientId,
+    therapist_id: therapistProfile.id,
+    // Asesorado
+    asesorado_nombre:           datosGenerales.asesorado_nombre          ?? '',
+    asesorado_sexo:             datosGenerales.asesorado_sexo            ?? '',
+    asesorado_edad:             datosGenerales.asesorado_edad            ?? '',
+    asesorado_fecha_nacimiento: datosGenerales.asesorado_fecha_nacimiento ?? '',
+    asesorado_lugar_nacimiento: datosGenerales.asesorado_lugar_nacimiento ?? '',
+    asesorado_estado_civil:     datosGenerales.asesorado_estado_civil    ?? '',
+    asesorado_escolaridad:      datosGenerales.asesorado_escolaridad     ?? '',
+    asesorado_ocupacion:        datosGenerales.asesorado_ocupacion       ?? '',
+    asesorado_religion:         datosGenerales.asesorado_religion        ?? '',
+    asesorado_parroquia:        datosGenerales.asesorado_parroquia       ?? '',
+    // Contacto
+    contacto_telefono:          datosGenerales.contacto_telefono         ?? '',
+    contacto_domicilio:         datosGenerales.contacto_domicilio        ?? '',
+    // Pareja
+    pareja_nombre:              datosGenerales.pareja_nombre             ?? '',
+    pareja_sexo:                datosGenerales.pareja_sexo               ?? '',
+    pareja_edad:                datosGenerales.pareja_edad               ?? '',
+    pareja_fecha_nacimiento:    datosGenerales.pareja_fecha_nacimiento   ?? '',
+    // Hijos
+    hijos:                      datosGenerales.hijos                     ?? [],
+    // Salud
+    salud_padece_enfermedad:    datosGenerales.salud_padece_enfermedad   ?? '',
+    salud_ayuda_psicologica:    datosGenerales.salud_ayuda_psicologica   ?? '',
+    salud_ayuda_tiempo:         datosGenerales.salud_ayuda_tiempo        ?? '',
+    salud_medicamentos:         datosGenerales.salud_medicamentos        ?? '',
+    salud_medicamentos_cual:    datosGenerales.salud_medicamentos_cual   ?? '',
+  }, { onConflict: 'patient_id,therapist_id' })
 
-  // ── 5. Iniciar sesión del paciente (para que entre directo a AVI) ─────────
+  // ── 6. Auto-login del paciente ────────────────────────────────────────────
   const supabase = await createClient()
   const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password })
 
   if (signInErr) {
-    // Cuenta creada pero no pudo hacer login automático — pedir que inicie sesión manualmente
     return NextResponse.json(
       { ok: true, autoLogin: false, therapistName: therapistProfile.full_name },
       { status: 200 }
@@ -100,7 +123,7 @@ export async function POST(req: NextRequest) {
 
 /**
  * GET /api/auth/registro-consultorio?t=TOKEN
- * Valida el token y devuelve el nombre del terapeuta (para mostrar en el formulario).
+ * Valida el token y devuelve el nombre del terapeuta.
  */
 export async function GET(req: NextRequest) {
   const token = req.nextUrl.searchParams.get('t')
