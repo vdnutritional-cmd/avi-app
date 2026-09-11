@@ -8,6 +8,7 @@ import FamiliarTab from './FamiliarTab'
 import ParejaTab from './ParejaTab'
 import PrediagnosticoTab from './PrediagnosticoTab'
 import AnalisisClanicosTab from './AnalisisClanicosTab'
+import CuestionariosTab from './CuestionariosTab'
 
 // ──────────────────────────────────────────────
 // Types
@@ -177,7 +178,7 @@ export default function ExpedienteTab({ patientId, therapistId, patientEmail, pa
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saveOk, setSaveOk] = useState(false)
-  const [subTab, setSubTab] = useState<'datos-generales' | 'individual' | 'familiar' | 'pareja' | 'prediagnostico' | 'analisis-clinicos' | 'impresiones'>('datos-generales')
+  const [subTab, setSubTab] = useState<'datos-generales' | 'individual' | 'familiar' | 'pareja' | 'prediagnostico' | 'analisis-clinicos' | 'impresiones' | 'cuestionarios'>('datos-generales')
 
   // Cargar expediente al montar
   useEffect(() => {
@@ -329,7 +330,8 @@ export default function ExpedienteTab({ patientId, therapistId, patientEmail, pa
     { id: 'pareja',          label: 'Pareja',          ready: !tabBloqueado('pareja') },
     { id: 'prediagnostico',   label: 'Prediagnóstico',   ready: true },
     { id: 'analisis-clinicos', label: 'Análisis Clínicos', ready: true },
-    { id: 'impresiones',      label: 'Impresiones',      ready: true },
+    { id: 'cuestionarios',     label: 'Cuestionarios',    ready: true },
+    { id: 'impresiones',       label: 'Impresiones',      ready: true },
   ]
 
   if (loading) {
@@ -349,7 +351,7 @@ export default function ExpedienteTab({ patientId, therapistId, patientEmail, pa
           <button
             key={tab.id}
             disabled={!tab.ready}
-            onClick={() => tab.ready && setSubTab(tab.id as 'datos-generales' | 'individual' | 'familiar' | 'pareja' | 'prediagnostico' | 'analisis-clinicos' | 'impresiones')}
+            onClick={() => tab.ready && setSubTab(tab.id as 'datos-generales' | 'individual' | 'familiar' | 'pareja' | 'prediagnostico' | 'analisis-clinicos' | 'impresiones' | 'cuestionarios')}
             className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap
               ${subTab === tab.id && tab.ready
                 ? 'bg-primary-600 text-white'
@@ -733,6 +735,14 @@ export default function ExpedienteTab({ patientId, therapistId, patientEmail, pa
       {/* ── Pareja ── */}
       {subTab === 'pareja' && (
         <ParejaTab
+          patientId={patientId}
+          therapistId={therapistId}
+        />
+      )}
+
+      {/* ── Cuestionarios ── */}
+      {subTab === 'cuestionarios' && (
+        <CuestionariosTab
           patientId={patientId}
           therapistId={therapistId}
         />

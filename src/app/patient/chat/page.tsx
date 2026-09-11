@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 
 // Primera semana de uso: 3 sesiones. Semanas siguientes: 2 sesiones.
@@ -17,6 +18,13 @@ type AppState =
 interface Message {
   role: 'user' | 'assistant'
   content: string
+}
+
+interface Pendiente {
+  id: string
+  title: string
+  questionnaire_type: string
+  assigned_at: string
 }
 
 const STATE_LABELS: Record<AppState, string> = {
@@ -36,6 +44,7 @@ const STATE_COLORS: Record<AppState, string> = {
 export default function PatientChatPage() {
   const router = useRouter()
   const [accesoSuspendido, setAccesoSuspendido] = useState(false)
+  const [pendientes, setPendientes] = useState<Pendiente[]>([])
 
   // Verificar si el terapeuta bloqueó el acceso
   useEffect(() => {
@@ -131,6 +140,25 @@ export default function PatientChatPage() {
     checkLimite()
   }, [])
 
+  // Cargar cuestionarios pendientes del paciente
+  useEffect(() => {
+    async function fetchPendientes() {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data } = await supabase
+        .from('patient_questionnaires')
+        .select('id, title, questionnaire_type, assigned_at')
+        .eq('patient_id', user.id)
+        .eq('status', 'pending')
+        .order('assigned_at', { ascending: true })
+
+      if (data) setPendientes(data)
+    }
+    fetchPendientes()
+  }, [])
+
   const [appState, setAppState] = useState<AppState>('idle')
   const [messages, setMessages] = useState<Message[]>([])
   const [sessionId, setSessionId] = useState<string | null>(null)
@@ -197,8 +225,6 @@ export default function PatientChatPage() {
   }, [])
 
   // Reproducir respuesta de AVI con ElevenLabs
-  // IMPORTANTE: la Promise resuelve cuando el audio TERMINA (no cuando empieza),
-  // para que speakMensajeCierre() nunca se monte encima de la respuesta anterior.
   const speakResponse = useCallback(async (text: string) => {
     try {
       const response = await fetch('/api/voice/tts', {
@@ -304,8 +330,7 @@ export default function PatientChatPage() {
     }
   }, [sessionId, speakResponse])
 
-  // Iniciar reconocimiento de voz con Web Speech API (gratuito, nativo del navegador)
-  // continuous = true: sigue escuchando hasta que el usuario presione el botón de parar
+  // Iniciar reconocimiento de voz con Web Speech API
   function startRecording() {
     if (appState !== 'idle') return
     setErrorMsg(null)
@@ -321,13 +346,12 @@ export default function PatientChatPage() {
 
     const recognition = new SpeechRecognitionAPI()
     recognition.lang = 'es-MX'
-    recognition.continuous = true      // No se detiene solo — espera al botón
-    recognition.interimResults = true  // Muestra texto mientras habla (opcional)
+    recognition.continuous = true
+    recognition.interimResults = true
     recognitionRef.current = recognition
 
     recognition.onstart = () => setAppState('recording')
 
-    // Acumula solo los resultados finales (no los intermedios)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recognition.onresult = (event: any) => {
       for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -343,19 +367,14 @@ export default function PatientChatPage() {
         setErrorMsg('Permite el acceso al micrófono en tu navegador.')
         setAppState('idle')
       }
-      // Otros errores (no-speech, network) los ignoramos en modo continuo
     }
 
-    // onend se dispara cuando el usuario presiona parar (stopRecording llama a recognition.stop())
     recognition.onend = async () => {
       if (!userStoppedRef.current) {
-        // El navegador cortó el reconocimiento por pausa (comportamiento normal del browser).
-        // El usuario NO presionó el botón, así que reiniciamos para seguir escuchando.
         try { recognition.start() } catch { /* ya destruido */ }
         return
       }
 
-      // El usuario presionó el botón de parar — ahora sí enviamos
       userStoppedRef.current = false
       const transcript = transcriptRef.current.trim()
       if (transcript) {
@@ -370,15 +389,13 @@ export default function PatientChatPage() {
     recognition.start()
   }
 
-  // Detener reconocimiento — el usuario presiona el botón cuando termina de hablar
   function stopRecording() {
     if (appState !== 'recording') return
-    userStoppedRef.current = true   // marcar que FUE el usuario quien paró
+    userStoppedRef.current = true
     recognitionRef.current?.stop()
-    // onend lo procesa después de recopilar el transcript completo
   }
 
-  // Mensaje de cierre garantizado — siempre se dice al terminar, sin excepción
+  // Mensaje de cierre garantizado
   const speakMensajeCierre = useCallback(async () => {
     const mensaje = 'Gracias por usar AVI. Recuerda contactar a tu terapeuta personal y haz una cita, o contacta a AVI Acompañamiento por WhatsApp para apoyarte para tener tu cita.'
     setMessages(prev => [...prev, { role: 'assistant', content: mensaje }])
@@ -398,11 +415,10 @@ export default function PatientChatPage() {
       if (res.ok) setSessionClosed(true)
     } finally {
       setClosing(false)
-      setAppState('idle')  // siempre regresa al botón lila al cerrar
+      setAppState('idle')
     }
   }
 
-  // Cierre iniciado por el paciente — mensaje garantizado, luego cierra
   async function handlePatientClose() {
     if (!sessionId || closing) return
     stopAudio()
@@ -433,28 +449,12 @@ export default function PatientChatPage() {
     )
   }
 
+  const hasPendientes = pendientes.length > 0
+
   return (
     <div className="flex flex-col h-[calc(100vh-120px)] relative">
 
-      {/* Barra superior */}
-      <div className="flex items-center justify-between px-4 pt-3 pb-1">
-        <button
-          onClick={() => setShowTranscript(v => !v)}
-          className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
-        >
-          {showTranscript ? 'Ocultar texto' : 'Ver conversación'}
-        </button>
-      </div>
-
-      {/* Error visible */}
-      {errorMsg && (
-        <div className="mx-4 mt-2 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-sm text-amber-700 flex justify-between items-start gap-2">
-          <span>{errorMsg}</span>
-          <button onClick={() => setErrorMsg(null)} className="text-amber-400 hover:text-amber-600 flex-shrink-0">✕</button>
-        </div>
-      )}
-
-      {/* Pantalla de crisis — cubre todo y detiene la sesión */}
+      {/* Pantalla de crisis — overlay total */}
       {crisis && (
         <div className="fixed inset-0 z-50 bg-white flex flex-col items-center justify-center px-6 text-center space-y-6">
           <div className="text-5xl">🆘</div>
@@ -463,7 +463,6 @@ export default function PatientChatPage() {
             Lo que describes merece atención especializada de inmediato.
             Por favor llama ahora a la <strong>Línea de la Vida</strong> — es gratuita, confidencial y disponible las 24 horas.
           </p>
-
           <a
             href="tel:8009112000"
             className="w-full max-w-xs py-5 bg-red-600 hover:bg-red-700 text-white text-xl font-bold
@@ -471,15 +470,9 @@ export default function PatientChatPage() {
           >
             📞 800 911 2000
           </a>
-
           <p className="text-xs text-gray-400 max-w-xs">
             También puedes escribirle a tu terapeuta o ir a urgencias de tu hospital más cercano.
           </p>
-
-          <p className="text-sm text-gray-500 max-w-xs leading-relaxed">
-            Si deseas continuar cuando estés más tranquilo/a, puedes regresar a AVI después.
-          </p>
-
           <button
             onClick={() => setCrisis(false)}
             className="text-xs text-gray-400 hover:text-gray-600 underline"
@@ -489,165 +482,211 @@ export default function PatientChatPage() {
         </div>
       )}
 
+      {/* ── SECCIÓN AVI — 80% (o 100% si no hay pendientes) ── */}
+      <div className={`flex flex-col relative ${hasPendientes ? 'flex-[4]' : 'flex-1'} overflow-hidden`}>
 
-      {/* Transcripción (opcional) */}
-      {showTranscript && messages.length > 0 && (
-        <div className="flex-1 overflow-y-auto px-4 py-2 space-y-3">
-          {messages.map((msg, i) => (
-            <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
-                msg.role === 'user'
-                  ? 'bg-primary-600 text-white rounded-tr-sm'
-                  : 'bg-white border border-gray-100 text-gray-800 rounded-tl-sm'
-              }`}>
-                {msg.content}
+        {/* Barra superior */}
+        <div className="flex items-center justify-between px-4 pt-3 pb-1">
+          <button
+            onClick={() => setShowTranscript(v => !v)}
+            className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            {showTranscript ? 'Ocultar texto' : 'Ver conversación'}
+          </button>
+        </div>
+
+        {/* Error visible */}
+        {errorMsg && (
+          <div className="mx-4 mt-2 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-sm text-amber-700 flex justify-between items-start gap-2">
+            <span>{errorMsg}</span>
+            <button onClick={() => setErrorMsg(null)} className="text-amber-400 hover:text-amber-600 flex-shrink-0">✕</button>
+          </div>
+        )}
+
+        {/* Transcripción (opcional) */}
+        {showTranscript && messages.length > 0 && (
+          <div className="flex-1 overflow-y-auto px-4 py-2 space-y-3">
+            {messages.map((msg, i) => (
+              <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
+                  msg.role === 'user'
+                    ? 'bg-primary-600 text-white rounded-tr-sm'
+                    : 'bg-white border border-gray-100 text-gray-800 rounded-tl-sm'
+                }`}>
+                  {msg.content}
+                </div>
               </div>
+            ))}
+            <div ref={bottomRef} />
+          </div>
+        )}
+
+        {/* Área principal de voz */}
+        <div className={`flex flex-col items-center justify-center gap-6 px-8
+          ${showTranscript && messages.length > 0 ? 'py-4' : 'flex-1'}`}>
+
+          {/* Límite de sesiones alcanzado */}
+          {limitAlcanzado && !sessionId && (
+            <div className="flex flex-col items-center gap-4 text-center max-w-xs">
+              <div className="text-5xl">🌙</div>
+              <h3 className="text-lg font-semibold text-gray-700">Has llegado a tu límite semanal</h3>
+              <p className="text-sm text-gray-500 leading-relaxed">
+                Usaste tus {limiteActual} sesiones de esta semana. Regresa el próximo lunes para continuar con AVI.
+              </p>
+              <div className="bg-blue-50 border border-blue-200 rounded-2xl px-5 py-4 w-full">
+                <p className="text-sm text-blue-700 leading-relaxed">
+                  Mientras tanto, contacta a <strong>TU TERAPEUTA</strong>.
+                </p>
+              </div>
+              <p className="text-xs text-gray-300">
+                Sesiones esta semana: {sesionesUsadas} / {limiteActual}
+              </p>
             </div>
-          ))}
-          <div ref={bottomRef} />
+          )}
+
+          {/* Indicador de estado visual */}
+          {(!limitAlcanzado || sessionId) && (
+            <div className="text-center space-y-2">
+              {messages.length === 0 && (
+                <>
+                  <p className="text-2xl font-semibold text-gray-700">Hola, estoy aquí</p>
+                  <p className="text-gray-400 text-sm max-w-xs leading-relaxed">
+                    Toca el botón y cuéntame cómo te sientes. No hay nada que escribir.
+                  </p>
+                </>
+              )}
+              {messages.length > 0 && (
+                <p className="text-sm text-gray-500">{STATE_LABELS[appState]}</p>
+              )}
+            </div>
+          )}
+
+          {/* Botón de micrófono */}
+          {(!limitAlcanzado || sessionId) && (
+            <div className="relative flex items-center justify-center">
+              {appState === 'recording' && (
+                <>
+                  <div className="absolute w-40 h-40 rounded-full bg-red-200 animate-ping opacity-30" />
+                  <div className="absolute w-32 h-32 rounded-full bg-red-300 animate-pulse opacity-40" />
+                </>
+              )}
+              {appState === 'speaking' && (
+                <div className="absolute w-36 h-36 rounded-full bg-calm-200 animate-pulse opacity-50" />
+              )}
+
+              <button
+                onClick={handleMicButton}
+                disabled={appState === 'processing' || sessionClosed}
+                className={`relative w-28 h-28 rounded-full shadow-lg transition-all duration-200
+                           flex items-center justify-center text-white
+                           ${sessionClosed ? 'bg-primary-600 opacity-60 cursor-not-allowed' : STATE_COLORS[appState]}`}
+              >
+                {appState === 'idle' && (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                      d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                  </svg>
+                )}
+                {appState === 'recording' && (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-10 h-10" viewBox="0 0 24 24" fill="currentColor">
+                    <rect x="6" y="6" width="12" height="12" rx="2" />
+                  </svg>
+                )}
+                {appState === 'processing' && (
+                  <div className="flex gap-1.5">
+                    <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                  </div>
+                )}
+                {appState === 'speaking' && (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                      d="M15.536 8.464a5 5 0 010 7.072M12 6v12m-3.536-9.536a5 5 0 000 7.072" />
+                  </svg>
+                )}
+              </button>
+            </div>
+          )}
+
+          {/* Mensaje de cierre */}
+          {sessionClosed && (
+            <div className="text-center max-w-xs space-y-3 px-2">
+              <p className="text-sm text-blue-600 leading-relaxed">
+                Te invitamos a contactar a <strong>TU TERAPEUTA</strong> personal o contacta por WhatsApp a <strong>AVI Acompañamiento</strong> para apoyarte a obtener tu cita.
+              </p>
+              <a
+                href={`https://wa.me/523318830312?text=${encodeURIComponent('Apóyenme para tener una cita con un terapeuta. Mi nombre es: ')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors w-full justify-center"
+              >
+                💬 Contactar por WhatsApp
+              </a>
+              <p className="text-xs text-blue-400">
+                ✓ Sesión guardada — ve a <strong>&quot;Reformúlate&quot;</strong> para ver una propuesta de cómo verte
+              </p>
+            </div>
+          )}
+
+          {/* Etiqueta de estado */}
+          {(!limitAlcanzado || sessionId) && !sessionClosed && (
+            <p className="text-sm text-gray-400 text-center">
+              {appState === 'idle' && messages.length === 0 && 'Toca el micrófono para empezar'}
+              {appState === 'idle' && messages.length > 0 && 'Toca para responder'}
+              {appState === 'recording' && 'Toca el botón para terminar'}
+              {appState === 'processing' && 'AVI está pensando...'}
+              {appState === 'speaking' && 'Toca para interrumpir'}
+            </p>
+          )}
+
+          {(!limitAlcanzado || sessionId) && !sessionClosed && (
+            <p className="text-xs text-gray-300 text-center">
+              AVI no reemplaza a tu terapeuta
+            </p>
+          )}
+
+          {/* Botón Terminar sesión */}
+          {messages.length > 0 && !sessionClosed && (
+            <button
+              onClick={handlePatientClose}
+              disabled={closing || !sessionId || appState === 'processing'}
+              className="w-full max-w-xs py-3.5 rounded-2xl border-2 border-red-300
+                         text-red-500 font-semibold text-sm bg-red-50 hover:bg-red-100
+                         transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {closing ? 'Generando tu resumen...' : '⏹ Terminar la sesión'}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* ── SECCIÓN PENDIENTES — 20% (solo si hay cuestionarios asignados) ── */}
+      {hasPendientes && (
+        <div className="flex-[1] border-t border-gray-100 bg-white px-4 py-3 overflow-y-auto">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+            Tu terapeuta te pide completar
+          </p>
+          <div className="space-y-2">
+            {pendientes.map(p => (
+              <Link
+                key={p.id}
+                href={`/patient/cuestionario/${p.id}`}
+                className="flex items-center justify-between bg-indigo-50 border border-indigo-200
+                           rounded-xl px-4 py-3 hover:bg-indigo-100 transition-colors"
+              >
+                <div>
+                  <p className="text-sm font-medium text-indigo-800">{p.title}</p>
+                  <p className="text-xs text-indigo-500 mt-0.5">
+                    Asignado {new Date(p.assigned_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
+                  </p>
+                </div>
+                <span className="text-indigo-400 text-lg">→</span>
+              </Link>
+            ))}
+          </div>
         </div>
       )}
-
-      {/* Área principal de voz */}
-      <div className={`flex flex-col items-center justify-center gap-8 px-8
-        ${showTranscript && messages.length > 0 ? 'py-6' : 'flex-1'}`}>
-
-        {/* Límite de sesiones alcanzado */}
-        {limitAlcanzado && !sessionId && (
-          <div className="flex flex-col items-center gap-4 text-center max-w-xs">
-            <div className="text-5xl">🌙</div>
-            <h3 className="text-lg font-semibold text-gray-700">Has llegado a tu límite semanal</h3>
-            <p className="text-sm text-gray-500 leading-relaxed">
-              Usaste tus {limiteActual} sesiones de esta semana. Regresa el próximo lunes para continuar con AVI.
-            </p>
-            <div className="bg-blue-50 border border-blue-200 rounded-2xl px-5 py-4 w-full">
-              <p className="text-sm text-blue-700 leading-relaxed">
-                Mientras tanto, contacta a <strong>TU TERAPEUTA</strong>.
-              </p>
-            </div>
-            <p className="text-xs text-gray-300">
-              Sesiones esta semana: {sesionesUsadas} / {limiteActual}
-            </p>
-          </div>
-        )}
-
-        {/* Indicador de estado visual */}
-        {(!limitAlcanzado || sessionId) && (
-        <div className="text-center space-y-2">
-          {messages.length === 0 && (
-            <>
-              <p className="text-2xl font-semibold text-gray-700">Hola, estoy aquí</p>
-              <p className="text-gray-400 text-sm max-w-xs leading-relaxed">
-                Toca el botón y cuéntame cómo te sientes. No hay nada que escribir.
-              </p>
-            </>
-          )}
-          {messages.length > 0 && (
-            <p className="text-sm text-gray-500">{STATE_LABELS[appState]}</p>
-          )}
-        </div>
-        )}
-
-        {/* Botón de micrófono — oculto si límite alcanzado y no hay sesión activa */}
-        {(!limitAlcanzado || sessionId) && (
-        <div className="relative flex items-center justify-center">
-          {/* Anillo animado cuando graba */}
-          {appState === 'recording' && (
-            <>
-              <div className="absolute w-40 h-40 rounded-full bg-red-200 animate-ping opacity-30" />
-              <div className="absolute w-32 h-32 rounded-full bg-red-300 animate-pulse opacity-40" />
-            </>
-          )}
-          {/* Anillo cuando AVI habla */}
-          {appState === 'speaking' && (
-            <div className="absolute w-36 h-36 rounded-full bg-calm-200 animate-pulse opacity-50" />
-          )}
-
-          <button
-            onClick={handleMicButton}
-            disabled={appState === 'processing' || sessionClosed}
-            className={`relative w-28 h-28 rounded-full shadow-lg transition-all duration-200
-                       flex items-center justify-center text-white
-                       ${sessionClosed ? 'bg-primary-600 opacity-60 cursor-not-allowed' : STATE_COLORS[appState]}`}
-          >
-            {appState === 'idle' && (
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                  d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-              </svg>
-            )}
-            {appState === 'recording' && (
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-10 h-10" viewBox="0 0 24 24" fill="currentColor">
-                <rect x="6" y="6" width="12" height="12" rx="2" />
-              </svg>
-            )}
-            {appState === 'processing' && (
-              <div className="flex gap-1.5">
-                <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-              </div>
-            )}
-            {appState === 'speaking' && (
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                  d="M15.536 8.464a5 5 0 010 7.072M12 6v12m-3.536-9.536a5 5 0 000 7.072" />
-              </svg>
-            )}
-          </button>
-        </div>
-        )}
-
-        {/* Mensaje de cierre — reemplaza etiqueta de estado cuando termina la sesión */}
-        {sessionClosed && (
-          <div className="text-center max-w-xs space-y-3 px-2">
-            <p className="text-sm text-blue-600 leading-relaxed">
-              Te invitamos a contactar a <strong>TU TERAPEUTA</strong> personal o contacta por WhatsApp a <strong>AVI Acompañamiento</strong> para apoyarte a obtener tu cita.
-            </p>
-            <a
-              href={`https://wa.me/523318830312?text=${encodeURIComponent('Apóyenme para tener una cita con un terapeuta. Mi nombre es: ')}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors w-full justify-center"
-            >
-              💬 Contactar por WhatsApp
-            </a>
-            <p className="text-xs text-blue-400">
-              ✓ Sesión guardada — ve a <strong>&quot;Reformúlate&quot;</strong> para ver una propuesta de cómo verte
-            </p>
-          </div>
-        )}
-
-        {/* Etiqueta de estado — solo cuando la sesión está activa */}
-        {(!limitAlcanzado || sessionId) && !sessionClosed && (
-        <p className="text-sm text-gray-400 text-center">
-          {appState === 'idle' && messages.length === 0 && 'Toca el micrófono para empezar'}
-          {appState === 'idle' && messages.length > 0 && 'Toca para responder'}
-          {appState === 'recording' && 'Toca el botón para terminar'}
-          {appState === 'processing' && 'AVI está pensando...'}
-          {appState === 'speaking' && 'Toca para interrumpir'}
-        </p>
-        )}
-
-        {(!limitAlcanzado || sessionId) && !sessionClosed && (
-        <p className="text-xs text-gray-300 text-center">
-          AVI no reemplaza a tu terapeuta
-        </p>
-        )}
-
-        {/* Botón Terminar sesión — visible solo cuando hay conversación */}
-        {messages.length > 0 && !sessionClosed && (
-          <button
-            onClick={handlePatientClose}
-            disabled={closing || !sessionId || appState === 'processing'}
-            className="w-full max-w-xs py-3.5 rounded-2xl border-2 border-red-300
-                       text-red-500 font-semibold text-sm bg-red-50 hover:bg-red-100
-                       transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {closing ? 'Generando tu resumen...' : '⏹ Terminar la sesión'}
-          </button>
-        )}
-      </div>
     </div>
   )
 }
