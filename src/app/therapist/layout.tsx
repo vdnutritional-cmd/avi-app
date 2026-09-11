@@ -4,6 +4,7 @@ import PushRegistrar from './PushRegistrar'
 import Sidebar from './Sidebar'
 import WhatsAppSupport from '@/components/WhatsAppSupport'
 import ActivarPlan from './ActivarPlan'
+import InactivityGuard from '@/components/InactivityGuard'
 
 // Statuses que permiten acceso al app
 const ACTIVE_STATUSES = ['active', 'trialing', 'free_approved']
@@ -35,22 +36,24 @@ export default async function TherapistLayout({ children }: { children: React.Re
   }
 
   return (
-    <div className="min-h-screen flex bg-gray-50">
-      <Sidebar
-        fullName={profile?.full_name ?? null}
-        email={profile?.email ?? user.email ?? null}
-        subscriptionStatus={subscription?.status ?? null}
-        patientSlots={subscription?.patient_slots ?? null}
-        tier={subscription?.tier ?? null}
-      />
+    <InactivityGuard>
+      <div className="min-h-screen flex bg-gray-50">
+        <Sidebar
+          fullName={profile?.full_name ?? null}
+          email={profile?.email ?? user.email ?? null}
+          subscriptionStatus={subscription?.status ?? null}
+          patientSlots={subscription?.patient_slots ?? null}
+          tier={subscription?.tier ?? null}
+        />
 
-      {/* Contenido principal — padding-top extra en móvil para el botón hamburger */}
-      <main className="flex-1 p-8 pt-16 md:pt-8 overflow-y-auto">
-        {children}
-      </main>
+        {/* Contenido principal — padding-top extra en móvil para el botón hamburger */}
+        <main className="flex-1 p-8 pt-16 md:pt-8 overflow-y-auto">
+          {children}
+        </main>
 
-      <PushRegistrar />
-      <WhatsAppSupport />
-    </div>
+        <PushRegistrar />
+        <WhatsAppSupport />
+      </div>
+    </InactivityGuard>
   )
 }

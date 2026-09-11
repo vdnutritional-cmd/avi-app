@@ -4,6 +4,8 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { z } from 'zod'
+import { checkPassword } from '@/lib/password-strength'
+import PasswordStrengthBar from '@/components/PasswordStrengthBar'
 
 const registerSchema = z.object({
   fullName: z.string().min(2, 'Ingresa tu nombre completo'),
@@ -44,6 +46,13 @@ export default function RegisterPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
+
+    // Validación de fortaleza de contraseña (NOM-024)
+    const pwCheck = checkPassword(form.password)
+    if (!pwCheck.valid) {
+      setError('La contraseña no cumple los requisitos de seguridad: ' + pwCheck.errors.join(', '))
+      return
+    }
 
     const parsed = registerSchema.safeParse(form)
     if (!parsed.success) {
@@ -165,6 +174,7 @@ export default function RegisterPage() {
                 <EyeIcon open={showPassword} />
               </button>
             </div>
+            <PasswordStrengthBar password={form.password} />
           </div>
 
           {/* Confirmar contraseña */}
