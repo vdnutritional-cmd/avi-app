@@ -44,6 +44,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/api/') ||   // Las API routes manejan su propia auth
     pathname.startsWith('/pricing') ||
     pathname.startsWith('/install') ||
+    pathname.startsWith('/registro-consultorio') ||  // Registro vía QR — público
     pathname.startsWith('/_next') ||
     pathname.startsWith('/favicon')
 
