@@ -15,8 +15,9 @@ interface QuestData {
 const OPCIONES = [
   { value: 1, label: 'Totalmente de acuerdo' },
   { value: 2, label: 'De acuerdo' },
-  { value: 3, label: 'En desacuerdo' },
-  { value: 4, label: 'Totalmente en desacuerdo' },
+  { value: 3, label: 'Ni de acuerdo ni en desacuerdo' },
+  { value: 4, label: 'En desacuerdo' },
+  { value: 5, label: 'Totalmente en desacuerdo' },
 ]
 
 // Preguntas por página (para no abrumar al paciente)

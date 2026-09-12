@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { calcularPuntajesFAD, FAD_CUTOFFS, FAD_DIMENSION_LABELS } from '@/lib/questionnaires/mcmaster-fad'
+import {
+  calcularResultadoFAD,
+  FAD_DIMENSION_LABELS,
+  FAD_DIMENSION_ORDER,
+} from '@/lib/questionnaires/mcmaster-fad'
 
 /**
  * PATCH /api/patient/questionnaires/[id]
@@ -36,22 +40,56 @@ export async function PATCH(
     return NextResponse.json({ error: 'Respuestas inválidas' }, { status: 400 })
   }
 
-  // Calcular puntajes según el tipo
-  let score: Record<string, number> = {}
+  let score: object = {}
   let interpretation = ''
 
   if (quest.questionnaire_type === 'mcmaster_fad') {
-    score = calcularPuntajesFAD(responses)
+    const resultado = calcularResultadoFAD(responses)
+    score = resultado
 
-    // Construir interpretación textual
-    const lineas: string[] = []
-    for (const [dim, val] of Object.entries(score)) {
-      const corte = FAD_CUTOFFS[dim as keyof typeof FAD_CUTOFFS]
-      const label = FAD_DIMENSION_LABELS[dim as keyof typeof FAD_DIMENSION_LABELS]
-      const estado = val >= corte ? '⚠️ Disfunción' : '✓ Saludable'
-      lineas.push(`${label}: ${val} (${estado}, corte ≥${corte})`)
+    // Construir reporte textual (tabla 4 columnas × 8 renglones)
+    const sep  = '─'.repeat(70)
+    const lines: string[] = []
+
+    lines.push('FAD McMaster — Evaluación de Funcionalidad Familiar')
+    lines.push(sep)
+    lines.push(
+      'Dimensión'.padEnd(32) +
+      'VD'.padStart(5) +
+      '%Funcional'.padStart(12) +
+      '%Disfuncional'.padStart(15)
+    )
+    lines.push(sep)
+
+    for (const dim of FAD_DIMENSION_ORDER) {
+      const d = resultado.dimensions[dim]
+      const label = FAD_DIMENSION_LABELS[dim]
+      lines.push(
+        label.padEnd(32) +
+        String(d.VD).padStart(5) +
+        `${d.pctFD}%`.padStart(12) +
+        `${d.pctDD}%`.padStart(15)
+      )
     }
-    interpretation = lineas.join('\n')
+
+    lines.push(sep)
+    lines.push(
+      'Resultado por Evaluación Funcional'.padEnd(32) +
+      ''.padStart(5) +
+      `${resultado.global.pctREF}%`.padStart(12) +
+      `${resultado.global.pctRED}%`.padStart(15)
+    )
+
+    const valorMax = Math.max(resultado.global.pctREF, resultado.global.pctRED)
+    const etiqueta = resultado.global.evaluacion
+    lines.push(sep)
+    lines.push(
+      'Evaluación de la Funcionalidad Familiar'.padEnd(32) +
+      `${valorMax}% — ${etiqueta}`.padStart(32)
+    )
+    lines.push(sep)
+
+    interpretation = lines.join('\n')
   }
 
   // Guardar en Supabase
