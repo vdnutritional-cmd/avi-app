@@ -5,31 +5,28 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
 const TIMEOUT_MS  = Number(process.env.NEXT_PUBLIC_INACTIVITY_TIMEOUT_MS ?? 900_000)  // 15 min
-const WARNING_MS  = TIMEOUT_MS - 60_000  // Aviso 1 min antes (t=14 min)
+const WARNING_MS  = TIMEOUT_MS - 60_000  // Aviso a los 14 min
 const EVENTS      = ['mousemove', 'keydown', 'click', 'touchstart', 'scroll'] as const
 
 /**
  * NOM-024 — Timeout de inactividad para el panel del terapeuta.
  *
- * Flujo correcto:
- *   t=0 de inactividad → inicia timer
- *   t=14 min sin actividad → muestra aviso (onWarn)
- *   Cualquier actividad durante el aviso → resetea todo (onDismiss) y reinicia timer
- *   t=15 min sin actividad (60 seg tras aviso) → cierra sesión y redirige con ?reason=inactivity
+ * Flujo:
+ *   - t=0 se cuenta desde el último momento de actividad del usuario
+ *   - Cualquier evento (mouse, teclado, toque, scroll) reinicia t=0
+ *   - t=14 min sin actividad → muestra aviso (onWarn)
+ *   - Actividad durante el aviso → reinicia timer y descarta el modal (onDismiss)
+ *   - t=15 min sin actividad → cierra sesión → /auth/login?reason=inactivity
  *
- * Diseño:
- *   - Un solo timer (warning). Al dispararse, arranca el countdown final de 60 s.
- *     Esto garantiza exactamente 1 min entre aviso y logout, sin timers paralelos.
- *   - handleActivity SIEMPRE resetea (antes Y después del aviso), para que
- *     "Seguir trabajando" o cualquier interacción realmente cancele el logout.
- *   - Callbacks en refs → no son dependencias de useCallback/useEffect → el
- *     useEffect principal corre solo una vez (no se reinicia por re-renders del padre).
- *   - Page Visibility API: al despertar dispositivo verifica tiempo real con Date.now().
+ * Implementación: dos timers paralelos (warning y logout).
+ * Los callbacks se guardan en refs para que no sean dependencias de useCallback,
+ * manteniendo signOut y resetTimers estables entre re-renders del componente padre.
+ * Fix móvil: Page Visibility API verifica tiempo real con Date.now() al regresar al frente.
  */
 export function useInactivityTimer(opts?: {
-  onWarn?:    () => void   // mostrar modal de advertencia
-  onDismiss?: () => void   // ocultar modal (usuario siguió activo)
-  onSignOut?: () => void   // sesión cerrada
+  onWarn?:    () => void
+  onDismiss?: () => void
+  onSignOut?: () => void
 }) {
   const router = useRouter()
 
@@ -65,31 +62,30 @@ export function useInactivityTimer(opts?: {
     clearTimers()
     warnedRef.current = false
 
-    // Si el aviso estaba visible, descartarlo
+    // Si el modal estaba visible, descartarlo
     if (wasWarning) onDismissRef.current?.()
 
-    // Un solo timer: aviso a los 14 min de inactividad
+    // Dos timers paralelos: aviso a los 14 min, logout a los 15 min
     warningRef.current = setTimeout(() => {
       if (!warnedRef.current) {
         warnedRef.current = true
         onWarnRef.current?.()
-
-        // Desde el aviso, exactamente 60 s para cerrar sesión
-        logoutAtRef.current = Date.now() + 60_000
-        logoutRef.current = setTimeout(() => {
-          signOut()
-        }, 60_000)
       }
     }, WARNING_MS)
+
+    logoutAtRef.current = Date.now() + TIMEOUT_MS
+    logoutRef.current = setTimeout(() => {
+      signOut()
+    }, TIMEOUT_MS)
   }, [clearTimers, signOut])
 
   useEffect(() => {
     resetTimers()
 
-    // Cualquier actividad reinicia el timer — SIEMPRE, incluso si el aviso estaba visible
+    // Cualquier actividad reinicia t=0, incluso si el aviso ya está visible
     const handleActivity = () => resetTimers()
 
-    // Fix móvil: al regresar al frente, verificar si ya expiró el tiempo real
+    // Fix móvil: al regresar al frente, verificar tiempo real transcurrido
     const handleVisibilityChange = () => {
       if (document.visibilityState !== 'visible') return
       if (logoutAtRef.current && Date.now() >= logoutAtRef.current) {
