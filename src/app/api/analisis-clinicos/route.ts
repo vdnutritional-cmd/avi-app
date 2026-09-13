@@ -168,7 +168,7 @@ export async function POST(request: NextRequest) {
         '- Señala las áreas de fortaleza (mayor %Funcional) y las áreas de riesgo (mayor %Disfuncional).',
         '- Relaciona los resultados con el contexto del caso (nota inicial).',
         '- Comenta el resultado global: SVD, %REF, %RED y la evaluación final FUNCIONAL/DISFUNCIONAL.',
-        '- Proporciona 2-3 sugerencias de intervención concretas fundamentadas en el Modelo McMaster.',
+        '- NO incluyas secciones de sugerencias de intervención ni recomendaciones terapéuticas. Concluye tras exponer el Resultado Global.',
         '- Lenguaje profesional, directo y clínico.',
         '- Responde directamente con la interpretación, sin título ni encabezado.',
         '',
