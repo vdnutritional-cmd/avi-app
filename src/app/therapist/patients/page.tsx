@@ -65,7 +65,7 @@ export default async function TherapistPatientsPage() {
     return (
       <div className="p-6 max-w-lg mx-auto text-center space-y-4 pt-12">
         <div className="text-4xl">👥</div>
-        <h2 className="text-lg font-semibold text-gray-700">Sin pacientes aún</h2>
+        <h2 className="text-lg font-semibold text-gray-700">Presiona las 3 rayitas del menú para entrar a tu Dashboard</h2>
         <p className="text-sm text-gray-400">
           Genera un código en la sección de Códigos y compártelo con tu paciente para que se registre.
         </p>
