@@ -2,6 +2,14 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import {
+  FAD_ITEMS,
+  FAD_DIMENSION_LABELS,
+  FAD_DIMENSION_ORDER,
+  calcularResultadoFAD,
+  type FADDimension,
+  type FADResult,
+} from '@/lib/questionnaires/mcmaster-fad'
 
 // ──────────────────────────────────────────────────────────
 // Types
@@ -9,11 +17,6 @@ import { createClient } from '@/lib/supabase/client'
 interface Props {
   patientId:   string
   therapistId: string
-}
-
-interface McMasterValores {
-  vd1: string; vd2: string; vd3: string
-  vd4: string; vd5: string; vd6: string
 }
 
 // ──────────────────────────────────────────────────────────
@@ -26,38 +29,17 @@ const TODOS_APARTADOS = [
 ]
 
 // ──────────────────────────────────────────────────────────
-// McMaster — Factores y cálculos
+// McMaster — etiquetas cortas de respuesta
 // ──────────────────────────────────────────────────────────
-const FACTORES = [
-  { id: 1, label: 'Factor 1. Involucramiento afectivo funcional',    vmin: 17, vmax: 85, invertido: false },
-  { id: 2, label: 'Factor 2. Involucramiento afectivo disfuncional', vmin: 11, vmax: 55, invertido: true  },
-  { id: 3, label: 'Factor 3. Patrones de comunicación disfuncional', vmin:  4, vmax: 20, invertido: true  },
-  { id: 4, label: 'Factor 4. Patrones de comunicación funcional',    vmin:  3, vmax: 15, invertido: false },
-  { id: 5, label: 'Factor 5. Resolución de problemas',              vmin:  3, vmax: 15, invertido: false },
-  { id: 6, label: 'Factor 6. Patrones de control de conducta',      vmin:  2, vmax: 10, invertido: false },
-]
-
-function rd1(n: number) { return Math.round(n * 10) / 10 }
-
-function calcFactor(vdStr: string, vmin: number, vmax: number, invertido: boolean) {
-  const vd = parseFloat(vdStr)
-  if (isNaN(vd) || vd < vmin || vd > vmax) return null
-  const base      = rd1((vd - vmin) / (vmax - vmin) * 100)
-  const funcional = invertido ? rd1(100 - base) : base
-  return { funcional, disfuncional: rd1(100 - funcional) }
+const RESP_BADGE: Record<number, { label: string; cls: string }> = {
+  1: { label: 'TA', cls: 'bg-green-100 text-green-700' },
+  2: { label: 'A',  cls: 'bg-emerald-50 text-emerald-600' },
+  3: { label: 'N',  cls: 'bg-gray-100 text-gray-500' },
+  4: { label: 'D',  cls: 'bg-orange-100 text-orange-600' },
+  5: { label: 'TD', cls: 'bg-red-100 text-red-600' },
 }
 
-function calcMcMaster(vals: McMasterValores) {
-  const rows = FACTORES.map((f, i) =>
-    calcFactor(vals[`vd${i + 1}` as keyof McMasterValores], f.vmin, f.vmax, f.invertido)
-  )
-  const valid = rows.filter(Boolean) as { funcional: number; disfuncional: number }[]
-  if (valid.length === 0) return { rows, rf: null, rd: null, eff: null, conclusion: null }
-  const rf  = rd1(valid.reduce((s, r) => s + r.funcional,    0) / valid.length)
-  const rd  = rd1(valid.reduce((s, r) => s + r.disfuncional, 0) / valid.length)
-  const eff = rd1((rf + rd) / 2)
-  return { rows, rf, rd, eff, conclusion: eff >= 60 ? 'Funcional' : 'Disfuncional' }
-}
+// Leyenda: TA=Totalmente de acuerdo, A=De acuerdo, N=Neutro, D=En desacuerdo, TD=Totalmente en desacuerdo
 
 // ──────────────────────────────────────────────────────────
 // Helpers UI
@@ -253,15 +235,11 @@ export default function AnalisisClanicosTab({ patientId, therapistId }: Props) {
   const [savedGeno,      setSavedGeno]      = useState(false)
   const [generandoDescGeno, setGenerandoDescGeno] = useState(false)
 
-  // McMaster
-  const [mc1Url,         setMc1Url]         = useState<string | null>(null)
-  const [mc2Url,         setMc2Url]         = useState<string | null>(null)
-  const [upMc1,          setUpMc1]          = useState(false)
-  const [upMc2,          setUpMc2]          = useState(false)
-  const [mcValores,      setMcValores]      = useState<McMasterValores>({
-    vd1:'', vd2:'', vd3:'', vd4:'', vd5:'', vd6:''
-  })
+  // McMaster — cuestionario del paciente
+  const [mcQuest,        setMcQuest]        = useState<{ id: string; responses: Record<string,number>; score: FADResult; completed_at: string } | null>(null)
+  const [mcResult,       setMcResult]       = useState<FADResult | null>(null)
   const [mcInterp,       setMcInterp]       = useState('')
+  const [mcLoadError,    setMcLoadError]    = useState<string | null>(null)
   const [generandoMc,    setGenerandoMc]    = useState(false)
   const [savingMc,       setSavingMc]       = useState(false)
   const [savedMc,        setSavedMc]        = useState(false)
@@ -280,12 +258,13 @@ export default function AnalisisClanicosTab({ patientId, therapistId }: Props) {
     setLoading(true)
     try {
       const supabase = createClient()
+
+      // Expediente
       const { data } = await supabase
         .from('patient_expediente')
         .select(`tipo_caso, ac_proceso_psicologico, ac_apartados_visibles,
                  ac_genograma_url, ac_genograma_interpretacion,
-                 ac_mcmaster_archivo1_url, ac_mcmaster_archivo2_url,
-                 ac_mcmaster_valores, ac_mcmaster_interpretacion,
+                 ac_mcmaster_interpretacion,
                  ac_foda_url, ac_foda_interpretacion,
                  ac_diagnostico_integrado, ac_conclusiones, ac_informacion_interes`)
         .eq('therapist_id', therapistId)
@@ -298,23 +277,33 @@ export default function AnalisisClanicosTab({ patientId, therapistId }: Props) {
         if (data.ac_apartados_visibles?.length) setVisibles(data.ac_apartados_visibles)
         setGenogramaUrl(data.ac_genograma_url ?? null)
         setGenogramaInterp(data.ac_genograma_interpretacion ?? '')
-        setMc1Url(data.ac_mcmaster_archivo1_url ?? null)
-        setMc2Url(data.ac_mcmaster_archivo2_url ?? null)
-        const vals = data.ac_mcmaster_valores as Record<string, number> | null
-        if (vals) setMcValores({
-          vd1: vals.vd1?.toString() ?? '',
-          vd2: vals.vd2?.toString() ?? '',
-          vd3: vals.vd3?.toString() ?? '',
-          vd4: vals.vd4?.toString() ?? '',
-          vd5: vals.vd5?.toString() ?? '',
-          vd6: vals.vd6?.toString() ?? '',
-        })
         setMcInterp(data.ac_mcmaster_interpretacion ?? '')
         setFodaUrl(data.ac_foda_url ?? null)
         setFodaInterp(data.ac_foda_interpretacion ?? '')
         setDiagIntegrado((data as Record<string, unknown>).ac_diagnostico_integrado as string ?? '')
         setConclusiones((data as Record<string, unknown>).ac_conclusiones as string ?? '')
         setInfoInteres((data as Record<string, unknown>).ac_informacion_interes as string ?? '')
+      }
+
+      // Cuestionario McMaster más reciente completado
+      const { data: qData, error: qErr } = await supabase
+        .from('patient_questionnaires')
+        .select('id, responses, score, completed_at')
+        .eq('patient_id', patientId)
+        .eq('questionnaire_type', 'mcmaster_fad')
+        .eq('status', 'completed')
+        .order('completed_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (qErr) {
+        setMcLoadError('Error al cargar el cuestionario McMaster.')
+      } else if (qData) {
+        const quest = qData as { id: string; responses: Record<string,number>; score: FADResult; completed_at: string }
+        setMcQuest(quest)
+        // Recalcular para validar
+        const recalc = calcularResultadoFAD(quest.responses)
+        setMcResult(recalc)
       }
     } finally {
       setLoading(false)
@@ -397,32 +386,9 @@ export default function AnalisisClanicosTab({ patientId, therapistId }: Props) {
     finally { setSavingGeno(false) }
   }
 
-  // ── McMaster — archivos ────────────────────────────────
-  async function uploadMc1(file: File) {
-    setUpMc1(true)
-    try {
-      const url = await uploadFile(file, 'mcmaster-1')
-      setMc1Url(url)
-      await upsert({ ac_mcmaster_archivo1_url: url })
-    } catch (e) { alert(`Error al subir archivo: ${(e as Error).message}`) }
-    finally { setUpMc1(false) }
-  }
-
-  async function uploadMc2(file: File) {
-    setUpMc2(true)
-    try {
-      const url = await uploadFile(file, 'mcmaster-2')
-      setMc2Url(url)
-      await upsert({ ac_mcmaster_archivo2_url: url })
-    } catch (e) { alert(`Error al subir archivo: ${(e as Error).message}`) }
-    finally { setUpMc2(false) }
-  }
-
   // ── McMaster — generar interpretación IA ──────────────
-  const calc = calcMcMaster(mcValores)
-
   async function generarInterpretacionMc() {
-    if (!calc.rf) { alert('Completa al menos un factor para generar la interpretación.'); return }
+    if (!mcResult) { alert('No hay resultados McMaster del paciente para interpretar.'); return }
     setGenerandoMc(true)
     try {
       const res = await fetch('/api/analisis-clinicos', {
@@ -431,11 +397,6 @@ export default function AnalisisClanicosTab({ patientId, therapistId }: Props) {
         body: JSON.stringify({
           patientId, therapistId,
           type: 'mcmaster_interpretacion',
-          valores: mcValores,
-          resultados: {
-            rows: calc.rows,
-            rf: calc.rf, rd: calc.rd, eff: calc.eff, conclusion: calc.conclusion,
-          },
         }),
       })
       const json = await res.json()
@@ -448,18 +409,7 @@ export default function AnalisisClanicosTab({ patientId, therapistId }: Props) {
   async function saveMcMaster() {
     setSavingMc(true)
     try {
-      const valores = {
-        vd1: parseFloat(mcValores.vd1) || null,
-        vd2: parseFloat(mcValores.vd2) || null,
-        vd3: parseFloat(mcValores.vd3) || null,
-        vd4: parseFloat(mcValores.vd4) || null,
-        vd5: parseFloat(mcValores.vd5) || null,
-        vd6: parseFloat(mcValores.vd6) || null,
-      }
-      await upsert({
-        ac_mcmaster_valores: valores,
-        ac_mcmaster_interpretacion: mcInterp,
-      })
+      await upsert({ ac_mcmaster_interpretacion: mcInterp })
       setSavedMc(true); setTimeout(() => setSavedMc(false), 3000)
     } catch (e) { alert(`Error: ${(e as Error).message}`) }
     finally { setSavingMc(false) }
@@ -660,153 +610,123 @@ export default function AnalisisClanicosTab({ patientId, therapistId }: Props) {
 
       {/* ══ APARTADO: ANÁLISIS McMASTER ══════════════════ */}
       {visibles.includes('mcmaster') && (
-        <ApartadoCard id="mcmaster" icon="📊" label="Análisis McMaster" hasData={!!mc1Url || !!mcValores.vd1 || !!mcInterp}>
+        <ApartadoCard id="mcmaster" icon="📊" label="Análisis McMaster" hasData={!!mcResult || !!mcInterp}>
 
-          {/* Archivos de evaluación */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Archivo 1 — Evaluación</p>
-              <ImageUpload
-                url={mc1Url}
-                onUpload={uploadMc1}
-                uploading={upMc1}
-                accept="image/png,image/jpeg,image/webp,application/pdf"
-                label="Sube el primer archivo de evaluación McMaster"
-              />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Archivo 2 — Evaluación</p>
-              <ImageUpload
-                url={mc2Url}
-                onUpload={uploadMc2}
-                uploading={upMc2}
-                accept="image/png,image/jpeg,image/webp,application/pdf"
-                label="Sube el segundo archivo de evaluación McMaster"
-              />
-            </div>
-          </div>
+          {/* Sin cuestionario completado */}
+          {mcLoadError && (
+            <p className="text-xs text-red-500 bg-red-50 border border-red-100 rounded-xl px-3 py-2">{mcLoadError}</p>
+          )}
 
-          {/* Tabla de factores */}
-          <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
-              Evaluación de la Funcionalidad Familiar
-            </p>
-            <div className="overflow-x-auto rounded-xl border border-gray-100">
-              <table className="w-full text-sm min-w-[520px]">
-                <thead>
-                  <tr className="bg-gray-50 border-b border-gray-100">
-                    <th className="text-left text-xs font-semibold text-gray-500 px-4 py-3">Factor</th>
-                    <th className="text-center text-xs font-semibold text-gray-500 px-3 py-3 w-28">
-                      VD <span className="text-gray-400 font-normal">(##.#)</span>
-                    </th>
-                    <th className="text-center text-xs font-semibold text-emerald-600 px-3 py-3 w-28">Funcional %</th>
-                    <th className="text-center text-xs font-semibold text-red-500 px-3 py-3 w-28">Disfuncional %</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {FACTORES.map((f, i) => {
-                    const key  = `vd${i + 1}` as keyof McMasterValores
-                    const row  = calc.rows[i]
-                    return (
-                      <tr key={f.id} className="border-b border-gray-50 last:border-0">
-                        <td className="px-4 py-3 text-xs text-gray-700">{f.label}</td>
-                        <td className="px-3 py-2 text-center">
-                          <input
-                            type="number"
-                            step="0.1"
-                            min={f.vmin}
-                            max={f.vmax}
-                            value={mcValores[key]}
-                            onChange={e => setMcValores(prev => ({ ...prev, [key]: e.target.value }))}
-                            placeholder={`${f.vmin}–${f.vmax}`}
-                            className="w-24 text-center px-2 py-1.5 rounded-lg border border-gray-200 text-sm
-                                       focus:outline-none focus:ring-2 focus:ring-purple-300"
-                          />
-                        </td>
-                        <td className="px-3 py-3 text-center">
-                          {row ? (
-                            <span className="font-semibold text-emerald-600">{row.funcional}%</span>
-                          ) : (
-                            <span className="text-gray-300">—</span>
-                          )}
-                        </td>
-                        <td className="px-3 py-3 text-center">
-                          {row ? (
-                            <span className="font-semibold text-red-500">{row.disfuncional}%</span>
-                          ) : (
-                            <span className="text-gray-300">—</span>
-                          )}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-
-                {/* Resultados globales */}
-                {calc.rf !== null && (
-                  <>
-                    <tfoot>
-                      <tr className="bg-gray-50 border-t border-gray-200">
-                        <td className="px-4 py-3 text-xs font-semibold text-gray-600">
-                          Resultados por evaluación funcional
-                        </td>
-                        <td />
-                        <td className="px-3 py-3 text-center font-bold text-emerald-700">{calc.rf}%</td>
-                        <td className="px-3 py-3 text-center font-bold text-red-600">{calc.rd}%</td>
-                      </tr>
-                      <tr className="bg-purple-50 border-t border-purple-100">
-                        <td colSpan={2} className="px-4 py-3 text-xs font-semibold text-gray-700">
-                          Evaluación de la Funcionalidad Familiar
-                          <span className="text-gray-400 font-normal ml-1">= (RF% + RD%) / 2</span>
-                        </td>
-                        <td colSpan={2} className="px-3 py-3 text-center">
-                          <span
-                            className="inline-flex items-center gap-2 text-sm font-bold px-4 py-1.5 rounded-full"
-                            style={{
-                              background: calc.conclusion === 'Funcional' ? '#d1fae5' : '#fee2e2',
-                              color:      calc.conclusion === 'Funcional' ? '#065f46' : '#991b1b',
-                            }}
-                          >
-                            {calc.eff}% — {calc.conclusion}
-                          </span>
-                        </td>
-                      </tr>
-                    </tfoot>
-                  </>
-                )}
-              </table>
-            </div>
-          </div>
-
-          {/* Interpretación IA */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                Interpretación Clínica
+          {!mcQuest && !mcLoadError && (
+            <div className="text-center py-8 space-y-2">
+              <p className="text-3xl">📋</p>
+              <p className="text-sm text-gray-500 font-medium">Sin cuestionario completado</p>
+              <p className="text-xs text-gray-400">
+                El paciente aún no ha completado el cuestionario FAD McMaster.<br />
+                Asígnalo desde la pestaña <strong>Cuestionarios</strong>.
               </p>
-              <button
-                onClick={generarInterpretacionMc}
-                disabled={generandoMc || !calc.rf}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium border
-                           border-purple-200 text-purple-700 hover:bg-purple-50 transition-colors
-                           disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {generandoMc ? (
-                  <><span className="w-3 h-3 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />Generando…</>
-                ) : '✦ Generar interpretación editable'}
-              </button>
             </div>
-            <InterpretacionArea
-              value={mcInterp}
-              onChange={setMcInterp}
-              placeholder="La interpretación clínica aparecerá aquí tras generar con IA. Puedes editarla antes de guardar."
-              rows={8}
-            />
-          </div>
+          )}
 
-          <div className="flex justify-end pt-2 border-t border-gray-100">
-            <SaveBtn onClick={saveMcMaster} loading={savingMc} saved={savedMc} />
-          </div>
+          {/* Respuestas por dimensión — 6 bloques (3 columnas × 2 filas) */}
+          {mcQuest && mcResult && (
+            <>
+              {/* Encabezado del cuestionario */}
+              <div className="flex items-center gap-2 text-xs text-gray-400">
+                <span>Completado:</span>
+                <span className="font-medium text-gray-600">
+                  {new Date(mcQuest.completed_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}
+                </span>
+              </div>
+
+              {/* Leyenda de respuestas */}
+              <div className="flex flex-wrap gap-1.5 text-xs">
+                <span className="text-gray-400 mr-1">Respuestas:</span>
+                {[
+                  { v: 1, label: 'TA = Totalmente de acuerdo' },
+                  { v: 2, label: 'A = De acuerdo' },
+                  { v: 3, label: 'N = Neutro' },
+                  { v: 4, label: 'D = En desacuerdo' },
+                  { v: 5, label: 'TD = Totalmente en desacuerdo' },
+                ].map(({ v, label }) => (
+                  <span key={v} className={`px-1.5 py-0.5 rounded ${RESP_BADGE[v].cls}`}>{label}</span>
+                ))}
+              </div>
+
+              {/* Grid 3×2 de dimensiones */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {FAD_DIMENSION_ORDER.map(dim => {
+                  const itemsDim = FAD_ITEMS.filter(i => i.dimension === dim)
+                  return (
+                    <div key={dim} className="bg-gray-50 rounded-xl p-2.5 space-y-1">
+                      <p className="text-[10px] font-bold text-indigo-700 uppercase tracking-wide mb-1.5">
+                        {FAD_DIMENSION_LABELS[dim]}
+                      </p>
+                      {itemsDim.map(item => {
+                        const resp = mcQuest.responses[String(item.id)]
+                        const badge = resp ? RESP_BADGE[resp] : null
+                        return (
+                          <div key={item.id} className="flex items-start gap-1.5">
+                            <span className="text-[9px] text-gray-400 mt-0.5 w-4 shrink-0">{item.id}.</span>
+                            <span className="text-[9px] text-gray-600 leading-snug flex-1">{item.text}</span>
+                            {badge ? (
+                              <span className={`text-[8px] font-bold px-1 py-0.5 rounded shrink-0 ${badge.cls}`}>{badge.label}</span>
+                            ) : (
+                              <span className="text-[8px] text-gray-300 shrink-0">—</span>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Tabla FAD — sin barras */}
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                  Evaluación de Funcionalidad Familiar — FAD McMaster
+                </p>
+                <FADReporteSimple score={mcResult} />
+              </div>
+
+              {/* Interpretación IA */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    Generación interpretación editable
+                  </p>
+                  <button
+                    onClick={generarInterpretacionMc}
+                    disabled={generandoMc}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium border
+                               border-purple-200 text-purple-700 hover:bg-purple-50 transition-colors
+                               disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {generandoMc ? (
+                      <><span className="w-3 h-3 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />Generando…</>
+                    ) : '✦ Generar interpretación editable'}
+                  </button>
+                </div>
+                {generandoMc && (
+                  <div className="flex items-center gap-3 py-4 text-xs text-gray-400">
+                    <span className="w-4 h-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+                    Analizando resultados y consultando fuentes clínicas…
+                  </div>
+                )}
+                <InterpretacionArea
+                  value={mcInterp}
+                  onChange={setMcInterp}
+                  placeholder="La interpretación clínica del FAD McMaster aparecerá aquí. Puedes editarla antes de guardar."
+                  rows={8}
+                />
+              </div>
+
+              <div className="flex justify-end pt-2 border-t border-gray-100">
+                <SaveBtn onClick={saveMcMaster} loading={savingMc} saved={savedMc} />
+              </div>
+            </>
+          )}
         </ApartadoCard>
       )}
 
@@ -1085,6 +1005,68 @@ export default function AnalisisClanicosTab({ patientId, therapistId }: Props) {
         </div>
       </ApartadoCard>
 
+    </div>
+  )
+}
+
+// ── FAD Reporte (sin barras) ─────────────────────────────────────────────────
+function FADReporteSimple({ score }: { score: FADResult }) {
+  const { dimensions, global } = score
+  const esFuncional = global.evaluacion === 'FUNCIONAL'
+  const valorMax    = Math.max(global.pctREF, global.pctRED)
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm border-collapse">
+        <thead>
+          <tr className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wide">
+            <th className="text-left px-3 py-2 font-semibold rounded-tl-xl">Dimensión</th>
+            <th className="text-center px-3 py-2 font-semibold">VD</th>
+            <th className="text-center px-3 py-2 font-semibold text-green-700">% Funcional</th>
+            <th className="text-center px-3 py-2 font-semibold text-red-600 rounded-tr-xl">% Disfuncional</th>
+          </tr>
+        </thead>
+        <tbody>
+          {FAD_DIMENSION_ORDER.map((dim, idx) => {
+            const d = dimensions[dim]
+            if (!d) return null
+            const esDis = d.pctDD > d.pctFD
+            return (
+              <tr key={dim} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
+                <td className="px-3 py-2.5 text-gray-700 font-medium text-xs">{FAD_DIMENSION_LABELS[dim]}</td>
+                <td className="px-3 py-2.5 text-center text-gray-500 text-xs">{d.VD}</td>
+                <td className="px-3 py-2.5 text-center">
+                  <span className={`font-semibold text-xs ${esDis ? 'text-gray-500' : 'text-green-600'}`}>{d.pctFD}%</span>
+                </td>
+                <td className="px-3 py-2.5 text-center">
+                  <span className={`font-semibold text-xs ${esDis ? 'text-red-600' : 'text-gray-400'}`}>{d.pctDD}%</span>
+                </td>
+              </tr>
+            )
+          })}
+
+          {/* Fila 7 — Resultado por Evaluación Funcional */}
+          <tr className="bg-indigo-50 border-t-2 border-indigo-200">
+            <td className="px-3 py-2.5 text-indigo-800 font-semibold text-xs" colSpan={2}>
+              Resultado por Evaluación Funcional
+            </td>
+            <td className="px-3 py-2.5 text-center font-bold text-green-700 text-xs">{global.pctREF}%</td>
+            <td className="px-3 py-2.5 text-center font-bold text-red-600 text-xs">{global.pctRED}%</td>
+          </tr>
+
+          {/* Fila 8 — Evaluación final */}
+          <tr className={`border-t-2 ${esFuncional ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+            <td className="px-3 py-3 text-xs font-semibold text-gray-600" colSpan={2}>
+              Evaluación de la Funcionalidad Familiar
+            </td>
+            <td className="px-3 py-3 text-center font-bold text-base" colSpan={2}>
+              <span className={esFuncional ? 'text-green-700' : 'text-red-700'}>
+                {valorMax}% — {global.evaluacion}
+              </span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   )
 }

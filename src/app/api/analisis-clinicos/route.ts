@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
 import { retrieveChunksFromBooks, retrieveRelevantChunks } from '@/lib/rag/retrieve-chunks'
+import {
+  calcularResultadoFAD,
+  FAD_DIMENSION_LABELS,
+  FAD_DIMENSION_ORDER,
+  type FADResult,
+} from '@/lib/questionnaires/mcmaster-fad'
 
 export const maxDuration = 120
 
@@ -16,27 +22,6 @@ function extractText(content: Anthropic.ContentBlock[]): string {
   return ''
 }
 
-// Factores McMaster (para calcular en el servidor también)
-const FACTORES_MC = [
-  { id: 1, label: 'Factor 1. Involucramiento afectivo funcional',    vmin: 17, vmax: 85, invertido: false },
-  { id: 2, label: 'Factor 2. Involucramiento afectivo disfuncional', vmin: 11, vmax: 55, invertido: true  },
-  { id: 3, label: 'Factor 3. Patrones de comunicación disfuncional', vmin:  4, vmax: 20, invertido: true  },
-  { id: 4, label: 'Factor 4. Patrones de comunicación funcional',    vmin:  3, vmax: 15, invertido: false },
-  { id: 5, label: 'Factor 5. Resolución de problemas',              vmin:  3, vmax: 15, invertido: false },
-  { id: 6, label: 'Factor 6. Patrones de control de conducta',      vmin:  2, vmax: 10, invertido: false },
-]
-
-function rd1(n: number) { return Math.round(n * 10) / 10 }
-
-function calcFactor(vdStr: string | number | null, vmin: number, vmax: number, invertido: boolean) {
-  if (vdStr === null || vdStr === '') return null
-  const vd = typeof vdStr === 'number' ? vdStr : parseFloat(vdStr)
-  if (isNaN(vd) || vd < vmin || vd > vmax) return null
-  const base      = rd1((vd - vmin) / (vmax - vmin) * 100)
-  const funcional = invertido ? rd1(100 - base) : base
-  return { funcional, disfuncional: rd1(100 - funcional) }
-}
-
 // ── POST /api/analisis-clinicos ─────────────────────────────────────────────
 export async function POST(request: NextRequest) {
   try {
@@ -45,7 +30,7 @@ export async function POST(request: NextRequest) {
     if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
     const body = await request.json()
-    const { type, patientId, valores, resultados } = body
+    const { type, patientId } = body
 
     if (!type || !patientId) {
       return NextResponse.json({ error: 'Faltan parámetros: type y patientId' }, { status: 400 })
@@ -102,89 +87,89 @@ export async function POST(request: NextRequest) {
 
     // ── MCMASTER: Interpretación con RAG ──────────────────────────────────────
     if (type === 'mcmaster_interpretacion') {
-      // 1. Nota inicial del paciente
-      const { data: relation } = await supabase
-        .from('therapist_patients')
-        .select('initial_note, initial_note_motivo, initial_note_subyacente, initial_note_premisas')
-        .eq('therapist_id', user.id)
-        .eq('patient_id', patientId)
-        .single()
+      // 1. Nota inicial del paciente + expediente
+      const [relationRes, expedienteRes, questRes] = await Promise.all([
+        supabase
+          .from('therapist_patients')
+          .select('initial_note, initial_note_motivo, initial_note_subyacente, initial_note_premisas')
+          .eq('therapist_id', user.id)
+          .eq('patient_id', patientId)
+          .single(),
+        supabase
+          .from('patient_expediente')
+          .select('tipo_caso, asesorado_nombre')
+          .eq('therapist_id', user.id)
+          .eq('patient_id', patientId)
+          .maybeSingle(),
+        supabase
+          .from('patient_questionnaires')
+          .select('id, responses, score, completed_at')
+          .eq('patient_id', patientId)
+          .eq('questionnaire_type', 'mcmaster_fad')
+          .eq('status', 'completed')
+          .order('completed_at', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ])
 
-      if (!relation) return NextResponse.json({ error: 'Paciente no encontrado' }, { status: 404 })
+      if (!relationRes.data) return NextResponse.json({ error: 'Paciente no encontrado' }, { status: 404 })
+      if (!questRes.data) return NextResponse.json({ error: 'El paciente aún no ha completado el cuestionario FAD McMaster.' }, { status: 422 })
 
-      const notaInicial = [
-        relation.initial_note           ? `DESARROLLO DEL CASO:\n${relation.initial_note}`                         : '',
-        relation.initial_note_motivo    ? `MOTIVO DE CONSULTA:\n${relation.initial_note_motivo}`                   : '',
-        relation.initial_note_subyacente ? `MOTIVO SUBYACENTE:\n${relation.initial_note_subyacente}`              : '',
-        relation.initial_note_premisas  ? `PREMISAS CLÍNICAS:\n${relation.initial_note_premisas}`                  : '',
-      ].filter(Boolean).join('\n\n') || '(Sin nota inicial registrada)'
+      const relation    = relationRes.data
+      const expediente  = expedienteRes.data
+      const quest       = questRes.data as { id: string; responses: Record<string,number>; score: FADResult; completed_at: string }
 
-      // 2. Datos expediente para contexto adicional
-      const { data: expediente } = await supabase
-        .from('patient_expediente')
-        .select('tipo_caso, asesorado_nombre')
-        .eq('therapist_id', user.id)
-        .eq('patient_id', patientId)
-        .maybeSingle()
+      // 2. Recalcular resultado y validar contra el guardado
+      const recalc = calcularResultadoFAD(quest.responses)
 
-      const nombreAsesorado = expediente?.asesorado_nombre ?? ''
-      const tipoCaso = expediente?.tipo_caso ?? ''
-
-      // 3. RAG: recuperar chunks del Modelo McMaster
-      const ragQuery = [
-        notaInicial.slice(0, 3000),
-        valores ? `Valores McMaster obtenidos: ${JSON.stringify(valores)}` : '',
-      ].filter(Boolean).join('\n\n')
-
-      const fuentes = await retrieveChunksFromBooks(
-        ragQuery,
-        ['Modelo McMaster Familias'],
-        8
-      )
-
-      // 4. Formatear resultados para el prompt
-      const FACTORES_LABELS: Record<number, string> = {
-        1: 'Involucramiento afectivo funcional',
-        2: 'Involucramiento afectivo disfuncional',
-        3: 'Patrones de comunicación disfuncional',
-        4: 'Patrones de comunicación funcional',
-        5: 'Resolución de problemas',
-        6: 'Patrones de control de conducta',
+      const stored  = quest.score as FADResult
+      const svdOk   = Math.abs(recalc.global.SVD - stored.global.SVD) < 1
+      if (!svdOk) {
+        console.warn('[mcmaster_interpretacion] SVD mismatch — stored:', stored.global.SVD, '| recalc:', recalc.global.SVD)
       }
 
-      const factoresTexto = resultados
-        ? Object.entries(resultados as Record<string, { funcional: number; disfuncional: number } | null>)
-            .filter(([, v]) => v !== null)
-            .map(([id, v]) => {
-              const label = FACTORES_LABELS[Number(id)] ?? `Factor ${id}`
-              return `  - ${label}: Funcional ${(v as { funcional: number; disfuncional: number }).funcional}% / Disfuncional ${(v as { funcional: number; disfuncional: number }).disfuncional}%`
-            })
-            .join('\n')
-        : '(Sin resultados calculados)'
+      const result = recalc  // usamos el recalculado (más seguro)
 
-      const efResumen = resultados
-        ? (() => {
-            const vals = Object.values(resultados as Record<string, { funcional: number; disfuncional: number } | null>)
-              .filter(Boolean) as { funcional: number; disfuncional: number }[]
-            if (vals.length === 0) return ''
-            const rf = vals.reduce((s, v) => s + v.funcional, 0) / vals.length
-            const rd = vals.reduce((s, v) => s + v.disfuncional, 0) / vals.length
-            const eff = (rf + rd) / 2
-            return `RF promedio: ${rf.toFixed(1)}% | RD promedio: ${rd.toFixed(1)}% | EFF: ${eff.toFixed(1)}% → ${eff >= 60 ? 'Funcional' : 'Disfuncional'}`
-          })()
-        : ''
+      const notaInicial = [
+        relation.initial_note           ? `DESARROLLO DEL CASO:\n${relation.initial_note}`        : '',
+        relation.initial_note_motivo    ? `MOTIVO DE CONSULTA:\n${relation.initial_note_motivo}`  : '',
+        relation.initial_note_subyacente ? `MOTIVO SUBYACENTE:\n${relation.initial_note_subyacente}` : '',
+        relation.initial_note_premisas  ? `PREMISAS CLÍNICAS:\n${relation.initial_note_premisas}` : '',
+      ].filter(Boolean).join('\n\n') || '(Sin nota inicial registrada)'
 
-      // 5. Construir prompt
+      const nombreAsesorado = expediente?.asesorado_nombre ?? ''
+      const tipoCaso        = expediente?.tipo_caso ?? ''
+
+      // 3. Formatear resultados FAD para el prompt
+      const dimLineas = FAD_DIMENSION_ORDER.map(dim => {
+        const d = result.dimensions[dim]
+        const label = FAD_DIMENSION_LABELS[dim]
+        return `  • ${label}: VD=${d.VD}  %Func=${d.pctFD}%  %Disf=${d.pctDD}%`
+      }).join('\n')
+
+      const globalLineas = [
+        `SVD (suma total de puntajes) = ${result.global.SVD}`,
+        `%REF (Evaluación Funcional)  = ${result.global.pctREF}%`,
+        `%RED (Evaluación Disfuncional) = ${result.global.pctRED}%`,
+        `Evaluación final: ${result.global.evaluacion}`,
+      ].join('\n')
+
+      // 4. RAG McMaster
+      const ragQuery = [notaInicial.slice(0, 2500), dimLineas, globalLineas].join('\n\n')
+      const fuentes  = await retrieveChunksFromBooks(ragQuery, ['Modelo McMaster Familias'], 8)
+
+      // 5. Prompt
       const prompt = [
         'Eres supervisor clínico especializado en terapia familiar con amplio conocimiento del Modelo McMaster.',
-        'Redacta una interpretación clínica de los resultados del Análisis McMaster para este caso.',
+        'Redacta una interpretación clínica de los resultados del cuestionario FAD McMaster (60 ítems, 5 dimensiones).',
         '',
         'INSTRUCCIONES:',
-        '- Interpreta cada factor con criterio clínico, no solo como número.',
-        '- Señala las áreas de fortaleza y las áreas de riesgo o disfuncionalidad.',
+        '- Interpreta cada dimensión con criterio clínico: señala qué representa, si está en rango funcional o disfuncional y qué impacto tiene.',
+        '- Señala las áreas de fortaleza (mayor %Funcional) y las áreas de riesgo (mayor %Disfuncional).',
         '- Relaciona los resultados con el contexto del caso (nota inicial).',
+        '- Comenta el resultado global: SVD, %REF, %RED y la evaluación final FUNCIONAL/DISFUNCIONAL.',
         '- Proporciona 2-3 sugerencias de intervención concretas fundamentadas en el Modelo McMaster.',
-        '- Lenguaje profesional, directo y clínico. Extiéndete lo necesario para cubrir todos los factores.',
+        '- Lenguaje profesional, directo y clínico.',
         '- Responde directamente con la interpretación, sin título ni encabezado.',
         '',
         ...(fuentes ? ['FUENTE CLÍNICA (Modelo McMaster de Familias):', fuentes, ''] : []),
@@ -195,9 +180,12 @@ export async function POST(request: NextRequest) {
         '── NOTA INICIAL ──',
         notaInicial,
         '',
-        '── RESULTADOS MCMASTER ──',
-        factoresTexto,
-        ...(efResumen ? ['', efResumen] : []),
+        '── RESULTADOS FAD McMASTER ──',
+        'Resultados por dimensión (VD = suma puntajes | %Func | %Disf):',
+        dimLineas,
+        '',
+        'Resultado global:',
+        globalLineas,
       ].filter(v => v !== undefined).join('\n')
 
       const response = await anthropic.messages.create({
@@ -207,7 +195,7 @@ export async function POST(request: NextRequest) {
       })
 
       const text = extractText(response.content)
-      console.log('[mcmaster_interpretacion] stop_reason:', response.stop_reason, '| chars:', text.length)
+      console.log('[mcmaster_interpretacion] stop_reason:', response.stop_reason, '| chars:', text.length, '| svdMatch:', svdOk)
 
       if (!text) {
         return NextResponse.json(
@@ -222,7 +210,7 @@ export async function POST(request: NextRequest) {
     // ── CONCLUSIONES: Evaluación cuantitativa + cualitativa ───────────────────
     if (type === 'conclusiones') {
       // 1. Datos del paciente
-      const [relationRes, expedienteRes, sesionesRes] = await Promise.all([
+      const [relationRes, expedienteRes, sesionesRes, questRes] = await Promise.all([
         supabase
           .from('therapist_patients')
           .select('initial_note, initial_note_motivo, initial_note_subyacente, initial_note_premisas')
@@ -235,7 +223,7 @@ export async function POST(request: NextRequest) {
                    individual_prediag_impresion, individual_prediag_diagnostico,
                    ac_apartados_visibles,
                    ac_genograma_interpretacion,
-                   ac_mcmaster_valores, ac_mcmaster_interpretacion,
+                   ac_mcmaster_interpretacion,
                    ac_foda_interpretacion`)
           .eq('therapist_id', user.id)
           .eq('patient_id', patientId)
@@ -247,6 +235,15 @@ export async function POST(request: NextRequest) {
           .eq('patient_id', patientId)
           .order('session_number', { ascending: false })
           .limit(3),
+        supabase
+          .from('patient_questionnaires')
+          .select('responses, score')
+          .eq('patient_id', patientId)
+          .eq('questionnaire_type', 'mcmaster_fad')
+          .eq('status', 'completed')
+          .order('completed_at', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
       ])
 
       const relation   = relationRes.data
@@ -260,41 +257,25 @@ export async function POST(request: NextRequest) {
       const nombreAsesorado    = expediente?.asesorado_nombre ?? ''
       const tipoCaso           = expediente?.tipo_caso ?? ''
 
-      // ── 2. Resumen cuantitativo McMaster ──────────────────
+      // ── 2. Resumen cuantitativo McMaster (desde patient_questionnaires) ───
       let cuantitativoTexto = ''
-      let mcResumen = ''
 
-      if (visibles.includes('mcmaster') && expediente?.ac_mcmaster_valores) {
-        const vals = expediente.ac_mcmaster_valores as Record<string, number | null>
-        const mcRows = FACTORES_MC.map(f => {
-          const vd = vals[`vd${f.id}`]
-          const res = vd !== null && vd !== undefined ? calcFactor(vd, f.vmin, f.vmax, f.invertido) : null
-          return { label: f.label, vd, res }
-        })
-        const validRows = mcRows.filter(r => r.res !== null)
+      if (visibles.includes('mcmaster') && questRes.data) {
+        const qData = questRes.data as { responses: Record<string,number>; score: FADResult }
+        const result = calcularResultadoFAD(qData.responses)
 
-        if (validRows.length > 0) {
-          const rf  = rd1(validRows.reduce((s, r) => s + r.res!.funcional,    0) / validRows.length)
-          const rd  = rd1(validRows.reduce((s, r) => s + r.res!.disfuncional, 0) / validRows.length)
-          const eff = rd1((rf + rd) / 2)
-          const conclusion = eff >= 60 ? 'Funcional' : 'Disfuncional'
+        const dimLineas = FAD_DIMENSION_ORDER.map(dim => {
+          const d = result.dimensions[dim]
+          return `  • ${FAD_DIMENSION_LABELS[dim]}: %Func=${d.pctFD}%  %Disf=${d.pctDD}%`
+        }).join('\n')
 
-          const factoresLineas = mcRows.map(r =>
-            r.res
-              ? `  • ${r.label}: Funcional ${r.res.funcional}% / Disfuncional ${r.res.disfuncional}%`
-              : `  • ${r.label}: sin dato`
-          ).join('\n')
-
-          mcResumen = [
-            'ANÁLISIS McMASTER (Modelo de Funcionalidad Familiar):',
-            factoresLineas,
-            `  RF (promedio funcional): ${rf}%`,
-            `  RD (promedio disfuncional): ${rd}%`,
-            `  EFF = (RF+RD)/2 = ${eff}% → FAMILIA ${conclusion.toUpperCase()}`,
-          ].join('\n')
-
-          cuantitativoTexto = mcResumen
-        }
+        cuantitativoTexto = [
+          'ANÁLISIS McMASTER — FAD (Evaluación de Funcionalidad Familiar):',
+          dimLineas,
+          `  %REF (Funcional global) = ${result.global.pctREF}%`,
+          `  %RED (Disfuncional global) = ${result.global.pctRED}%`,
+          `  EVALUACIÓN FAMILIAR: ${result.global.evaluacion}`,
+        ].join('\n')
       }
 
       // ── 3. Contexto clínico completo ──────────────────────
