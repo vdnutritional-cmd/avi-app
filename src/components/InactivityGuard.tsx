@@ -15,6 +15,7 @@ export default function InactivityGuard({ children }: { children: React.ReactNod
 
   useInactivityTimer({
     onWarn:    () => setWarning(true),
+    onDismiss: () => setWarning(false),  // usuario siguió activo → cancela el modal
     onSignOut: () => setWarning(false),
   })
 
