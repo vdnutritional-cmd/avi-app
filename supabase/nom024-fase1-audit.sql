@@ -92,6 +92,13 @@ CREATE TRIGGER audit_therapist_patients
   FOR EACH ROW EXECUTE FUNCTION public.log_cambio_clinico();
 
 
+-- patient_questionnaires (cuestionarios FAD — Sprint 19, agregado post-NOM-024)
+DROP TRIGGER IF EXISTS audit_patient_questionnaires ON public.patient_questionnaires;
+CREATE TRIGGER audit_patient_questionnaires
+  AFTER INSERT OR UPDATE OR DELETE ON public.patient_questionnaires
+  FOR EACH ROW EXECUTE FUNCTION public.log_cambio_clinico();
+
+
 -- 4. Verificación
 -- ---------------------------------------------------------------
 -- Después de ejecutar, verifica con:
