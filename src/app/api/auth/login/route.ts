@@ -90,5 +90,13 @@ export async function POST(req: NextRequest) {
     .eq('id', data.user.id)
     .single()
 
-  return NextResponse.json({ role: profile?.role ?? 'patient' }, { status: 200 })
+  // Verificar si el usuario tiene MFA activo
+  const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+  const needsMfa =
+    aal?.nextLevel === 'aal2' && aal?.currentLevel !== 'aal2'
+
+  return NextResponse.json(
+    { role: profile?.role ?? 'patient', needsMfa: needsMfa ?? false },
+    { status: 200 }
+  )
 }

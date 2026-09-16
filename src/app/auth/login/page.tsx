@@ -70,6 +70,12 @@ function LoginForm() {
         return
       }
 
+      // Si el usuario tiene MFA activo, redirigir a verificación
+      if (body.needsMfa) {
+        router.push('/auth/mfa')
+        return
+      }
+
       const destination = body.role === 'therapist' ? '/therapist/dashboard' : '/patient/chat'
       router.push(redirectTo ?? destination)
       router.refresh()

@@ -74,6 +74,7 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
           <NavLink href="/therapist/mi-qr"                  icon="📲" label="Mi QR de registro" />
           <NavLink href="/therapist/transferir-paciente"  icon="🔄" label="Transferir paciente" />
           <NavLink href="/therapist/tutoriales"           icon="🎬" label="Consejos prácticos y Tutoriales" />
+          <NavLink href="/therapist/configuracion/seguridad" icon="🔐" label="Seguridad (2FA)" />
         </nav>
 
         {/* Separador + Plan + Logout — justo bajo el nav */}
