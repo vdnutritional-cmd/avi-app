@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, Suspense } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { checkPassword } from '@/lib/password-strength'
 import PasswordStrengthBar from '@/components/PasswordStrengthBar'
@@ -34,6 +34,16 @@ const datosBlancos = (): DatosGenerales => ({
   salud_ayuda_tiempo: '', salud_medicamentos: '', salud_medicamentos_cual: '',
 })
 
+const ESTADOS_MEXICO = [
+  'Aguascalientes', 'Baja California', 'Baja California Sur', 'Campeche',
+  'Chiapas', 'Chihuahua', 'Ciudad de México', 'Coahuila de Zaragoza',
+  'Colima', 'Durango', 'Estado de México', 'Guanajuato', 'Guerrero',
+  'Hidalgo', 'Jalisco', 'Michoacán de Ocampo', 'Morelos', 'Nayarit',
+  'Nuevo León', 'Oaxaca', 'Puebla', 'Querétaro', 'Quintana Roo',
+  'San Luis Potosí', 'Sinaloa', 'Sonora', 'Tabasco', 'Tamaulipas',
+  'Tlaxcala', 'Veracruz de Ignacio de la Llave', 'Yucatán', 'Zacatecas',
+]
+
 const STEPS = [
   { id: 'cuenta',    label: 'Cuenta'    },
   { id: 'asesorado', label: 'Asesorado' },
@@ -60,7 +70,6 @@ const selectCls = inputCls
 
 // ── Formulario principal ─────────────────────────────────────────────────────
 function RegistroConsultorioForm() {
-  const router      = useRouter()
   const searchParams = useSearchParams()
   const token       = searchParams.get('t') ?? ''
 
@@ -73,11 +82,16 @@ function RegistroConsultorioForm() {
   const [password, setPassword] = useState('')
   const [showPw, setShowPw]     = useState(false)
 
+  // Nombre en 3 campos separados
+  const [nombres,    setNombres]    = useState('')
+  const [apPaterno,  setApPaterno]  = useState('')
+  const [apMaterno,  setApMaterno]  = useState('')
+
   // Datos generales
   const [dg, setDg] = useState<DatosGenerales>(datosBlancos)
 
-  const [error,     setError]     = useState<string | null>(null)
-  const [loading,   setLoading]   = useState(false)
+  const [error,      setError]      = useState<string | null>(null)
+  const [loading,    setLoading]    = useState(false)
   const [registrado, setRegistrado] = useState(false)
 
   // Validar token
@@ -118,8 +132,9 @@ function RegistroConsultorioForm() {
       if (!pw.valid) return 'La contraseña no cumple los requisitos: ' + pw.errors.join(', ')
     }
     if (step === 1) {
-      if (!dg.asesorado_nombre.trim()) return 'El nombre completo es requerido'
-      if (!dg.asesorado_sexo)          return 'Selecciona el sexo'
+      if (!nombres.trim())   return 'El nombre es requerido'
+      if (!apPaterno.trim()) return 'El apellido paterno es requerido'
+      if (!dg.asesorado_sexo) return 'Selecciona el sexo'
     }
     return null
   }
@@ -141,6 +156,8 @@ function RegistroConsultorioForm() {
   async function handleEnviar() {
     setError(null)
     setLoading(true)
+    // Combinar los 3 campos de nombre
+    const nombreCompleto = [nombres.trim(), apPaterno.trim(), apMaterno.trim()].filter(Boolean).join(' ')
     try {
       const res = await fetch('/api/auth/registro-consultorio', {
         method: 'POST',
@@ -149,17 +166,17 @@ function RegistroConsultorioForm() {
           token,
           email: email.trim().toLowerCase(),
           password,
-          datosGenerales: { ...dg, hijos: dg.hijos.filter(h => h.nombre.trim()) },
+          datosGenerales: {
+            ...dg,
+            asesorado_nombre: nombreCompleto,
+            hijos: dg.hijos.filter(h => h.nombre.trim()),
+          },
         }),
       })
       const body = await res.json()
       if (!res.ok) { setError(body.error ?? 'Error al crear la cuenta'); setLoading(false); return }
-      if (body.autoLogin) {
-        router.push('/patient/chat')
-        router.refresh()
-      } else {
-        setRegistrado(true)
-      }
+      // Siempre mostrar pantalla de cierre — nunca redirigir a la app
+      setRegistrado(true)
     } catch {
       setError('Error de conexión. Intenta de nuevo.')
       setLoading(false)
@@ -188,11 +205,22 @@ function RegistroConsultorioForm() {
 
   if (registrado) return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 via-white to-calm-50 px-4">
-      <div className="w-full max-w-sm text-center space-y-4">
+      <div className="w-full max-w-sm text-center space-y-5">
         <div className="text-5xl">✅</div>
-        <h2 className="text-xl font-bold text-gray-800">¡Cuenta creada!</h2>
-        <p className="text-gray-500 text-sm">Tu cuenta quedó vinculada con <strong>{therapistName}</strong>. Inicia sesión para comenzar.</p>
-        <Link href="/auth/login" className="block w-full py-3 bg-primary-600 text-white font-semibold rounded-2xl text-sm">Iniciar sesión</Link>
+        <h2 className="text-xl font-bold text-gray-800">¡Registro completado!</h2>
+        <p className="text-gray-600 text-sm leading-relaxed">
+          Gracias por registrar tus Datos Generales, en breve te continuaremos atendiendo.
+        </p>
+        <div className="bg-primary-50 border border-primary-100 rounded-2xl p-4 text-sm text-left space-y-1">
+          <p className="text-primary-800 font-medium">Te recordamos que para entrar a tu cuenta debes usar:</p>
+          <p className="text-primary-700">Correo: <strong>{email.trim().toLowerCase()}</strong></p>
+          <p className="text-primary-700">Contraseña: la que definiste</p>
+        </div>
+        <button
+          onClick={() => { try { window.close() } catch { /* noop */ } }}
+          className="w-full py-3 bg-primary-600 text-white font-semibold rounded-2xl text-sm hover:bg-primary-700 transition-colors">
+          Cerrar esta ventana
+        </button>
       </div>
     </div>
   )
@@ -224,11 +252,11 @@ function RegistroConsultorioForm() {
           {/* ── Paso 0: Cuenta ── */}
           {step === 0 && <>
             <h2 className="text-base font-semibold text-gray-800">Datos de tu cuenta</h2>
-            <Field label="Correo electrónico">
+            <Field label="¿Cuál es tu correo electrónico?">
               <input type="email" value={email} onChange={e => setEmail(e.target.value)}
                 placeholder="tu@correo.com" className={inputCls} />
             </Field>
-            <Field label="Contraseña">
+            <Field label="Define una contraseña que recuerdes">
               <div className="relative">
                 <input type={showPw ? 'text' : 'password'} value={password}
                   onChange={e => setPassword(e.target.value)} placeholder="••••••••"
@@ -245,10 +273,20 @@ function RegistroConsultorioForm() {
           {/* ── Paso 1: Asesorado ── */}
           {step === 1 && <>
             <h2 className="text-base font-semibold text-gray-800">Datos del asesorado</h2>
-            <Field label="Nombre completo">
-              <input type="text" value={dg.asesorado_nombre} onChange={e => setField('asesorado_nombre', e.target.value)}
-                placeholder="María González" className={inputCls} />
+            <Field label="Nombre(s)">
+              <input type="text" value={nombres} onChange={e => setNombres(e.target.value)}
+                placeholder="María" className={inputCls} />
             </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Apellido Paterno">
+                <input type="text" value={apPaterno} onChange={e => setApPaterno(e.target.value)}
+                  placeholder="González" className={inputCls} />
+              </Field>
+              <Field label="Apellido Materno" optional>
+                <input type="text" value={apMaterno} onChange={e => setApMaterno(e.target.value)}
+                  placeholder="López" className={inputCls} />
+              </Field>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <Field label="Sexo">
                 <select value={dg.asesorado_sexo} onChange={e => setField('asesorado_sexo', e.target.value)} className={selectCls}>
@@ -258,7 +296,7 @@ function RegistroConsultorioForm() {
               </Field>
               <Field label="Edad">
                 <input type="number" min="0" max="120" value={dg.asesorado_edad}
-                  onChange={e => setField('asesorado_edad', e.target.value)} placeholder="35" className={inputCls} />
+                  onChange={e => setField('asesorado_edad', e.target.value)} placeholder="años" className={inputCls} />
               </Field>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -267,9 +305,11 @@ function RegistroConsultorioForm() {
                   onChange={e => setField('asesorado_fecha_nacimiento', e.target.value)} className={inputCls} />
               </Field>
               <Field label="Lugar de nacimiento">
-                <input type="text" value={dg.asesorado_lugar_nacimiento}
-                  onChange={e => setField('asesorado_lugar_nacimiento', e.target.value)}
-                  placeholder="Ciudad, Estado" className={inputCls} />
+                <select value={dg.asesorado_lugar_nacimiento}
+                  onChange={e => setField('asesorado_lugar_nacimiento', e.target.value)} className={selectCls}>
+                  <option value="">Estado</option>
+                  {ESTADOS_MEXICO.map(est => <option key={est}>{est}</option>)}
+                </select>
               </Field>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -289,7 +329,7 @@ function RegistroConsultorioForm() {
             <Field label="Ocupación">
               <input type="text" value={dg.asesorado_ocupacion}
                 onChange={e => setField('asesorado_ocupacion', e.target.value)}
-                placeholder="Contador, Maestro, Estudiante…" className={inputCls} />
+                placeholder="Escribe aquí tu profesión u oficio" className={inputCls} />
             </Field>
             <div className="grid grid-cols-2 gap-3">
               <Field label="Religión" optional>
@@ -310,8 +350,7 @@ function RegistroConsultorioForm() {
             <h2 className="text-base font-semibold text-gray-800">Datos de contacto</h2>
             <Field label="Correo electrónico">
               <input type="email" value={email} disabled
-                className={inputCls + ' bg-gray-50 text-gray-400 cursor-not-allowed'} />
-              <p className="text-xs text-gray-400 mt-1">Tomado de los datos de tu cuenta</p>
+                className="w-full px-4 py-2.5 rounded-xl border border-primary-300 text-sm bg-primary-400 text-white cursor-not-allowed" />
             </Field>
             <Field label="Teléfono / WhatsApp">
               <input type="tel" value={dg.contacto_telefono}
@@ -343,7 +382,7 @@ function RegistroConsultorioForm() {
               </Field>
               <Field label="Edad" optional>
                 <input type="number" min="0" max="120" value={dg.pareja_edad}
-                  onChange={e => setField('pareja_edad', e.target.value)} placeholder="35" className={inputCls} />
+                  onChange={e => setField('pareja_edad', e.target.value)} placeholder="años" className={inputCls} />
               </Field>
             </div>
             <Field label="Fecha de nacimiento" optional>
@@ -372,13 +411,13 @@ function RegistroConsultorioForm() {
                     </Field>
                     <Field label="Edad">
                       <input type="number" min="0" max="100" value={h.edad} onChange={e => setHijo(i, 'edad', e.target.value)}
-                        placeholder="12" className={inputCls} />
+                        placeholder="años" className={inputCls} />
                     </Field>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <Field label="Ocupación">
                       <input type="text" value={h.ocupacion} onChange={e => setHijo(i, 'ocupacion', e.target.value)}
-                        placeholder="Estudiante" className={inputCls} />
+                        placeholder="ejemplo: Estudiante" className={inputCls} />
                     </Field>
                     <Field label="¿Vive en casa?">
                       <select value={h.vive_en_casa} onChange={e => setHijo(i, 'vive_en_casa', e.target.value)} className={selectCls}>
@@ -404,7 +443,7 @@ function RegistroConsultorioForm() {
             <Field label="¿Padece alguna enfermedad?" optional>
               <input type="text" value={dg.salud_padece_enfermedad}
                 onChange={e => setField('salud_padece_enfermedad', e.target.value)}
-                placeholder="Diabetes, hipertensión…" className={inputCls} />
+                placeholder="ejemplo: Diabetes, hipertensión…" className={inputCls} />
             </Field>
             <Field label="¿Ha recibido ayuda psicológica antes?" optional>
               <select value={dg.salud_ayuda_psicologica} onChange={e => setField('salud_ayuda_psicologica', e.target.value)} className={selectCls}>
@@ -454,7 +493,7 @@ function RegistroConsultorioForm() {
           ) : (
             <button onClick={handleEnviar} disabled={loading}
               className="flex-1 py-3 rounded-2xl bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors disabled:opacity-50">
-              {loading ? 'Creando cuenta…' : '✓ Crear cuenta y entrar a AVI'}
+              {loading ? 'Creando cuenta…' : '✓ Crear cuenta y finalizar'}
             </button>
           )}
         </div>
