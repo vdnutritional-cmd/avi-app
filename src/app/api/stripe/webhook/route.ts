@@ -13,13 +13,17 @@ import { createClient } from '@supabase/supabase-js'
 
 export const dynamic = 'force-dynamic'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
+// Lazy init — evita evaluación en build time cuando las env vars no existen
+function getStripe() {
+  return new Stripe(process.env.STRIPE_SECRET_KEY!)
+}
 
-// Usar service role para bypassear RLS en actualizaciones del webhook
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+}
 
 // Mapeo de status de Stripe → status en nuestra BD
 const STRIPE_STATUS_MAP: Record<string, string> = {
@@ -34,6 +38,7 @@ const STRIPE_STATUS_MAP: Record<string, string> = {
 }
 
 export async function POST(req: NextRequest) {
+  const stripe = getStripe()
   const body = await req.text()
   const sig = req.headers.get('stripe-signature') ?? ''
 
@@ -99,6 +104,9 @@ function tierFromPriceId(priceId: string): 'esencial' | 'clinico' {
 
 // ── checkout.session.completed ────────────────────────────────
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
+  const stripe = getStripe()
+  const supabase = getSupabase()
+
   const therapistId = session.metadata?.therapist_id
   if (!therapistId) {
     console.error('[webhook] checkout.session.completed sin therapist_id en metadata')
@@ -157,14 +165,13 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
       therapist_id: therapistId,
       source_type:  'convenio',
       empresa_id,
-      patient_slots: Math.round(patientSlots / empresaIdsList.length), // distribuir slots equitativamente
-      discount_pct:  0, // el descuento viene del precio del plan; aquí no lo calculamos
+      patient_slots: Math.round(patientSlots / empresaIdsList.length),
+      discount_pct:  0,
       status:        'active',
       stripe_sub_id: subscriptionId,
     }))
     await supabase.from('therapist_slot_bundles').insert(bundleRows)
   } else {
-    // Bundle regular (sin convenio) o convenio sin empresa seleccionada
     await supabase.from('therapist_slot_bundles').insert({
       therapist_id: therapistId,
       source_type:  sourceType,
@@ -181,6 +188,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
 
 // ── customer.subscription.updated ────────────────────────────
 async function handleSubscriptionUpdated(sub: Stripe.Subscription) {
+  const supabase = getSupabase()
   const customerId = resolveId(sub.customer)
   const newStatus  = STRIPE_STATUS_MAP[sub.status] ?? 'inactive'
   const priceId    = sub.items.data[0]?.price.id ?? ''
@@ -205,6 +213,7 @@ async function handleSubscriptionUpdated(sub: Stripe.Subscription) {
 
 // ── customer.subscription.deleted ────────────────────────────
 async function handleSubscriptionDeleted(sub: Stripe.Subscription) {
+  const supabase = getSupabase()
   const customerId = resolveId(sub.customer)
 
   const { error } = await supabase
