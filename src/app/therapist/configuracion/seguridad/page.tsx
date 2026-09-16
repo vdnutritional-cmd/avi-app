@@ -56,7 +56,7 @@ export default function SeguridadPage() {
     setError(null)
 
     const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({ factorId })
-    if (challengeError) { setError('Error al crear challenge.'); setLoading(false); return }
+    if (challengeError || !challenge) { setError('Error al crear challenge.'); setLoading(false); return }
 
     const { error: verifyError } = await supabase.auth.mfa.verify({
       factorId,
