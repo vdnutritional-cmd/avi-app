@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import Image from 'next/image'
 
 type Step = 'idle' | 'qr' | 'verify' | 'done' | 'disable-confirm'
 

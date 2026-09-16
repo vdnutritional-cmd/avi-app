@@ -68,7 +68,11 @@ export default function MfaPage() {
       const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({
         factorId: totpFactor.id,
       })
-      if (challengeError) throw challengeError
+      if (challengeError || !challenge) {
+        setError('Error al crear el desafío MFA. Intenta de nuevo.')
+        setLoading(false)
+        return
+      }
 
       // Verificar código
       const { error: verifyError } = await supabase.auth.mfa.verify({
