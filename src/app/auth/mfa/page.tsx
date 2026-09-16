@@ -9,7 +9,6 @@ import { createClient } from '@/lib/supabase/client'
 
 export default function MfaPage() {
   const router = useRouter()
-  const supabase = createClient()
 
   const [code, setCode] = useState(['', '', '', '', '', ''])
   const [error, setError] = useState<string | null>(null)
@@ -49,6 +48,7 @@ export default function MfaPage() {
     setError(null)
 
     try {
+      const supabase = createClient()
       // Verificar nivel de autenticación actual
       const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
 

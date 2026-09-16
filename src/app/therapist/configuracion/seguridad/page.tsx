@@ -8,8 +8,6 @@ import { createClient } from '@/lib/supabase/client'
 type Step = 'idle' | 'qr' | 'verify' | 'done' | 'disable-confirm'
 
 export default function SeguridadPage() {
-  const supabase = createClient()
-
   const [mfaEnabled, setMfaEnabled] = useState(false)
   const [step, setStep] = useState<Step>('idle')
   const [qrUri, setQrUri] = useState('')
@@ -28,6 +26,7 @@ export default function SeguridadPage() {
 
   async function checkMfaStatus() {
     setLoadingStatus(true)
+    const supabase = createClient()
     const { data } = await supabase.auth.mfa.listFactors()
     const active = data?.totp?.some(f => f.status === 'verified') ?? false
     setMfaEnabled(active)
@@ -38,6 +37,7 @@ export default function SeguridadPage() {
   async function startEnroll() {
     setLoading(true)
     setError(null)
+    const supabase = createClient()
     const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp', issuer: 'AVI', friendlyName: 'AVI Authenticator' })
     if (error || !data) {
       setError('Error al iniciar el enrolamiento. Intenta de nuevo.')
@@ -57,6 +57,7 @@ export default function SeguridadPage() {
     setLoading(true)
     setError(null)
 
+    const supabase = createClient()
     const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({ factorId })
     if (challengeError || !challenge) { setError('Error al crear challenge.'); setLoading(false); return }
 
@@ -83,6 +84,7 @@ export default function SeguridadPage() {
   async function disableMfa() {
     setLoading(true)
     setError(null)
+    const supabase = createClient()
     const { data } = await supabase.auth.mfa.listFactors()
     const factors = data?.totp ?? []
     await Promise.all(factors.map(f => supabase.auth.mfa.unenroll({ factorId: f.id })))
