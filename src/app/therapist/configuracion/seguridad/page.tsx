@@ -19,7 +19,10 @@ export default function SeguridadPage() {
   const [loadingStatus, setLoadingStatus] = useState(true)
   const inputs = useRef<(HTMLInputElement | null)[]>([])
 
-  useEffect(() => { checkMfaStatus() }, [])
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    checkMfaStatus()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function checkMfaStatus() {
     setLoadingStatus(true)
@@ -183,7 +186,8 @@ export default function SeguridadPage() {
 
           {qrUri && (
             <div className="flex justify-center">
-              {/* El QR viene como SVG en base64 desde Supabase */}
+              {/* El QR viene como SVG en base64 desde Supabase — img es correcto aquí */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={qrUri} alt="QR MFA" className="w-48 h-48 border border-gray-200 rounded-xl p-2" />
             </div>
           )}
