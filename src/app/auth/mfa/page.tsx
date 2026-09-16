@@ -47,10 +47,10 @@ export default function MfaPage() {
     setError(null)
 
     try {
-      // Obtener los factores MFA del usuario
-      const { data: { currentSession } } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+      // Verificar nivel de autenticación actual
+      const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
 
-      if (currentSession?.authenticationMethods.some(m => m.method === 'totp')) {
+      if (aalData?.currentLevel === 'aal2') {
         // Ya verificado — redirigir
         router.push('/therapist/dashboard')
         return
