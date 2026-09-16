@@ -3,6 +3,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
 import { RECUPERATE_SYSTEM_PROMPT } from '@/lib/prompts/recuperate-system-prompt'
 import { sendCrisisPush } from '@/lib/push/send-crisis-push'
+import { sendExpoCrisisPush } from '@/lib/push/send-expo-push'
 import { sendCrisisEmail } from '@/lib/email/send-crisis-email'
 
 const anthropic = new Anthropic({
@@ -133,6 +134,8 @@ export async function POST(request: NextRequest) {
       // Fire-and-forget: notificar push + email al terapeuta
       sendCrisisPush({ patientId: user.id, sessionId: activeSessionId })
         .catch(err => console.error('Error enviando push de crisis (keywords):', err))
+      sendExpoCrisisPush({ patientId: user.id, sessionId: activeSessionId })
+        .catch(err => console.error('Error enviando expo push de crisis (keywords):', err))
       sendCrisisEmail({ patientId: user.id, sessionId: activeSessionId })
         .catch(err => console.error('Error enviando email de crisis (keywords):', err))
     }
@@ -213,6 +216,8 @@ export async function POST(request: NextRequest) {
             // Fire-and-forget: notificar push + email al terapeuta
             sendCrisisPush({ patientId: user.id, sessionId: activeSessionId })
               .catch(err => console.error('Error enviando push de crisis (AVI):', err))
+            sendExpoCrisisPush({ patientId: user.id, sessionId: activeSessionId })
+              .catch(err => console.error('Error enviando expo push de crisis (AVI):', err))
             sendCrisisEmail({ patientId: user.id, sessionId: activeSessionId })
               .catch(err => console.error('Error enviando email de crisis (AVI):', err))
           }
