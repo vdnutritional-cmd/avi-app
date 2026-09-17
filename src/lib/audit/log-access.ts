@@ -14,7 +14,7 @@ export function logApiAccess(
   method: string,
   metadata?: Record<string, unknown>
 ) {
-  supabase
+  void supabase
     .from('audit_log')
     .insert({
       usuario_id: userId,
@@ -23,6 +23,4 @@ export function logApiAccess(
       registro_id: null,
       datos_despues: { path, method, ...metadata },
     })
-    .then(() => {})
-    .catch(() => {})
 }
