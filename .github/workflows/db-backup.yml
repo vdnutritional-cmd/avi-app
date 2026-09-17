@@ -1,0 +1,102 @@
+name: DB Backup — pg_dump a Supabase Storage
+
+# Corre diariamente a las 03:00 UTC (21:00 CDMX)
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:   # Permite ejecutar manualmente desde GitHub Actions
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      # 1. Instalar cliente de PostgreSQL (pg_dump)
+      - name: Instalar postgresql-client
+        run: sudo apt-get install -y postgresql-client
+
+      # 2. Dump de la base de datos
+      #    SUPABASE_DB_URL debe ser la URL directa de conexión (no la REST):
+      #    postgresql://postgres:[PASSWORD]@db.[PROJECT_REF].supabase.co:5432/postgres
+      - name: Crear pg_dump
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          TIMESTAMP=$(date +%Y-%m-%d_%H-%M-%S)
+          FILENAME="backup_avi_${TIMESTAMP}.sql.gz"
+          pg_dump "$SUPABASE_DB_URL" \
+            --no-owner \
+            --no-acl \
+            --exclude-table=audit_log \
+            | gzip > "/tmp/${FILENAME}"
+          echo "FILENAME=${FILENAME}" >> $GITHUB_ENV
+          echo "FILEPATH=/tmp/${FILENAME}" >> $GITHUB_ENV
+
+      # Nota: audit_log se excluye del pg_dump porque:
+      # a) puede ser muy grande, b) ya tiene immutabilidad garantizada por RLS en Supabase.
+      # Si necesitas incluirlo, quita el flag --exclude-table.
+
+      # 3. Subir al Supabase Storage bucket "backups"
+      #    Requiere: SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY en GitHub Secrets
+      - name: Subir a Supabase Storage
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          FILENAME: ${{ env.FILENAME }}
+          FILEPATH: ${{ env.FILEPATH }}
+        run: |
+          # Subir archivo al bucket "backups" de Supabase Storage
+          curl -s -o /dev/null -w "%{http_code}" \
+            -X POST \
+            "${SUPABASE_URL}/storage/v1/object/backups/${FILENAME}" \
+            -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
+            -H "Content-Type: application/gzip" \
+            --data-binary @"${FILEPATH}"
+
+      # 4. Limpiar backups de más de 30 días (retención)
+      - name: Limpiar backups antiguos (> 30 días)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          # Listar archivos del bucket
+          RESPONSE=$(curl -s \
+            "${SUPABASE_URL}/storage/v1/object/list/backups" \
+            -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
+            -H "Content-Type: application/json" \
+            -d '{"limit": 1000, "offset": 0}')
+
+          # Encontrar archivos cuya fecha en el nombre sea > 30 días
+          # Formato del nombre: backup_avi_YYYY-MM-DD_HH-MM-SS.sql.gz
+          CUTOFF=$(date -d "30 days ago" +%Y-%m-%d 2>/dev/null || date -v -30d +%Y-%m-%d)
+
+          echo "$RESPONSE" | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          cutoff = '${CUTOFF}'
+          to_delete = []
+          for f in data:
+              name = f.get('name', '')
+              if name.startswith('backup_avi_'):
+                  date_part = name.split('_')[2] if len(name.split('_')) > 2 else ''
+                  if date_part and date_part < cutoff:
+                      to_delete.append(name)
+          print(json.dumps(to_delete))
+          " | python3 -c "
+          import sys, json, subprocess
+          files = json.load(sys.stdin)
+          for f in files:
+              print(f'Eliminando: {f}')
+              subprocess.run([
+                  'curl', '-s', '-X', 'DELETE',
+                  '${SUPABASE_URL}/storage/v1/object/backups/' + f,
+                  '-H', 'Authorization: Bearer ${SUPABASE_SERVICE_KEY}'
+              ])
+          print(f'Limpieza completada: {len(files)} archivos eliminados')
+          "
+
+      - name: Resumen
+        run: |
+          echo "✅ Backup completado: ${{ env.FILENAME }}"
+          echo "   Guardado en: Supabase Storage bucket 'backups'"
