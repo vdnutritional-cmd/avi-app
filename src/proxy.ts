@@ -8,7 +8,7 @@ import { NextResponse, type NextRequest } from 'next/server'
  * 2. Redirige a /login si no hay sesión
  * 3. Separa por rol: terapeuta → /therapist, paciente → /patient
  */
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
