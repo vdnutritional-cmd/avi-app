@@ -7,48 +7,65 @@ const WINDOW_MINUTES = 15
 
 /**
  * POST /api/auth/login
- * NOM-024 — Rate limiting: bloquea tras MAX_ATTEMPTS intentos fallidos en WINDOW_MINUTES minutos.
- * Registra cada intento (éxito y fallo) en public.auth_attempts via service_role.
- * El bloque de rate limiting es fail-open: si el admin client no está disponible,
- * el login funciona igualmente (nunca bloquea por fallo de infraestructura).
+ * NOM-024-SSA3-2012 — autenticación con rate limiting y registro de intentos.
+ *
+ * Prerequisitos en Vercel (Settings → Environment Variables):
+ *   SUPABASE_SERVICE_ROLE_KEY  — requerida para rate limiting y registro de intentos
+ *
+ * Prerequisitos en Supabase (SQL Editor):
+ *   tabla public.auth_attempts  — ver supabase/migrations/20260917_nom024_auth_attempts.sql
  */
 export async function POST(req: NextRequest) {
+  // ── Validar variables de entorno requeridas ──────────────────────────────
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.error('[login] CRÍTICO: SUPABASE_SERVICE_ROLE_KEY no está configurada en Vercel. Agregar en Settings → Environment Variables.')
+    return NextResponse.json(
+      { error: 'Error de configuración del servidor. Contacta al administrador.' },
+      { status: 503 }
+    )
+  }
+
   try {
-    const { email, password } = await req.json()
+    const body = await req.json()
+    const { email, password } = body
 
     if (!email || !password) {
       return NextResponse.json({ error: 'Correo y contraseña son requeridos' }, { status: 400 })
     }
 
-    // IP para auditoría (puede estar detrás de un proxy)
+    // IP para auditoría
     const ip =
       req.headers.get('x-forwarded-for')?.split(',')[0].trim() ??
       req.headers.get('x-real-ip') ??
       'unknown'
 
-    // ── 1. Rate limiting (fail-open si admin client no disponible) ───────────
-    let attemptCount = 0
-    let admin: ReturnType<typeof createAdminClient> | null = null
+    const admin = createAdminClient()
 
-    try {
-      admin = createAdminClient()
-      const windowStart = new Date(Date.now() - WINDOW_MINUTES * 60 * 1000).toISOString()
-      const { count } = await admin
-        .from('auth_attempts')
-        .select('*', { count: 'exact', head: true })
-        .eq('email', email.toLowerCase())
-        .eq('success', false)
-        .gte('created_at', windowStart)
-      attemptCount = count ?? 0
-    } catch (e) {
-      console.error('[login] Rate limiting no disponible (fail-open):', e)
-      // No bloqueamos — continuamos con el login normal
+    // ── 1. Verificar rate limit ──────────────────────────────────────────────
+    const windowStart = new Date(Date.now() - WINDOW_MINUTES * 60 * 1000).toISOString()
+    const { count, error: countError } = await admin
+      .from('auth_attempts')
+      .select('*', { count: 'exact', head: true })
+      .eq('email', email.toLowerCase())
+      .eq('success', false)
+      .gte('created_at', windowStart)
+
+    if (countError) {
+      // La tabla auth_attempts no existe o hay un error de infraestructura.
+      // Esto no debe ocurrir en producción — ver migración 20260917_nom024_auth_attempts.sql
+      console.error('[login] ERROR: No se pudo consultar auth_attempts. ¿La migración 20260917_nom024_auth_attempts.sql se aplicó en Supabase?', countError.message)
+      return NextResponse.json(
+        { error: 'Error de infraestructura de seguridad. Contacta al administrador.' },
+        { status: 503 }
+      )
     }
+
+    const attemptCount = count ?? 0
 
     if (attemptCount >= MAX_ATTEMPTS) {
       return NextResponse.json(
         {
-          error: `Cuenta bloqueada temporalmente por seguridad. Demasiados intentos fallidos. Intenta de nuevo en ${WINDOW_MINUTES} minutos o usa "¿Olvidaste tu contraseña?".`,
+          error: `Cuenta bloqueada temporalmente. Demasiados intentos fallidos. Intenta de nuevo en ${WINDOW_MINUTES} minutos o usa "¿Olvidaste tu contraseña?".`,
           blocked: true,
         },
         { status: 429 }
@@ -61,13 +78,15 @@ export async function POST(req: NextRequest) {
 
     const success = !authError && !!data?.user
 
-    // ── 3. Registrar intento en audit log (fire-and-forget) ──────────────────
-    if (admin) {
-      void admin.from('auth_attempts').insert({
-        email: email.toLowerCase(),
-        ip_address: ip,
-        success,
-      })
+    // ── 3. Registrar intento en audit log ────────────────────────────────────
+    const { error: insertError } = await admin.from('auth_attempts').insert({
+      email: email.toLowerCase(),
+      ip_address: ip,
+      success,
+    })
+    if (insertError) {
+      console.error('[login] No se pudo registrar auth_attempt:', insertError.message)
+      // Registramos el error pero no bloqueamos el flujo de autenticación
     }
 
     // ── 4. Responder ─────────────────────────────────────────────────────────
@@ -77,7 +96,6 @@ export async function POST(req: NextRequest) {
         remaining <= 2 && remaining > 0
           ? ` (${remaining} intento${remaining === 1 ? '' : 's'} restante${remaining === 1 ? '' : 's'} antes del bloqueo)`
           : ''
-
       return NextResponse.json(
         { error: `Correo o contraseña incorrectos${warningMsg}` },
         { status: 401 }
@@ -85,11 +103,15 @@ export async function POST(req: NextRequest) {
     }
 
     // Obtener rol para redirección
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('role')
       .eq('id', data.user.id)
       .single()
+
+    if (profileError) {
+      console.error('[login] No se pudo obtener perfil del usuario:', profileError.message)
+    }
 
     // Verificar si el usuario tiene MFA activo
     const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
@@ -100,7 +122,10 @@ export async function POST(req: NextRequest) {
       { status: 200 }
     )
   } catch (e) {
-    console.error('[login] Error inesperado:', e)
-    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
+    console.error('[login] Excepción no manejada:', e)
+    return NextResponse.json(
+      { error: 'Error interno del servidor. Revisa los logs de Vercel Functions.' },
+      { status: 500 }
+    )
   }
 }
