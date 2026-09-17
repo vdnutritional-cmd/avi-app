@@ -70,31 +70,51 @@ jobs:
           # Encontrar archivos cuya fecha en el nombre sea > 30 días
           # Formato del nombre: backup_avi_YYYY-MM-DD_HH-MM-SS.sql.gz
           CUTOFF=$(date -d "30 days ago" +%Y-%m-%d 2>/dev/null || date -v -30d +%Y-%m-%d)
+          export RESPONSE CUTOFF
 
-          echo "$RESPONSE" | python3 -c "
-          import sys, json
-          data = json.load(sys.stdin)
-          cutoff = '${CUTOFF}'
+          python3 - <<'PYEOF'
+          import sys, json, subprocess, os
+
+          response = os.environ.get('RESPONSE', '').strip()
+          cutoff   = os.environ.get('CUTOFF', '')
+          url      = os.environ.get('SUPABASE_URL', '')
+          key      = os.environ.get('SUPABASE_SERVICE_KEY', '')
+
+          if not response:
+              print('Bucket vacío o respuesta vacía — nada que limpiar.')
+              sys.exit(0)
+
+          try:
+              data = json.loads(response)
+          except json.JSONDecodeError as e:
+              print(f'Respuesta no es JSON válido, saltando limpieza: {e}')
+              sys.exit(0)
+
+          if not isinstance(data, list):
+              print(f'Respuesta inesperada (no es lista): {type(data)} — saltando limpieza.')
+              sys.exit(0)
+
           to_delete = []
           for f in data:
+              if not isinstance(f, dict):
+                  continue
               name = f.get('name', '')
               if name.startswith('backup_avi_'):
-                  date_part = name.split('_')[2] if len(name.split('_')) > 2 else ''
+                  parts = name.split('_')
+                  date_part = parts[2] if len(parts) > 2 else ''
                   if date_part and date_part < cutoff:
                       to_delete.append(name)
-          print(json.dumps(to_delete))
-          " | python3 -c "
-          import sys, json, subprocess
-          files = json.load(sys.stdin)
-          for f in files:
-              print(f'Eliminando: {f}')
+
+          print(f'Archivos a eliminar: {len(to_delete)}')
+          for fname in to_delete:
+              print(f'Eliminando: {fname}')
               subprocess.run([
                   'curl', '-s', '-X', 'DELETE',
-                  '${SUPABASE_URL}/storage/v1/object/backups/' + f,
-                  '-H', 'Authorization: Bearer ${SUPABASE_SERVICE_KEY}'
+                  f'{url}/storage/v1/object/backups/{fname}',
+                  '-H', f'Authorization: Bearer {key}'
               ])
-          print(f'Limpieza completada: {len(files)} archivos eliminados')
-          "
+          print(f'Limpieza completada: {len(to_delete)} archivos eliminados')
+          PYEOF
 
       - name: Resumen
         run: |
