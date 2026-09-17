@@ -2,11 +2,24 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 /**
+ * Rutas API clínicas cuyo acceso se registra en audit_log (NOM-024 Fase 2)
+ */
+const CLINICAL_API_ROUTES = [
+  '/api/analysis',
+  '/api/patterns',
+  '/api/historia-clinica',
+  '/api/analisis-clinicos',
+  '/api/therapist',
+  '/api/admin',
+]
+
+/**
  * Middleware de AVI
  * ─────────────────
  * 1. Refresca la sesión de Supabase en cada request
  * 2. Redirige a /login si no hay sesión
  * 3. Separa por rol: terapeuta → /therapist, paciente → /patient
+ * 4. Registra accesos a rutas API clínicas en audit_log (NOM-024)
  */
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
@@ -36,6 +49,19 @@ export async function middleware(request: NextRequest) {
   // IMPORTANTE: no agregar lógica entre createServerClient y getUser()
   const { data: { user } } = await supabase.auth.getUser()
   const { pathname } = request.nextUrl
+
+  // ── Logging de accesos a rutas API clínicas (NOM-024) ─────────────────────
+  // Fire-and-forget: no bloquea el request
+  const isClinicalApi = CLINICAL_API_ROUTES.some(r => pathname.startsWith(r))
+  if (isClinicalApi && user) {
+    supabase.from('audit_log').insert({
+      usuario_id:   user.id,
+      operacion:    `API_ACCESS:${request.method}`,
+      tabla:        'api_route',
+      registro_id:  null,
+      datos_despues: { path: pathname, method: request.method },
+    }).then(() => { /* fire-and-forget */ }).catch(() => { /* no bloquear */ })
+  }
 
   // ── Rutas públicas (sin sesión requerida) ──────────────────────────────────
   const isPublicRoute =
