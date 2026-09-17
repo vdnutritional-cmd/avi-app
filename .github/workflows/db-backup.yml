@@ -1,6 +1,6 @@
 name: DB Backup — pg_dump a Supabase Storage
 
-# Corre diariamente a las 03:00 UTC (21:00 CDMX)
+# Corre diariamente a las 03:00 CDMX (09:00 UTC)
 on:
   schedule:
     - cron: '0 9 * * *'
