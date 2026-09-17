@@ -17,8 +17,12 @@ const WINDOW_MINUTES = 15
  */
 export async function POST(req: NextRequest) {
   // ── Validar variables de entorno requeridas ──────────────────────────────
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    console.error('[login] CRÍTICO: SUPABASE_SERVICE_ROLE_KEY no está configurada en Vercel. Agregar en Settings → Environment Variables.')
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.error(
+      '[login] CRÍTICO: variables de entorno faltantes en Vercel.',
+      'SUPABASE_URL:', !!process.env.SUPABASE_URL,
+      'SUPABASE_SERVICE_ROLE_KEY:', !!process.env.SUPABASE_SERVICE_ROLE_KEY
+    )
     return NextResponse.json(
       { error: 'Error de configuración del servidor. Contacta al administrador.' },
       { status: 503 }
