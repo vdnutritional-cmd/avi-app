@@ -13,5 +13,13 @@ export default async function AuditoriaPage() {
     .order('created_at', { ascending: false })
     .limit(500)
 
-  return <AuditoriaClient logs={logs ?? []} />
+  // Supabase retorna el join como array — normalizamos a objeto singular
+  const normalized = (logs ?? []).map(l => ({
+    ...l,
+    profiles: Array.isArray(l.profiles)
+      ? (l.profiles[0] ?? null)
+      : (l.profiles ?? null),
+  }))
+
+  return <AuditoriaClient logs={normalized} />
 }
