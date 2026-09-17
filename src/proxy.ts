@@ -34,7 +34,14 @@ export async function proxy(request: NextRequest) {
   )
 
   // IMPORTANTE: no agregar lógica entre createServerClient y getUser()
-  const { data: { user } } = await supabase.auth.getUser()
+  // try-catch defensivo: si Supabase falla, tratamos como sin sesión
+  let user = null
+  try {
+    const { data } = await supabase.auth.getUser()
+    user = data.user
+  } catch {
+    // Continúa sin sesión — no bloquear la carga del sitio
+  }
   const { pathname } = request.nextUrl
 
   // ── Rutas públicas (sin sesión requerida) ──────────────────────────────────
