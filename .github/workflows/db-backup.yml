@@ -3,7 +3,7 @@ name: DB Backup — pg_dump a Supabase Storage
 # Corre diariamente a las 03:00 UTC (21:00 CDMX)
 on:
   schedule:
-    - cron: '0 3 * * *'
+    - cron: '0 9 * * *'
   workflow_dispatch:   # Permite ejecutar manualmente desde GitHub Actions
 
 jobs:
