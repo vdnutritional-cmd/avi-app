@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
 import { retrieveChunksFromBooks, retrieveRelevantChunks } from '@/lib/rag/retrieve-chunks'
+import { logApiAccess } from '@/lib/audit/log-access'
 import {
   calcularResultadoFAD,
   FAD_DIMENSION_LABELS,
@@ -28,6 +29,9 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+
+    // NOM-024 — registro de acceso a ruta clínica
+    logApiAccess(supabase, user.id, '/api/analisis-clinicos', 'POST')
 
     const body = await request.json()
     const { type, patientId } = body

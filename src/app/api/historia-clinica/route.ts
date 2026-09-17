@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
+import { logApiAccess } from '@/lib/audit/log-access'
 
 export const maxDuration = 180
 
@@ -157,6 +158,9 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+
+    // NOM-024 — registro de acceso a ruta clínica
+    logApiAccess(supabase, user.id, '/api/historia-clinica', 'POST')
 
     const { patientId, type } = await request.json() as { patientId: string; type: 'original' | 'actualizada' }
     if (!patientId || !type) return NextResponse.json({ error: 'patientId y type requeridos' }, { status: 400 })
@@ -395,6 +399,9 @@ export async function PATCH(request: NextRequest) {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+
+    // NOM-024 — registro de acceso a ruta clínica
+    logApiAccess(supabase, user.id, '/api/historia-clinica', 'PATCH')
 
     const { patientId, type, sections } = await request.json() as {
       patientId: string

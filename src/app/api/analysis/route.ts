@@ -3,6 +3,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
 import { buildConsultamePrompt } from '@/lib/prompts/consultame-prompt'
 import { retrieveRelevantChunks, buildRagQuery } from '@/lib/rag/retrieve-chunks'
+import { logApiAccess } from '@/lib/audit/log-access'
 
 export const maxDuration = 300 // 5 minutos — el análisis clínico completo puede tardar
 
@@ -13,6 +14,9 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+
+    // NOM-024 — registro de acceso a ruta clínica
+    logApiAccess(supabase, user.id, '/api/analysis', 'POST')
 
     const { patientId } = await request.json()
     if (!patientId) return NextResponse.json({ error: 'patientId requerido' }, { status: 400 })

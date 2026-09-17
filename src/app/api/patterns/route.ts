@@ -3,6 +3,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { logApiAccess } from '@/lib/audit/log-access'
 
 // Auto-análisis ligero: sin ConsultoriaFuentes — solo nota inicial + patrones acumulados.
 // El análisis completo con fuentes se genera bajo demanda desde Consúltame.
@@ -100,6 +101,9 @@ export async function POST(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+
+    // NOM-024 — registro de acceso a ruta clínica
+    logApiAccess(supabase, user.id, '/api/patterns', 'POST')
 
     const { sessionId } = await request.json()
     if (!sessionId) return NextResponse.json({ error: 'sessionId requerido' }, { status: 400 })
