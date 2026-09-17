@@ -51,17 +51,11 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // ── Logging de accesos a rutas API clínicas (NOM-024) ─────────────────────
-  // Fire-and-forget: no bloquea el request
-  const isClinicalApi = CLINICAL_API_ROUTES.some(r => pathname.startsWith(r))
-  if (isClinicalApi && user) {
-    supabase.from('audit_log').insert({
-      usuario_id:   user.id,
-      operacion:    `API_ACCESS:${request.method}`,
-      tabla:        'api_route',
-      registro_id:  null,
-      datos_despues: { path: pathname, method: request.method },
-    }).then(() => { /* fire-and-forget */ }).catch(() => { /* no bloquear */ })
-  }
+  // NOTA: deshabilitado temporalmente — el Edge Runtime de Vercel no soporta
+  // promesas pendientes (fire-and-forget) después de retornar la respuesta.
+  // Mover este logging a las API routes individuales como alternativa robusta.
+  // const isClinicalApi = CLINICAL_API_ROUTES.some(r => pathname.startsWith(r))
+  // if (isClinicalApi && user) { ... }
 
   // ── Rutas públicas (sin sesión requerida) ──────────────────────────────────
   const isPublicRoute =
