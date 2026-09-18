@@ -128,10 +128,12 @@ export default function ExpedienteTab({ patientId, therapistId, patientEmail: _p
 
   // Tabs bloqueados según el tipo de caso seleccionado
   const tabBloqueado = (id: string) => {
-    if (!tipoCaso) return false
-    if (id === 'individual') return tipoCaso !== 'Individual'
-    if (id === 'familiar')   return tipoCaso !== 'Familiar'
-    if (id === 'pareja')     return tipoCaso !== 'Pareja'
+    if (id === 'individual' || id === 'familiar' || id === 'pareja') {
+      if (!tipoCaso) return true          // sin selección → los 3 bloqueados
+      if (id === 'individual') return tipoCaso !== 'Individual'
+      if (id === 'familiar')   return tipoCaso !== 'Familiar'
+      if (id === 'pareja')     return tipoCaso !== 'Pareja'
+    }
     return false
   }
 
