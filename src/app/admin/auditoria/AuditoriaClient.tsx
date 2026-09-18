@@ -15,10 +15,11 @@ type AuditRow = {
 }
 
 export default function AuditoriaClient({ logs }: { logs: AuditRow[] }) {
-  const [filtroOp, setFiltroOp]       = useState('')
-  const [filtroTabla, setFiltroTabla] = useState('')
-  const [filtroEmail, setFiltroEmail] = useState('')
-  const [filtroFecha, setFiltroFecha] = useState('')
+  const [filtroOp, setFiltroOp]           = useState('')
+  const [filtroTabla, setFiltroTabla]     = useState('')
+  const [filtroEmail, setFiltroEmail]     = useState('')
+  const [filtroDesde, setFiltroDesde]     = useState('')
+  const [filtroHasta, setFiltroHasta]     = useState('')
 
   const operaciones = useMemo(() => [...new Set(logs.map(l => l.operacion))].sort(), [logs])
   const tablas      = useMemo(() => [...new Set(logs.map(l => l.tabla))].sort(), [logs])
@@ -27,9 +28,18 @@ export default function AuditoriaClient({ logs }: { logs: AuditRow[] }) {
     if (filtroOp    && l.operacion !== filtroOp)   return false
     if (filtroTabla && l.tabla     !== filtroTabla) return false
     if (filtroEmail && !l.profiles?.email?.toLowerCase().includes(filtroEmail.toLowerCase())) return false
-    if (filtroFecha && !l.created_at.startsWith(filtroFecha)) return false
+    if (filtroDesde) {
+      const desde = new Date(filtroDesde)
+      desde.setHours(0, 0, 0, 0)
+      if (new Date(l.created_at) < desde) return false
+    }
+    if (filtroHasta) {
+      const hasta = new Date(filtroHasta)
+      hasta.setHours(23, 59, 59, 999)
+      if (new Date(l.created_at) > hasta) return false
+    }
     return true
-  }), [logs, filtroOp, filtroTabla, filtroEmail, filtroFecha])
+  }), [logs, filtroOp, filtroTabla, filtroEmail, filtroDesde, filtroHasta])
 
   function exportarCSV() {
     const headers = ['Fecha', 'Usuario', 'Rol', 'Operación', 'Tabla', 'Registro ID', 'Datos antes', 'Datos después']
@@ -73,7 +83,7 @@ export default function AuditoriaClient({ logs }: { logs: AuditRow[] }) {
       </div>
 
       {/* Filtros */}
-      <div className="bg-white rounded-2xl border border-gray-100 p-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="bg-white rounded-2xl border border-gray-100 p-4 grid grid-cols-2 sm:grid-cols-5 gap-3">
         <div>
           <label className="text-xs text-gray-500 font-medium block mb-1">Operación</label>
           <select
@@ -107,11 +117,21 @@ export default function AuditoriaClient({ logs }: { logs: AuditRow[] }) {
           />
         </div>
         <div>
-          <label className="text-xs text-gray-500 font-medium block mb-1">Fecha</label>
+          <label className="text-xs text-gray-500 font-medium block mb-1">Fecha inicio</label>
           <input
             type="date"
-            value={filtroFecha}
-            onChange={e => setFiltroFecha(e.target.value)}
+            value={filtroDesde}
+            onChange={e => setFiltroDesde(e.target.value)}
+            className="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-300"
+          />
+        </div>
+        <div>
+          <label className="text-xs text-gray-500 font-medium block mb-1">Fecha fin</label>
+          <input
+            type="date"
+            value={filtroHasta}
+            onChange={e => setFiltroHasta(e.target.value)}
+            min={filtroDesde}
             className="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-300"
           />
         </div>
@@ -160,7 +180,7 @@ export default function AuditoriaClient({ logs }: { logs: AuditRow[] }) {
                       log.operacion === 'DELETE'                 ? 'bg-red-100 text-red-700' :
                       log.operacion === 'INSERT'                 ? 'bg-green-100 text-green-700' :
                       log.operacion === 'UPDATE'                 ? 'bg-blue-100 text-blue-700' :
-                      log.operacion.startsWith('API_ACCESS')     ? 'bg-purple-100 text-purple-700' :
+                      log.operacion.startsWith('API:')            ? 'bg-purple-100 text-purple-700' :
                       'bg-gray-100 text-gray-600'
                     }`}>
                       {log.operacion}
