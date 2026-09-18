@@ -14,6 +14,11 @@ interface SidebarProps {
 
 export default function Sidebar({ fullName, email, subscriptionStatus, patientSlots, tier }: SidebarProps) {
   const [open, setOpen] = useState(false)
+  const [openGroup, setOpenGroup] = useState<string | null>(null)
+
+  const closeSidebar = () => setOpen(false)
+  const toggleGroup = (name: string) =>
+    setOpenGroup(prev => (prev === name ? null : name))
 
   return (
     <>
@@ -33,7 +38,7 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
       {open && (
         <div
           className="md:hidden fixed inset-0 bg-black/40 z-40"
-          onClick={() => setOpen(false)}
+          onClick={closeSidebar}
         />
       )}
 
@@ -55,7 +60,7 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
           </div>
           {/* Botón cerrar — solo en móvil */}
           <button
-            onClick={() => setOpen(false)}
+            onClick={closeSidebar}
             className="md:hidden text-gray-400 hover:text-gray-600 transition-colors p-1"
             aria-label="Cerrar menú"
           >
@@ -66,15 +71,46 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
         </div>
 
         {/* Nav */}
-        <nav className="p-4 space-y-1" onClick={() => setOpen(false)}>
-          <NavLink href="/therapist/dashboard"  icon="🏠" label="Dashboard" />
-          <NavLink href="/therapist/patients"   icon="👥" label="Mis pacientes" />
-          <NavLink href="/therapist/codes"      icon="🔑" label="Códigos de acceso" />
-          <NavLink href="/therapist/asesorias"             icon="📊" label="Mis asesorías" />
-          <NavLink href="/therapist/mi-qr"                  icon="📲" label="Mi QR de registro" />
-          <NavLink href="/therapist/transferir-paciente"  icon="🔄" label="Transferir paciente" />
-          <NavLink href="/therapist/tutoriales"           icon="🎬" label="Consejos prácticos y Tutoriales" />
-          <NavLink href="/therapist/configuracion/seguridad" icon="🔐" label="Seguridad (2FA)" />
+        <nav className="p-4 space-y-1 overflow-y-auto flex-1">
+          <NavLink href="/therapist/dashboard" icon="🏠" label="Dashboard"      onClose={closeSidebar} />
+          <NavLink href="/therapist/patients"  icon="👥" label="Mis pacientes"  onClose={closeSidebar} />
+
+          {/* Bloque: Registro de pacientes */}
+          <NavGroup
+            name="registro"
+            label="Registro de pacientes"
+            icon="📋"
+            isOpen={openGroup === 'registro'}
+            onToggle={() => toggleGroup('registro')}
+          >
+            <NavLink href="/therapist/mi-qr"                    icon="📲" label="Mi QR de registro"                    onClose={closeSidebar} />
+            <NavLink href="/therapist/transferir-paciente"      icon="🔄" label="Transferir paciente a otro terapeuta" onClose={closeSidebar} />
+            <NavLink href="/therapist/fusionar-paciente"        icon="⚡" label="Fusionar cuentas de paciente"         onClose={closeSidebar} />
+            <NavLink href="/therapist/codes"                    icon="🔑" label="Códigos de acceso"                    onClose={closeSidebar} />
+          </NavGroup>
+
+          {/* Bloque: Información */}
+          <NavGroup
+            name="informacion"
+            label="Información"
+            icon="📊"
+            isOpen={openGroup === 'informacion'}
+            onToggle={() => toggleGroup('informacion')}
+          >
+            <NavLink href="/therapist/asesorias"  icon="📈" label="Mis asesorías"                   onClose={closeSidebar} />
+            <NavLink href="/therapist/tutoriales" icon="🎬" label="Consejos prácticos y Tutoriales" onClose={closeSidebar} />
+          </NavGroup>
+
+          {/* Bloque: Configuración */}
+          <NavGroup
+            name="configuracion"
+            label="Configuración"
+            icon="⚙️"
+            isOpen={openGroup === 'configuracion'}
+            onToggle={() => toggleGroup('configuracion')}
+          >
+            <NavLink href="/therapist/configuracion/seguridad" icon="🔐" label="Seguridad (2FA)" onClose={closeSidebar} />
+          </NavGroup>
         </nav>
 
         {/* Separador + Plan + Logout — justo bajo el nav */}
@@ -82,7 +118,7 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
         <div className="p-4 space-y-3">
           <PlanBadge status={subscriptionStatus} patientSlots={patientSlots} tier={tier} />
           {email === 'pepe.vargas.papa@gmail.com' && (
-            <NavLink href="/admin/terapeutas" icon="⚙️" label="Administración" />
+            <NavLink href="/admin/terapeutas" icon="⚙️" label="Administración" onClose={closeSidebar} />
           )}
           <LogoutButton />
         </div>
@@ -91,16 +127,52 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
   )
 }
 
-function NavLink({ href, icon, label }: { href: string; icon: string; label: string }) {
+// ── Componentes ──────────────────────────────────────────────────────────────
+
+function NavLink({ href, icon, label, onClose }: {
+  href: string; icon: string; label: string; onClose: () => void
+}) {
   return (
     <Link
       href={href}
+      onClick={onClose}
       className="flex items-center gap-3 px-3 py-2 rounded-xl text-gray-600
                  hover:bg-primary-50 hover:text-primary-700 transition-colors text-sm"
     >
       <span>{icon}</span>
       <span>{label}</span>
     </Link>
+  )
+}
+
+function NavGroup({ name, label, icon, isOpen, onToggle, children }: {
+  name: string; label: string; icon: string
+  isOpen: boolean; onToggle: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <div>
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-gray-600
+                   hover:bg-primary-50 hover:text-primary-700 transition-colors text-sm"
+        aria-expanded={isOpen}
+      >
+        <span>{icon}</span>
+        <span className="flex-1 text-left">{label}</span>
+        <svg
+          className={`w-3.5 h-3.5 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+          fill="none" stroke="currentColor" viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {isOpen && (
+        <div className="mt-1 ml-4 pl-3 border-l border-gray-100 space-y-1">
+          {children}
+        </div>
+      )}
+    </div>
   )
 }
 
