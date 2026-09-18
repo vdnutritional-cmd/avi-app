@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
     asesorado_nombre:           datosGenerales.asesorado_nombre          ?? '',
     asesorado_sexo:             datosGenerales.asesorado_sexo            ?? '',
     asesorado_edad:             datosGenerales.asesorado_edad            ?? '',
-    asesorado_fecha_nacimiento: datosGenerales.asesorado_fecha_nacimiento ?? '',
+    asesorado_fecha_nacimiento: datosGenerales.asesorado_fecha_nacimiento || null,
     asesorado_lugar_nacimiento: datosGenerales.asesorado_lugar_nacimiento ?? '',
     asesorado_estado_civil:     datosGenerales.asesorado_estado_civil    ?? '',
     asesorado_escolaridad:      datosGenerales.asesorado_escolaridad     ?? '',
@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
     pareja_nombre:              datosGenerales.pareja_nombre             ?? '',
     pareja_sexo:                datosGenerales.pareja_sexo               ?? '',
     pareja_edad:                datosGenerales.pareja_edad               ?? '',
-    pareja_fecha_nacimiento:    datosGenerales.pareja_fecha_nacimiento   ?? '',
+    pareja_fecha_nacimiento:    datosGenerales.pareja_fecha_nacimiento   || null,
     // Hijos
     hijos:                      datosGenerales.hijos                     ?? [],
     // Salud
