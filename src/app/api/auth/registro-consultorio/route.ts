@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
   })
 
   // ── 5. Crear expediente con Datos Generales ───────────────────────────────
-  await admin.from('patient_expediente').upsert({
+  const { error: expedienteErr } = await admin.from('patient_expediente').upsert({
     patient_id:   patientId,
     therapist_id: therapistProfile.id,
     // Asesorado
@@ -103,6 +103,11 @@ export async function POST(req: NextRequest) {
     salud_medicamentos:         datosGenerales.salud_medicamentos        ?? '',
     salud_medicamentos_cual:    datosGenerales.salud_medicamentos_cual   ?? '',
   }, { onConflict: 'patient_id,therapist_id' })
+
+  if (expedienteErr) {
+    console.error('[registro-consultorio] Error al crear patient_expediente:', expedienteErr)
+    // No falla el registro completo, pero lo registramos para diagnóstico
+  }
 
   // ── 6. Auto-login del paciente ────────────────────────────────────────────
   const supabase = await createClient()
