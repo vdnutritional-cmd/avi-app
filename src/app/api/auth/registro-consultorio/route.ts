@@ -104,23 +104,8 @@ export async function POST(req: NextRequest) {
     salud_medicamentos_cual:    datosGenerales.salud_medicamentos_cual   ?? '',
   }, { onConflict: 'therapist_id,patient_id' })
 
-  // ── DIAGNÓSTICO TEMPORAL: devolver error de expediente en respuesta ─────────
   if (expedienteErr) {
     console.error('[registro-consultorio] Error al crear patient_expediente:', expedienteErr)
-    return NextResponse.json(
-      {
-        ok: true,
-        autoLogin: false,
-        therapistName: therapistProfile.full_name,
-        __debug_expediente_error: {
-          message: expedienteErr.message,
-          code: expedienteErr.code,
-          details: expedienteErr.details,
-          hint: expedienteErr.hint,
-        }
-      },
-      { status: 200 }
-    )
   }
 
   // ── 6. Auto-login del paciente ────────────────────────────────────────────

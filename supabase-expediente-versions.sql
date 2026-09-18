@@ -7,7 +7,7 @@
 -- Tabla de versiones
 CREATE TABLE IF NOT EXISTS expediente_versions (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  tabla         text NOT NULL,                  -- 'patient_expediente' | 'therapist_session_notes' | 'case_notes'
+  tabla         text NOT NULL,                  -- 'patient_expediente' | 'therapist_session_notes' | 'analyses'
   registro_id   uuid NOT NULL,                  -- PK del registro que cambió
   paciente_id   uuid REFERENCES profiles(id),   -- para filtrar por paciente
   terapeuta_id  uuid REFERENCES profiles(id),   -- quien hizo el cambio
@@ -71,7 +71,7 @@ BEGIN
     v_pac_id  := COALESCE(NEW.patient_id, OLD.patient_id);
     v_ter_id  := COALESCE(NEW.therapist_id, OLD.therapist_id);
 
-  ELSIF TG_TABLE_NAME = 'case_notes' THEN
+  ELSIF TG_TABLE_NAME = 'analyses' THEN
     v_reg_id  := COALESCE(NEW.id, OLD.id);
     v_pac_id  := COALESCE(NEW.patient_id, OLD.patient_id);
     v_ter_id  := COALESCE(NEW.therapist_id, OLD.therapist_id);
@@ -131,8 +131,8 @@ CREATE TRIGGER trg_versionar_session_notes
   AFTER INSERT OR UPDATE OR DELETE ON therapist_session_notes
   FOR EACH ROW EXECUTE FUNCTION fn_versionar_expediente();
 
--- case_notes
-DROP TRIGGER IF EXISTS trg_versionar_case_notes ON case_notes;
-CREATE TRIGGER trg_versionar_case_notes
-  AFTER INSERT OR UPDATE OR DELETE ON case_notes
+-- analyses (tabla de análisis Consúltame)
+DROP TRIGGER IF EXISTS trg_versionar_analyses ON analyses;
+CREATE TRIGGER trg_versionar_analyses
+  AFTER INSERT OR UPDATE OR DELETE ON analyses
   FOR EACH ROW EXECUTE FUNCTION fn_versionar_expediente();

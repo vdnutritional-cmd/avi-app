@@ -140,16 +140,7 @@ export default function PatientDetailPage() {
     if (analysesRes.data) setAnalyses(analysesRes.data)
     if (sessionNotesRes.data) setSessionNotes(sessionNotesRes.data)
     // Siempre actualizar (null si no hay fila) para que DatosGeneralesTab sepa que ya terminó la carga
-    console.log('[page] therapist_id usado:', user?.id, '| patient_id:', patientId)
-    console.log('[page] expedienteRes data:', expedienteRes.data, '| error:', expedienteRes.error)
     setExpedienteRow(expedienteRes.data ?? null)
-
-    // DEBUG TEMPORAL: verificar filas en patient_expediente sin RLS
-    try {
-      const dbg = await fetch(`/api/debug/expediente?patientId=${patientId}`)
-      const dbgJson = await dbg.json()
-      console.log('[DEBUG-ADMIN] patient_expediente sin RLS:', JSON.stringify(dbgJson, null, 2))
-    } catch (e) { console.warn('[DEBUG-ADMIN] fetch falló:', e) }
 
     // Empresa CONVENIO del paciente (si tiene)
     const empresaRaw = relationRes.data?.convenio_empresas as unknown
