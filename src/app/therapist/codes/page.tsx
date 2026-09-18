@@ -66,6 +66,8 @@ export default function CodesPage() {
       .from('authorization_codes')
       .select('code, is_active, created_at')
       .eq('therapist_id', user.id)
+      .eq('is_active', true)
+      .is('used_by', null)
       .order('created_at', { ascending: false })
       .limit(50)
     setCodes(data?.map(d => ({ ...d, used: !d.is_active })) ?? [])
@@ -168,7 +170,7 @@ export default function CodesPage() {
             disabled={loading}
             className="px-4 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors"
           >
-            Ver todos
+            Ver disponibles
           </button>
         )}
       </div>
