@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
     salud_ayuda_tiempo:         datosGenerales.salud_ayuda_tiempo        ?? '',
     salud_medicamentos:         datosGenerales.salud_medicamentos        ?? '',
     salud_medicamentos_cual:    datosGenerales.salud_medicamentos_cual   ?? '',
-  }, { onConflict: 'patient_id,therapist_id' })
+  }, { onConflict: 'therapist_id,patient_id' })
 
   if (expedienteErr) {
     console.error('[registro-consultorio] Error al crear patient_expediente:', expedienteErr)
