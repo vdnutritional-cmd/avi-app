@@ -140,6 +140,7 @@ export default function PatientDetailPage() {
     if (analysesRes.data) setAnalyses(analysesRes.data)
     if (sessionNotesRes.data) setSessionNotes(sessionNotesRes.data)
     // Siempre actualizar (null si no hay fila) para que DatosGeneralesTab sepa que ya terminó la carga
+    console.log('[page] expedienteRes data:', expedienteRes.data, '| error:', expedienteRes.error)
     setExpedienteRow(expedienteRes.data ?? null)
 
     // Empresa CONVENIO del paciente (si tiene)

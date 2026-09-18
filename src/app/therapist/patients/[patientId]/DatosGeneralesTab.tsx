@@ -213,6 +213,7 @@ export default function DatosGeneralesTab({ patientId, therapistId, patientEmail
 
   // Vía 1: usar datos pre-cargados desde el padre (evita problema de timing)
   useEffect(() => {
+    console.log('[DatosGeneralesTab] initialData:', initialData)
     if (initialData === undefined) return  // padre aún cargando — esperar
     if (initialData) {
       const parsed = parseRow(initialData)
