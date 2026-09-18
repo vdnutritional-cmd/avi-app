@@ -97,6 +97,11 @@ export default function PatientDetailPage() {
   const [streamText, setStreamText] = useState('')
   const [analysisError, setAnalysisError] = useState<string | null>(null)
 
+  // Datos generales del asesorado (pre-cargados para evitar problemas de timing)
+  // undefined = aún no cargado; null = cargado pero sin fila; object = datos disponibles
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [expedienteRow, setExpedienteRow] = useState<Record<string, any> | null | undefined>(undefined)
+
   const [activeTab, setActiveTab] = useState<'datos-generales' | 'sesiones' | 'presenciales' | 'analisis' | 'nota' | 'expediente'>('datos-generales')
   const [therapistId, setTherapistId] = useState<string | null>(null)
   const [tier, setTier] = useState<'esencial' | 'clinico'>('esencial')
@@ -121,18 +126,21 @@ export default function PatientDetailPage() {
       if (sub?.tier === 'clinico') setTier('clinico')
     }
 
-    const [profileRes, patternsRes, analysesRes, relationRes, sessionNotesRes] = await Promise.all([
+    const [profileRes, patternsRes, analysesRes, relationRes, sessionNotesRes, expedienteRes] = await Promise.all([
       supabase.from('profiles').select('full_name, email').eq('id', patientId).single(),
       supabase.from('patterns').select('*').eq('patient_id', patientId).order('created_at', { ascending: false }),
       supabase.from('analyses').select('*').eq('patient_id', patientId).eq('therapist_id', user?.id ?? '').order('created_at', { ascending: false }),
       supabase.from('therapist_patients').select('initial_note, initial_note_date, initial_note_pro_bono, initial_note_virtual, initial_note_motivo, initial_note_subyacente, initial_note_premisas, empresa_id, convenio_empresas(nombre)').eq('patient_id', patientId).eq('therapist_id', user?.id ?? '').single(),
       supabase.from('therapist_session_notes').select('*').eq('patient_id', patientId).order('session_number', { ascending: true }),
+      supabase.from('patient_expediente').select('*').eq('therapist_id', user?.id ?? '').eq('patient_id', patientId).maybeSingle(),
     ])
 
     if (profileRes.data) setProfile(profileRes.data)
     if (patternsRes.data) setPatterns(patternsRes.data)
     if (analysesRes.data) setAnalyses(analysesRes.data)
     if (sessionNotesRes.data) setSessionNotes(sessionNotesRes.data)
+    // Siempre actualizar (null si no hay fila) para que DatosGeneralesTab sepa que ya terminó la carga
+    setExpedienteRow(expedienteRes.data ?? null)
 
     // Empresa CONVENIO del paciente (si tiene)
     const empresaRaw = relationRes.data?.convenio_empresas as unknown
@@ -538,6 +546,7 @@ export default function PatientDetailPage() {
           patientId={patientId}
           therapistId={therapistId}
           patientEmail={profile?.email ?? null}
+          initialData={expedienteRow}
         />
       )}
 

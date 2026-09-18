@@ -157,67 +157,105 @@ interface Props {
   patientId: string
   therapistId: string
   patientEmail: string | null
+  /** Fila pre-cargada desde page.tsx para evitar problemas de timing.
+   *  undefined = aún cargando; null = sin fila en BD; object = datos listos. */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  initialData?: Record<string, any> | null
+}
+
+// ──────────────────────────────────────────────
+// Parse helper (shared by both paths)
+// ──────────────────────────────────────────────
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function parseRow(row: Record<string, any>): DatosGeneralesData {
+  const rawHijos: Hijo[] = Array.isArray(row.hijos) ? row.hijos : []
+  const hijos: Hijo[] = Array(6).fill(null).map((_, i) => ({
+    nombre: rawHijos[i]?.nombre ?? '',
+    edad: rawHijos[i]?.edad ?? '',
+    ocupacion: rawHijos[i]?.ocupacion ?? '',
+    vive_en_casa: rawHijos[i]?.vive_en_casa ?? '',
+  }))
+  return {
+    asesorado_nombre: row.asesorado_nombre ?? '',
+    asesorado_sexo: row.asesorado_sexo ?? '',
+    asesorado_edad: row.asesorado_edad ?? '',
+    asesorado_fecha_nacimiento: row.asesorado_fecha_nacimiento ?? '',
+    asesorado_lugar_nacimiento: row.asesorado_lugar_nacimiento ?? '',
+    asesorado_estado_civil: row.asesorado_estado_civil ?? '',
+    asesorado_escolaridad: row.asesorado_escolaridad ?? '',
+    asesorado_ocupacion: row.asesorado_ocupacion ?? '',
+    asesorado_religion: row.asesorado_religion ?? '',
+    asesorado_parroquia: row.asesorado_parroquia ?? '',
+    contacto_telefono: row.contacto_telefono ?? '',
+    contacto_domicilio: row.contacto_domicilio ?? '',
+    pareja_nombre: row.pareja_nombre ?? '',
+    pareja_sexo: row.pareja_sexo ?? '',
+    pareja_edad: row.pareja_edad ?? '',
+    pareja_fecha_nacimiento: row.pareja_fecha_nacimiento ?? '',
+    hijos,
+    salud_padece_enfermedad: row.salud_padece_enfermedad ?? '',
+    salud_ayuda_psicologica: row.salud_ayuda_psicologica ?? '',
+    salud_ayuda_tiempo: row.salud_ayuda_tiempo ?? '',
+    salud_medicamentos: row.salud_medicamentos ?? '',
+    salud_medicamentos_cual: row.salud_medicamentos_cual ?? '',
+  }
 }
 
 // ──────────────────────────────────────────────
 // Main component
 // ──────────────────────────────────────────────
-export default function DatosGeneralesTab({ patientId, therapistId, patientEmail }: Props) {
+export default function DatosGeneralesTab({ patientId, therapistId, patientEmail, initialData }: Props) {
   const [data, setData] = useState<DatosGeneralesData>(datosVacios())
   const [saved, setSaved] = useState<DatosGeneralesData>(datosVacios())
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saveOk, setSaveOk] = useState(false)
 
+  // Vía 1: usar datos pre-cargados desde el padre (evita problema de timing)
   useEffect(() => {
+    if (initialData === undefined) return  // padre aún cargando — esperar
+    if (initialData) {
+      const parsed = parseRow(initialData)
+      setData(parsed)
+      setSaved(parsed)
+    }
+    setLoading(false)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialData])
+
+  // Vía 2: fallback — carga propia si initialData nunca llega (para compatibilidad futura)
+  useEffect(() => {
+    // Solo ejecutar si initialData no está definido en absoluto (prop no pasado)
+    if (initialData !== undefined) return
     load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [patientId])
+  }, [patientId, therapistId])
 
   async function load() {
     setLoading(true)
     try {
       const supabase = createClient()
-      const { data: row } = await supabase
+
+      // Resuelve el therapist_id de forma confiable — primero el prop (ya validado
+      // por el guard del padre), si por algún motivo llegara vacío usa getUser() directo.
+      let tid = therapistId
+      if (!tid) {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user?.id) return
+        tid = user.id
+      }
+
+      const { data: row, error } = await supabase
         .from('patient_expediente')
         .select('*')
-        .eq('therapist_id', therapistId)
+        .eq('therapist_id', tid)
         .eq('patient_id', patientId)
         .maybeSingle()
 
-      if (row) {
-        const rawHijos: Hijo[] = Array.isArray(row.hijos) ? row.hijos : []
-        const hijos: Hijo[] = Array(6).fill(null).map((_, i) => ({
-          nombre: rawHijos[i]?.nombre ?? '',
-          edad: rawHijos[i]?.edad ?? '',
-          ocupacion: rawHijos[i]?.ocupacion ?? '',
-          vive_en_casa: rawHijos[i]?.vive_en_casa ?? '',
-        }))
+      if (error) console.error('[DatosGeneralesTab] load error:', error.message)
 
-        const parsed: DatosGeneralesData = {
-          asesorado_nombre: row.asesorado_nombre ?? '',
-          asesorado_sexo: row.asesorado_sexo ?? '',
-          asesorado_edad: row.asesorado_edad ?? '',
-          asesorado_fecha_nacimiento: row.asesorado_fecha_nacimiento ?? '',
-          asesorado_lugar_nacimiento: row.asesorado_lugar_nacimiento ?? '',
-          asesorado_estado_civil: row.asesorado_estado_civil ?? '',
-          asesorado_escolaridad: row.asesorado_escolaridad ?? '',
-          asesorado_ocupacion: row.asesorado_ocupacion ?? '',
-          asesorado_religion: row.asesorado_religion ?? '',
-          asesorado_parroquia: row.asesorado_parroquia ?? '',
-          contacto_telefono: row.contacto_telefono ?? '',
-          contacto_domicilio: row.contacto_domicilio ?? '',
-          pareja_nombre: row.pareja_nombre ?? '',
-          pareja_sexo: row.pareja_sexo ?? '',
-          pareja_edad: row.pareja_edad ?? '',
-          pareja_fecha_nacimiento: row.pareja_fecha_nacimiento ?? '',
-          hijos,
-          salud_padece_enfermedad: row.salud_padece_enfermedad ?? '',
-          salud_ayuda_psicologica: row.salud_ayuda_psicologica ?? '',
-          salud_ayuda_tiempo: row.salud_ayuda_tiempo ?? '',
-          salud_medicamentos: row.salud_medicamentos ?? '',
-          salud_medicamentos_cual: row.salud_medicamentos_cual ?? '',
-        }
+      if (row) {
+        const parsed = parseRow(row)
         setData(parsed)
         setSaved(parsed)
       }
@@ -245,10 +283,18 @@ export default function DatosGeneralesTab({ patientId, therapistId, patientEmail
       const supabase = createClient()
       const cleanDate = (d: string) => d || null
 
+      // Resuelve el therapist_id de forma confiable
+      let tid = therapistId
+      if (!tid) {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user?.id) { alert('Error: sesión no disponible.'); return }
+        tid = user.id
+      }
+
       // NOTE: tipo_caso is intentionally excluded — it is managed by ExpedienteTab.
       // Supabase upsert only updates the columns provided, so tipo_caso won't be overwritten.
       const payload = {
-        therapist_id: therapistId,
+        therapist_id: tid,
         patient_id: patientId,
         asesorado_nombre: data.asesorado_nombre || null,
         asesorado_sexo: data.asesorado_sexo || null,
