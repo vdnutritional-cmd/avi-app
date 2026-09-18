@@ -144,6 +144,13 @@ export default function PatientDetailPage() {
     console.log('[page] expedienteRes data:', expedienteRes.data, '| error:', expedienteRes.error)
     setExpedienteRow(expedienteRes.data ?? null)
 
+    // DEBUG TEMPORAL: verificar filas en patient_expediente sin RLS
+    try {
+      const dbg = await fetch(`/api/debug/expediente?patientId=${patientId}`)
+      const dbgJson = await dbg.json()
+      console.log('[DEBUG-ADMIN] patient_expediente sin RLS:', JSON.stringify(dbgJson, null, 2))
+    } catch (e) { console.warn('[DEBUG-ADMIN] fetch falló:', e) }
+
     // Empresa CONVENIO del paciente (si tiene)
     const empresaRaw = relationRes.data?.convenio_empresas as unknown
     const empresaObj = Array.isArray(empresaRaw) ? empresaRaw[0] : empresaRaw
