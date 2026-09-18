@@ -50,7 +50,7 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
         {/* Header */}
         <div className="p-6 border-b border-gray-100 flex items-center justify-between">
           <div>
-            <span className="text-2xl font-bold text-primary-700">Consúltame</span>
+            <span className="text-2xl font-bold text-primary-700">AVI - Consúltame</span>
             <p className="text-xs text-gray-400 mt-1">{fullName ?? email}</p>
           </div>
           {/* Botón cerrar — solo en móvil */}

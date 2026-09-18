@@ -64,7 +64,7 @@ export default async function TherapistDashboardPage() {
     <div className="space-y-8 max-w-3xl">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-500 mt-1">Bienvenido a Consúltame — tu centro de gestión terapéutica</p>
+        <p className="text-gray-500 mt-1">Bienvenido a AVI - Consúltame — tu centro de gestión terapéutica</p>
       </div>
 
       {/* Banner: sin suscripción → dirigir a elegir plan */}
