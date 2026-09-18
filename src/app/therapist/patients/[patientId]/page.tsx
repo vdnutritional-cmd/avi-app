@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import ExpedienteTab from './ExpedienteTab'
+import DatosGeneralesTab from './DatosGeneralesTab'
 
 const MAX_SESIONES_PRESENCIALES = 12
 
@@ -96,7 +97,7 @@ export default function PatientDetailPage() {
   const [streamText, setStreamText] = useState('')
   const [analysisError, setAnalysisError] = useState<string | null>(null)
 
-  const [activeTab, setActiveTab] = useState<'sesiones' | 'presenciales' | 'analisis' | 'nota' | 'expediente'>('sesiones')
+  const [activeTab, setActiveTab] = useState<'datos-generales' | 'sesiones' | 'presenciales' | 'analisis' | 'nota' | 'expediente'>('datos-generales')
   const [therapistId, setTherapistId] = useState<string | null>(null)
   const [tier, setTier] = useState<'esencial' | 'clinico'>('esencial')
   const streamRef = useRef<HTMLDivElement>(null)
@@ -503,11 +504,12 @@ export default function PatientDetailPage() {
       {/* Tabs */}
       <div className="flex border-b border-gray-200 overflow-x-auto">
         {[
-          { id: 'sesiones',     label: `Sesiones AVI (${patterns.length})`,     locked: false },
-          { id: 'nota',         label: 'Nota inicial' + (savedNote ? ' ✓' : ' ⚠️'), locked: false },
-          { id: 'presenciales', label: `Sesiones presenciales (${sessionNotes.length}/${MAX_SESIONES_PRESENCIALES})`, locked: false },
-          { id: 'analisis',     label: `Análisis (${analyses.length})`,          locked: false },
-          { id: 'expediente',   label: tier === 'clinico' ? 'EXPEDIENTE' : '🔒 EXPEDIENTE', locked: tier !== 'clinico' },
+          { id: 'datos-generales', label: 'Datos Generales',                                   locked: false },
+          { id: 'sesiones',        label: `Sesiones AVI (${patterns.length})`,                 locked: false },
+          { id: 'nota',            label: 'Nota inicial' + (savedNote ? ' ✓' : ' ⚠️'),        locked: false },
+          { id: 'presenciales',    label: `Sesiones presenciales (${sessionNotes.length}/${MAX_SESIONES_PRESENCIALES})`, locked: false },
+          { id: 'analisis',        label: `Análisis (${analyses.length})`,                     locked: false },
+          { id: 'expediente',      label: tier === 'clinico' ? 'EXPEDIENTE' : '🔒 EXPEDIENTE', locked: tier !== 'clinico' },
         ].map(tab => (
           <button key={tab.id}
             onClick={() => {
@@ -529,6 +531,15 @@ export default function PatientDetailPage() {
           </button>
         ))}
       </div>
+
+      {/* ── TAB: Datos Generales ── */}
+      {activeTab === 'datos-generales' && therapistId && (
+        <DatosGeneralesTab
+          patientId={patientId}
+          therapistId={therapistId}
+          patientEmail={profile?.email ?? null}
+        />
+      )}
 
       {/* ── TAB: Sesiones AVI ── */}
       {activeTab === 'sesiones' && (
