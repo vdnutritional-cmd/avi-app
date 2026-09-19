@@ -97,12 +97,9 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
             isOpen={openGroup === 'informacion'}
             onToggle={() => toggleGroup('informacion')}
           >
-            {/* Badge de plan — visible al abrir este bloque */}
-            <div className="px-3 py-1.5">
-              <PlanBadge status={subscriptionStatus} patientSlots={patientSlots} tier={tier} />
-            </div>
             <NavLink href="/therapist/asesorias"  icon="📈" label="Mis asesorías"                   onClose={closeSidebar} />
             <NavLink href="/therapist/tutoriales" icon="🎬" label="Consejos prácticos y Tutoriales" onClose={closeSidebar} />
+            <PlanInfo status={subscriptionStatus} patientSlots={patientSlots} tier={tier} />
           </NavGroup>
 
           {/* Bloque: Configuración */}
@@ -176,6 +173,31 @@ function NavGroup({ name, label, icon, isOpen, onToggle, children }: {
           {children}
         </div>
       )}
+    </div>
+  )
+}
+
+function PlanInfo({ status, patientSlots, tier }: { status: string | null; patientSlots: number | null; tier: string | null }) {
+  const tierLabel = tier === 'clinico' ? 'Clínico' : tier === 'esencial' ? 'Esencial' : null
+  const planText = tierLabel
+    ? `AVI ${tierLabel}${patientSlots ? ` ${patientSlots}` : ''}`
+    : null
+
+  const statusText =
+    status === 'active' || status === 'trialing' ? 'activo' :
+    status === 'free_approved' ? 'patrocinado' :
+    status === 'cancelled' || status === 'past_due' ? 'sin suscripción activa' :
+    'pendiente de aprobación'
+
+  const display = planText ? `${planText} · ${statusText}` : statusText
+
+  return (
+    <div className="flex items-start gap-3 px-3 py-2 text-sm text-gray-500">
+      <span>📋</span>
+      <div>
+        <p className="text-gray-400 text-xs leading-tight mb-0.5">Características del plan:</p>
+        <p className="text-gray-600">{display}</p>
+      </div>
     </div>
   )
 }
