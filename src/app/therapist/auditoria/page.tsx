@@ -19,7 +19,7 @@ export default async function TherapistAuditoriaPage() {
 
   const admin = createAdminClient()
 
-  // 1. Obtener los patient_ids del terapeuta (activos e inactivos — auditoría incluye todo)
+  // 1. Patient IDs del terapeuta (activos + inactivos — la auditoría cubre todo)
   const { data: relations } = await admin
     .from('therapist_patients')
     .select('patient_id')
@@ -39,7 +39,7 @@ export default async function TherapistAuditoriaPage() {
     )
   }
 
-  // 2. Obtener nombres de los pacientes
+  // 2. Nombres de los pacientes
   const { data: profiles } = await admin
     .from('profiles')
     .select('id, full_name, email')
@@ -50,23 +50,28 @@ export default async function TherapistAuditoriaPage() {
     pacientes[p.id] = p.full_name ?? p.email ?? p.id
   }
 
-  // 3. Consultar audit_log filtrando por patient_id en datos_despues o datos_antes
-  //    Solo tablas clínicas relevantes para el terapeuta
-  const orFilter = patientIds
-    .map(id => `datos_despues->>patient_id.eq.${id},datos_antes->>patient_id.eq.${id}`)
-    .join(',')
+  // 3. Traer todos los registros de tablas clínicas (sin filtro JSONB en DB)
+  //    y filtrar en JavaScript servidor — más seguro y sin problemas de sintaxis PostgREST
+  const patientIdSet = new Set(patientIds)
 
-  const { data: logs } = await admin
+  const { data: rawLogs } = await admin
     .from('audit_log')
     .select('id, usuario_id, operacion, tabla, registro_id, datos_antes, datos_despues, created_at')
     .in('tabla', TABLAS_CLINICAS)
-    .or(orFilter)
     .order('created_at', { ascending: false })
-    .limit(300)
+    .limit(2000)   // traemos más y filtramos abajo
+
+  // Filtrar: solo registros donde patient_id pertenece a este terapeuta
+  const logs = (rawLogs ?? []).filter(l => {
+    const pid =
+      (l.datos_despues as Record<string, unknown> | null)?.patient_id as string | undefined
+      ?? (l.datos_antes  as Record<string, unknown> | null)?.patient_id as string | undefined
+    return pid !== undefined && patientIdSet.has(pid)
+  })
 
   return (
     <AuditoriaTherapistClient
-      logs={logs ?? []}
+      logs={logs}
       pacientes={pacientes}
     />
   )
