@@ -97,8 +97,9 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
             isOpen={openGroup === 'informacion'}
             onToggle={() => toggleGroup('informacion')}
           >
-            <NavLink href="/therapist/asesorias"  icon="📈" label="Mis asesorías"                   onClose={closeSidebar} />
-            <NavLink href="/therapist/tutoriales" icon="🎬" label="Consejos prácticos y Tutoriales" onClose={closeSidebar} />
+            <NavLink href="/therapist/asesorias"   icon="📈" label="Mis asesorías"                        onClose={closeSidebar} />
+            <NavLink href="/therapist/auditoria"  icon="🔍" label="Auditorías información pacientes"      onClose={closeSidebar} />
+            <NavLink href="/therapist/tutoriales" icon="🎬" label="Consejos prácticos y Tutoriales"       onClose={closeSidebar} />
             <PlanInfo status={subscriptionStatus} patientSlots={patientSlots} tier={tier} />
           </NavGroup>
 

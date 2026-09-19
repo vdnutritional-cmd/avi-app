@@ -92,6 +92,14 @@ export default async function TherapistDashboardPage() {
             description="Revisa los resúmenes y patrones emocionales de tus consultantes"
           />
 
+          {/* Auditorías */}
+          <ActionCard
+            href="/therapist/auditoria"
+            icon="🔍"
+            title="Auditorías información pacientes"
+            description="Consulta el historial de cambios clínicos de tus pacientes (NOM-024)"
+          />
+
           {/* Asesorías este mes */}
           <Link
             href="/therapist/asesorias"
