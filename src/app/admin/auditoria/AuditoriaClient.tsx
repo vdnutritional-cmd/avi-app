@@ -5,43 +5,66 @@ import { useRouter } from 'next/navigation'
 
 type AuditRow = {
   id: string
-  usuario_id: string
+  usuario_id: string | null
   operacion: string
   tabla: string
   registro_id: string | null
   datos_antes: Record<string, unknown> | null
   datos_despues: Record<string, unknown> | null
   created_at: string
-  profiles: { email: string; role: string } | null
+  profiles: { email: string; role: string; full_name: string } | null
 }
 
 interface Props {
   logs: AuditRow[]
+  pacientes: Record<string, string>   // patient_id → nombre
   desde: string
   hasta: string
 }
 
-export default function AuditoriaClient({ logs, desde: initDesde, hasta: initHasta }: Props) {
+const TABLA_LABEL: Record<string, string> = {
+  patient_expediente:      'Expediente clínico',
+  therapist_session_notes: 'Sesiones presenciales',
+  analyses:                'Análisis Consúltame',
+  patient_questionnaires:  'Cuestionarios',
+  therapist_patients:      'Relación terapeuta-paciente',
+  messages:                'Mensajes',
+}
+
+export default function AuditoriaClient({ logs, pacientes, desde: initDesde, hasta: initHasta }: Props) {
   const router = useRouter()
 
   // Filtros cliente
-  const [filtroOp,    setFiltroOp]    = useState('')
-  const [filtroTabla, setFiltroTabla] = useState('')
-  const [filtroEmail, setFiltroEmail] = useState('')
+  const [filtroOp,       setFiltroOp]       = useState('')
+  const [filtroTabla,    setFiltroTabla]     = useState('')
+  const [filtroEmail,    setFiltroEmail]     = useState('')
+  const [filtroPaciente, setFiltroPaciente]  = useState('')
 
-  // Fechas — controladas localmente, se aplican al servidor al pulsar "Aplicar"
+  // Fechas — se aplican en el servidor al pulsar "Aplicar"
   const [localDesde, setLocalDesde] = useState(initDesde)
   const [localHasta, setLocalHasta] = useState(initHasta)
 
   const operaciones = useMemo(() => [...new Set(logs.map(l => l.operacion))].sort(), [logs])
   const tablas      = useMemo(() => [...new Set(logs.map(l => l.tabla))].sort(), [logs])
 
+  // Nombre del paciente para cada log (desde JSONB)
+  function getPacienteId(log: AuditRow): string {
+    return (
+      (log.datos_despues?.patient_id ?? log.datos_antes?.patient_id ?? '') as string
+    )
+  }
+
   const filtrados = useMemo(() => logs.filter(l => {
     if (filtroOp    && l.operacion !== filtroOp)   return false
     if (filtroTabla && l.tabla     !== filtroTabla) return false
     if (filtroEmail && !l.profiles?.email?.toLowerCase().includes(filtroEmail.toLowerCase())) return false
+    if (filtroPaciente) {
+      const pid  = getPacienteId(l)
+      const name = (pacientes[pid] ?? '').toLowerCase()
+      if (!name.includes(filtroPaciente.toLowerCase())) return false
+    }
     return true
-  }), [logs, filtroOp, filtroTabla, filtroEmail])
+  }), [logs, filtroOp, filtroTabla, filtroEmail, filtroPaciente, pacientes])
 
   function aplicarFechas() {
     const params = new URLSearchParams()
@@ -58,17 +81,21 @@ export default function AuditoriaClient({ logs, desde: initDesde, hasta: initHas
   }
 
   function exportarCSV() {
-    const headers = ['Fecha', 'Usuario', 'Rol', 'Operación', 'Tabla', 'Registro ID', 'Datos antes', 'Datos después']
-    const rows = filtrados.map(l => [
-      new Date(l.created_at).toLocaleString('es-MX'),
-      l.profiles?.email ?? l.usuario_id,
-      l.profiles?.role ?? '',
-      l.operacion,
-      l.tabla,
-      l.registro_id ?? '',
-      l.datos_antes   ? JSON.stringify(l.datos_antes)   : '',
-      l.datos_despues ? JSON.stringify(l.datos_despues) : '',
-    ])
+    const headers = ['Fecha', 'Paciente', 'Terapeuta / Usuario', 'Rol', 'Operación', 'Recurso', 'Registro ID', 'Datos antes', 'Datos después']
+    const rows = filtrados.map(l => {
+      const pid = getPacienteId(l)
+      return [
+        new Date(l.created_at).toLocaleString('es-MX'),
+        pid ? (pacientes[pid] ?? pid) : '—',
+        l.profiles?.email ?? (l.usuario_id ? l.usuario_id : 'Sistema'),
+        l.profiles?.role ?? '',
+        l.operacion,
+        TABLA_LABEL[l.tabla] ?? l.tabla,
+        l.registro_id ?? '',
+        l.datos_antes   ? JSON.stringify(l.datos_antes)   : '',
+        l.datos_despues ? JSON.stringify(l.datos_despues) : '',
+      ]
+    })
     const csv = [headers, ...rows]
       .map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(','))
       .join('\n')
@@ -100,8 +127,9 @@ export default function AuditoriaClient({ logs, desde: initDesde, hasta: initHas
 
       {/* Filtros */}
       <div className="bg-white rounded-2xl border border-gray-100 p-4 space-y-3">
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {/* Filtros cliente */}
+
+        {/* Fila 1: Filtros cliente */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div>
             <label className="text-xs text-gray-500 font-medium block mb-1">Operación</label>
             <select
@@ -114,18 +142,18 @@ export default function AuditoriaClient({ logs, desde: initDesde, hasta: initHas
             </select>
           </div>
           <div>
-            <label className="text-xs text-gray-500 font-medium block mb-1">Tabla / Recurso</label>
+            <label className="text-xs text-gray-500 font-medium block mb-1">Recurso</label>
             <select
               value={filtroTabla}
               onChange={e => setFiltroTabla(e.target.value)}
               className="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-300"
             >
-              <option value="">Todas</option>
-              {tablas.map(t => <option key={t} value={t}>{t}</option>)}
+              <option value="">Todos</option>
+              {tablas.map(t => <option key={t} value={t}>{TABLA_LABEL[t] ?? t}</option>)}
             </select>
           </div>
           <div>
-            <label className="text-xs text-gray-500 font-medium block mb-1">Usuario (email)</label>
+            <label className="text-xs text-gray-500 font-medium block mb-1">Terapeuta (email)</label>
             <input
               type="text"
               placeholder="Buscar..."
@@ -134,9 +162,19 @@ export default function AuditoriaClient({ logs, desde: initDesde, hasta: initHas
               className="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-300"
             />
           </div>
+          <div>
+            <label className="text-xs text-gray-500 font-medium block mb-1">Paciente (nombre)</label>
+            <input
+              type="text"
+              placeholder="Buscar..."
+              value={filtroPaciente}
+              onChange={e => setFiltroPaciente(e.target.value)}
+              className="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-300"
+            />
+          </div>
         </div>
 
-        {/* Fechas — filtro servidor */}
+        {/* Fila 2: Fechas — filtro servidor */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 items-end">
           <div>
             <label className="text-xs text-gray-500 font-medium block mb-1">
@@ -199,10 +237,10 @@ export default function AuditoriaClient({ logs, desde: initDesde, hasta: initHas
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Fecha</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Usuario</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">Paciente</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">Terapeuta / Usuario</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Operación</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Tabla</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Registro ID</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">Recurso</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Detalle</th>
               </tr>
             </thead>
@@ -213,46 +251,57 @@ export default function AuditoriaClient({ logs, desde: initDesde, hasta: initHas
                     No hay registros que coincidan con los filtros.
                   </td>
                 </tr>
-              ) : filtrados.map(log => (
-                <tr key={log.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3 text-gray-500 whitespace-nowrap text-xs">
-                    {new Date(log.created_at).toLocaleString('es-MX')}
-                  </td>
-                  <td className="px-4 py-3">
-                    <p className="font-medium text-gray-800 truncate max-w-[180px]">
-                      {log.profiles?.email ?? log.usuario_id}
-                    </p>
-                    {log.profiles?.role && (
-                      <span className="text-xs text-gray-400">{log.profiles.role}</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                      log.operacion === 'DELETE'      ? 'bg-red-100 text-red-700' :
-                      log.operacion === 'INSERT'      ? 'bg-green-100 text-green-700' :
-                      log.operacion === 'UPDATE'      ? 'bg-blue-100 text-blue-700' :
-                      log.operacion.startsWith('API:') ? 'bg-purple-100 text-purple-700' :
-                      'bg-gray-100 text-gray-600'
-                    }`}>
-                      {log.operacion}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-gray-600 font-mono text-xs">{log.tabla}</td>
-                  <td className="px-4 py-3 text-gray-400 font-mono text-xs truncate max-w-[120px]">
-                    {log.registro_id ?? '—'}
-                  </td>
-                  <td className="px-4 py-3 text-gray-400 text-xs">
-                    {(log.datos_antes || log.datos_despues) ? (
-                      <details>
-                        <summary className="cursor-pointer text-primary-600 hover:underline">Ver</summary>
-                        <pre className="mt-1 text-xs bg-gray-50 rounded p-2 max-w-xs overflow-auto">
-                          {JSON.stringify({ antes: log.datos_antes, despues: log.datos_despues }, null, 2)}
-                        </pre>
-                      </details>
-                    ) : '—'}
-                  </td>
-                </tr>
-              ))}
+              ) : filtrados.map(log => {
+                const pid       = getPacienteId(log)
+                const paciente  = pid ? (pacientes[pid] ?? <span className="text-gray-400 italic">ID: {pid.slice(0,8)}…</span>) : <span className="text-gray-300">—</span>
+                const usuarioEmail = log.profiles?.email
+                const usuarioLabel = usuarioEmail
+                  ? usuarioEmail
+                  : log.usuario_id
+                    ? <span className="text-gray-400 font-mono text-xs">{log.usuario_id.slice(0,8)}…</span>
+                    : <span className="text-gray-400 italic">Sistema</span>
+
+                return (
+                  <tr key={log.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-3 text-gray-500 whitespace-nowrap text-xs">
+                      {new Date(log.created_at).toLocaleString('es-MX')}
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="font-medium text-gray-800 truncate max-w-[150px]">{paciente}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="text-gray-700 truncate max-w-[180px]">{usuarioLabel}</p>
+                      {log.profiles?.role && (
+                        <span className="text-xs text-gray-400">{log.profiles.role}</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                        log.operacion === 'DELETE'       ? 'bg-red-100 text-red-700' :
+                        log.operacion === 'INSERT'       ? 'bg-green-100 text-green-700' :
+                        log.operacion === 'UPDATE'       ? 'bg-blue-100 text-blue-700' :
+                        log.operacion.startsWith('API:') ? 'bg-purple-100 text-purple-700' :
+                        'bg-gray-100 text-gray-600'
+                      }`}>
+                        {log.operacion}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-gray-600 text-xs">
+                      {TABLA_LABEL[log.tabla] ?? log.tabla}
+                    </td>
+                    <td className="px-4 py-3 text-gray-400 text-xs">
+                      {(log.datos_antes || log.datos_despues) ? (
+                        <details>
+                          <summary className="cursor-pointer text-primary-600 hover:underline">Ver</summary>
+                          <pre className="mt-1 text-xs bg-gray-50 rounded p-2 max-w-xs overflow-auto">
+                            {JSON.stringify({ antes: log.datos_antes, despues: log.datos_despues }, null, 2)}
+                          </pre>
+                        </details>
+                      ) : '—'}
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
