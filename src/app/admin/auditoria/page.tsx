@@ -4,16 +4,30 @@ import AuditoriaClient from './AuditoriaClient'
 
 export const dynamic = 'force-dynamic'
 
-export default async function AuditoriaPage() {
+export default async function AuditoriaPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ desde?: string; hasta?: string }>
+}) {
+  const { desde, hasta } = await searchParams
+
   const supabase = await createClient()
   const admin    = createAdminClient()
 
-  // 1. Cargar los últimos 500 registros (sin join de profiles)
-  const { data: rawLogs } = await supabase
+  // 1. Cargar los últimos 500 registros con filtro de fecha en servidor
+  let query = supabase
     .from('audit_log')
     .select('id, usuario_id, operacion, tabla, registro_id, datos_antes, datos_despues, created_at')
     .order('created_at', { ascending: false })
-    .limit(500)
+
+  if (desde) {
+    query = query.gte('created_at', desde)
+  }
+  if (hasta) {
+    query = query.lte('created_at', `${hasta}T23:59:59`)
+  }
+
+  const { data: rawLogs } = await query.limit(500)
 
   // 2. Obtener los perfiles de los usuarios que aparecen en los registros
   const userIds = [...new Set(
@@ -34,5 +48,5 @@ export default async function AuditoriaPage() {
     profiles: profileMap[l.usuario_id] ?? null,
   }))
 
-  return <AuditoriaClient logs={logs} />
+  return <AuditoriaClient logs={logs} desde={desde ?? ''} hasta={hasta ?? ''} />
 }

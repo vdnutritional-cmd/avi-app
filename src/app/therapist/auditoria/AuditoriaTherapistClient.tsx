@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 
 export type AuditRow = {
   id: string
@@ -16,13 +17,15 @@ export type AuditRow = {
 interface Props {
   logs: AuditRow[]
   pacientes: Record<string, string>   // patientId → nombre
+  desde: string
+  hasta: string
 }
 
 const TABLA_LABEL: Record<string, string> = {
-  patient_expediente:     'Expediente clínico',
+  patient_expediente:      'Expediente clínico',
   therapist_session_notes: 'Sesiones presenciales',
-  analyses:               'Análisis Consúltame',
-  patient_questionnaires: 'Cuestionarios',
+  analyses:                'Análisis Consúltame',
+  patient_questionnaires:  'Cuestionarios',
 }
 
 const OP_LABEL: Record<string, { label: string; cls: string }> = {
@@ -31,28 +34,39 @@ const OP_LABEL: Record<string, { label: string; cls: string }> = {
   DELETE: { label: 'Eliminación',  cls: 'bg-red-100 text-red-700'    },
 }
 
-export default function AuditoriaTherapistClient({ logs, pacientes }: Props) {
+export default function AuditoriaTherapistClient({ logs, pacientes, desde: initDesde, hasta: initHasta }: Props) {
+  const router = useRouter()
+
+  // Filtros cliente (op y tabla — aplican sobre los registros ya cargados)
   const [filtroOp,    setFiltroOp]    = useState('')
   const [filtroTabla, setFiltroTabla] = useState('')
-  const [filtroDesde, setFiltroDesde] = useState('')
-  const [filtroHasta, setFiltroHasta] = useState('')
 
-  const tablas     = useMemo(() => [...new Set(logs.map(l => l.tabla))].sort(), [logs])
+  // Fechas — se controlan localmente pero al "Aplicar" navegan al servidor
+  const [localDesde, setLocalDesde] = useState(initDesde)
+  const [localHasta, setLocalHasta] = useState(initHasta)
+
+  const tablas      = useMemo(() => [...new Set(logs.map(l => l.tabla))].sort(), [logs])
   const operaciones = useMemo(() => [...new Set(logs.map(l => l.operacion))].sort(), [logs])
 
   const filtrados = useMemo(() => logs.filter(l => {
     if (filtroOp    && l.operacion !== filtroOp)    return false
     if (filtroTabla && l.tabla     !== filtroTabla) return false
-    if (filtroDesde) {
-      const d = new Date(filtroDesde); d.setHours(0, 0, 0, 0)
-      if (new Date(l.created_at) < d) return false
-    }
-    if (filtroHasta) {
-      const h = new Date(filtroHasta); h.setHours(23, 59, 59, 999)
-      if (new Date(l.created_at) > h) return false
-    }
     return true
-  }), [logs, filtroOp, filtroTabla, filtroDesde, filtroHasta])
+  }), [logs, filtroOp, filtroTabla])
+
+  function aplicarFechas() {
+    const params = new URLSearchParams()
+    if (localDesde) params.set('desde', localDesde)
+    if (localHasta) params.set('hasta', localHasta)
+    const qs = params.size > 0 ? '?' + params.toString() : ''
+    router.push(`/therapist/auditoria${qs}`)
+  }
+
+  function limpiarFechas() {
+    setLocalDesde('')
+    setLocalHasta('')
+    router.push('/therapist/auditoria')
+  }
 
   function exportarCSV() {
     const headers = ['Fecha', 'Paciente', 'Operación', 'Recurso', 'Registro ID', 'Datos antes', 'Datos después']
@@ -101,56 +115,91 @@ export default function AuditoriaTherapistClient({ logs, pacientes }: Props) {
       </div>
 
       {/* Filtros */}
-      <div className="bg-white rounded-2xl border border-gray-100 p-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div>
-          <label className="text-xs text-gray-500 font-medium block mb-1">Operación</label>
-          <select
-            value={filtroOp}
-            onChange={e => setFiltroOp(e.target.value)}
-            className="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-300"
+      <div className="bg-white rounded-2xl border border-gray-100 p-4 space-y-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {/* Operación y Recurso — filtro cliente */}
+          <div>
+            <label className="text-xs text-gray-500 font-medium block mb-1">Operación</label>
+            <select
+              value={filtroOp}
+              onChange={e => setFiltroOp(e.target.value)}
+              className="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-300"
+            >
+              <option value="">Todas</option>
+              {operaciones.map(o => (
+                <option key={o} value={o}>{OP_LABEL[o]?.label ?? o}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 font-medium block mb-1">Recurso</label>
+            <select
+              value={filtroTabla}
+              onChange={e => setFiltroTabla(e.target.value)}
+              className="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-300"
+            >
+              <option value="">Todos</option>
+              {tablas.map(t => (
+                <option key={t} value={t}>{TABLA_LABEL[t] ?? t}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Fechas — filtro servidor */}
+          <div>
+            <label className="text-xs text-gray-500 font-medium block mb-1">
+              Fecha inicio <span className="text-primary-500">(servidor)</span>
+            </label>
+            <input
+              type="date"
+              value={localDesde}
+              onChange={e => setLocalDesde(e.target.value)}
+              className="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-300"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 font-medium block mb-1">
+              Fecha fin <span className="text-primary-500">(servidor)</span>
+            </label>
+            <input
+              type="date"
+              value={localHasta}
+              onChange={e => setLocalHasta(e.target.value)}
+              min={localDesde}
+              className="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-300"
+            />
+          </div>
+        </div>
+
+        {/* Botones de fecha */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={aplicarFechas}
+            className="px-3 py-1.5 rounded-lg bg-primary-600 text-white text-xs font-semibold hover:bg-primary-700 transition-colors"
           >
-            <option value="">Todas</option>
-            {operaciones.map(o => (
-              <option key={o} value={o}>{OP_LABEL[o]?.label ?? o}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="text-xs text-gray-500 font-medium block mb-1">Recurso</label>
-          <select
-            value={filtroTabla}
-            onChange={e => setFiltroTabla(e.target.value)}
-            className="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-300"
-          >
-            <option value="">Todos</option>
-            {tablas.map(t => (
-              <option key={t} value={t}>{TABLA_LABEL[t] ?? t}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="text-xs text-gray-500 font-medium block mb-1">Fecha inicio</label>
-          <input
-            type="date"
-            value={filtroDesde}
-            onChange={e => setFiltroDesde(e.target.value)}
-            className="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-300"
-          />
-        </div>
-        <div>
-          <label className="text-xs text-gray-500 font-medium block mb-1">Fecha fin</label>
-          <input
-            type="date"
-            value={filtroHasta}
-            onChange={e => setFiltroHasta(e.target.value)}
-            min={filtroDesde}
-            className="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-300"
-          />
+            Aplicar fechas
+          </button>
+          {(initDesde || initHasta) && (
+            <button
+              onClick={limpiarFechas}
+              className="px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 text-xs hover:bg-gray-50 transition-colors"
+            >
+              Limpiar fechas
+            </button>
+          )}
+          {(initDesde || initHasta) && (
+            <span className="text-xs text-primary-600">
+              Rango activo: {initDesde || '…'} → {initHasta || '…'}
+            </span>
+          )}
         </div>
       </div>
 
       <p className="text-sm text-gray-500">
-        Mostrando <span className="font-semibold text-gray-800">{filtrados.length}</span> de {logs.length} registros
+        Mostrando <span className="font-semibold text-gray-800">{filtrados.length}</span> de {logs.length} registros cargados
+        {(initDesde || initHasta) && (
+          <span className="ml-1 text-primary-600">(filtrados por fecha en servidor)</span>
+        )}
       </p>
 
       {/* Tabla */}

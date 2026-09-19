@@ -12,7 +12,13 @@ const TABLAS_CLINICAS = [
   'patient_questionnaires',
 ]
 
-export default async function TherapistAuditoriaPage() {
+export default async function TherapistAuditoriaPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ desde?: string; hasta?: string }>
+}) {
+  const { desde, hasta } = await searchParams
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
@@ -50,16 +56,23 @@ export default async function TherapistAuditoriaPage() {
     pacientes[p.id] = p.full_name ?? p.email ?? p.id
   }
 
-  // 3. Traer todos los registros de tablas clínicas (sin filtro JSONB en DB)
-  //    y filtrar en JavaScript servidor — más seguro y sin problemas de sintaxis PostgREST
+  // 3. Query con filtro de fecha en servidor — el límite aplica dentro del rango
   const patientIdSet = new Set(patientIds)
 
-  const { data: rawLogs } = await admin
+  let query = admin
     .from('audit_log')
     .select('id, usuario_id, operacion, tabla, registro_id, datos_antes, datos_despues, created_at')
     .in('tabla', TABLAS_CLINICAS)
     .order('created_at', { ascending: false })
-    .limit(2000)   // traemos más y filtramos abajo
+
+  if (desde) {
+    query = query.gte('created_at', desde)
+  }
+  if (hasta) {
+    query = query.lte('created_at', `${hasta}T23:59:59`)
+  }
+
+  const { data: rawLogs } = await query.limit(2000)
 
   // Filtrar: solo registros donde patient_id pertenece a este terapeuta
   const logs = (rawLogs ?? []).filter(l => {
@@ -73,6 +86,8 @@ export default async function TherapistAuditoriaPage() {
     <AuditoriaTherapistClient
       logs={logs}
       pacientes={pacientes}
+      desde={desde ?? ''}
+      hasta={hasta ?? ''}
     />
   )
 }
