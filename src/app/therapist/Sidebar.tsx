@@ -97,6 +97,10 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
             isOpen={openGroup === 'informacion'}
             onToggle={() => toggleGroup('informacion')}
           >
+            {/* Badge de plan — visible al abrir este bloque */}
+            <div className="px-3 py-1.5">
+              <PlanBadge status={subscriptionStatus} patientSlots={patientSlots} tier={tier} />
+            </div>
             <NavLink href="/therapist/asesorias"  icon="📈" label="Mis asesorías"                   onClose={closeSidebar} />
             <NavLink href="/therapist/tutoriales" icon="🎬" label="Consejos prácticos y Tutoriales" onClose={closeSidebar} />
           </NavGroup>
