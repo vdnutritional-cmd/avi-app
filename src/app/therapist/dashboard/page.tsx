@@ -67,16 +67,16 @@ export default async function TherapistDashboardPage() {
     : false
 
   const PERFIL_LABELS: Record<string, string> = {
-    famsis:      'Personalismo + Familiar Sistémica',
-    trec:        'Personalismo + TREC',
-    cc:          'Personalismo + Cognitivo-Conductual',
-    famsis_trec: 'Personalismo + Familiar Sistémica + TREC',
-    famsis_cc:   'Personalismo + Familiar Sistémica + Cognitivo-Conductual',
-    trec_cc:     'Personalismo + TREC + Cognitivo-Conductual',
+    famsis:      'Familiar Sistémica',
+    trec:        'TREC — Racional Emotivo-Conductual',
+    cc:          'Cognitivo-Conductual',
+    famsis_trec: 'Familiar Sistémica + TREC',
+    famsis_cc:   'Familiar Sistémica + Cognitivo-Conductual',
+    trec_cc:     'TREC + Cognitivo-Conductual',
   }
 
-  const perfil = therapistProfile?.therapy_profile
-  const perfilConfigurado = perfil && perfil !== 'famsis'
+  const perfil = therapistProfile?.therapy_profile ?? null
+  const perfilConfigurado = !!perfil
 
   return (
     <div className="space-y-8 max-w-3xl">

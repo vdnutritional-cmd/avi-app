@@ -45,12 +45,12 @@ function perfilASeleccion(perfil: string): TerapiaId[] {
 }
 
 const PERFIL_LABELS: Record<string, string> = {
-  famsis:      'Personalismo + Familiar Sistémica',
-  trec:        'Personalismo + TREC',
-  cc:          'Personalismo + Cognitivo-Conductual',
-  famsis_trec: 'Personalismo + Familiar Sistémica + TREC',
-  famsis_cc:   'Personalismo + Familiar Sistémica + Cognitivo-Conductual',
-  trec_cc:     'Personalismo + TREC + Cognitivo-Conductual',
+  famsis:      'Familiar Sistémica',
+  trec:        'TREC — Racional Emotivo-Conductual',
+  cc:          'Cognitivo-Conductual',
+  famsis_trec: 'Familiar Sistémica + TREC',
+  famsis_cc:   'Familiar Sistémica + Cognitivo-Conductual',
+  trec_cc:     'TREC + Cognitivo-Conductual',
 }
 
 export default function TerapiaConfigPage() {
@@ -77,9 +77,9 @@ export default function TerapiaConfigPage() {
       .eq('id', user.id)
       .single()
 
-    const perfil = data?.therapy_profile ?? 'famsis'
-    setPerfilActual(perfil)
-    setSeleccion(perfilASeleccion(perfil))
+    const perfil = data?.therapy_profile ?? null
+    setPerfilActual(perfil ?? '')
+    setSeleccion(perfil ? perfilASeleccion(perfil) : [])
     setLoading(false)
   }
 
@@ -148,17 +148,6 @@ export default function TerapiaConfigPage() {
         </p>
       </div>
 
-      {/* Personalismo — siempre incluido */}
-      <div className="rounded-xl border border-primary-200 bg-primary-50 p-4 flex items-start gap-3">
-        <span className="text-2xl">✨</span>
-        <div>
-          <p className="font-semibold text-primary-800 text-sm">Filosofía Personalista</p>
-          <p className="text-xs text-primary-600 mt-0.5">
-            Incluida siempre como base filosófica de todos los análisis. No puede deseleccionarse.
-          </p>
-        </div>
-      </div>
-
       {/* Selector de enfoques */}
       <div className="space-y-3">
         <p className="text-sm font-medium text-gray-700">
@@ -208,14 +197,9 @@ export default function TerapiaConfigPage() {
       {/* Vista previa del perfil */}
       <div className="rounded-xl bg-gray-50 border border-gray-200 p-4">
         <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
-          Perfil que se activará
+          Enfoque que se activará
         </p>
         <p className="text-sm font-semibold text-gray-800">{perfilPreview}</p>
-        {perfilActual && (
-          <p className="text-xs text-gray-400 mt-1">
-            Perfil actual guardado: <span className="font-mono">{perfilActual}</span>
-          </p>
-        )}
       </div>
 
       {/* Botón guardar */}

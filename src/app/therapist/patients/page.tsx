@@ -32,6 +32,33 @@ export default async function TherapistPatientsPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
+  // Gate: el terapeuta debe haber configurado su enfoque terapéutico
+  const { data: profileData } = await supabase
+    .from('profiles')
+    .select('therapy_profile')
+    .eq('id', user!.id)
+    .single()
+
+  if (!profileData?.therapy_profile) {
+    return (
+      <div className="max-w-lg mx-auto mt-16 text-center space-y-5 px-4">
+        <span className="text-5xl block">🧠</span>
+        <h2 className="text-xl font-bold text-gray-900">Configura tu enfoque terapéutico</h2>
+        <p className="text-gray-500 text-sm">
+          Antes de acceder a tus pacientes, selecciona el tipo de Terapia que utilizas
+          para que AVI pueda apoyarte correctamente en tus análisis clínicos.
+        </p>
+        <Link
+          href="/therapist/configuracion/terapia"
+          className="inline-block bg-primary-700 text-white text-sm font-semibold
+                     px-6 py-3 rounded-xl hover:bg-primary-800 transition-colors"
+        >
+          Ir a configurar →
+        </Link>
+      </div>
+    )
+  }
+
   // Pacientes no archivados (activos e inactivos, pero no fusionados)
   const { data: relations } = await supabase
     .from('therapist_patients')
