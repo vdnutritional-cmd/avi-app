@@ -66,6 +66,18 @@ export default async function TherapistDashboardPage() {
     ? ['active', 'free_approved', 'trialing'].includes(subscription.status)
     : false
 
+  const PERFIL_LABELS: Record<string, string> = {
+    famsis:      'Personalismo + Familiar Sistémica',
+    trec:        'Personalismo + TREC',
+    cc:          'Personalismo + Cognitivo-Conductual',
+    famsis_trec: 'Personalismo + Familiar Sistémica + TREC',
+    famsis_cc:   'Personalismo + Familiar Sistémica + Cognitivo-Conductual',
+    trec_cc:     'Personalismo + TREC + Cognitivo-Conductual',
+  }
+
+  const perfil = therapistProfile?.therapy_profile
+  const perfilConfigurado = perfil && perfil !== 'famsis'
+
   return (
     <div className="space-y-8 max-w-3xl">
       <div>
@@ -73,8 +85,8 @@ export default async function TherapistDashboardPage() {
         <p className="text-gray-500 mt-1">Bienvenido a AVI - Consúltame — tu centro de gestión terapéutica</p>
       </div>
 
-      {/* Aviso: configurar enfoque terapéutico */}
-      {(!therapistProfile?.therapy_profile || therapistProfile.therapy_profile === 'famsis') && (
+      {/* Enfoque terapéutico — pendiente de configurar */}
+      {!perfilConfigurado && (
         <Link
           href="/therapist/configuracion/terapia"
           className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50
@@ -86,9 +98,27 @@ export default async function TherapistDashboardPage() {
               Configura tu enfoque terapéutico
             </p>
             <p className="text-xs text-amber-700 mt-0.5">
-              AVI utiliza por defecto la Filosofía Personalista + Familiar Sistémica.
-              Si trabajas con TREC o Cognitivo-Conductual, personaliza qué bibliografía
-              consulta en tus análisis clínicos. Toca aquí para configurar →
+              Selecciona el tipo de Terapia que utilizas y deseas que utilice AVI
+              para apoyarte en tus análisis clínicos. Toca aquí para configurar →
+            </p>
+          </div>
+        </Link>
+      )}
+
+      {/* Enfoque terapéutico — ya configurado */}
+      {perfilConfigurado && (
+        <Link
+          href="/therapist/configuracion/terapia"
+          className="flex items-start gap-3 rounded-2xl border border-green-200 bg-green-50
+                     p-4 hover:bg-green-100 transition-colors group"
+        >
+          <span className="text-2xl">✅</span>
+          <div className="flex-1">
+            <p className="font-semibold text-green-800 text-sm group-hover:text-green-900 transition-colors">
+              Configuración de terapia seleccionada para la realización de los análisis clínicos:
+            </p>
+            <p className="text-xs text-green-700 mt-0.5 font-medium">
+              {PERFIL_LABELS[perfil!] ?? perfil}
             </p>
           </div>
         </Link>
