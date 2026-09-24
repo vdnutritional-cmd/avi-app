@@ -15,6 +15,7 @@ export default async function TherapistDashboardPage() {
     { data: subscription },
     { data: sesionesDelMes },
     { data: notasIniciales },
+    { data: therapistProfile },
   ] = await Promise.all([
     supabase
       .from('therapist_patients')
@@ -46,6 +47,11 @@ export default async function TherapistDashboardPage() {
       .not('initial_note_date', 'is', null)
       .gte('initial_note_date', mesInicio)
       .lt('initial_note_date', mesFin),
+    supabase
+      .from('profiles')
+      .select('therapy_profile')
+      .eq('id', user!.id)
+      .single(),
   ])
 
   // Combinar sesiones presenciales + notas iniciales (igual que asesorias/page.tsx)
@@ -66,6 +72,27 @@ export default async function TherapistDashboardPage() {
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
         <p className="text-gray-500 mt-1">Bienvenido a AVI - Consúltame — tu centro de gestión terapéutica</p>
       </div>
+
+      {/* Aviso: configurar enfoque terapéutico */}
+      {(!therapistProfile?.therapy_profile || therapistProfile.therapy_profile === 'famsis') && (
+        <Link
+          href="/therapist/configuracion/terapia"
+          className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50
+                     p-4 hover:bg-amber-100 transition-colors group"
+        >
+          <span className="text-2xl">🧠</span>
+          <div className="flex-1">
+            <p className="font-semibold text-amber-800 text-sm group-hover:text-amber-900 transition-colors">
+              Configura tu enfoque terapéutico
+            </p>
+            <p className="text-xs text-amber-700 mt-0.5">
+              AVI utiliza por defecto la Filosofía Personalista + Familiar Sistémica.
+              Si trabajas con TREC o Cognitivo-Conductual, personaliza qué bibliografía
+              consulta en tus análisis clínicos. Toca aquí para configurar →
+            </p>
+          </div>
+        </Link>
+      )}
 
       {/* Contadores */}
       <div className="grid grid-cols-2 gap-4">

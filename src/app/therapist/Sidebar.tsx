@@ -111,7 +111,8 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
             isOpen={openGroup === 'configuracion'}
             onToggle={() => toggleGroup('configuracion')}
           >
-            <NavLink href="/therapist/configuracion/seguridad" icon="🔐" label="Seguridad (2FA)" onClose={closeSidebar} />
+            <NavLink href="/therapist/configuracion/seguridad" icon="🔐" label="Seguridad (2FA)"          onClose={closeSidebar} />
+            <NavLink href="/therapist/configuracion/terapia"  icon="🧠" label="Enfoque terapéutico"     onClose={closeSidebar} />
           </NavGroup>
         </nav>
 

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
 import { buildConsultamePrompt } from '@/lib/prompts/consultame-prompt'
-import { retrieveRelevantChunks, buildRagQuery } from '@/lib/rag/retrieve-chunks'
+import { retrieveChunksByProfile, buildRagQuery } from '@/lib/rag/retrieve-chunks'
 import { logApiAccess } from '@/lib/audit/log-access'
 
 export const maxDuration = 300 // 5 minutos — el análisis clínico completo puede tardar
@@ -170,9 +170,17 @@ export async function POST(request: NextRequest) {
       } : undefined,
     })
 
+    // Leer perfil terapéutico activo del terapeuta
+    const { data: therapistProfile } = await supabase
+      .from('profiles')
+      .select('therapy_profile')
+      .eq('id', user.id)
+      .single()
+    const therapyProfile = therapistProfile?.therapy_profile ?? 'famsis'
+
     console.log('[analysis] Recuperando chunks relevantes con RAG...')
-    const fuentes = await retrieveRelevantChunks(ragQuery)
-    console.log('[analysis] Fuentes RAG:', fuentes ? `${fuentes.length} chars` : 'sin resultados')
+    const fuentes = await retrieveChunksByProfile(ragQuery, therapyProfile)
+    console.log('[analysis] Fuentes RAG:', fuentes ? `${fuentes.length} chars` : 'sin resultados', '| perfil:', therapyProfile)
     console.log('[analysis] Tier:', tier, '| Plan decision:', planDecision.tipo)
 
     // ── Construir prompt ──────────────────────────────────────────────────────

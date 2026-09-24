@@ -1,6 +1,6 @@
 /**
  * AVI — Recuperación RAG de ConsultoriaFuentes
- * Usa OpenAI text-embedding-3-small (1536 dimensiones)
+ * Sprint 24: Multi-RAG con filtro por therapy_profile del terapeuta
  */
 
 import OpenAI from 'openai'
@@ -15,6 +15,76 @@ function getSupabaseAdmin() {
   )
 }
 
+// ─── Función principal: filtra por perfil terapéutico del terapeuta ───────────
+// Usar en: /api/analysis, /api/patterns, /api/historia-clinica
+export async function retrieveChunksByProfile(
+  caseContext: string,
+  therapyProfile: string,   // 'famsis' | 'trec' | 'cc' | 'famsis_trec' | 'famsis_cc' | 'trec_cc'
+  matchCount = 16
+): Promise<string> {
+  const embeddingResponse = await openai.embeddings.create({
+    model: 'text-embedding-3-small',
+    input: caseContext.slice(0, 8000),
+  })
+  const queryEmbedding = embeddingResponse.data[0].embedding
+
+  const supabase = getSupabaseAdmin()
+  const { data: chunks, error } = await supabase.rpc('match_document_chunks', {
+    query_embedding: queryEmbedding,
+    match_count:     matchCount,
+    min_similarity:  0.20,
+    filter_profile:  therapyProfile,
+  })
+
+  if (error) {
+    console.error(`[RAG] Error búsqueda semántica (perfil: ${therapyProfile}):`, error.message)
+    return ''
+  }
+
+  if (!chunks || chunks.length === 0) {
+    console.warn(`[RAG] Sin chunks para perfil: ${therapyProfile}`)
+    return ''
+  }
+
+  console.log(`[RAG] ${chunks.length} chunks — perfil: ${therapyProfile}`)
+  return formatChunks(chunks as { doc_name: string; content: string }[])
+}
+
+// ─── Para analisis-clinicos: filtra por nombre de libro específico ────────────
+// Usar en: /api/analisis-clinicos (McMaster, Genograma, FODA, etc.)
+export async function retrieveChunksFromBooks(
+  caseContext: string,
+  books: string[],
+  matchCount = 12
+): Promise<string> {
+  const embeddingResponse = await openai.embeddings.create({
+    model: 'text-embedding-3-small',
+    input: caseContext.slice(0, 8000),
+  })
+  const queryEmbedding = embeddingResponse.data[0].embedding
+
+  const supabase = getSupabaseAdmin()
+  const { data: chunks, error } = await supabase.rpc('match_document_chunks', {
+    query_embedding: queryEmbedding,
+    match_count:     matchCount,
+    min_similarity:  0.15,
+    filter_books:    books,
+  })
+
+  if (error) {
+    console.error('[RAG] Error búsqueda semántica (libros):', error.message)
+    return ''
+  }
+  if (!chunks || chunks.length === 0) {
+    console.warn('[RAG] Sin chunks en libros:', books)
+    return ''
+  }
+
+  console.log(`[RAG] ${chunks.length} chunks de ${books.join(', ')}`)
+  return formatChunks(chunks as { doc_name: string; content: string }[])
+}
+
+// ─── Fallback sin filtro (compatibilidad con código legacy) ───────────────────
 export async function retrieveRelevantChunks(
   caseContext: string,
   matchCount = 16
@@ -28,24 +98,27 @@ export async function retrieveRelevantChunks(
   const supabase = getSupabaseAdmin()
   const { data: chunks, error } = await supabase.rpc('match_document_chunks', {
     query_embedding: queryEmbedding,
-    match_count: matchCount,
-    min_similarity: 0.20,
+    match_count:     matchCount,
+    min_similarity:  0.20,
   })
 
   if (error) {
     console.error('[RAG] Error en búsqueda semántica:', error.message)
     return ''
   }
-
   if (!chunks || chunks.length === 0) {
     console.warn('[RAG] Sin chunks relevantes encontrados')
     return ''
   }
 
-  console.log(`[RAG] ${chunks.length} chunks recuperados`)
+  console.log(`[RAG] ${chunks.length} chunks recuperados (sin filtro de perfil)`)
+  return formatChunks(chunks as { doc_name: string; content: string }[])
+}
 
+// ─── Formateador compartido ───────────────────────────────────────────────────
+function formatChunks(chunks: { doc_name: string; content: string }[]): string {
   const grouped = new Map<string, string[]>()
-  for (const chunk of chunks as any[]) {
+  for (const chunk of chunks) {
     const existing = grouped.get(chunk.doc_name) ?? []
     existing.push(chunk.content)
     grouped.set(chunk.doc_name, existing)
@@ -55,62 +128,10 @@ export async function retrieveRelevantChunks(
   for (const [docName, contents] of grouped.entries()) {
     sections.push(`### ${docName}\n\n${contents.join('\n\n[...]\n\n')}`)
   }
-
   return sections.join('\n\n---\n\n')
 }
 
-/**
- * Igual que retrieveRelevantChunks pero filtra los resultados
- * para incluir solo chunks de los libros indicados en `books`.
- */
-export async function retrieveChunksFromBooks(
-  caseContext: string,
-  books: string[],
-  matchCount = 12
-): Promise<string> {
-  const embeddingResponse = await openai.embeddings.create({
-    model: 'text-embedding-3-small',
-    input: caseContext.slice(0, 8000),
-  })
-  const queryEmbedding = embeddingResponse.data[0].embedding
-
-  const supabase = getSupabaseAdmin()
-  // El filtro por libro se aplica en SQL (más eficiente que JS post-filter)
-  const { data: chunks, error } = await supabase.rpc('match_document_chunks', {
-    query_embedding: queryEmbedding,
-    match_count: matchCount,
-    min_similarity: 0.15,
-    filter_books: books,
-  })
-
-  if (error) {
-    console.error('[RAG] Error en búsqueda semántica (filtrada):', error.message)
-    return ''
-  }
-  if (!chunks || chunks.length === 0) {
-    console.warn('[RAG] Sin chunks en los libros solicitados:', books)
-    return ''
-  }
-
-  const filtered = chunks as { doc_name: string; content: string }[]
-  console.log(`[RAG] ${filtered.length} chunks de ${books.join(', ')}`)
-
-  const grouped = new Map<string, string[]>()
-  for (const chunk of filtered) {
-    const existing = grouped.get(chunk.doc_name) ?? []
-    existing.push(chunk.content)
-    grouped.set(chunk.doc_name, existing)
-  }
-
-  const sections: string[] = []
-  for (const [docName, contents] of grouped.entries()) {
-    sections.push(`### ${docName}\n\n${contents.join('\n\n[...]\n\n')}`)
-  }
-
-  return sections.join('\n\n---\n\n')
-}
-
-
+// ─── Constructor de query RAG desde parámetros clínicos ──────────────────────
 export function buildRagQuery(params: {
   initialNote: string
   recentPatterns: Array<{

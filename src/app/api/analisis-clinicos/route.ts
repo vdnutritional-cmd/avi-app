@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
-import { retrieveChunksFromBooks, retrieveRelevantChunks } from '@/lib/rag/retrieve-chunks'
+import { retrieveChunksFromBooks, retrieveRelevantChunks, retrieveChunksByProfile } from '@/lib/rag/retrieve-chunks'
 import { logApiAccess } from '@/lib/audit/log-access'
 import {
   calcularResultadoFAD,
@@ -39,6 +39,14 @@ export async function POST(request: NextRequest) {
     if (!type || !patientId) {
       return NextResponse.json({ error: 'Faltan parámetros: type y patientId' }, { status: 400 })
     }
+
+    // Perfil terapéutico activo del terapeuta (para filtrar RAG)
+    const { data: therapistProfile } = await supabase
+      .from('profiles')
+      .select('therapy_profile')
+      .eq('id', user.id)
+      .single()
+    const therapyProfile = therapistProfile?.therapy_profile ?? 'famsis'
 
     // ── GENOGRAMA: Descripción de relaciones familiares ───────────────────────
     if (type === 'genograma_descripcion') {
@@ -312,7 +320,7 @@ export async function POST(request: NextRequest) {
         interpretaciones.join('\n\n').slice(0, 2000),
       ].filter(Boolean).join('\n\n')
 
-      const fuentes = await retrieveRelevantChunks(ragQuery, 12)
+      const fuentes = await retrieveChunksByProfile(ragQuery, therapyProfile, 12)
 
       // ── 5. Prompt de conclusiones ─────────────────────────
       const LABEL: Record<string, string> = { genograma: 'Genograma', mcmaster: 'McMaster', foda: 'FODA' }
@@ -515,7 +523,7 @@ export async function POST(request: NextRequest) {
       }
 
       // 3. RAG — basado únicamente en los datos de la sub-sección correspondiente
-      const fuentes = await retrieveRelevantChunks(datosEspecificos.slice(0, 2000), 10)
+      const fuentes = await retrieveChunksByProfile(datosEspecificos.slice(0, 2000), therapyProfile, 10)
 
       // 4. Prompt corregido
       const prompt = [
@@ -642,7 +650,7 @@ export async function POST(request: NextRequest) {
         rel.initial_note_subyacente ?? '',
         sesiones.slice(-2).map(s => s.session_desarrollo ?? s.notes ?? '').join(' '),
       ].join('\n')
-      const fuentes = await retrieveRelevantChunks(ragQuery, 8)
+      const fuentes = await retrieveChunksByProfile(ragQuery, therapyProfile, 8)
 
       // ── Prompt ──────────────────────────────────────────────────────────────
       const prompt = [
@@ -802,7 +810,7 @@ export async function POST(request: NextRequest) {
         notaInicial.slice(0, 1500),
       ].filter(Boolean).join('\n')
 
-      const fuentesTexto = await retrieveRelevantChunks(ragQuery, 8)
+      const fuentesTexto = await retrieveChunksByProfile(ragQuery, therapyProfile, 8)
 
       // 3. Construir listado de selecciones de los 3 apartados
       const sintomasTexto = [
