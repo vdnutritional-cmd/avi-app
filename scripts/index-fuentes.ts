@@ -2,7 +2,7 @@
  * AVI — Script de indexación RAG Multi-Perfil
  * Sprint 24: Arquitectura therapy_profiles
  *
- * Lee de 5 directorios docs-*/ y asigna therapy_profiles por escuela terapéutica.
+ * Lee de 5 directorios docs-{escuela} y asigna therapy_profiles por escuela terapéutica.
  * Detecta archivos duplicados entre directorios y mergea sus tags (ej. Beck en trec + cc).
  *
  * Ejecutar para re-indexar (borra todos los chunks anteriores):
