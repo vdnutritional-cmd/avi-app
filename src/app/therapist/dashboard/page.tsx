@@ -96,8 +96,9 @@ export default async function TherapistDashboardPage() {
           <div className="flex-1">
             <p className="text-sm text-amber-800">
               <span className="font-bold text-red-600">IMPORTANTE:</span>{' '}
-              Antes de iniciar, configura el enfoque terapéutico que utilizas y deseas que
-              utilice AVI para apoyarte en tus análisis clínicos. Toca aquí para configurar →
+              Antes de iniciar, configura el enfoque terapéutico que utilizas para que AVI
+              te apoye en tus análisis clínicos y con ello puedas entrar a los módulos que
+              te corresponden. Toca aquí para configurar →
             </p>
           </div>
         </Link>
