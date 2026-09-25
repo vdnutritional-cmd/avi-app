@@ -94,12 +94,10 @@ export default async function TherapistDashboardPage() {
         >
           <span className="text-2xl">🧠</span>
           <div className="flex-1">
-            <p className="font-semibold text-amber-800 text-sm group-hover:text-amber-900 transition-colors">
-              Configura tu enfoque terapéutico
-            </p>
-            <p className="text-xs text-amber-700 mt-0.5">
-              Selecciona el tipo de Terapia que utilizas y deseas que utilice AVI
-              para apoyarte en tus análisis clínicos. Toca aquí para configurar →
+            <p className="text-sm text-amber-800">
+              <span className="font-bold text-red-600">IMPORTANTE:</span>{' '}
+              Antes de iniciar, configura el enfoque terapéutico que utilizas y deseas que
+              utilice AVI para apoyarte en tus análisis clínicos. Toca aquí para configurar →
             </p>
           </div>
         </Link>
