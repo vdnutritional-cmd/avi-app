@@ -9,20 +9,20 @@ import { createClient } from '@/lib/supabase/client'
 const TERAPIAS = [
   {
     id: 'famsis',
-    label: 'Familiar Sistémica',
-    descripcion: 'Terapia sistémica, estructural y relacional. Incluye Minuchin, Satir, Gottman y Ciclo Vital.',
+    label: 'Terapia Familiar Sistémica',
+    descripcion: 'Enfoque que ve a la familia como un sistema interconectado donde el síntoma de un miembro refleja desequilibrios relacionales del sistema completo.',
     icon: '🏠',
   },
   {
     id: 'trec',
-    label: 'TREC — Racional Emotivo-Conductual',
-    descripcion: 'Terapia Racional Emotivo-Conductual de Albert Ellis. Reestructuración cognitiva y creencias irracionales.',
+    label: 'Terapia Racional Emotivo-Conductual (TREC)',
+    descripcion: 'Terapia cognitiva que sostiene que las emociones perturbadoras derivan de creencias irracionales, las cuales se identifican y sustituyen por otras más racionales.',
     icon: '🧠',
   },
   {
     id: 'cc',
-    label: 'Cognitivo-Conductual',
-    descripcion: 'Modelo cognitivo de Aaron T. Beck. Triada cognitiva, errores cognitivos y depresión.',
+    label: 'Terapia Cognitivo-Conductual (TCC)',
+    descripcion: 'Modelo que integra técnicas cognitivas y conductuales, partiendo de que pensamientos, emociones y conductas se interrelacionan y modifican patrones disfuncionales.',
     icon: '💡',
   },
 ] as const
@@ -45,11 +45,11 @@ function perfilASeleccion(perfil: string): TerapiaId[] {
 }
 
 const PERFIL_LABELS: Record<string, string> = {
-  famsis:      'Familiar Sistémica',
-  trec:        'TREC — Racional Emotivo-Conductual',
-  cc:          'Cognitivo-Conductual',
-  famsis_trec: 'Familiar Sistémica + TREC',
-  famsis_cc:   'Familiar Sistémica + Cognitivo-Conductual',
+  famsis:      'Terapia Familiar Sistémica',
+  trec:        'Terapia Racional Emotivo-Conductual (TREC)',
+  cc:          'Terapia Cognitivo-Conductual (TCC)',
+  famsis_trec: 'Terapia Familiar Sistémica + TREC',
+  famsis_cc:   'Terapia Familiar Sistémica + Cognitivo-Conductual',
   trec_cc:     'TREC + Cognitivo-Conductual',
 }
 

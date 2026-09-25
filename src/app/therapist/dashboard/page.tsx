@@ -67,11 +67,11 @@ export default async function TherapistDashboardPage() {
     : false
 
   const PERFIL_LABELS: Record<string, string> = {
-    famsis:      'Familiar Sistémica',
-    trec:        'TREC — Racional Emotivo-Conductual',
-    cc:          'Cognitivo-Conductual',
-    famsis_trec: 'Familiar Sistémica + TREC',
-    famsis_cc:   'Familiar Sistémica + Cognitivo-Conductual',
+    famsis:      'Terapia Familiar Sistémica',
+    trec:        'Terapia Racional Emotivo-Conductual (TREC)',
+    cc:          'Terapia Cognitivo-Conductual (TCC)',
+    famsis_trec: 'Terapia Familiar Sistémica + TREC',
+    famsis_cc:   'Terapia Familiar Sistémica + Cognitivo-Conductual',
     trec_cc:     'TREC + Cognitivo-Conductual',
   }
 
