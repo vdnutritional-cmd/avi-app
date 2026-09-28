@@ -37,6 +37,8 @@ interface SessionNote {
   session_objetivo: string | null
   session_desarrollo: string | null
   notes: string             // Observaciones particulares
+  session_emociones: string | null
+  session_recursos: string | null
   is_pro_bono: boolean
   is_virtual: boolean
 }
@@ -108,6 +110,10 @@ export default function PatientDetailPage() {
   const [newSessionNotes, setNewSessionNotes] = useState('')  // Observaciones particulares
   const [newSessionProBono, setNewSessionProBono] = useState(false)
   const [newSessionIsVirtual, setNewSessionIsVirtual] = useState(false)
+  const [newSessionEmociones, setNewSessionEmociones] = useState('')
+  const [newSessionRecursos, setNewSessionRecursos] = useState('')
+  const [generandoEmociones, setGenerandoEmociones] = useState(false)
+  const [generandoRecursos, setGenerandoRecursos] = useState(false)
   const [savingSession, setSavingSession] = useState(false)
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null)
 
@@ -366,6 +372,55 @@ export default function PatientDetailPage() {
     }
   }
 
+  async function generarEmociones() {
+    if (!newSessionDesarrollo.trim()) return
+    setGenerandoEmociones(true)
+    try {
+      const res = await fetch('/api/session-insights', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'emociones',
+          patientId,
+          sessionDesarrollo: newSessionDesarrollo,
+          sessionObjetivo: newSessionObjetivo || undefined,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) { alert(data.error ?? 'Error al generar emociones'); return }
+      setNewSessionEmociones(data.resultado ?? '')
+    } catch (e) {
+      alert('Error de red al generar emociones')
+    } finally {
+      setGenerandoEmociones(false)
+    }
+  }
+
+  async function generarRecursos() {
+    if (!newSessionNotes.trim()) return
+    setGenerandoRecursos(true)
+    try {
+      const res = await fetch('/api/session-insights', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'recursos',
+          patientId,
+          sessionDesarrollo: newSessionDesarrollo || undefined,
+          sessionNotes: newSessionNotes,
+          sessionObjetivo: newSessionObjetivo || undefined,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) { alert(data.error ?? 'Error al generar recursos'); return }
+      setNewSessionRecursos(data.resultado ?? '')
+    } catch (e) {
+      alert('Error de red al generar recursos')
+    } finally {
+      setGenerandoRecursos(false)
+    }
+  }
+
   async function saveSessionNote() {
     const hayContenido = newSessionObjetivo.trim() || newSessionDesarrollo.trim() || newSessionNotes.trim()
     if (!hayContenido) return
@@ -378,12 +433,14 @@ export default function PatientDetailPage() {
         : (sessionNotes.length > 0 ? Math.max(...sessionNotes.map(s => s.session_number)) + 1 : 1)
 
       const payload = {
-        session_date:      newSessionDate,
-        session_objetivo:  newSessionObjetivo  || null,
-        session_desarrollo: newSessionDesarrollo || null,
-        notes:             newSessionNotes     || null,   // Observaciones particulares
-        is_pro_bono:       newSessionProBono,
-        is_virtual:        newSessionIsVirtual,
+        session_date:        newSessionDate,
+        session_objetivo:    newSessionObjetivo    || null,
+        session_desarrollo:  newSessionDesarrollo  || null,
+        notes:               newSessionNotes       || null,   // Observaciones particulares
+        session_emociones:   newSessionEmociones   || null,
+        session_recursos:    newSessionRecursos     || null,
+        is_pro_bono:         newSessionProBono,
+        is_virtual:          newSessionIsVirtual,
       }
 
       if (editingSessionId) {
@@ -403,6 +460,8 @@ export default function PatientDetailPage() {
       setNewSessionObjetivo('')
       setNewSessionDesarrollo('')
       setNewSessionNotes('')
+      setNewSessionEmociones('')
+      setNewSessionRecursos('')
       setNewSessionDate(hoyMX())
       setNewSessionProBono(false)
       setNewSessionIsVirtual(false)
@@ -419,6 +478,8 @@ export default function PatientDetailPage() {
     setNewSessionObjetivo(session.session_objetivo ?? '')
     setNewSessionDesarrollo(session.session_desarrollo ?? '')
     setNewSessionNotes(session.notes ?? '')
+    setNewSessionEmociones(session.session_emociones ?? '')
+    setNewSessionRecursos(session.session_recursos ?? '')
     setNewSessionProBono(session.is_pro_bono ?? false)
     setNewSessionIsVirtual(session.is_virtual ?? false)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -818,10 +879,70 @@ export default function PatientDetailPage() {
                 />
               </div>
 
+              {/* 4. Emociones identificadas */}
+              <div className="space-y-2 border-t border-gray-100 pt-4">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <label className="text-xs font-semibold text-gray-600">
+                    4. Emociones identificadas
+                  </label>
+                  <button
+                    type="button"
+                    onClick={generarEmociones}
+                    disabled={generandoEmociones || !newSessionDesarrollo.trim()}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg
+                               bg-violet-50 text-violet-700 border border-violet-200
+                               hover:bg-violet-100 transition-colors
+                               disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {generandoEmociones
+                      ? <><span className="w-3 h-3 border-2 border-violet-500 border-t-transparent rounded-full animate-spin inline-block" /> Generando…</>
+                      : '✨ Generar emociones identificadas'}
+                  </button>
+                </div>
+                <textarea
+                  value={newSessionEmociones}
+                  onChange={e => setNewSessionEmociones(e.target.value)}
+                  placeholder="Presiona 'Generar emociones identificadas' para que AVI analice el desarrollo de la sesión, o escribe directamente aquí."
+                  rows={4}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-700
+                             focus:outline-none focus:ring-2 focus:ring-violet-300 leading-relaxed resize-none"
+                />
+              </div>
+
+              {/* 5. Recursos personales */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <label className="text-xs font-semibold text-gray-600">
+                    5. Recursos personales del paciente
+                  </label>
+                  <button
+                    type="button"
+                    onClick={generarRecursos}
+                    disabled={generandoRecursos || !newSessionNotes.trim()}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg
+                               bg-teal-50 text-teal-700 border border-teal-200
+                               hover:bg-teal-100 transition-colors
+                               disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {generandoRecursos
+                      ? <><span className="w-3 h-3 border-2 border-teal-500 border-t-transparent rounded-full animate-spin inline-block" /> Generando…</>
+                      : '✨ Generar recursos personales'}
+                  </button>
+                </div>
+                <textarea
+                  value={newSessionRecursos}
+                  onChange={e => setNewSessionRecursos(e.target.value)}
+                  placeholder="Presiona 'Generar recursos personales' para que AVI identifique los recursos del paciente, o escribe directamente aquí."
+                  rows={4}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-700
+                             focus:outline-none focus:ring-2 focus:ring-teal-300 leading-relaxed resize-none"
+                />
+              </div>
+
               <div className="flex gap-3 justify-end">
                 {editingSessionId && (
                   <button
-                    onClick={() => { setEditingSessionId(null); setNewSessionNotes(''); setNewSessionDate(hoyMX()) }}
+                    onClick={() => { setEditingSessionId(null); setNewSessionNotes(''); setNewSessionEmociones(''); setNewSessionRecursos(''); setNewSessionDate(hoyMX()) }}
                     className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 border border-gray-200 rounded-xl transition-colors"
                   >
                     Cancelar
@@ -896,6 +1017,18 @@ export default function PatientDetailPage() {
                       <div>
                         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Observaciones particulares / Acuerdos / Tareas</p>
                         <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{s.notes}</p>
+                      </div>
+                    )}
+                    {s.session_emociones && (
+                      <div>
+                        <p className="text-xs font-semibold text-violet-500 uppercase tracking-wide mb-1">Emociones identificadas</p>
+                        <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{s.session_emociones}</p>
+                      </div>
+                    )}
+                    {s.session_recursos && (
+                      <div>
+                        <p className="text-xs font-semibold text-teal-600 uppercase tracking-wide mb-1">Recursos personales del paciente</p>
+                        <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{s.session_recursos}</p>
                       </div>
                     )}
                   </div>
