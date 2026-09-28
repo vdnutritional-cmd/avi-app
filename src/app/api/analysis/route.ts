@@ -285,6 +285,7 @@ export async function PATCH(request: NextRequest) {
     const {
       patientId, initialNote, initialNoteDate, initialNoteProBono, initialNoteVirtual,
       initialNoteMotivo, initialNoteSubyacente, initialNotePremisas,
+      sensacionPaciente, factoresRiesgo, factoresProteccion, frecuenciaConfig,
     } = await request.json()
     if (!patientId) return NextResponse.json({ error: 'patientId requerido' }, { status: 400 })
 
@@ -292,12 +293,17 @@ export async function PATCH(request: NextRequest) {
       initial_note: initialNote,
       initial_note_updated_at: new Date().toISOString(),
     }
-    if (initialNoteDate      !== undefined) updateData.initial_note_date       = initialNoteDate
-    if (initialNoteProBono   !== undefined) updateData.initial_note_pro_bono   = initialNoteProBono
-    if (initialNoteVirtual   !== undefined) updateData.initial_note_virtual     = initialNoteVirtual
-    if (initialNoteMotivo    !== undefined) updateData.initial_note_motivo      = initialNoteMotivo
-    if (initialNoteSubyacente !== undefined) updateData.initial_note_subyacente = initialNoteSubyacente
-    if (initialNotePremisas  !== undefined) updateData.initial_note_premisas    = initialNotePremisas
+    if (initialNoteDate       !== undefined) updateData.initial_note_date            = initialNoteDate
+    if (initialNoteProBono    !== undefined) updateData.initial_note_pro_bono        = initialNoteProBono
+    if (initialNoteVirtual    !== undefined) updateData.initial_note_virtual          = initialNoteVirtual
+    if (initialNoteMotivo     !== undefined) updateData.initial_note_motivo           = initialNoteMotivo
+    if (initialNoteSubyacente !== undefined) updateData.initial_note_subyacente       = initialNoteSubyacente
+    if (initialNotePremisas   !== undefined) updateData.initial_note_premisas         = initialNotePremisas
+    // Sprint 4 — VIII + IX
+    if (sensacionPaciente  !== undefined) updateData.sensacion_paciente_inicial = sensacionPaciente
+    if (factoresRiesgo     !== undefined) updateData.factores_riesgo_sel        = factoresRiesgo
+    if (factoresProteccion !== undefined) updateData.factores_proteccion_sel    = factoresProteccion
+    if (frecuenciaConfig   !== undefined) updateData.frecuencia_config          = frecuenciaConfig || null
 
     const { data: updated, error } = await supabase
       .from('therapist_patients')

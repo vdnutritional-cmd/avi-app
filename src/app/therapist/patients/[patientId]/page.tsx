@@ -69,6 +69,15 @@ export default function PatientDetailPage() {
   const [savedNoteSubyacente, setSavedNoteSubyacente] = useState('')
   const [initialNotePremisas, setInitialNotePremisas] = useState('')
   const [savedNotePremisas, setSavedNotePremisas] = useState('')
+  // Sprint 4 — VIII + IX
+  const [sensacionPaciente, setSensacionPaciente] = useState('0')
+  const [savedSensacionPaciente, setSavedSensacionPaciente] = useState('0')
+  const [factoresRiesgo, setFactoresRiesgo] = useState('')
+  const [savedFactoresRiesgo, setSavedFactoresRiesgo] = useState('')
+  const [factoresProteccion, setFactoresProteccion] = useState('')
+  const [savedFactoresProteccion, setSavedFactoresProteccion] = useState('')
+  const [frecuenciaConfig, setFrecuenciaConfig] = useState('')
+  const [savedFrecuenciaConfig, setSavedFrecuenciaConfig] = useState('')
   const [savingNote, setSavingNote] = useState(false)
   const [noteSaved, setNoteSaved] = useState(false)
 
@@ -131,7 +140,7 @@ export default function PatientDetailPage() {
       supabase.from('profiles').select('full_name, email').eq('id', patientId).single(),
       supabase.from('patterns').select('*').eq('patient_id', patientId).order('created_at', { ascending: false }),
       supabase.from('analyses').select('*').eq('patient_id', patientId).eq('therapist_id', user?.id ?? '').order('created_at', { ascending: false }),
-      supabase.from('therapist_patients').select('initial_note, initial_note_date, initial_note_pro_bono, initial_note_virtual, initial_note_motivo, initial_note_subyacente, initial_note_premisas, empresa_id, convenio_empresas(nombre)').eq('patient_id', patientId).eq('therapist_id', user?.id ?? '').single(),
+      supabase.from('therapist_patients').select('initial_note, initial_note_date, initial_note_pro_bono, initial_note_virtual, initial_note_motivo, initial_note_subyacente, initial_note_premisas, sensacion_paciente_inicial, factores_riesgo_sel, factores_proteccion_sel, frecuencia_config, empresa_id, convenio_empresas(nombre)').eq('patient_id', patientId).eq('therapist_id', user?.id ?? '').single(),
       supabase.from('therapist_session_notes').select('*').eq('patient_id', patientId).order('session_number', { ascending: true }),
       supabase.from('patient_expediente').select('*').eq('therapist_id', user?.id ?? '').eq('patient_id', patientId).maybeSingle(),
     ])
@@ -183,6 +192,29 @@ export default function PatientDetailPage() {
     const notePremisas = relationRes.data?.initial_note_premisas ?? ''
     setInitialNotePremisas(notePremisas)
     setSavedNotePremisas(notePremisas)
+
+    // Sprint 4 — VIII: sensación inicial ('n/a' o vacío → '0')
+    const rawSensacion = relationRes.data?.sensacion_paciente_inicial ?? '0'
+    const sensacion = (rawSensacion === 'n/a' || !rawSensacion) ? '0' : rawSensacion
+    setSensacionPaciente(sensacion)
+    setSavedSensacionPaciente(sensacion)
+
+    // Sprint 4 — VIII: factores de riesgo (jsonb: array vacío → '', string → tal cual)
+    const rawRiesgo = relationRes.data?.factores_riesgo_sel
+    const factRiesgo = Array.isArray(rawRiesgo) ? rawRiesgo.join('\n') : (typeof rawRiesgo === 'string' ? rawRiesgo : '')
+    setFactoresRiesgo(factRiesgo)
+    setSavedFactoresRiesgo(factRiesgo)
+
+    // Sprint 4 — VIII: factores de protección
+    const rawProteccion = relationRes.data?.factores_proteccion_sel
+    const factProteccion = Array.isArray(rawProteccion) ? rawProteccion.join('\n') : (typeof rawProteccion === 'string' ? rawProteccion : '')
+    setFactoresProteccion(factProteccion)
+    setSavedFactoresProteccion(factProteccion)
+
+    // Sprint 4 — IX: frecuencia configurada
+    const freqConf = relationRes.data?.frecuencia_config ?? ''
+    setFrecuenciaConfig(freqConf)
+    setSavedFrecuenciaConfig(freqConf)
   }
 
   useEffect(() => {
@@ -240,6 +272,7 @@ export default function PatientDetailPage() {
         body: JSON.stringify({
           patientId, initialNote, initialNoteDate, initialNoteProBono, initialNoteVirtual,
           initialNoteMotivo, initialNoteSubyacente, initialNotePremisas,
+          sensacionPaciente, factoresRiesgo, factoresProteccion, frecuenciaConfig,
         }),
       })
       if (!res.ok) {
@@ -254,6 +287,10 @@ export default function PatientDetailPage() {
       setSavedNoteMotivo(initialNoteMotivo)
       setSavedNoteSubyacente(initialNoteSubyacente)
       setSavedNotePremisas(initialNotePremisas)
+      setSavedSensacionPaciente(sensacionPaciente)
+      setSavedFactoresRiesgo(factoresRiesgo)
+      setSavedFactoresProteccion(factoresProteccion)
+      setSavedFrecuenciaConfig(frecuenciaConfig)
       setNoteSaved(true)
       setTimeout(() => setNoteSaved(false), 3000)
     } catch {
@@ -395,7 +432,11 @@ export default function PatientDetailPage() {
     initialNoteVirtual !== savedNoteVirtual ||
     initialNoteMotivo !== savedNoteMotivo ||
     initialNoteSubyacente !== savedNoteSubyacente ||
-    initialNotePremisas !== savedNotePremisas
+    initialNotePremisas !== savedNotePremisas ||
+    sensacionPaciente !== savedSensacionPaciente ||
+    factoresRiesgo !== savedFactoresRiesgo ||
+    factoresProteccion !== savedFactoresProteccion ||
+    frecuenciaConfig !== savedFrecuenciaConfig
   const hayContenidoNuevaSesion = !!(newSessionObjetivo.trim() || newSessionDesarrollo.trim() || newSessionNotes.trim())
   const puedeAgregarSesion = sessionNotes.length < MAX_SESIONES_PRESENCIALES || editingSessionId !== null
 
@@ -886,6 +927,78 @@ export default function PatientDetailPage() {
               />
               <span className="text-sm text-gray-600">Virtual</span>
             </label>
+          </div>
+
+          {/* ── Sprint 4 IX — Frecuencia de las sesiones ── */}
+          <div className="space-y-2">
+            <div>
+              <p className="text-sm font-semibold text-gray-700">Frecuencia de las sesiones</p>
+              <p className="text-xs text-gray-400 mt-0.5">Cadencia acordada con el asesorado o paciente.</p>
+            </div>
+            <select
+              value={frecuenciaConfig}
+              onChange={e => setFrecuenciaConfig(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-700
+                         focus:outline-none focus:ring-2 focus:ring-primary-300 transition bg-white"
+            >
+              <option value="">— Sin definir</option>
+              <option value="semanal">Semanal</option>
+              <option value="cada_2_semanas">Cada 2 semanas</option>
+              <option value="mensual">Mensual</option>
+            </select>
+          </div>
+
+          {/* ── Sprint 4 VIII — Sensación inicial del paciente ── */}
+          <div className="space-y-2">
+            <div>
+              <p className="text-sm font-semibold text-gray-700">Sensación inicial del paciente</p>
+              <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">
+                Al comenzar la Sesión Inicial pregúntale a tu asesorado o paciente: <em>"Del 1 al 10 me puedes decir por favor ¿Cómo te sientes en este momento?, donde 1 es pésimo (muy muy mal), y 10 es excelente."</em>
+              </p>
+            </div>
+            <select
+              value={sensacionPaciente}
+              onChange={e => setSensacionPaciente(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-700
+                         focus:outline-none focus:ring-2 focus:ring-primary-300 transition bg-white"
+            >
+              <option value="0">— (n/a)</option>
+              {[1,2,3,4,5,6,7,8,9,10].map(n => (
+                <option key={n} value={String(n)}>{n}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* ── Sprint 4 VIII — Factores de Riesgo ── */}
+          <div className="space-y-2">
+            <div>
+              <p className="text-sm font-semibold text-gray-700">Factores de Riesgo</p>
+              <p className="text-xs text-gray-400 mt-0.5">Factores identificados en la sesión inicial que representan un riesgo para el paciente.</p>
+            </div>
+            <textarea
+              value={factoresRiesgo}
+              onChange={e => setFactoresRiesgo(e.target.value)}
+              placeholder="Describe los factores de riesgo identificados..."
+              rows={4}
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-700
+                         focus:outline-none focus:ring-2 focus:ring-primary-300 leading-relaxed resize-none"
+            />
+          </div>
+
+          {/* ── Sprint 4 VIII — Factores de Protección ── */}
+          <div className="space-y-2">
+            <div>
+              <p className="text-sm font-semibold text-gray-700">Factores de Protección</p>
+              <p className="text-xs text-gray-400 mt-0.5">Recursos y fortalezas del paciente que funcionan como factores protectores.</p>
+            </div>
+            <textarea
+              value={factoresProteccion}
+              onChange={e => setFactoresProteccion(e.target.value)}
+              placeholder="Describe los factores de protección identificados..."
+              rows={4}
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-700
+                         focus:outline-none focus:ring-2 focus:ring-primary-300 leading-relaxed resize-none"
+            />
           </div>
 
           {/* 1. Desarrollo del caso */}
