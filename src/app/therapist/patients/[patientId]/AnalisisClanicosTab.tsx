@@ -567,6 +567,12 @@ export default function AnalisisClanicosTab({ patientId, therapistId }: Props) {
         )}
       </div>
 
+      {/* ══ ENCABEZADO: SOLICITADOS ═══════════════════════ */}
+      <div className="pt-2 pb-1">
+        <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Solicitados</p>
+        <div className="mt-1 border-t border-gray-100" />
+      </div>
+
       {/* ══ APARTADO: GENOGRAMA ══════════════════════════ */}
       {visibles.includes('genograma') && (
         <ApartadoCard id="genograma" icon="🌳" label="Genograma" hasData={!!genogramaUrl || !!genogramaInterp}>
@@ -770,6 +776,12 @@ export default function AnalisisClanicosTab({ patientId, therapistId }: Props) {
           </button>
         </div>
       )}
+
+      {/* ══ ENCABEZADO: AUTODETERMINADOS / EDITABLES ═════════ */}
+      <div className="pt-2 pb-1">
+        <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Autodeterminados / Editables</p>
+        <div className="mt-1 border-t border-gray-100" />
+      </div>
 
       {/* ══ CONCLUSIONES ═════════════════════════════════════ */}
       {visibles.length > 0 && (
@@ -979,6 +991,12 @@ export default function AnalisisClanicosTab({ patientId, therapistId }: Props) {
           )}
         </div>
       </ApartadoCard>
+
+      {/* ══ ENCABEZADO: EDITABLES ════════════════════════════ */}
+      <div className="pt-2 pb-1">
+        <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Editables</p>
+        <div className="mt-1 border-t border-gray-100" />
+      </div>
 
       {/* Información de interés */}
       <ApartadoCard

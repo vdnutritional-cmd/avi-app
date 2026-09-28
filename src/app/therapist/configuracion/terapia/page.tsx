@@ -151,7 +151,7 @@ export default function TerapiaConfigPage() {
       {/* Selector de enfoques */}
       <div className="space-y-3">
         <p className="text-sm font-medium text-gray-700">
-          Elige hasta 2 enfoques terapéuticos adicionales:
+          Elige hasta 2 enfoques terapéuticos:
         </p>
         {TERAPIAS.map(t => {
           const activa = seleccion.includes(t.id)

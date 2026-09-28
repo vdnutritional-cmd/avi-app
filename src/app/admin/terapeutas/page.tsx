@@ -2,6 +2,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import Link from 'next/link'
 import RejectTherapistButton from '@/app/admin/RejectTherapistButton'
+import DeleteTherapistButton from '@/app/admin/DeleteTherapistButton'
 
 function esFindeSemana(dateStr: string) {
   const [y, m, d] = dateStr.split('-').map(Number)
@@ -85,6 +86,15 @@ async function rechazarTerapeuta(formData: FormData) {
   const therapistId = formData.get('therapistId') as string
   const supabase = createAdminClient()
   // Elimina el usuario de auth (cascada borra el perfil)
+  await supabase.auth.admin.deleteUser(therapistId)
+  revalidatePath('/admin/terapeutas')
+}
+
+async function eliminarTerapeuta(formData: FormData) {
+  'use server'
+  const therapistId = formData.get('therapistId') as string
+  const supabase = createAdminClient()
+  // Elimina el usuario de auth (cascada borra perfil y todos sus datos)
   await supabase.auth.admin.deleteUser(therapistId)
   revalidatePath('/admin/terapeutas')
 }
@@ -429,6 +439,11 @@ export default async function AdminTerapeutasPage({
                         Revocar acceso
                       </button>
                     </form>
+                    <DeleteTherapistButton
+                      therapistId={t.id}
+                      displayName={t.full_name ?? t.email ?? 'este terapeuta'}
+                      action={eliminarTerapeuta}
+                    />
                   </div>
                 </div>
               )
@@ -450,24 +465,31 @@ export default async function AdminTerapeutasPage({
                   <p className="font-medium text-gray-800">{t.full_name ?? '—'}</p>
                   <p className="text-sm text-gray-500">{t.email}</p>
                 </div>
-                <form action={aprobarTerapeuta} className="flex items-center gap-2 flex-wrap">
-                  <input type="hidden" name="therapistId" value={t.id} />
-                  <select name="slots" defaultValue="10"
-                    className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300">
-                    {[3, 5, 10, 15, 20, 30, 40].map(n => (
-                      <option key={n} value={n}>{n}</option>
-                    ))}
-                  </select>
-                  <select name="tier" defaultValue="esencial"
-                    className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300">
-                    <option value="esencial">Esencial</option>
-                    <option value="clinico">Clínico</option>
-                  </select>
-                  <button type="submit"
-                    className="bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors">
-                    Reactivar
-                  </button>
-                </form>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <form action={aprobarTerapeuta} className="flex items-center gap-2 flex-wrap">
+                    <input type="hidden" name="therapistId" value={t.id} />
+                    <select name="slots" defaultValue="10"
+                      className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300">
+                      {[3, 5, 10, 15, 20, 30, 40].map(n => (
+                        <option key={n} value={n}>{n}</option>
+                      ))}
+                    </select>
+                    <select name="tier" defaultValue="esencial"
+                      className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300">
+                      <option value="esencial">Esencial</option>
+                      <option value="clinico">Clínico</option>
+                    </select>
+                    <button type="submit"
+                      className="bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors">
+                      Reactivar
+                    </button>
+                  </form>
+                  <DeleteTherapistButton
+                    therapistId={t.id}
+                    displayName={t.full_name ?? t.email ?? 'este terapeuta'}
+                    action={eliminarTerapeuta}
+                  />
+                </div>
               </div>
             ))}
           </div>

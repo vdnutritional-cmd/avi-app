@@ -517,12 +517,12 @@ export default function PatientDetailPage() {
           { id: 'nota',            label: 'Nota inicial' + (savedNote ? ' ✓' : ' ⚠️'),        locked: false },
           { id: 'presenciales',    label: `Sesiones presenciales (${sessionNotes.length}/${MAX_SESIONES_PRESENCIALES})`, locked: false },
           { id: 'analisis',        label: `Análisis (${analyses.length})`,                     locked: false },
-          { id: 'expediente',      label: tier === 'clinico' ? 'EXPEDIENTE' : '🔒 EXPEDIENTE', locked: tier !== 'clinico' },
+          { id: 'expediente',      label: tier === 'clinico' ? 'AVI-CLÍNICO' : '🔒 AVI-CLÍNICO', locked: tier !== 'clinico' },
         ].map(tab => (
           <button key={tab.id}
             onClick={() => {
               if (tab.locked) {
-                alert('El Expediente está disponible en AVI Clínico. Actualiza tu plan en Planes y precios.')
+                alert('AVI-CLÍNICO está disponible en AVI Clínico. Actualiza tu plan en Planes y precios.')
                 return
               }
               setActiveTab(tab.id as typeof activeTab)
@@ -641,7 +641,7 @@ export default function PatientDetailPage() {
               {/* 1. Objetivo */}
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-gray-600">
-                  1. Objetivo de la sesión
+                  1. Objetivo de la sesión / Seguimiento
                 </label>
                 <textarea
                   value={newSessionObjetivo}
@@ -656,7 +656,7 @@ export default function PatientDetailPage() {
               {/* 2. Desarrollo */}
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-gray-600">
-                  2. Desarrollo de la sesión
+                  2. Desarrollo de la sesión / Intervención realizada
                 </label>
                 <textarea
                   value={newSessionDesarrollo}
@@ -671,12 +671,12 @@ export default function PatientDetailPage() {
               {/* 3. Observaciones particulares */}
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-gray-600">
-                  3. Observaciones particulares
+                  3. Observaciones particulares / Acuerdos / Tareas
                 </label>
                 <textarea
                   value={newSessionNotes}
                   onChange={e => setNewSessionNotes(e.target.value)}
-                  placeholder="Observaciones clínicas relevantes, elementos a seguir en próximas sesiones, señales de alerta, avances notables..."
+                  placeholder="Este apartado no puede quedar en blanco; es importante que contenga información para que pueda ser guardada la sesión"
                   rows={6}
                   className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-700
                              focus:outline-none focus:ring-2 focus:ring-primary-300 leading-relaxed resize-none"
@@ -747,19 +747,19 @@ export default function PatientDetailPage() {
                   <div className="space-y-4">
                     {s.session_objetivo && (
                       <div>
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Objetivo de la sesión</p>
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Objetivo de la sesión / Seguimiento</p>
                         <p className="text-sm text-gray-700 leading-relaxed">{s.session_objetivo}</p>
                       </div>
                     )}
                     {s.session_desarrollo && (
                       <div>
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Desarrollo de la sesión</p>
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Desarrollo de la sesión / Intervención realizada</p>
                         <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{s.session_desarrollo}</p>
                       </div>
                     )}
                     {s.notes && (
                       <div>
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Observaciones particulares</p>
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Observaciones particulares / Acuerdos / Tareas</p>
                         <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{s.notes}</p>
                       </div>
                     )}
