@@ -66,11 +66,13 @@ function SelectField({
 interface Props {
   patientId: string
   therapistId: string
+  /** Callback que notifica al padre cuando se guarda un nuevo tipo de caso */
+  onTipoCasoSaved?: (nuevoTipo: string) => void
 }
 
 // ── Componente ────────────────────────────────────────────────────────────────
 
-export default function TipoCasoTab({ patientId, therapistId }: Props) {
+export default function TipoCasoTab({ patientId, therapistId, onTipoCasoSaved }: Props) {
   const [tipoCaso,    setTipoCaso]    = useState('')
   const [problematica, setProblematica] = useState('')
 
@@ -131,6 +133,8 @@ export default function TipoCasoTab({ patientId, therapistId }: Props) {
       setSavedProblematica(problematica)
       setSaveOk(true)
       setTimeout(() => setSaveOk(false), 3000)
+      // Notificar al padre para que actualice tipoCasoActivo sin refresh
+      onTipoCasoSaved?.(tipoCaso)
     } finally {
       setSaving(false)
     }

@@ -679,6 +679,9 @@ export default function PatientDetailPage() {
         <TipoCasoTab
           patientId={patientId}
           therapistId={therapistId}
+          onTipoCasoSaved={(nuevoTipo) =>
+            setExpedienteRow(prev => prev ? { ...prev, tipo_caso: nuevoTipo } : prev)
+          }
         />
       )}
 
