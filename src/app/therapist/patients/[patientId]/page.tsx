@@ -1130,6 +1130,13 @@ export default function PatientDetailPage() {
             />
           </div>
 
+          {/* 5. Factores de riesgo y protección */}
+          <div className="pt-2">
+            <p className="text-sm font-semibold text-gray-700">
+              5. Factores de riesgo y protección
+            </p>
+          </div>
+
           {/* ── Sprint 4 VIII — Factores de Riesgo y Protección (formato FamiliarTab) ── */}
           {(() => {
             const IND_RIESGO = [
