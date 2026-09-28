@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import ExpedienteTab from './ExpedienteTab'
 import DatosGeneralesTab from './DatosGeneralesTab'
+import TipoCasoTab from './TipoCasoTab'
 
 const MAX_SESIONES_PRESENCIALES = 12
 
@@ -102,7 +103,7 @@ export default function PatientDetailPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [expedienteRow, setExpedienteRow] = useState<Record<string, any> | null | undefined>(undefined)
 
-  const [activeTab, setActiveTab] = useState<'datos-generales' | 'sesiones' | 'presenciales' | 'analisis' | 'nota' | 'expediente'>('datos-generales')
+  const [activeTab, setActiveTab] = useState<'datos-generales' | 'tipo-caso' | 'sesiones' | 'presenciales' | 'analisis' | 'nota' | 'expediente'>('datos-generales')
   const [therapistId, setTherapistId] = useState<string | null>(null)
   const [tier, setTier] = useState<'esencial' | 'clinico'>('esencial')
   const streamRef = useRef<HTMLDivElement>(null)
@@ -513,6 +514,7 @@ export default function PatientDetailPage() {
       <div className="flex border-b border-gray-200 overflow-x-auto">
         {[
           { id: 'datos-generales', label: 'Datos Generales',                                   locked: false },
+          { id: 'tipo-caso',       label: 'Tipo de caso',                                      locked: false },
           { id: 'sesiones',        label: `Sesiones AVI (${patterns.length})`,                 locked: false },
           { id: 'nota',            label: 'Nota inicial' + (savedNote ? ' ✓' : ' ⚠️'),        locked: false },
           { id: 'presenciales',    label: `Sesiones presenciales (${sessionNotes.length}/${MAX_SESIONES_PRESENCIALES})`, locked: false },
@@ -547,6 +549,14 @@ export default function PatientDetailPage() {
           therapistId={therapistId}
           patientEmail={profile?.email ?? null}
           initialData={expedienteRow}
+        />
+      )}
+
+      {/* ── TAB: Tipo de caso ── */}
+      {activeTab === 'tipo-caso' && therapistId && (
+        <TipoCasoTab
+          patientId={patientId}
+          therapistId={therapistId}
         />
       )}
 

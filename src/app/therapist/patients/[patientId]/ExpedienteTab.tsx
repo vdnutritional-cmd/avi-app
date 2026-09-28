@@ -21,55 +21,12 @@ interface Props {
 }
 
 // ──────────────────────────────────────────────
-// Helper components
-// ──────────────────────────────────────────────
-function SelectInput({
-  value, onChange, options, placeholder,
-}: {
-  value: string
-  onChange: (v: string) => void
-  options: string[]
-  placeholder?: string
-}) {
-  return (
-    <select
-      value={value}
-      onChange={e => onChange(e.target.value)}
-      className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-700
-                 focus:outline-none focus:ring-2 focus:ring-primary-300 transition bg-white"
-    >
-      <option value="">{placeholder ?? 'Selecciona…'}</option>
-      {options.map(o => <option key={o} value={o}>{o}</option>)}
-    </select>
-  )
-}
-
-function SectionCard({
-  title, children,
-}: {
-  title: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className="bg-white rounded-2xl border border-gray-100 p-6">
-      <div className="border-b border-gray-100 pb-2 mb-5">
-        <h4 className="text-sm font-semibold text-gray-700">{title}</h4>
-      </div>
-      {children}
-    </div>
-  )
-}
-
-// ──────────────────────────────────────────────
 // Main component
 // ──────────────────────────────────────────────
 export default function ExpedienteTab({ patientId, therapistId, patientEmail: _patientEmail, patientName }: Props) {
   const [tipoCaso, setTipoCaso] = useState('')
-  const [savedTipoCaso, setSavedTipoCaso] = useState('')
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [saveOk, setSaveOk] = useState(false)
-  const [subTab, setSubTab] = useState<'tipo-caso' | 'individual' | 'familiar' | 'pareja' | 'prediagnostico' | 'analisis-clinicos' | 'impresiones' | 'cuestionarios'>('tipo-caso')
+  const [subTab, setSubTab] = useState<'individual' | 'familiar' | 'pareja' | 'prediagnostico' | 'analisis-clinicos' | 'impresiones' | 'cuestionarios'>('prediagnostico')
 
   // Cargar expediente al montar
   useEffect(() => {
@@ -90,41 +47,11 @@ export default function ExpedienteTab({ patientId, therapistId, patientEmail: _p
 
       if (row) {
         setTipoCaso(row.tipo_caso ?? '')
-        setSavedTipoCaso(row.tipo_caso ?? '')
       }
     } finally {
       setLoading(false)
     }
   }
-
-  async function save() {
-    setSaving(true)
-    try {
-      const supabase = createClient()
-      // NOTE: Only tipo_caso is managed here. Datos generales fields are managed by DatosGeneralesTab.
-      const { error } = await supabase
-        .from('patient_expediente')
-        .upsert({
-          therapist_id: therapistId,
-          patient_id: patientId,
-          tipo_caso: tipoCaso || null,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'therapist_id,patient_id' })
-
-      if (error) {
-        alert(`Error al guardar el tipo de caso: ${error.message}`)
-        return
-      }
-
-      setSavedTipoCaso(tipoCaso)
-      setSaveOk(true)
-      setTimeout(() => setSaveOk(false), 3000)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const changed = tipoCaso !== savedTipoCaso
 
   // Tabs bloqueados según el tipo de caso seleccionado
   const tabBloqueado = (id: string) => {
@@ -137,14 +64,13 @@ export default function ExpedienteTab({ patientId, therapistId, patientEmail: _p
     return false
   }
 
-  // Si el sub-tab activo queda bloqueado al cambiar tipo_caso, volver a Tipo de caso
+  // Si el sub-tab activo queda bloqueado al cambiar tipo_caso, volver a Prediagnóstico
   useEffect(() => {
-    if (tabBloqueado(subTab)) setSubTab('tipo-caso')
+    if (tabBloqueado(subTab)) setSubTab('prediagnostico')
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tipoCaso])
 
   const SUB_TABS = [
-    { id: 'tipo-caso',        label: 'Tipo de caso',       ready: true },
     { id: 'individual',       label: 'Individual',         ready: !tabBloqueado('individual') },
     { id: 'familiar',         label: 'Familiar',           ready: !tabBloqueado('familiar') },
     { id: 'pareja',           label: 'Pareja',             ready: !tabBloqueado('pareja') },
@@ -184,38 +110,6 @@ export default function ExpedienteTab({ patientId, therapistId, patientEmail: _p
           </button>
         ))}
       </div>
-
-      {/* ── Tipo de caso ── */}
-      {subTab === 'tipo-caso' && (
-        <div className="space-y-5">
-          <SectionCard title="Tipo de caso">
-            <div className="max-w-xs">
-              <SelectInput
-                value={tipoCaso}
-                onChange={v => setTipoCaso(v)}
-                options={['Individual', 'Familiar', 'Pareja']}
-                placeholder="Selecciona el tipo de caso…"
-              />
-            </div>
-            <p className="mt-3 text-xs text-gray-400">
-              El tipo de caso determina qué secciones del expediente están disponibles
-              (Individual, Familiar o Pareja).
-            </p>
-          </SectionCard>
-
-          {/* Botón guardar */}
-          <div className="flex justify-end pt-1 pb-4">
-            <button
-              onClick={save}
-              disabled={saving || !changed}
-              className="px-6 py-3 bg-primary-600 text-white rounded-xl text-sm font-semibold
-                         hover:bg-primary-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              {saving ? 'Guardando…' : saveOk ? '✓ Guardado' : 'Guardar tipo de caso'}
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* ── Individual ── */}
       {subTab === 'individual' && (
