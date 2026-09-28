@@ -85,6 +85,8 @@ export default function PatientDetailPage() {
   const [openTFS, setOpenTFS] = useState(false)
   const [openTREC, setOpenTREC] = useState(false)
   const [openTCC, setOpenTCC] = useState(false)
+  // Sprint 4 — perfil terapéutico del terapeuta (para bloquear bloques no seleccionados)
+  const [therapyProfile, setTherapyProfile] = useState<string>('')
   // Sprint 4 — TCC
   const [factoresRiesgoTCC, setFactoresRiesgoTCC] = useState<{ individual: string[]; familiar: string[]; pareja: string[] }>({ individual: [], familiar: [], pareja: [] })
   const [savedFactoresRiesgoTCC, setSavedFactoresRiesgoTCC] = useState<{ individual: string[]; familiar: string[]; pareja: string[] }>({ individual: [], familiar: [], pareja: [] })
@@ -150,13 +152,14 @@ export default function PatientDetailPage() {
       if (sub?.tier === 'clinico') setTier('clinico')
     }
 
-    const [profileRes, patternsRes, analysesRes, relationRes, sessionNotesRes, expedienteRes] = await Promise.all([
+    const [profileRes, patternsRes, analysesRes, relationRes, sessionNotesRes, expedienteRes, therapistProfileRes] = await Promise.all([
       supabase.from('profiles').select('full_name, email').eq('id', patientId).single(),
       supabase.from('patterns').select('*').eq('patient_id', patientId).order('created_at', { ascending: false }),
       supabase.from('analyses').select('*').eq('patient_id', patientId).eq('therapist_id', user?.id ?? '').order('created_at', { ascending: false }),
       supabase.from('therapist_patients').select('initial_note, initial_note_date, initial_note_pro_bono, initial_note_virtual, initial_note_motivo, initial_note_subyacente, initial_note_premisas, sensacion_paciente_inicial, factores_riesgo_sel, factores_proteccion_sel, factores_riesgo_trec, factores_proteccion_trec, factores_riesgo_tcc, factores_proteccion_tcc, frecuencia_config, empresa_id, convenio_empresas(nombre)').eq('patient_id', patientId).eq('therapist_id', user?.id ?? '').single(),
       supabase.from('therapist_session_notes').select('*').eq('patient_id', patientId).order('session_number', { ascending: true }),
       supabase.from('patient_expediente').select('*').eq('therapist_id', user?.id ?? '').eq('patient_id', patientId).maybeSingle(),
+      supabase.from('profiles').select('therapy_profile').eq('id', user?.id ?? '').single(),
     ])
 
     if (profileRes.data) setProfile(profileRes.data)
@@ -165,6 +168,8 @@ export default function PatientDetailPage() {
     if (sessionNotesRes.data) setSessionNotes(sessionNotesRes.data)
     // Siempre actualizar (null si no hay fila) para que DatosGeneralesTab sepa que ya terminó la carga
     setExpedienteRow(expedienteRes.data ?? null)
+    // Sprint 4 — perfil terapéutico del terapeuta
+    setTherapyProfile(therapistProfileRes.data?.therapy_profile ?? '')
 
     // Empresa CONVENIO del paciente (si tiene)
     const empresaRaw = relationRes.data?.convenio_empresas as unknown
@@ -500,6 +505,12 @@ export default function PatientDetailPage() {
     frecuenciaConfig !== savedFrecuenciaConfig
   const hayContenidoNuevaSesion = !!(newSessionObjetivo.trim() || newSessionDesarrollo.trim() || newSessionNotes.trim())
   const puedeAgregarSesion = sessionNotes.length < MAX_SESIONES_PRESENCIALES || editingSessionId !== null
+
+  // Sprint 4 — bloques activos según perfil terapéutico del terapeuta
+  const _tpPartes = therapyProfile ? therapyProfile.split('_') : []
+  const tfsActive  = _tpPartes.length === 0 || _tpPartes.includes('famsis')
+  const trecActive = _tpPartes.length === 0 || _tpPartes.includes('trec')
+  const tccActive  = _tpPartes.length === 0 || _tpPartes.includes('cc')
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
@@ -1200,7 +1211,7 @@ export default function PatientDetailPage() {
             }
 
             return (
-              <div className="space-y-5">
+              <div className={`space-y-5${!tfsActive ? ' opacity-50 pointer-events-none select-none' : ''}`}>
                 {/* Header acordeón TFS */}
                 <button
                   type="button"
@@ -1448,7 +1459,7 @@ export default function PatientDetailPage() {
             }
 
             return (
-              <div className="space-y-5 mt-6 pt-6 border-t border-gray-200">
+              <div className={`space-y-5 mt-6 pt-6 border-t border-gray-200${!trecActive ? ' opacity-50 pointer-events-none select-none' : ''}`}>
                 {/* Header acordeón TREC */}
                 <button
                   type="button"
@@ -1710,7 +1721,7 @@ export default function PatientDetailPage() {
             }
 
             return (
-              <div className="space-y-5 mt-6 pt-6 border-t border-gray-200">
+              <div className={`space-y-5 mt-6 pt-6 border-t border-gray-200${!tccActive ? ' opacity-50 pointer-events-none select-none' : ''}`}>
                 {/* Header acordeón TCC */}
                 <button
                   type="button"
