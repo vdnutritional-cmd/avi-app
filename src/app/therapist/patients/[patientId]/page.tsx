@@ -72,10 +72,10 @@ export default function PatientDetailPage() {
   // Sprint 4 — VIII + IX
   const [sensacionPaciente, setSensacionPaciente] = useState('0')
   const [savedSensacionPaciente, setSavedSensacionPaciente] = useState('0')
-  const [factoresRiesgo, setFactoresRiesgo] = useState('')
-  const [savedFactoresRiesgo, setSavedFactoresRiesgo] = useState('')
-  const [factoresProteccion, setFactoresProteccion] = useState('')
-  const [savedFactoresProteccion, setSavedFactoresProteccion] = useState('')
+  const [factoresRiesgo, setFactoresRiesgo] = useState<{ individual: string[]; familiar: string[] }>({ individual: [], familiar: [] })
+  const [savedFactoresRiesgo, setSavedFactoresRiesgo] = useState<{ individual: string[]; familiar: string[] }>({ individual: [], familiar: [] })
+  const [factoresProteccion, setFactoresProteccion] = useState<{ individual: string[]; familiar: string[] }>({ individual: [], familiar: [] })
+  const [savedFactoresProteccion, setSavedFactoresProteccion] = useState<{ individual: string[]; familiar: string[] }>({ individual: [], familiar: [] })
   const [frecuenciaConfig, setFrecuenciaConfig] = useState('')
   const [savedFrecuenciaConfig, setSavedFrecuenciaConfig] = useState('')
   const [savingNote, setSavingNote] = useState(false)
@@ -199,15 +199,20 @@ export default function PatientDetailPage() {
     setSensacionPaciente(sensacion)
     setSavedSensacionPaciente(sensacion)
 
-    // Sprint 4 — VIII: factores de riesgo (jsonb: array vacío → '', string → tal cual)
+    // Sprint 4 — VIII: factores de riesgo (jsonb: objeto {individual, familiar})
+    const emptyFactores = { individual: [] as string[], familiar: [] as string[] }
     const rawRiesgo = relationRes.data?.factores_riesgo_sel
-    const factRiesgo = Array.isArray(rawRiesgo) ? rawRiesgo.join('\n') : (typeof rawRiesgo === 'string' ? rawRiesgo : '')
+    const factRiesgo = (rawRiesgo && typeof rawRiesgo === 'object' && !Array.isArray(rawRiesgo))
+      ? { individual: rawRiesgo.individual ?? [], familiar: rawRiesgo.familiar ?? [] }
+      : emptyFactores
     setFactoresRiesgo(factRiesgo)
     setSavedFactoresRiesgo(factRiesgo)
 
     // Sprint 4 — VIII: factores de protección
     const rawProteccion = relationRes.data?.factores_proteccion_sel
-    const factProteccion = Array.isArray(rawProteccion) ? rawProteccion.join('\n') : (typeof rawProteccion === 'string' ? rawProteccion : '')
+    const factProteccion = (rawProteccion && typeof rawProteccion === 'object' && !Array.isArray(rawProteccion))
+      ? { individual: rawProteccion.individual ?? [], familiar: rawProteccion.familiar ?? [] }
+      : emptyFactores
     setFactoresProteccion(factProteccion)
     setSavedFactoresProteccion(factProteccion)
 
@@ -434,8 +439,8 @@ export default function PatientDetailPage() {
     initialNoteSubyacente !== savedNoteSubyacente ||
     initialNotePremisas !== savedNotePremisas ||
     sensacionPaciente !== savedSensacionPaciente ||
-    factoresRiesgo !== savedFactoresRiesgo ||
-    factoresProteccion !== savedFactoresProteccion ||
+    JSON.stringify(factoresRiesgo) !== JSON.stringify(savedFactoresRiesgo) ||
+    JSON.stringify(factoresProteccion) !== JSON.stringify(savedFactoresProteccion) ||
     frecuenciaConfig !== savedFrecuenciaConfig
   const hayContenidoNuevaSesion = !!(newSessionObjetivo.trim() || newSessionDesarrollo.trim() || newSessionNotes.trim())
   const puedeAgregarSesion = sessionNotes.length < MAX_SESIONES_PRESENCIALES || editingSessionId !== null
@@ -969,38 +974,6 @@ export default function PatientDetailPage() {
             </select>
           </div>
 
-          {/* ── Sprint 4 VIII — Factores de Riesgo ── */}
-          <div className="space-y-2">
-            <div>
-              <p className="text-sm font-semibold text-gray-700">Factores de Riesgo</p>
-              <p className="text-xs text-gray-400 mt-0.5">Factores identificados en la sesión inicial que representan un riesgo para el paciente.</p>
-            </div>
-            <textarea
-              value={factoresRiesgo}
-              onChange={e => setFactoresRiesgo(e.target.value)}
-              placeholder="Describe los factores de riesgo identificados..."
-              rows={4}
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-700
-                         focus:outline-none focus:ring-2 focus:ring-primary-300 leading-relaxed resize-none"
-            />
-          </div>
-
-          {/* ── Sprint 4 VIII — Factores de Protección ── */}
-          <div className="space-y-2">
-            <div>
-              <p className="text-sm font-semibold text-gray-700">Factores de Protección</p>
-              <p className="text-xs text-gray-400 mt-0.5">Recursos y fortalezas del paciente que funcionan como factores protectores.</p>
-            </div>
-            <textarea
-              value={factoresProteccion}
-              onChange={e => setFactoresProteccion(e.target.value)}
-              placeholder="Describe los factores de protección identificados..."
-              rows={4}
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-700
-                         focus:outline-none focus:ring-2 focus:ring-primary-300 leading-relaxed resize-none"
-            />
-          </div>
-
           {/* 1. Desarrollo del caso */}
           <div className="space-y-2">
             <div>
@@ -1079,6 +1052,138 @@ export default function PatientDetailPage() {
               className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-700
                          focus:outline-none focus:ring-2 focus:ring-primary-300 leading-relaxed resize-none"
             />
+          </div>
+
+          {/* ── Sprint 4 VIII — Factores de Riesgo y Protección (checkboxes) ── */}
+          <div className="space-y-4">
+            {/* Subtítulo enfoque */}
+            <p className="text-xs font-bold uppercase tracking-widest text-gray-400 border-b border-gray-100 pb-1">
+              Terapia Familiar Sistémica
+            </p>
+
+            {/* ── INDIVIDUAL ── */}
+            <div className="space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-primary-600">Individual</p>
+
+              {/* Factores de Riesgo — Individual */}
+              <div className="space-y-1.5">
+                <p className="text-sm font-medium text-gray-700">Factores de Riesgo</p>
+                {[
+                  'Posición rígida en el sistema. Chivo expiatorio, héroe, cuidador parental.',
+                  'Corte emocional. Ruptura significativa con la familia de origen.',
+                  'Patrón transgeneracional repetido. Lealtad a un guion familiar disfuncional.',
+                  'Aislamiento relacional. Ausencia de red de apoyo significativa.',
+                  'Indiferenciación de sí mismo. Incapacidad de tener pensamientos, sentimientos, valores y decisiones propias, distintas de las de su familia o pareja.',
+                  'Homeostasis individual. El síntoma protege al sistema de un cambio mayor.',
+                ].map(item => (
+                  <label key={item} className="flex items-start gap-2 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={factoresRiesgo.individual.includes(item)}
+                      onChange={() => setFactoresRiesgo(prev => ({
+                        ...prev,
+                        individual: prev.individual.includes(item)
+                          ? prev.individual.filter(x => x !== item)
+                          : [...prev.individual, item],
+                      }))}
+                      className="mt-0.5 w-4 h-4 rounded accent-primary-600 shrink-0"
+                    />
+                    <span className="text-sm text-gray-600 leading-snug group-hover:text-gray-800">{item}</span>
+                  </label>
+                ))}
+              </div>
+
+              {/* Factores de Protección — Individual */}
+              <div className="space-y-1.5">
+                <p className="text-sm font-medium text-gray-700">Factores de Protección</p>
+                {[
+                  'Claridad de límites. Capacidad de mantener distancia emocional adecuada sin fusionarse ni aislarse.',
+                  'Diferenciación de mí mismo (del self). Distinguir los propios pensamientos y emociones de los de los demás.',
+                  'Capacidad de introspección. Reflexionar sobre sí mismo y evaluarse de forma honesta para mejorar.',
+                  'Autonomía. Mantener distancia emocional y física de las fuentes de estrés sin aislarse.',
+                  'Habilidad para relacionarse. Establecer vínculos íntimos equilibrando las propias necesidades con las del otro.',
+                ].map(item => (
+                  <label key={item} className="flex items-start gap-2 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={factoresProteccion.individual.includes(item)}
+                      onChange={() => setFactoresProteccion(prev => ({
+                        ...prev,
+                        individual: prev.individual.includes(item)
+                          ? prev.individual.filter(x => x !== item)
+                          : [...prev.individual, item],
+                      }))}
+                      className="mt-0.5 w-4 h-4 rounded accent-primary-600 shrink-0"
+                    />
+                    <span className="text-sm text-gray-600 leading-snug group-hover:text-gray-800">{item}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* ── FAMILIAR ── */}
+            <div className="space-y-3 pt-2 border-t border-gray-100">
+              <p className="text-xs font-semibold uppercase tracking-wide text-primary-600">Familiar</p>
+
+              {/* Factores de Riesgo — Familiar */}
+              <div className="space-y-1.5">
+                <p className="text-sm font-medium text-gray-700">Factores de Riesgo</p>
+                {[
+                  'Límites difusos o rígidos. Familias aglutinadas (donde no hay individualidad ni privacidad) o familias desligadas (donde hay desapego extremo y falta de apoyo).',
+                  'Triangulación. Involucrar a un tercero (frecuentemente un hijo) para desviar el conflicto entre dos miembros (generalmente la pareja).',
+                  'Parentificación. Inversión de roles donde un hijo asume responsabilidades parentales, emocionales o económicas que no corresponden a su edad.',
+                  'Comunicación patológica. Presencia de dobles mensajes (mensajes contradictorios), descalificaciones continuas o secretos familiares disfuncionales.',
+                  'Rigidez homeostática. Incapacidad del sistema para cambiar y adaptarse a las nuevas etapas del ciclo vital (ej. tratar a un adolescente como si fuera un niño pequeño).',
+                  'Alianzas e interacciones destructivas. Coaliciones (unión de dos miembros contra un tercero) que rompen las jerarquías naturales de la familia.',
+                  'Ciclo vital no resuelto. Dificultades para transitar etapas evolutivas (nido vacío, adolescencia, jubilación).',
+                  'Lealtades invisibles. Mandatos transgeneracionales no cuestionados.',
+                  'Delegación del síntoma. Un miembro (identificado como paciente) porta el conflicto de todo el sistema.',
+                ].map(item => (
+                  <label key={item} className="flex items-start gap-2 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={factoresRiesgo.familiar.includes(item)}
+                      onChange={() => setFactoresRiesgo(prev => ({
+                        ...prev,
+                        familiar: prev.familiar.includes(item)
+                          ? prev.familiar.filter(x => x !== item)
+                          : [...prev.familiar, item],
+                      }))}
+                      className="mt-0.5 w-4 h-4 rounded accent-primary-600 shrink-0"
+                    />
+                    <span className="text-sm text-gray-600 leading-snug group-hover:text-gray-800">{item}</span>
+                  </label>
+                ))}
+              </div>
+
+              {/* Factores de Protección — Familiar */}
+              <div className="space-y-1.5">
+                <p className="text-sm font-medium text-gray-700">Factores de Protección</p>
+                {[
+                  'Límites claros y flexibles. Reglas comprensibles que definen los roles de cada uno, permitiendo la cercanía emocional sin perder la autonomía individual.',
+                  'Cohesión familiar. Sentimiento de pertenencia, afecto mutuo y apoyo emocional disponible entre los miembros del grupo.',
+                  'Comunicación asertiva y abierta. Capacidad para expresar emociones, resolver conflictos de forma directa y validar los puntos de vista de los demás.',
+                  'Flexibilidad y adaptabilidad. Capacidad del sistema para reorganizar sus reglas, roles y jerarquías ante crisis o cambios del entorno.',
+                  'Jerarquía parental clara. Figuras de autoridad (padres/cuidadores) coordinadas, que actúan de mutuo acuerdo y ejercen un liderazgo nutridor.',
+                  'Redes de apoyo externas. Conexiones saludables con la familia extensa, la escuela, amigos o la comunidad que sostienen al sistema familiar.',
+                ].map(item => (
+                  <label key={item} className="flex items-start gap-2 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={factoresProteccion.familiar.includes(item)}
+                      onChange={() => setFactoresProteccion(prev => ({
+                        ...prev,
+                        familiar: prev.familiar.includes(item)
+                          ? prev.familiar.filter(x => x !== item)
+                          : [...prev.familiar, item],
+                      }))}
+                      className="mt-0.5 w-4 h-4 rounded accent-primary-600 shrink-0"
+                    />
+                    <span className="text-sm text-gray-600 leading-snug group-hover:text-gray-800">{item}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
           </div>
 
           <div className="flex items-center justify-between pt-2 border-t border-gray-100">
