@@ -72,10 +72,10 @@ export default function PatientDetailPage() {
   // Sprint 4 — VIII + IX
   const [sensacionPaciente, setSensacionPaciente] = useState('0')
   const [savedSensacionPaciente, setSavedSensacionPaciente] = useState('0')
-  const [factoresRiesgo, setFactoresRiesgo] = useState<{ individual: string[]; familiar: string[] }>({ individual: [], familiar: [] })
-  const [savedFactoresRiesgo, setSavedFactoresRiesgo] = useState<{ individual: string[]; familiar: string[] }>({ individual: [], familiar: [] })
-  const [factoresProteccion, setFactoresProteccion] = useState<{ individual: string[]; familiar: string[] }>({ individual: [], familiar: [] })
-  const [savedFactoresProteccion, setSavedFactoresProteccion] = useState<{ individual: string[]; familiar: string[] }>({ individual: [], familiar: [] })
+  const [factoresRiesgo, setFactoresRiesgo] = useState<{ individual: string[]; familiar: string[]; pareja: string[] }>({ individual: [], familiar: [], pareja: [] })
+  const [savedFactoresRiesgo, setSavedFactoresRiesgo] = useState<{ individual: string[]; familiar: string[]; pareja: string[] }>({ individual: [], familiar: [], pareja: [] })
+  const [factoresProteccion, setFactoresProteccion] = useState<{ individual: string[]; familiar: string[]; pareja: string[] }>({ individual: [], familiar: [], pareja: [] })
+  const [savedFactoresProteccion, setSavedFactoresProteccion] = useState<{ individual: string[]; familiar: string[]; pareja: string[] }>({ individual: [], familiar: [], pareja: [] })
   const [frecuenciaConfig, setFrecuenciaConfig] = useState('')
   const [savedFrecuenciaConfig, setSavedFrecuenciaConfig] = useState('')
   const [savingNote, setSavingNote] = useState(false)
@@ -200,10 +200,10 @@ export default function PatientDetailPage() {
     setSavedSensacionPaciente(sensacion)
 
     // Sprint 4 — VIII: factores de riesgo (jsonb: objeto {individual, familiar})
-    const emptyFactores = { individual: [] as string[], familiar: [] as string[] }
+    const emptyFactores = { individual: [] as string[], familiar: [] as string[], pareja: [] as string[] }
     const rawRiesgo = relationRes.data?.factores_riesgo_sel
     const factRiesgo = (rawRiesgo && typeof rawRiesgo === 'object' && !Array.isArray(rawRiesgo))
-      ? { individual: rawRiesgo.individual ?? [], familiar: rawRiesgo.familiar ?? [] }
+      ? { individual: rawRiesgo.individual ?? [], familiar: rawRiesgo.familiar ?? [], pareja: rawRiesgo.pareja ?? [] }
       : emptyFactores
     setFactoresRiesgo(factRiesgo)
     setSavedFactoresRiesgo(factRiesgo)
@@ -211,7 +211,7 @@ export default function PatientDetailPage() {
     // Sprint 4 — VIII: factores de protección
     const rawProteccion = relationRes.data?.factores_proteccion_sel
     const factProteccion = (rawProteccion && typeof rawProteccion === 'object' && !Array.isArray(rawProteccion))
-      ? { individual: rawProteccion.individual ?? [], familiar: rawProteccion.familiar ?? [] }
+      ? { individual: rawProteccion.individual ?? [], familiar: rawProteccion.familiar ?? [], pareja: rawProteccion.pareja ?? [] }
       : emptyFactores
     setFactoresProteccion(factProteccion)
     setSavedFactoresProteccion(factProteccion)
@@ -1091,8 +1091,26 @@ export default function PatientDetailPage() {
               { key: 'redes_apoyo',               titulo: 'Redes de apoyo externas',                 desc: 'Conexiones saludables con la familia extensa, la escuela, amigos o la comunidad que sostienen al sistema familiar.' },
             ]
 
+            const PAR_RIESGO = [
+              { key: 'escalada_simetrica',      titulo: 'Escalada simétrica',                 desc: 'Ambos escalan en intensidad sin ceder.' },
+              { key: 'complementariedad_rigida', titulo: 'Complementariedad rígida',           desc: 'Uno siempre persigue, el otro siempre se distancia.' },
+              { key: 'triangulacion_pareja',     titulo: 'Triangulación con hijos, familiares o terceros', desc: 'Involucrar a un tercero (frecuentemente un hijo) para desviar el conflicto entre los miembros de la pareja.' },
+              { key: 'fronteras_difusas',        titulo: 'Fronteras difusas con familias de origen', desc: 'Intromisión parental.' },
+              { key: 'perdida_rituales',         titulo: 'Pérdida de rituales de pareja',      desc: 'Desconexión emocional y sexual.' },
+              { key: 'ciclo_vital_no_negociado', titulo: 'Ciclo vital no negociado',           desc: 'Transiciones (convivencia, hijos, nido vacío) sin renegociación de acuerdos.' },
+              { key: 'lealtades_divididas',      titulo: 'Lealtades divididas',                desc: 'Conflicto entre pareja y familia de origen.' },
+              { key: 'homeostasis_conflictiva',  titulo: 'Homeostasis conflictiva',            desc: 'El conflicto crónico como forma de mantenerse unidos.' },
+            ]
+            const PAR_PROTECCION = [
+              { key: 'motivacion_mutua',         titulo: 'Motivación mutua de cambio',         desc: 'Ambos miembros comprometidos con mejorar la relación.' },
+              { key: 'cohesion_pareja',          titulo: 'Cohesión de pareja',                 desc: 'Vínculo emocional y sentido de unidad entre ambos.' },
+              { key: 'responsabilidad_compartida', titulo: 'Responsabilidad compartida',       desc: 'Disposición a asumir responsabilidades conjuntas.' },
+              { key: 'capacidad_reflexiva',      titulo: 'Capacidad reflexiva',                desc: 'Habilidad de ambos para pensar sobre sus patrones e interacciones.' },
+              { key: 'apoyo_socioeconomico',     titulo: 'Apoyo socioeconómico',               desc: 'Recursos externos que amortiguan el estrés de la relación.' },
+            ]
+
             function toggleInd(
-              setter: React.Dispatch<React.SetStateAction<{ individual: string[]; familiar: string[] }>>,
+              setter: React.Dispatch<React.SetStateAction<{ individual: string[]; familiar: string[]; pareja: string[] }>>,
               key: string
             ) {
               setter(prev => ({
@@ -1103,7 +1121,7 @@ export default function PatientDetailPage() {
               }))
             }
             function toggleFam(
-              setter: React.Dispatch<React.SetStateAction<{ individual: string[]; familiar: string[] }>>,
+              setter: React.Dispatch<React.SetStateAction<{ individual: string[]; familiar: string[]; pareja: string[] }>>,
               key: string
             ) {
               setter(prev => ({
@@ -1111,6 +1129,17 @@ export default function PatientDetailPage() {
                 familiar: prev.familiar.includes(key)
                   ? prev.familiar.filter(x => x !== key)
                   : [...prev.familiar, key],
+              }))
+            }
+            function togglePar(
+              setter: React.Dispatch<React.SetStateAction<{ individual: string[]; familiar: string[]; pareja: string[] }>>,
+              key: string
+            ) {
+              setter(prev => ({
+                ...prev,
+                pareja: prev.pareja.includes(key)
+                  ? prev.pareja.filter(x => x !== key)
+                  : [...prev.pareja, key],
               }))
             }
 
@@ -1205,6 +1234,55 @@ export default function PatientDetailPage() {
                               type="checkbox"
                               checked={factoresProteccion.familiar.includes(f.key)}
                               onChange={() => toggleFam(setFactoresProteccion, f.key)}
+                              className="w-4 h-4 rounded mt-0.5 flex-shrink-0"
+                              style={{ accentColor: '#059669' }}
+                            />
+                            <div>
+                              <p className="text-sm font-medium text-gray-700 leading-snug group-hover:text-gray-900">{f.titulo}</p>
+                              <p className="text-xs text-gray-400 leading-snug mt-0.5">{f.desc}</p>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── PAREJA ── */}
+                <div className="space-y-3 pt-4 border-t border-gray-100">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-primary-600">Pareja</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    {/* Riesgo Pareja */}
+                    <div>
+                      <p className="text-xs font-semibold mb-3 text-red-500">Factores de Riesgo</p>
+                      <div className="space-y-3">
+                        {PAR_RIESGO.map(f => (
+                          <label key={f.key} className="flex items-start gap-2.5 cursor-pointer group">
+                            <input
+                              type="checkbox"
+                              checked={factoresRiesgo.pareja.includes(f.key)}
+                              onChange={() => togglePar(setFactoresRiesgo, f.key)}
+                              className="w-4 h-4 rounded mt-0.5 flex-shrink-0"
+                              style={{ accentColor: '#ef4444' }}
+                            />
+                            <div>
+                              <p className="text-sm font-medium text-gray-700 leading-snug group-hover:text-gray-900">{f.titulo}</p>
+                              <p className="text-xs text-gray-400 leading-snug mt-0.5">{f.desc}</p>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    {/* Protección Pareja */}
+                    <div>
+                      <p className="text-xs font-semibold mb-3 text-emerald-600">Factores de Protección</p>
+                      <div className="space-y-3">
+                        {PAR_PROTECCION.map(f => (
+                          <label key={f.key} className="flex items-start gap-2.5 cursor-pointer group">
+                            <input
+                              type="checkbox"
+                              checked={factoresProteccion.pareja.includes(f.key)}
+                              onChange={() => togglePar(setFactoresProteccion, f.key)}
                               className="w-4 h-4 rounded mt-0.5 flex-shrink-0"
                               style={{ accentColor: '#059669' }}
                             />
