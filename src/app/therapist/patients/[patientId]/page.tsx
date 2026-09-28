@@ -85,6 +85,10 @@ export default function PatientDetailPage() {
   const [openTFS, setOpenTFS] = useState(false)
   const [openTREC, setOpenTREC] = useState(false)
   const [openTCC, setOpenTCC] = useState(false)
+  // Sprint 4 — acordeones de sub-secciones por Tipo de Caso (compartido entre los 3 bloques)
+  const [openIndividual, setOpenIndividual] = useState(false)
+  const [openFamiliar, setOpenFamiliar] = useState(false)
+  const [openPareja, setOpenPareja] = useState(false)
   // Sprint 4 — perfil terapéutico del terapeuta (para bloquear bloques no seleccionados)
   const [therapyProfile, setTherapyProfile] = useState<string>('')
   // Sprint 4 — TCC
@@ -511,6 +515,11 @@ export default function PatientDetailPage() {
   const tfsActive  = _tpPartes.length === 0 || _tpPartes.includes('famsis')
   const trecActive = _tpPartes.length === 0 || _tpPartes.includes('trec')
   const tccActive  = _tpPartes.length === 0 || _tpPartes.includes('cc')
+  // Sprint 4 — sub-secciones activas según tipo de caso del paciente
+  const tipoCasoActivo = (expedienteRow as Record<string, unknown> | null)?.tipo_caso as string ?? ''
+  const tipoIndActive = !tipoCasoActivo || tipoCasoActivo === 'Individual'
+  const tipoFamActive = !tipoCasoActivo || tipoCasoActivo === 'Familiar'
+  const tipoParActive = !tipoCasoActivo || tipoCasoActivo === 'Pareja'
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
@@ -1224,8 +1233,16 @@ export default function PatientDetailPage() {
 
                 {openTFS && <>
                 {/* ── INDIVIDUAL ── */}
-                <div className="space-y-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-primary-600">Individual</p>
+                <div className={`space-y-3${!tipoIndActive ? ' opacity-50 pointer-events-none select-none' : ''}`}>
+                  <button
+                    type="button"
+                    onClick={() => setOpenIndividual(v => !v)}
+                    className="w-full flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-primary-500 pb-0.5 hover:text-primary-700 transition-colors"
+                  >
+                    <span>Individual</span>
+                    <svg className={`w-3 h-3 transition-transform ${openIndividual ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                  </button>
+                  {openIndividual && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     {/* Riesgo Individual */}
                     <div>
@@ -1270,11 +1287,20 @@ export default function PatientDetailPage() {
                       </div>
                     </div>
                   </div>
+                  )}
                 </div>
 
                 {/* ── FAMILIAR ── */}
-                <div className="space-y-3 pt-4 border-t border-gray-100">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-primary-600">Familiar</p>
+                <div className={`space-y-3 pt-4 border-t border-gray-100${!tipoFamActive ? ' opacity-50 pointer-events-none select-none' : ''}`}>
+                  <button
+                    type="button"
+                    onClick={() => setOpenFamiliar(v => !v)}
+                    className="w-full flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-primary-500 pb-0.5 hover:text-primary-700 transition-colors"
+                  >
+                    <span>Familiar</span>
+                    <svg className={`w-3 h-3 transition-transform ${openFamiliar ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                  </button>
+                  {openFamiliar && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     {/* Riesgo Familiar */}
                     <div>
@@ -1319,11 +1345,20 @@ export default function PatientDetailPage() {
                       </div>
                     </div>
                   </div>
+                  )}
                 </div>
 
                 {/* ── PAREJA ── */}
-                <div className="space-y-3 pt-4 border-t border-gray-100">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-primary-600">Pareja</p>
+                <div className={`space-y-3 pt-4 border-t border-gray-100${!tipoParActive ? ' opacity-50 pointer-events-none select-none' : ''}`}>
+                  <button
+                    type="button"
+                    onClick={() => setOpenPareja(v => !v)}
+                    className="w-full flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-primary-500 pb-0.5 hover:text-primary-700 transition-colors"
+                  >
+                    <span>Pareja</span>
+                    <svg className={`w-3 h-3 transition-transform ${openPareja ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                  </button>
+                  {openPareja && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     {/* Riesgo Pareja */}
                     <div>
@@ -1368,6 +1403,7 @@ export default function PatientDetailPage() {
                       </div>
                     </div>
                   </div>
+                  )}
                 </div>
                 </>}
               </div>
@@ -1472,8 +1508,16 @@ export default function PatientDetailPage() {
 
                 {openTREC && <>
                 {/* ── INDIVIDUAL ── */}
-                <div className="space-y-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-primary-600">Individual</p>
+                <div className={`space-y-3${!tipoIndActive ? ' opacity-50 pointer-events-none select-none' : ''}`}>
+                  <button
+                    type="button"
+                    onClick={() => setOpenIndividual(v => !v)}
+                    className="w-full flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-primary-500 pb-0.5 hover:text-primary-700 transition-colors"
+                  >
+                    <span>Individual</span>
+                    <svg className={`w-3 h-3 transition-transform ${openIndividual ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                  </button>
+                  {openIndividual && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     <div>
                       <p className="text-xs font-semibold mb-3 text-red-500">Factores de Riesgo</p>
@@ -1516,11 +1560,20 @@ export default function PatientDetailPage() {
                       </div>
                     </div>
                   </div>
+                  )}
                 </div>
 
                 {/* ── FAMILIAR ── */}
-                <div className="space-y-3 pt-4 border-t border-gray-100">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-primary-600">Familiar</p>
+                <div className={`space-y-3 pt-4 border-t border-gray-100${!tipoFamActive ? ' opacity-50 pointer-events-none select-none' : ''}`}>
+                  <button
+                    type="button"
+                    onClick={() => setOpenFamiliar(v => !v)}
+                    className="w-full flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-primary-500 pb-0.5 hover:text-primary-700 transition-colors"
+                  >
+                    <span>Familiar</span>
+                    <svg className={`w-3 h-3 transition-transform ${openFamiliar ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                  </button>
+                  {openFamiliar && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     <div>
                       <p className="text-xs font-semibold mb-3 text-red-500">Factores de Riesgo</p>
@@ -1563,11 +1616,20 @@ export default function PatientDetailPage() {
                       </div>
                     </div>
                   </div>
+                  )}
                 </div>
 
                 {/* ── PAREJA ── */}
-                <div className="space-y-3 pt-4 border-t border-gray-100">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-primary-600">Pareja</p>
+                <div className={`space-y-3 pt-4 border-t border-gray-100${!tipoParActive ? ' opacity-50 pointer-events-none select-none' : ''}`}>
+                  <button
+                    type="button"
+                    onClick={() => setOpenPareja(v => !v)}
+                    className="w-full flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-primary-500 pb-0.5 hover:text-primary-700 transition-colors"
+                  >
+                    <span>Pareja</span>
+                    <svg className={`w-3 h-3 transition-transform ${openPareja ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                  </button>
+                  {openPareja && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     <div>
                       <p className="text-xs font-semibold mb-3 text-red-500">Factores de Riesgo</p>
@@ -1610,6 +1672,7 @@ export default function PatientDetailPage() {
                       </div>
                     </div>
                   </div>
+                  )}
                 </div>
                 </>}
               </div>
@@ -1734,8 +1797,16 @@ export default function PatientDetailPage() {
 
                 {openTCC && <>
                 {/* ── INDIVIDUAL ── */}
-                <div className="space-y-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-primary-600">Individual</p>
+                <div className={`space-y-3${!tipoIndActive ? ' opacity-50 pointer-events-none select-none' : ''}`}>
+                  <button
+                    type="button"
+                    onClick={() => setOpenIndividual(v => !v)}
+                    className="w-full flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-primary-500 pb-0.5 hover:text-primary-700 transition-colors"
+                  >
+                    <span>Individual</span>
+                    <svg className={`w-3 h-3 transition-transform ${openIndividual ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                  </button>
+                  {openIndividual && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     <div>
                       <p className="text-xs font-semibold mb-3 text-red-500">Factores de Riesgo</p>
@@ -1778,11 +1849,20 @@ export default function PatientDetailPage() {
                       </div>
                     </div>
                   </div>
+                  )}
                 </div>
 
                 {/* ── FAMILIAR ── */}
-                <div className="space-y-3 pt-4 border-t border-gray-100">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-primary-600">Familiar</p>
+                <div className={`space-y-3 pt-4 border-t border-gray-100${!tipoFamActive ? ' opacity-50 pointer-events-none select-none' : ''}`}>
+                  <button
+                    type="button"
+                    onClick={() => setOpenFamiliar(v => !v)}
+                    className="w-full flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-primary-500 pb-0.5 hover:text-primary-700 transition-colors"
+                  >
+                    <span>Familiar</span>
+                    <svg className={`w-3 h-3 transition-transform ${openFamiliar ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                  </button>
+                  {openFamiliar && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     <div>
                       <p className="text-xs font-semibold mb-3 text-red-500">Factores de Riesgo</p>
@@ -1825,11 +1905,20 @@ export default function PatientDetailPage() {
                       </div>
                     </div>
                   </div>
+                  )}
                 </div>
 
                 {/* ── PAREJA ── */}
-                <div className="space-y-3 pt-4 border-t border-gray-100">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-primary-600">Pareja</p>
+                <div className={`space-y-3 pt-4 border-t border-gray-100${!tipoParActive ? ' opacity-50 pointer-events-none select-none' : ''}`}>
+                  <button
+                    type="button"
+                    onClick={() => setOpenPareja(v => !v)}
+                    className="w-full flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-primary-500 pb-0.5 hover:text-primary-700 transition-colors"
+                  >
+                    <span>Pareja</span>
+                    <svg className={`w-3 h-3 transition-transform ${openPareja ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                  </button>
+                  {openPareja && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     <div>
                       <p className="text-xs font-semibold mb-3 text-red-500">Factores de Riesgo</p>
@@ -1872,6 +1961,7 @@ export default function PatientDetailPage() {
                       </div>
                     </div>
                   </div>
+                  )}
                 </div>
                 </>}
               </div>
