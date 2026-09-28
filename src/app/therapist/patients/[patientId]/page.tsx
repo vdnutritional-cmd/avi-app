@@ -76,6 +76,11 @@ export default function PatientDetailPage() {
   const [savedFactoresRiesgo, setSavedFactoresRiesgo] = useState<{ individual: string[]; familiar: string[]; pareja: string[] }>({ individual: [], familiar: [], pareja: [] })
   const [factoresProteccion, setFactoresProteccion] = useState<{ individual: string[]; familiar: string[]; pareja: string[] }>({ individual: [], familiar: [], pareja: [] })
   const [savedFactoresProteccion, setSavedFactoresProteccion] = useState<{ individual: string[]; familiar: string[]; pareja: string[] }>({ individual: [], familiar: [], pareja: [] })
+  // Sprint 4 — TREC
+  const [factoresRiesgoTREC, setFactoresRiesgoTREC] = useState<{ individual: string[]; familiar: string[]; pareja: string[] }>({ individual: [], familiar: [], pareja: [] })
+  const [savedFactoresRiesgoTREC, setSavedFactoresRiesgoTREC] = useState<{ individual: string[]; familiar: string[]; pareja: string[] }>({ individual: [], familiar: [], pareja: [] })
+  const [factoresProteccionTREC, setFactoresProteccionTREC] = useState<{ individual: string[]; familiar: string[]; pareja: string[] }>({ individual: [], familiar: [], pareja: [] })
+  const [savedFactoresProteccionTREC, setSavedFactoresProteccionTREC] = useState<{ individual: string[]; familiar: string[]; pareja: string[] }>({ individual: [], familiar: [], pareja: [] })
   const [frecuenciaConfig, setFrecuenciaConfig] = useState('')
   const [savedFrecuenciaConfig, setSavedFrecuenciaConfig] = useState('')
   const [savingNote, setSavingNote] = useState(false)
@@ -140,7 +145,7 @@ export default function PatientDetailPage() {
       supabase.from('profiles').select('full_name, email').eq('id', patientId).single(),
       supabase.from('patterns').select('*').eq('patient_id', patientId).order('created_at', { ascending: false }),
       supabase.from('analyses').select('*').eq('patient_id', patientId).eq('therapist_id', user?.id ?? '').order('created_at', { ascending: false }),
-      supabase.from('therapist_patients').select('initial_note, initial_note_date, initial_note_pro_bono, initial_note_virtual, initial_note_motivo, initial_note_subyacente, initial_note_premisas, sensacion_paciente_inicial, factores_riesgo_sel, factores_proteccion_sel, frecuencia_config, empresa_id, convenio_empresas(nombre)').eq('patient_id', patientId).eq('therapist_id', user?.id ?? '').single(),
+      supabase.from('therapist_patients').select('initial_note, initial_note_date, initial_note_pro_bono, initial_note_virtual, initial_note_motivo, initial_note_subyacente, initial_note_premisas, sensacion_paciente_inicial, factores_riesgo_sel, factores_proteccion_sel, factores_riesgo_trec, factores_proteccion_trec, frecuencia_config, empresa_id, convenio_empresas(nombre)').eq('patient_id', patientId).eq('therapist_id', user?.id ?? '').single(),
       supabase.from('therapist_session_notes').select('*').eq('patient_id', patientId).order('session_number', { ascending: true }),
       supabase.from('patient_expediente').select('*').eq('therapist_id', user?.id ?? '').eq('patient_id', patientId).maybeSingle(),
     ])
@@ -216,6 +221,22 @@ export default function PatientDetailPage() {
     setFactoresProteccion(factProteccion)
     setSavedFactoresProteccion(factProteccion)
 
+    // Sprint 4 — VIII (TREC): factores de riesgo TREC
+    const rawRiesgoTREC = relationRes.data?.factores_riesgo_trec
+    const factRiesgoTREC = (rawRiesgoTREC && typeof rawRiesgoTREC === 'object' && !Array.isArray(rawRiesgoTREC))
+      ? { individual: rawRiesgoTREC.individual ?? [], familiar: rawRiesgoTREC.familiar ?? [], pareja: rawRiesgoTREC.pareja ?? [] }
+      : emptyFactores
+    setFactoresRiesgoTREC(factRiesgoTREC)
+    setSavedFactoresRiesgoTREC(factRiesgoTREC)
+
+    // Sprint 4 — VIII (TREC): factores de protección TREC
+    const rawProteccionTREC = relationRes.data?.factores_proteccion_trec
+    const factProteccionTREC = (rawProteccionTREC && typeof rawProteccionTREC === 'object' && !Array.isArray(rawProteccionTREC))
+      ? { individual: rawProteccionTREC.individual ?? [], familiar: rawProteccionTREC.familiar ?? [], pareja: rawProteccionTREC.pareja ?? [] }
+      : emptyFactores
+    setFactoresProteccionTREC(factProteccionTREC)
+    setSavedFactoresProteccionTREC(factProteccionTREC)
+
     // Sprint 4 — IX: frecuencia configurada
     const freqConf = relationRes.data?.frecuencia_config ?? ''
     setFrecuenciaConfig(freqConf)
@@ -277,7 +298,8 @@ export default function PatientDetailPage() {
         body: JSON.stringify({
           patientId, initialNote, initialNoteDate, initialNoteProBono, initialNoteVirtual,
           initialNoteMotivo, initialNoteSubyacente, initialNotePremisas,
-          sensacionPaciente, factoresRiesgo, factoresProteccion, frecuenciaConfig,
+          sensacionPaciente, factoresRiesgo, factoresProteccion,
+          factoresRiesgoTREC, factoresProteccionTREC, frecuenciaConfig,
         }),
       })
       if (!res.ok) {
@@ -295,6 +317,8 @@ export default function PatientDetailPage() {
       setSavedSensacionPaciente(sensacionPaciente)
       setSavedFactoresRiesgo(factoresRiesgo)
       setSavedFactoresProteccion(factoresProteccion)
+      setSavedFactoresRiesgoTREC(factoresRiesgoTREC)
+      setSavedFactoresProteccionTREC(factoresProteccionTREC)
       setSavedFrecuenciaConfig(frecuenciaConfig)
       setNoteSaved(true)
       setTimeout(() => setNoteSaved(false), 3000)
@@ -441,6 +465,8 @@ export default function PatientDetailPage() {
     sensacionPaciente !== savedSensacionPaciente ||
     JSON.stringify(factoresRiesgo) !== JSON.stringify(savedFactoresRiesgo) ||
     JSON.stringify(factoresProteccion) !== JSON.stringify(savedFactoresProteccion) ||
+    JSON.stringify(factoresRiesgoTREC) !== JSON.stringify(savedFactoresRiesgoTREC) ||
+    JSON.stringify(factoresProteccionTREC) !== JSON.stringify(savedFactoresProteccionTREC) ||
     frecuenciaConfig !== savedFrecuenciaConfig
   const hayContenidoNuevaSesion = !!(newSessionObjetivo.trim() || newSessionDesarrollo.trim() || newSessionNotes.trim())
   const puedeAgregarSesion = sessionNotes.length < MAX_SESIONES_PRESENCIALES || editingSessionId !== null
@@ -1283,6 +1309,241 @@ export default function PatientDetailPage() {
                               type="checkbox"
                               checked={factoresProteccion.pareja.includes(f.key)}
                               onChange={() => togglePar(setFactoresProteccion, f.key)}
+                              className="w-4 h-4 rounded mt-0.5 flex-shrink-0"
+                              style={{ accentColor: '#059669' }}
+                            />
+                            <div>
+                              <p className="text-sm font-medium text-gray-700 leading-snug group-hover:text-gray-900">{f.titulo}</p>
+                              <p className="text-xs text-gray-400 leading-snug mt-0.5">{f.desc}</p>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
+
+          {/* ── BLOQUE TREC ── */}
+          {(() => {
+            // ── INDIVIDUAL ──
+            const IND_RIESGO_TREC = [
+              { key: 'pensamiento_dicotomico',      titulo: 'Pensamiento dicotómico / Distorsiones cognitivas', desc: '"Todo o nada", "siempre/nunca", catastrofización.' },
+              { key: 'baja_tolerancia_frustracion', titulo: 'Baja tolerancia a la frustración',                desc: 'Incapacidad de tolerar la incomodidad sin recurrir a conductas evitativas o impulsivas.' },
+              { key: 'irracionalidad_creencias',    titulo: 'Irracionalidad de las creencias nucleares',       desc: 'Adherencia rígida a "debo…", "tengo que…", "es terrible que…"' },
+              { key: 'exigencias_absolutistas',     titulo: 'Exigencias absolutistas (musturbation)',          desc: 'Reglas absolutas aplicadas a uno mismo, a los demás o al mundo.' },
+              { key: 'autocondenacion',             titulo: 'Autocondenación',                                 desc: 'Condenarse como persona total por errores específicos.' },
+              { key: 'baja_autoeficacia',           titulo: 'Baja autoeficacia percibida',                    desc: 'Creencia de no poder manejar la adversidad o el malestar emocional.' },
+              { key: 'conductas_evitacion',         titulo: 'Conductas de evitación y seguridad',             desc: 'Evitar situaciones que generan malestar, lo que refuerza la creencia irracional.' },
+            ]
+            const IND_PROTECCION_TREC = [
+              { key: 'flexibilidad_cognitiva',      titulo: 'Flexibilidad cognitiva',         desc: 'Capacidad de cuestionar y reformular creencias rígidas.' },
+              { key: 'alta_tolerancia_frustracion', titulo: 'Alta tolerancia a la frustración', desc: 'Aceptar la incomodidad como parte natural de la vida.' },
+              { key: 'autocompasion_funcional',     titulo: 'Autocompasión funcional',         desc: 'Distinguir conducta (evaluable) de valía global como persona.' },
+              { key: 'capacidad_debate_racional',   titulo: 'Capacidad de debate racional',    desc: 'Habilidad para aplicar el debate socrático a las propias creencias.' },
+              { key: 'orientacion_problema',        titulo: 'Orientación al problema',         desc: 'Enfoque en soluciones más que en la culpa o el resentimiento.' },
+            ]
+            // ── FAMILIAR ──
+            const FAM_RIESGO_TREC = [
+              { key: 'creencias_fam_disfuncionales', titulo: 'Sistema de creencias familiares disfuncionales', desc: 'Reglas implícitas del tipo "en esta familia nunca se muestra debilidad."' },
+              { key: 'refuerzo_irracionalidad',      titulo: 'Refuerzo familiar de la irracionalidad',         desc: 'La familia valida o alimenta las creencias irracionales del paciente.' },
+              { key: 'exigencia_parental',           titulo: 'Alta exigencia parental / perfeccionismo',        desc: 'Estándares excesivamente altos transmitidos como expectativas incondicionales.' },
+              { key: 'invalidacion_emocional',       titulo: 'Invalidación emocional crónica',                 desc: 'Mensajes reiterados de que las emociones del paciente son exageradas o incorrectas.' },
+              { key: 'modelos_baja_tolerancia',      titulo: 'Modelos de rol con baja tolerancia a la frustración', desc: 'Padres o cuidadores que modelan reacciones catastróficas o evitativas.' },
+              { key: 'estigma_familiar',             titulo: 'Estigma familiar hacia la terapia o las emociones', desc: 'Creencia de que buscar ayuda o expresar emociones es signo de debilidad.' },
+            ]
+            const FAM_PROTECCION_TREC = [
+              { key: 'clima_cuestionamiento',        titulo: 'Clima familiar de cuestionamiento racional', desc: 'Conversaciones abiertas donde se debaten creencias e ideas.' },
+              { key: 'modelos_autorregulacion',      titulo: 'Modelos parentales de autorregulación',      desc: 'Cuidadores que demuestran manejo emocional y resolución de problemas.' },
+              { key: 'apoyo_proceso_terapeutico',    titulo: 'Apoyo familiar ante el proceso terapéutico', desc: 'La familia refuerza la asistencia y los cambios trabajados en terapia.' },
+              { key: 'flexibilidad_reglas_fam',      titulo: 'Flexibilidad en las reglas familiares',      desc: 'Capacidad de revisar y actualizar normas y expectativas según el contexto.' },
+            ]
+            // ── PAREJA ──
+            const PAR_RIESGO_TREC = [
+              { key: 'exigencias_absolutistas_par',  titulo: 'Exigencias absolutistas en la relación',         desc: '"Mi pareja debe…" o "la relación tiene que…" aplicados de forma rígida.' },
+              { key: 'intolerancia_imperfeccion',    titulo: 'Intolerancia a la imperfección del otro',         desc: 'Baja tolerancia a los errores, limitaciones o diferencias de la pareja.' },
+              { key: 'catastrofizacion_conflictos',  titulo: 'Catastrofización de conflictos',                  desc: 'Interpretar cada desacuerdo como el fin de la relación o como insoportable.' },
+              { key: 'culpabilizacion_mutua',        titulo: 'Culpabilización y condenación mutua',             desc: 'Condenar al otro como persona total por conductas específicas.' },
+              { key: 'comunicacion_irracional',      titulo: 'Comunicación basada en creencias irracionales',   desc: 'Exigir, agredir pasivamente o evitar el diálogo por miedo al rechazo.' },
+              { key: 'baja_tolerancia_compartida',   titulo: 'Baja tolerancia a la frustración compartida',     desc: 'Ninguno tolera el malestar inherente a la negociación y el acuerdo.' },
+              { key: 'dependencia_emocional',        titulo: 'Dependencia emocional basada en "necesidades"',   desc: 'Creer que "necesito" al otro para ser feliz o funcionar.' },
+            ]
+            const PAR_PROTECCION_TREC = [
+              { key: 'preferencias_racionales',      titulo: 'Preferencias racionales en la relación',      desc: 'Desear sin exigir; aceptar la imperfección del otro como parte de la relación.' },
+              { key: 'disputa_racional_compartida',  titulo: 'Capacidad de disputa racional compartida',    desc: 'Ambos pueden cuestionar sus propias creencias irracionales en el conflicto.' },
+              { key: 'compromiso_terapia_pareja',    titulo: 'Compromiso con la terapia de pareja',         desc: 'Disposición de ambos a explorar y cambiar sus patrones cognitivo-conductuales.' },
+            ]
+
+            function toggleIndT(
+              setter: React.Dispatch<React.SetStateAction<{ individual: string[]; familiar: string[]; pareja: string[] }>>,
+              key: string
+            ) {
+              setter(prev => ({
+                ...prev,
+                individual: prev.individual.includes(key)
+                  ? prev.individual.filter(x => x !== key)
+                  : [...prev.individual, key],
+              }))
+            }
+            function toggleFamT(
+              setter: React.Dispatch<React.SetStateAction<{ individual: string[]; familiar: string[]; pareja: string[] }>>,
+              key: string
+            ) {
+              setter(prev => ({
+                ...prev,
+                familiar: prev.familiar.includes(key)
+                  ? prev.familiar.filter(x => x !== key)
+                  : [...prev.familiar, key],
+              }))
+            }
+            function toggleParT(
+              setter: React.Dispatch<React.SetStateAction<{ individual: string[]; familiar: string[]; pareja: string[] }>>,
+              key: string
+            ) {
+              setter(prev => ({
+                ...prev,
+                pareja: prev.pareja.includes(key)
+                  ? prev.pareja.filter(x => x !== key)
+                  : [...prev.pareja, key],
+              }))
+            }
+
+            return (
+              <div className="space-y-5 mt-6 pt-6 border-t border-gray-200">
+                {/* Header */}
+                <p className="text-xs font-bold uppercase tracking-widest text-gray-400 border-b border-gray-100 pb-1">
+                  Terapia Racional Emotivo Conductual (TREC)
+                </p>
+
+                {/* ── INDIVIDUAL ── */}
+                <div className="space-y-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-primary-600">Individual</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div>
+                      <p className="text-xs font-semibold mb-3 text-red-500">Factores de Riesgo</p>
+                      <div className="space-y-3">
+                        {IND_RIESGO_TREC.map(f => (
+                          <label key={f.key} className="flex items-start gap-2.5 cursor-pointer group">
+                            <input
+                              type="checkbox"
+                              checked={factoresRiesgoTREC.individual.includes(f.key)}
+                              onChange={() => toggleIndT(setFactoresRiesgoTREC, f.key)}
+                              className="w-4 h-4 rounded mt-0.5 flex-shrink-0"
+                              style={{ accentColor: '#ef4444' }}
+                            />
+                            <div>
+                              <p className="text-sm font-medium text-gray-700 leading-snug group-hover:text-gray-900">{f.titulo}</p>
+                              <p className="text-xs text-gray-400 leading-snug mt-0.5">{f.desc}</p>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold mb-3 text-emerald-600">Factores de Protección</p>
+                      <div className="space-y-3">
+                        {IND_PROTECCION_TREC.map(f => (
+                          <label key={f.key} className="flex items-start gap-2.5 cursor-pointer group">
+                            <input
+                              type="checkbox"
+                              checked={factoresProteccionTREC.individual.includes(f.key)}
+                              onChange={() => toggleIndT(setFactoresProteccionTREC, f.key)}
+                              className="w-4 h-4 rounded mt-0.5 flex-shrink-0"
+                              style={{ accentColor: '#059669' }}
+                            />
+                            <div>
+                              <p className="text-sm font-medium text-gray-700 leading-snug group-hover:text-gray-900">{f.titulo}</p>
+                              <p className="text-xs text-gray-400 leading-snug mt-0.5">{f.desc}</p>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── FAMILIAR ── */}
+                <div className="space-y-3 pt-4 border-t border-gray-100">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-primary-600">Familiar</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div>
+                      <p className="text-xs font-semibold mb-3 text-red-500">Factores de Riesgo</p>
+                      <div className="space-y-3">
+                        {FAM_RIESGO_TREC.map(f => (
+                          <label key={f.key} className="flex items-start gap-2.5 cursor-pointer group">
+                            <input
+                              type="checkbox"
+                              checked={factoresRiesgoTREC.familiar.includes(f.key)}
+                              onChange={() => toggleFamT(setFactoresRiesgoTREC, f.key)}
+                              className="w-4 h-4 rounded mt-0.5 flex-shrink-0"
+                              style={{ accentColor: '#ef4444' }}
+                            />
+                            <div>
+                              <p className="text-sm font-medium text-gray-700 leading-snug group-hover:text-gray-900">{f.titulo}</p>
+                              <p className="text-xs text-gray-400 leading-snug mt-0.5">{f.desc}</p>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold mb-3 text-emerald-600">Factores de Protección</p>
+                      <div className="space-y-3">
+                        {FAM_PROTECCION_TREC.map(f => (
+                          <label key={f.key} className="flex items-start gap-2.5 cursor-pointer group">
+                            <input
+                              type="checkbox"
+                              checked={factoresProteccionTREC.familiar.includes(f.key)}
+                              onChange={() => toggleFamT(setFactoresProteccionTREC, f.key)}
+                              className="w-4 h-4 rounded mt-0.5 flex-shrink-0"
+                              style={{ accentColor: '#059669' }}
+                            />
+                            <div>
+                              <p className="text-sm font-medium text-gray-700 leading-snug group-hover:text-gray-900">{f.titulo}</p>
+                              <p className="text-xs text-gray-400 leading-snug mt-0.5">{f.desc}</p>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── PAREJA ── */}
+                <div className="space-y-3 pt-4 border-t border-gray-100">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-primary-600">Pareja</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div>
+                      <p className="text-xs font-semibold mb-3 text-red-500">Factores de Riesgo</p>
+                      <div className="space-y-3">
+                        {PAR_RIESGO_TREC.map(f => (
+                          <label key={f.key} className="flex items-start gap-2.5 cursor-pointer group">
+                            <input
+                              type="checkbox"
+                              checked={factoresRiesgoTREC.pareja.includes(f.key)}
+                              onChange={() => toggleParT(setFactoresRiesgoTREC, f.key)}
+                              className="w-4 h-4 rounded mt-0.5 flex-shrink-0"
+                              style={{ accentColor: '#ef4444' }}
+                            />
+                            <div>
+                              <p className="text-sm font-medium text-gray-700 leading-snug group-hover:text-gray-900">{f.titulo}</p>
+                              <p className="text-xs text-gray-400 leading-snug mt-0.5">{f.desc}</p>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold mb-3 text-emerald-600">Factores de Protección</p>
+                      <div className="space-y-3">
+                        {PAR_PROTECCION_TREC.map(f => (
+                          <label key={f.key} className="flex items-start gap-2.5 cursor-pointer group">
+                            <input
+                              type="checkbox"
+                              checked={factoresProteccionTREC.pareja.includes(f.key)}
+                              onChange={() => toggleParT(setFactoresProteccionTREC, f.key)}
                               className="w-4 h-4 rounded mt-0.5 flex-shrink-0"
                               style={{ accentColor: '#059669' }}
                             />

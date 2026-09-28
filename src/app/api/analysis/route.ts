@@ -285,7 +285,8 @@ export async function PATCH(request: NextRequest) {
     const {
       patientId, initialNote, initialNoteDate, initialNoteProBono, initialNoteVirtual,
       initialNoteMotivo, initialNoteSubyacente, initialNotePremisas,
-      sensacionPaciente, factoresRiesgo, factoresProteccion, frecuenciaConfig,
+      sensacionPaciente, factoresRiesgo, factoresProteccion,
+      factoresRiesgoTREC, factoresProteccionTREC, frecuenciaConfig,
     } = await request.json()
     if (!patientId) return NextResponse.json({ error: 'patientId requerido' }, { status: 400 })
 
@@ -301,9 +302,11 @@ export async function PATCH(request: NextRequest) {
     if (initialNotePremisas   !== undefined) updateData.initial_note_premisas         = initialNotePremisas
     // Sprint 4 — VIII + IX
     if (sensacionPaciente  !== undefined) updateData.sensacion_paciente_inicial = sensacionPaciente
-    if (factoresRiesgo     !== undefined) updateData.factores_riesgo_sel        = factoresRiesgo
-    if (factoresProteccion !== undefined) updateData.factores_proteccion_sel    = factoresProteccion
-    if (frecuenciaConfig   !== undefined) updateData.frecuencia_config          = frecuenciaConfig || null
+    if (factoresRiesgo        !== undefined) updateData.factores_riesgo_sel       = factoresRiesgo
+    if (factoresProteccion    !== undefined) updateData.factores_proteccion_sel   = factoresProteccion
+    if (factoresRiesgoTREC    !== undefined) updateData.factores_riesgo_trec      = factoresRiesgoTREC
+    if (factoresProteccionTREC !== undefined) updateData.factores_proteccion_trec = factoresProteccionTREC
+    if (frecuenciaConfig      !== undefined) updateData.frecuencia_config         = frecuenciaConfig || null
 
     const { data: updated, error } = await supabase
       .from('therapist_patients')
