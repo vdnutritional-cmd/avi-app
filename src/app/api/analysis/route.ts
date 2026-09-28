@@ -286,7 +286,8 @@ export async function PATCH(request: NextRequest) {
       patientId, initialNote, initialNoteDate, initialNoteProBono, initialNoteVirtual,
       initialNoteMotivo, initialNoteSubyacente, initialNotePremisas,
       sensacionPaciente, factoresRiesgo, factoresProteccion,
-      factoresRiesgoTREC, factoresProteccionTREC, frecuenciaConfig,
+      factoresRiesgoTREC, factoresProteccionTREC,
+      factoresRiesgoTCC, factoresProteccionTCC, frecuenciaConfig,
     } = await request.json()
     if (!patientId) return NextResponse.json({ error: 'patientId requerido' }, { status: 400 })
 
@@ -304,9 +305,11 @@ export async function PATCH(request: NextRequest) {
     if (sensacionPaciente  !== undefined) updateData.sensacion_paciente_inicial = sensacionPaciente
     if (factoresRiesgo        !== undefined) updateData.factores_riesgo_sel       = factoresRiesgo
     if (factoresProteccion    !== undefined) updateData.factores_proteccion_sel   = factoresProteccion
-    if (factoresRiesgoTREC    !== undefined) updateData.factores_riesgo_trec      = factoresRiesgoTREC
-    if (factoresProteccionTREC !== undefined) updateData.factores_proteccion_trec = factoresProteccionTREC
-    if (frecuenciaConfig      !== undefined) updateData.frecuencia_config         = frecuenciaConfig || null
+    if (factoresRiesgoTREC     !== undefined) updateData.factores_riesgo_trec      = factoresRiesgoTREC
+    if (factoresProteccionTREC !== undefined) updateData.factores_proteccion_trec  = factoresProteccionTREC
+    if (factoresRiesgoTCC      !== undefined) updateData.factores_riesgo_tcc       = factoresRiesgoTCC
+    if (factoresProteccionTCC  !== undefined) updateData.factores_proteccion_tcc   = factoresProteccionTCC
+    if (frecuenciaConfig       !== undefined) updateData.frecuencia_config          = frecuenciaConfig || null
 
     const { data: updated, error } = await supabase
       .from('therapist_patients')

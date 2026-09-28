@@ -81,6 +81,11 @@ export default function PatientDetailPage() {
   const [savedFactoresRiesgoTREC, setSavedFactoresRiesgoTREC] = useState<{ individual: string[]; familiar: string[]; pareja: string[] }>({ individual: [], familiar: [], pareja: [] })
   const [factoresProteccionTREC, setFactoresProteccionTREC] = useState<{ individual: string[]; familiar: string[]; pareja: string[] }>({ individual: [], familiar: [], pareja: [] })
   const [savedFactoresProteccionTREC, setSavedFactoresProteccionTREC] = useState<{ individual: string[]; familiar: string[]; pareja: string[] }>({ individual: [], familiar: [], pareja: [] })
+  // Sprint 4 — TCC
+  const [factoresRiesgoTCC, setFactoresRiesgoTCC] = useState<{ individual: string[]; familiar: string[]; pareja: string[] }>({ individual: [], familiar: [], pareja: [] })
+  const [savedFactoresRiesgoTCC, setSavedFactoresRiesgoTCC] = useState<{ individual: string[]; familiar: string[]; pareja: string[] }>({ individual: [], familiar: [], pareja: [] })
+  const [factoresProteccionTCC, setFactoresProteccionTCC] = useState<{ individual: string[]; familiar: string[]; pareja: string[] }>({ individual: [], familiar: [], pareja: [] })
+  const [savedFactoresProteccionTCC, setSavedFactoresProteccionTCC] = useState<{ individual: string[]; familiar: string[]; pareja: string[] }>({ individual: [], familiar: [], pareja: [] })
   const [frecuenciaConfig, setFrecuenciaConfig] = useState('')
   const [savedFrecuenciaConfig, setSavedFrecuenciaConfig] = useState('')
   const [savingNote, setSavingNote] = useState(false)
@@ -145,7 +150,7 @@ export default function PatientDetailPage() {
       supabase.from('profiles').select('full_name, email').eq('id', patientId).single(),
       supabase.from('patterns').select('*').eq('patient_id', patientId).order('created_at', { ascending: false }),
       supabase.from('analyses').select('*').eq('patient_id', patientId).eq('therapist_id', user?.id ?? '').order('created_at', { ascending: false }),
-      supabase.from('therapist_patients').select('initial_note, initial_note_date, initial_note_pro_bono, initial_note_virtual, initial_note_motivo, initial_note_subyacente, initial_note_premisas, sensacion_paciente_inicial, factores_riesgo_sel, factores_proteccion_sel, factores_riesgo_trec, factores_proteccion_trec, frecuencia_config, empresa_id, convenio_empresas(nombre)').eq('patient_id', patientId).eq('therapist_id', user?.id ?? '').single(),
+      supabase.from('therapist_patients').select('initial_note, initial_note_date, initial_note_pro_bono, initial_note_virtual, initial_note_motivo, initial_note_subyacente, initial_note_premisas, sensacion_paciente_inicial, factores_riesgo_sel, factores_proteccion_sel, factores_riesgo_trec, factores_proteccion_trec, factores_riesgo_tcc, factores_proteccion_tcc, frecuencia_config, empresa_id, convenio_empresas(nombre)').eq('patient_id', patientId).eq('therapist_id', user?.id ?? '').single(),
       supabase.from('therapist_session_notes').select('*').eq('patient_id', patientId).order('session_number', { ascending: true }),
       supabase.from('patient_expediente').select('*').eq('therapist_id', user?.id ?? '').eq('patient_id', patientId).maybeSingle(),
     ])
@@ -237,6 +242,22 @@ export default function PatientDetailPage() {
     setFactoresProteccionTREC(factProteccionTREC)
     setSavedFactoresProteccionTREC(factProteccionTREC)
 
+    // Sprint 4 — VIII (TCC): factores de riesgo TCC
+    const rawRiesgoTCC = relationRes.data?.factores_riesgo_tcc
+    const factRiesgoTCC = (rawRiesgoTCC && typeof rawRiesgoTCC === 'object' && !Array.isArray(rawRiesgoTCC))
+      ? { individual: rawRiesgoTCC.individual ?? [], familiar: rawRiesgoTCC.familiar ?? [], pareja: rawRiesgoTCC.pareja ?? [] }
+      : emptyFactores
+    setFactoresRiesgoTCC(factRiesgoTCC)
+    setSavedFactoresRiesgoTCC(factRiesgoTCC)
+
+    // Sprint 4 — VIII (TCC): factores de protección TCC
+    const rawProteccionTCC = relationRes.data?.factores_proteccion_tcc
+    const factProteccionTCC = (rawProteccionTCC && typeof rawProteccionTCC === 'object' && !Array.isArray(rawProteccionTCC))
+      ? { individual: rawProteccionTCC.individual ?? [], familiar: rawProteccionTCC.familiar ?? [], pareja: rawProteccionTCC.pareja ?? [] }
+      : emptyFactores
+    setFactoresProteccionTCC(factProteccionTCC)
+    setSavedFactoresProteccionTCC(factProteccionTCC)
+
     // Sprint 4 — IX: frecuencia configurada
     const freqConf = relationRes.data?.frecuencia_config ?? ''
     setFrecuenciaConfig(freqConf)
@@ -299,7 +320,8 @@ export default function PatientDetailPage() {
           patientId, initialNote, initialNoteDate, initialNoteProBono, initialNoteVirtual,
           initialNoteMotivo, initialNoteSubyacente, initialNotePremisas,
           sensacionPaciente, factoresRiesgo, factoresProteccion,
-          factoresRiesgoTREC, factoresProteccionTREC, frecuenciaConfig,
+          factoresRiesgoTREC, factoresProteccionTREC,
+          factoresRiesgoTCC, factoresProteccionTCC, frecuenciaConfig,
         }),
       })
       if (!res.ok) {
@@ -319,6 +341,8 @@ export default function PatientDetailPage() {
       setSavedFactoresProteccion(factoresProteccion)
       setSavedFactoresRiesgoTREC(factoresRiesgoTREC)
       setSavedFactoresProteccionTREC(factoresProteccionTREC)
+      setSavedFactoresRiesgoTCC(factoresRiesgoTCC)
+      setSavedFactoresProteccionTCC(factoresProteccionTCC)
       setSavedFrecuenciaConfig(frecuenciaConfig)
       setNoteSaved(true)
       setTimeout(() => setNoteSaved(false), 3000)
@@ -467,6 +491,8 @@ export default function PatientDetailPage() {
     JSON.stringify(factoresProteccion) !== JSON.stringify(savedFactoresProteccion) ||
     JSON.stringify(factoresRiesgoTREC) !== JSON.stringify(savedFactoresRiesgoTREC) ||
     JSON.stringify(factoresProteccionTREC) !== JSON.stringify(savedFactoresProteccionTREC) ||
+    JSON.stringify(factoresRiesgoTCC) !== JSON.stringify(savedFactoresRiesgoTCC) ||
+    JSON.stringify(factoresProteccionTCC) !== JSON.stringify(savedFactoresProteccionTCC) ||
     frecuenciaConfig !== savedFrecuenciaConfig
   const hayContenidoNuevaSesion = !!(newSessionObjetivo.trim() || newSessionDesarrollo.trim() || newSessionNotes.trim())
   const puedeAgregarSesion = sessionNotes.length < MAX_SESIONES_PRESENCIALES || editingSessionId !== null
@@ -1544,6 +1570,261 @@ export default function PatientDetailPage() {
                               type="checkbox"
                               checked={factoresProteccionTREC.pareja.includes(f.key)}
                               onChange={() => toggleParT(setFactoresProteccionTREC, f.key)}
+                              className="w-4 h-4 rounded mt-0.5 flex-shrink-0"
+                              style={{ accentColor: '#059669' }}
+                            />
+                            <div>
+                              <p className="text-sm font-medium text-gray-700 leading-snug group-hover:text-gray-900">{f.titulo}</p>
+                              <p className="text-xs text-gray-400 leading-snug mt-0.5">{f.desc}</p>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
+
+          {/* ── BLOQUE TCC ── */}
+          {(() => {
+            // ── INDIVIDUAL ──
+            const IND_RIESGO_TCC = [
+              { key: 'creencias_centrales_dis',    titulo: 'Creencias centrales disfuncionales',  desc: 'Ideas profundas y rígidas sobre uno mismo ("no valgo", "soy incapaz"), sobre los demás ("nadie es confiable") y sobre el mundo ("todo es peligroso").' },
+              { key: 'distorsiones_cognitivas_tcc', titulo: 'Distorsiones cognitivas',            desc: 'Pensamientos automáticos erróneos: catastrofización, pensamiento dicotómico (todo o nada), lectura de mente, sobregeneralización.' },
+              { key: 'deficit_habilidades',         titulo: 'Déficit de habilidades',             desc: 'Falta de habilidades sociales, de resolución de problemas o de regulación emocional.' },
+              { key: 'evitacion_conductual_tcc',    titulo: 'Evitación conductual',               desc: 'Creencia de que no se es capaz de enfrentar situaciones o cambiar.' },
+              { key: 'historia_aprendizaje_tcc',    titulo: 'Historia de aprendizaje',            desc: 'Experiencias tempranas de rechazo, crítica excesiva o inconsistencia que moldearon esquemas negativos.' },
+              { key: 'sintomas_residuales',         titulo: 'Síntomas residuales',                desc: 'Presencia de síntomas leves persistentes tras un tratamiento, que aumentan el riesgo de recaída.' },
+              { key: 'comorbilidad',                titulo: 'Comorbilidad',                       desc: 'Presencia simultánea de dos o más trastornos (ej. ansiedad y depresión) que complican el cuadro.' },
+              { key: 'rigidez_cognitiva_tcc',       titulo: 'Rigidez cognitiva',                  desc: 'Dificultad para modificar creencias incluso ante evidencia contradictoria.' },
+              { key: 'perfeccionismo_tcc',          titulo: 'Perfeccionismo',                     desc: 'Estándares excesivamente altos que generan frustración crónica y autoexigencia.' },
+            ]
+            const IND_PROTECCION_TCC = [
+              { key: 'reestructuracion_cognitiva',   titulo: 'Capacidad de reestructuración cognitiva', desc: 'Identificar, evaluar y modificar pensamientos automáticos y creencias disfuncionales.' },
+              { key: 'resolucion_problemas_tcc',     titulo: 'Habilidades de resolución de problemas',  desc: 'Analizar dificultades y generar soluciones de forma sistemática.' },
+              { key: 'activacion_conductual_tcc',    titulo: 'Activación conductual',                   desc: 'Aumentar actividades positivas para mejorar el estado de ánimo.' },
+              { key: 'automonitoreo_tcc',            titulo: 'Automonitoreo',                           desc: 'Observar y registrar los propios patrones de pensamiento, emoción y conducta.' },
+              { key: 'repertorio_afrontamiento_tcc', titulo: 'Repertorio de afrontamiento',             desc: 'Contar con estrategias concretas para manejar situaciones de estrés.' },
+            ]
+            // ── FAMILIAR ──
+            const FAM_RIESGO_TCC = [
+              { key: 'alto_conflicto_fam_tcc',      titulo: 'Alto conflicto familiar',               desc: 'Discusiones frecuentes, hostilidad y tensión constante que generan estrés crónico en todos los miembros.' },
+              { key: 'critica_culpa_parental',       titulo: 'Crítica y culpa parental',              desc: 'Padres que señalan constantemente los errores de los hijos, fomentando creencias de incapacidad y baja autoestima.' },
+              { key: 'baja_cohesion_fam_tcc',        titulo: 'Baja cohesión familiar',               desc: 'Falta de apoyo emocional, desconexión entre miembros, cada uno "por su lado".' },
+              { key: 'comunicacion_dis_fam_tcc',     titulo: 'Comunicación disfuncional',            desc: 'Mensajes contradictorios, dobles vínculos, falta de escucha activa, expresiones de emoción inadecuadas.' },
+              { key: 'crianza_inconsistente',        titulo: 'Estilos de crianza inconsistentes',    desc: 'Alternar entre permisividad y autoritarismo, sin normas claras ni consecuencias predecibles.' },
+              { key: 'modelamiento_desadaptativo',   titulo: 'Modelamiento de conductas desadaptativas', desc: 'Padres que muestran evitación, agresividad o desregulación emocional como forma de afrontamiento.' },
+              { key: 'sobreproteccion_tcc',          titulo: 'Sobreprotección',                      desc: 'Impedir que los hijos enfrenten retos, lo que refuerza creencias de incapacidad y baja autoeficacia.' },
+              { key: 'parentalizacion_tcc',          titulo: 'Parentalización',                      desc: 'Hijos que asumen roles de cuidado o sostén emocional que no les corresponden.' },
+              { key: 'rigidez_roles_tcc',            titulo: 'Rigidez de roles',                     desc: 'Cada miembro atrapado en un papel fijo (chivo expiatorio, héroe, cuidador) sin posibilidad de cambio.' },
+              { key: 'secretos_prohibidos_tcc',      titulo: 'Secretos y temas prohibidos',          desc: 'Información oculta o temas que no se pueden hablar, generando desconfianza y ansiedad.' },
+              { key: 'expectativas_irreales_fam_tcc', titulo: 'Expectativas irreales',               desc: 'Demandas familiares que no coinciden con las capacidades o deseos del miembro.' },
+              { key: 'falta_limites_tcc',            titulo: 'Falta de límites claros',              desc: 'Confusión entre subsistemas (conyugal, parental, filial), invasión de espacios y funciones.' },
+            ]
+            const FAM_PROTECCION_TCC = [
+              { key: 'reestructuracion_cog_fam',    titulo: 'Capacidad de reestructuración cognitiva', desc: 'Identificar, evaluar y modificar pensamientos automáticos y creencias disfuncionales.' },
+              { key: 'resolucion_prob_fam_tcc',     titulo: 'Habilidades de resolución de problemas',  desc: 'Analizar dificultades y generar soluciones de forma sistemática.' },
+              { key: 'activacion_cond_fam_tcc',     titulo: 'Activación conductual',                   desc: 'Aumentar actividades positivas para mejorar el estado de ánimo.' },
+              { key: 'automonitoreo_fam_tcc',       titulo: 'Automonitoreo',                           desc: 'Observar y registrar los propios patrones de pensamiento, emoción y conducta.' },
+              { key: 'repertorio_afron_fam_tcc',    titulo: 'Repertorio de afrontamiento',             desc: 'Contar con estrategias concretas para manejar situaciones de estrés.' },
+            ]
+            // ── PAREJA ──
+            const PAR_RIESGO_TCC = [
+              { key: 'atribuciones_negativas',       titulo: 'Atribuciones negativas',              desc: 'Interpretar el comportamiento del otro como intencionalmente malo ("lo hace para molestarme").' },
+              { key: 'lectura_mente_par_tcc',        titulo: 'Lectura de mente',                    desc: 'Asumir lo que el otro piensa o siente sin verificar ("sé que ya no me quiere").' },
+              { key: 'catastrofizacion_par_tcc',     titulo: 'Catastrofización',                    desc: 'Convertir un problema menor en una crisis ("si llegó tarde, seguro me está engañando").' },
+              { key: 'expectativas_irreales_par_tcc', titulo: 'Expectativas irreales',              desc: 'Creencias como "debería saber lo que necesito sin que se lo diga" o "el amor verdadero no tiene conflictos".' },
+              { key: 'comunicacion_dis_par_tcc',     titulo: 'Comunicación disfuncional',           desc: 'Expresiones indirectas, sarcasmo, críticas constantes, falta de escucha, interrupciones.' },
+              { key: 'ciclos_conflicto',             titulo: 'Ciclos de conflicto',                 desc: 'Patrón repetitivo: queja → defensa → crítica → desprecio → evitación o escalada.' },
+              { key: 'evitacion_conflicto_par',      titulo: 'Evitación del conflicto',             desc: 'No hablar de temas importantes por miedo a la pelea, acumulando resentimiento.' },
+              { key: 'falta_neg_par_tcc',            titulo: 'Falta de habilidades de negociación', desc: 'No saber llegar a acuerdos, ceder siempre o imponer siempre.' },
+              { key: 'dependencia_emocional_par_tcc', titulo: 'Dependencia emocional',             desc: 'Uno de los miembros necesita constantemente validación y presencia del otro para sentirse bien.' },
+              { key: 'celos_control',                titulo: 'Celos y control',                     desc: 'Conductas de vigilancia, prohibiciones o revisión que reflejan creencias de inseguridad y desconfianza.' },
+              { key: 'descalificacion_mutua',        titulo: 'Descalificación mutua',               desc: 'Costumbre de menospreciar los sentimientos, opiniones o logros del otro.' },
+              { key: 'desequilibrio_poder',          titulo: 'Desequilibrio de poder',              desc: 'Uno domina y el otro se somete, generando resentimiento y distancia emocional.' },
+              { key: 'historia_aprendizaje_rel_tcc', titulo: 'Historia de aprendizaje relacional',  desc: 'Patrones aprendidos en familias de origen que se repiten en la relación actual.' },
+              { key: 'falta_reforzamiento',          titulo: 'Falta de reforzamiento positivo',     desc: 'Poca expresión de afecto, gratitud o reconocimiento hacia el otro.' },
+            ]
+            const PAR_PROTECCION_TCC = [
+              { key: 'ambiente_colaborativo',        titulo: 'Ambiente colaborativo',               desc: 'Ver el conflicto como "nuestro problema" y no como "yo contra ti".' },
+              { key: 'tareas_interaccion_pos',       titulo: 'Tareas conductuales de interacción positiva', desc: 'Ejercicios estructurados de interacción positiva (como "días de amor").' },
+              { key: 'entrenamiento_comunicacion',   titulo: 'Entrenamiento en comunicación',       desc: 'Aprender a expresar y escuchar, comprendiendo cómo los pensamientos automáticos interfieren.' },
+              { key: 'identificacion_pa_par',        titulo: 'Identificación y modificación de pensamientos automáticos', desc: 'Detectar y cuestionar pensamientos negativos en situaciones de conflicto.' },
+              { key: 'estrategias_conjuntas',        titulo: 'Estrategias conjuntas de resolución de problemas', desc: 'Aprender un método sistemático para resolver dificultades.' },
+              { key: 'ajuste_creencias_par',         titulo: 'Ajuste del sistema de creencias',    desc: 'Identificar y modificar creencias rígidas y supuestos centrales sobre la relación.' },
+              { key: 'prevencion_recaidas_par',      titulo: 'Prevención de recaídas',              desc: 'Anticipar problemas futuros y elaborar planes de afrontamiento.' },
+            ]
+
+            function toggleIndC(
+              setter: React.Dispatch<React.SetStateAction<{ individual: string[]; familiar: string[]; pareja: string[] }>>,
+              key: string
+            ) {
+              setter(prev => ({
+                ...prev,
+                individual: prev.individual.includes(key)
+                  ? prev.individual.filter(x => x !== key)
+                  : [...prev.individual, key],
+              }))
+            }
+            function toggleFamC(
+              setter: React.Dispatch<React.SetStateAction<{ individual: string[]; familiar: string[]; pareja: string[] }>>,
+              key: string
+            ) {
+              setter(prev => ({
+                ...prev,
+                familiar: prev.familiar.includes(key)
+                  ? prev.familiar.filter(x => x !== key)
+                  : [...prev.familiar, key],
+              }))
+            }
+            function toggleParC(
+              setter: React.Dispatch<React.SetStateAction<{ individual: string[]; familiar: string[]; pareja: string[] }>>,
+              key: string
+            ) {
+              setter(prev => ({
+                ...prev,
+                pareja: prev.pareja.includes(key)
+                  ? prev.pareja.filter(x => x !== key)
+                  : [...prev.pareja, key],
+              }))
+            }
+
+            return (
+              <div className="space-y-5 mt-6 pt-6 border-t border-gray-200">
+                {/* Header */}
+                <p className="text-xs font-bold uppercase tracking-widest text-gray-400 border-b border-gray-100 pb-1">
+                  Terapia Cognitivo-Conductual (TCC)
+                </p>
+
+                {/* ── INDIVIDUAL ── */}
+                <div className="space-y-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-primary-600">Individual</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div>
+                      <p className="text-xs font-semibold mb-3 text-red-500">Factores de Riesgo</p>
+                      <div className="space-y-3">
+                        {IND_RIESGO_TCC.map(f => (
+                          <label key={f.key} className="flex items-start gap-2.5 cursor-pointer group">
+                            <input
+                              type="checkbox"
+                              checked={factoresRiesgoTCC.individual.includes(f.key)}
+                              onChange={() => toggleIndC(setFactoresRiesgoTCC, f.key)}
+                              className="w-4 h-4 rounded mt-0.5 flex-shrink-0"
+                              style={{ accentColor: '#ef4444' }}
+                            />
+                            <div>
+                              <p className="text-sm font-medium text-gray-700 leading-snug group-hover:text-gray-900">{f.titulo}</p>
+                              <p className="text-xs text-gray-400 leading-snug mt-0.5">{f.desc}</p>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold mb-3 text-emerald-600">Factores de Protección</p>
+                      <div className="space-y-3">
+                        {IND_PROTECCION_TCC.map(f => (
+                          <label key={f.key} className="flex items-start gap-2.5 cursor-pointer group">
+                            <input
+                              type="checkbox"
+                              checked={factoresProteccionTCC.individual.includes(f.key)}
+                              onChange={() => toggleIndC(setFactoresProteccionTCC, f.key)}
+                              className="w-4 h-4 rounded mt-0.5 flex-shrink-0"
+                              style={{ accentColor: '#059669' }}
+                            />
+                            <div>
+                              <p className="text-sm font-medium text-gray-700 leading-snug group-hover:text-gray-900">{f.titulo}</p>
+                              <p className="text-xs text-gray-400 leading-snug mt-0.5">{f.desc}</p>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── FAMILIAR ── */}
+                <div className="space-y-3 pt-4 border-t border-gray-100">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-primary-600">Familiar</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div>
+                      <p className="text-xs font-semibold mb-3 text-red-500">Factores de Riesgo</p>
+                      <div className="space-y-3">
+                        {FAM_RIESGO_TCC.map(f => (
+                          <label key={f.key} className="flex items-start gap-2.5 cursor-pointer group">
+                            <input
+                              type="checkbox"
+                              checked={factoresRiesgoTCC.familiar.includes(f.key)}
+                              onChange={() => toggleFamC(setFactoresRiesgoTCC, f.key)}
+                              className="w-4 h-4 rounded mt-0.5 flex-shrink-0"
+                              style={{ accentColor: '#ef4444' }}
+                            />
+                            <div>
+                              <p className="text-sm font-medium text-gray-700 leading-snug group-hover:text-gray-900">{f.titulo}</p>
+                              <p className="text-xs text-gray-400 leading-snug mt-0.5">{f.desc}</p>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold mb-3 text-emerald-600">Factores de Protección</p>
+                      <div className="space-y-3">
+                        {FAM_PROTECCION_TCC.map(f => (
+                          <label key={f.key} className="flex items-start gap-2.5 cursor-pointer group">
+                            <input
+                              type="checkbox"
+                              checked={factoresProteccionTCC.familiar.includes(f.key)}
+                              onChange={() => toggleFamC(setFactoresProteccionTCC, f.key)}
+                              className="w-4 h-4 rounded mt-0.5 flex-shrink-0"
+                              style={{ accentColor: '#059669' }}
+                            />
+                            <div>
+                              <p className="text-sm font-medium text-gray-700 leading-snug group-hover:text-gray-900">{f.titulo}</p>
+                              <p className="text-xs text-gray-400 leading-snug mt-0.5">{f.desc}</p>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── PAREJA ── */}
+                <div className="space-y-3 pt-4 border-t border-gray-100">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-primary-600">Pareja</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div>
+                      <p className="text-xs font-semibold mb-3 text-red-500">Factores de Riesgo</p>
+                      <div className="space-y-3">
+                        {PAR_RIESGO_TCC.map(f => (
+                          <label key={f.key} className="flex items-start gap-2.5 cursor-pointer group">
+                            <input
+                              type="checkbox"
+                              checked={factoresRiesgoTCC.pareja.includes(f.key)}
+                              onChange={() => toggleParC(setFactoresRiesgoTCC, f.key)}
+                              className="w-4 h-4 rounded mt-0.5 flex-shrink-0"
+                              style={{ accentColor: '#ef4444' }}
+                            />
+                            <div>
+                              <p className="text-sm font-medium text-gray-700 leading-snug group-hover:text-gray-900">{f.titulo}</p>
+                              <p className="text-xs text-gray-400 leading-snug mt-0.5">{f.desc}</p>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold mb-3 text-emerald-600">Factores de Protección</p>
+                      <div className="space-y-3">
+                        {PAR_PROTECCION_TCC.map(f => (
+                          <label key={f.key} className="flex items-start gap-2.5 cursor-pointer group">
+                            <input
+                              type="checkbox"
+                              checked={factoresProteccionTCC.pareja.includes(f.key)}
+                              onChange={() => toggleParC(setFactoresProteccionTCC, f.key)}
                               className="w-4 h-4 rounded mt-0.5 flex-shrink-0"
                               style={{ accentColor: '#059669' }}
                             />
