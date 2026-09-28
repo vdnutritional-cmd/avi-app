@@ -81,6 +81,10 @@ export default function PatientDetailPage() {
   const [savedFactoresRiesgoTREC, setSavedFactoresRiesgoTREC] = useState<{ individual: string[]; familiar: string[]; pareja: string[] }>({ individual: [], familiar: [], pareja: [] })
   const [factoresProteccionTREC, setFactoresProteccionTREC] = useState<{ individual: string[]; familiar: string[]; pareja: string[] }>({ individual: [], familiar: [], pareja: [] })
   const [savedFactoresProteccionTREC, setSavedFactoresProteccionTREC] = useState<{ individual: string[]; familiar: string[]; pareja: string[] }>({ individual: [], familiar: [], pareja: [] })
+  // Sprint 4 — acordeones de bloques de factores
+  const [openTFS, setOpenTFS] = useState(false)
+  const [openTREC, setOpenTREC] = useState(false)
+  const [openTCC, setOpenTCC] = useState(false)
   // Sprint 4 — TCC
   const [factoresRiesgoTCC, setFactoresRiesgoTCC] = useState<{ individual: string[]; familiar: string[]; pareja: string[] }>({ individual: [], familiar: [], pareja: [] })
   const [savedFactoresRiesgoTCC, setSavedFactoresRiesgoTCC] = useState<{ individual: string[]; familiar: string[]; pareja: string[] }>({ individual: [], familiar: [], pareja: [] })
@@ -1197,11 +1201,17 @@ export default function PatientDetailPage() {
 
             return (
               <div className="space-y-5">
-                {/* Header */}
-                <p className="text-xs font-bold uppercase tracking-widest text-gray-400 border-b border-gray-100 pb-1">
-                  Terapia Familiar Sistémica
-                </p>
+                {/* Header acordeón TFS */}
+                <button
+                  type="button"
+                  onClick={() => setOpenTFS(v => !v)}
+                  className="w-full flex items-center justify-between text-xs font-bold uppercase tracking-widest text-gray-400 border-b border-gray-100 pb-1 hover:text-gray-600 transition-colors"
+                >
+                  <span>Terapia Familiar Sistémica</span>
+                  <svg className={`w-3.5 h-3.5 transition-transform ${openTFS ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                </button>
 
+                {openTFS && <>
                 {/* ── INDIVIDUAL ── */}
                 <div className="space-y-3">
                   <p className="text-xs font-semibold uppercase tracking-wide text-primary-600">Individual</p>
@@ -1348,6 +1358,7 @@ export default function PatientDetailPage() {
                     </div>
                   </div>
                 </div>
+                </>}
               </div>
             )
           })()}
@@ -1438,11 +1449,17 @@ export default function PatientDetailPage() {
 
             return (
               <div className="space-y-5 mt-6 pt-6 border-t border-gray-200">
-                {/* Header */}
-                <p className="text-xs font-bold uppercase tracking-widest text-gray-400 border-b border-gray-100 pb-1">
-                  Terapia Racional Emotivo Conductual (TREC)
-                </p>
+                {/* Header acordeón TREC */}
+                <button
+                  type="button"
+                  onClick={() => setOpenTREC(v => !v)}
+                  className="w-full flex items-center justify-between text-xs font-bold uppercase tracking-widest text-gray-400 border-b border-gray-100 pb-1 hover:text-gray-600 transition-colors"
+                >
+                  <span>Terapia Racional Emotivo Conductual (TREC)</span>
+                  <svg className={`w-3.5 h-3.5 transition-transform ${openTREC ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                </button>
 
+                {openTREC && <>
                 {/* ── INDIVIDUAL ── */}
                 <div className="space-y-3">
                   <p className="text-xs font-semibold uppercase tracking-wide text-primary-600">Individual</p>
@@ -1583,6 +1600,7 @@ export default function PatientDetailPage() {
                     </div>
                   </div>
                 </div>
+                </>}
               </div>
             )
           })()}
@@ -1693,11 +1711,17 @@ export default function PatientDetailPage() {
 
             return (
               <div className="space-y-5 mt-6 pt-6 border-t border-gray-200">
-                {/* Header */}
-                <p className="text-xs font-bold uppercase tracking-widest text-gray-400 border-b border-gray-100 pb-1">
-                  Terapia Cognitivo-Conductual (TCC)
-                </p>
+                {/* Header acordeón TCC */}
+                <button
+                  type="button"
+                  onClick={() => setOpenTCC(v => !v)}
+                  className="w-full flex items-center justify-between text-xs font-bold uppercase tracking-widest text-gray-400 border-b border-gray-100 pb-1 hover:text-gray-600 transition-colors"
+                >
+                  <span>Terapia Cognitivo-Conductual (TCC)</span>
+                  <svg className={`w-3.5 h-3.5 transition-transform ${openTCC ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                </button>
 
+                {openTCC && <>
                 {/* ── INDIVIDUAL ── */}
                 <div className="space-y-3">
                   <p className="text-xs font-semibold uppercase tracking-wide text-primary-600">Individual</p>
@@ -1838,6 +1862,7 @@ export default function PatientDetailPage() {
                     </div>
                   </div>
                 </div>
+                </>}
               </div>
             )
           })()}
