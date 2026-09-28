@@ -1234,7 +1234,7 @@ export default function PatientDetailPage() {
                   onClick={() => setOpenTFS(v => !v)}
                   className="w-full flex items-center justify-between text-xs font-bold uppercase tracking-widest text-gray-400 border-b border-gray-100 pb-1 hover:text-gray-600 transition-colors"
                 >
-                  <span>Terapia Familiar Sistémica</span>
+                  <span>{tfsActive ? '✅ ' : ''}Terapia Familiar Sistémica</span>
                   <svg className={`w-3.5 h-3.5 transition-transform ${openTFS ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
                 </button>
 
@@ -1246,7 +1246,7 @@ export default function PatientDetailPage() {
                     onClick={() => setOpenIndividual(v => !v)}
                     className="w-full flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-primary-500 pb-0.5 hover:text-primary-700 transition-colors"
                   >
-                    <span>Individual</span>
+                    <span>{tipoIndActive ? '✅ ' : ''}Individual</span>
                     <svg className={`w-3 h-3 transition-transform ${openIndividual ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
                   </button>
                   {openIndividual && (
@@ -1304,7 +1304,7 @@ export default function PatientDetailPage() {
                     onClick={() => setOpenFamiliar(v => !v)}
                     className="w-full flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-primary-500 pb-0.5 hover:text-primary-700 transition-colors"
                   >
-                    <span>Familiar</span>
+                    <span>{tipoFamActive ? '✅ ' : ''}Familiar</span>
                     <svg className={`w-3 h-3 transition-transform ${openFamiliar ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
                   </button>
                   {openFamiliar && (
@@ -1362,7 +1362,7 @@ export default function PatientDetailPage() {
                     onClick={() => setOpenPareja(v => !v)}
                     className="w-full flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-primary-500 pb-0.5 hover:text-primary-700 transition-colors"
                   >
-                    <span>Pareja</span>
+                    <span>{tipoParActive ? '✅ ' : ''}Pareja</span>
                     <svg className={`w-3 h-3 transition-transform ${openPareja ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
                   </button>
                   {openPareja && (
@@ -1509,7 +1509,7 @@ export default function PatientDetailPage() {
                   onClick={() => setOpenTREC(v => !v)}
                   className="w-full flex items-center justify-between text-xs font-bold uppercase tracking-widest text-gray-400 border-b border-gray-100 pb-1 hover:text-gray-600 transition-colors"
                 >
-                  <span>Terapia Racional Emotivo Conductual (TREC)</span>
+                  <span>{trecActive ? '✅ ' : ''}Terapia Racional Emotivo Conductual (TREC)</span>
                   <svg className={`w-3.5 h-3.5 transition-transform ${openTREC ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
                 </button>
 
@@ -1521,7 +1521,7 @@ export default function PatientDetailPage() {
                     onClick={() => setOpenIndividual(v => !v)}
                     className="w-full flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-primary-500 pb-0.5 hover:text-primary-700 transition-colors"
                   >
-                    <span>Individual</span>
+                    <span>{tipoIndActive ? '✅ ' : ''}Individual</span>
                     <svg className={`w-3 h-3 transition-transform ${openIndividual ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
                   </button>
                   {openIndividual && (
@@ -1577,7 +1577,7 @@ export default function PatientDetailPage() {
                     onClick={() => setOpenFamiliar(v => !v)}
                     className="w-full flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-primary-500 pb-0.5 hover:text-primary-700 transition-colors"
                   >
-                    <span>Familiar</span>
+                    <span>{tipoFamActive ? '✅ ' : ''}Familiar</span>
                     <svg className={`w-3 h-3 transition-transform ${openFamiliar ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
                   </button>
                   {openFamiliar && (
@@ -1633,7 +1633,7 @@ export default function PatientDetailPage() {
                     onClick={() => setOpenPareja(v => !v)}
                     className="w-full flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-primary-500 pb-0.5 hover:text-primary-700 transition-colors"
                   >
-                    <span>Pareja</span>
+                    <span>{tipoParActive ? '✅ ' : ''}Pareja</span>
                     <svg className={`w-3 h-3 transition-transform ${openPareja ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
                   </button>
                   {openPareja && (
@@ -1798,7 +1798,7 @@ export default function PatientDetailPage() {
                   onClick={() => setOpenTCC(v => !v)}
                   className="w-full flex items-center justify-between text-xs font-bold uppercase tracking-widest text-gray-400 border-b border-gray-100 pb-1 hover:text-gray-600 transition-colors"
                 >
-                  <span>Terapia Cognitivo-Conductual (TCC)</span>
+                  <span>{tccActive ? '✅ ' : ''}Terapia Cognitivo-Conductual (TCC)</span>
                   <svg className={`w-3.5 h-3.5 transition-transform ${openTCC ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
                 </button>
 
@@ -1810,7 +1810,7 @@ export default function PatientDetailPage() {
                     onClick={() => setOpenIndividual(v => !v)}
                     className="w-full flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-primary-500 pb-0.5 hover:text-primary-700 transition-colors"
                   >
-                    <span>Individual</span>
+                    <span>{tipoIndActive ? '✅ ' : ''}Individual</span>
                     <svg className={`w-3 h-3 transition-transform ${openIndividual ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
                   </button>
                   {openIndividual && (
@@ -1866,7 +1866,7 @@ export default function PatientDetailPage() {
                     onClick={() => setOpenFamiliar(v => !v)}
                     className="w-full flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-primary-500 pb-0.5 hover:text-primary-700 transition-colors"
                   >
-                    <span>Familiar</span>
+                    <span>{tipoFamActive ? '✅ ' : ''}Familiar</span>
                     <svg className={`w-3 h-3 transition-transform ${openFamiliar ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
                   </button>
                   {openFamiliar && (
@@ -1922,7 +1922,7 @@ export default function PatientDetailPage() {
                     onClick={() => setOpenPareja(v => !v)}
                     className="w-full flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-primary-500 pb-0.5 hover:text-primary-700 transition-colors"
                   >
-                    <span>Pareja</span>
+                    <span>{tipoParActive ? '✅ ' : ''}Pareja</span>
                     <svg className={`w-3 h-3 transition-transform ${openPareja ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
                   </button>
                   {openPareja && (
