@@ -1054,137 +1054,173 @@ export default function PatientDetailPage() {
             />
           </div>
 
-          {/* ── Sprint 4 VIII — Factores de Riesgo y Protección (checkboxes) ── */}
-          <div className="space-y-4">
-            {/* Subtítulo enfoque */}
-            <p className="text-xs font-bold uppercase tracking-widest text-gray-400 border-b border-gray-100 pb-1">
-              Terapia Familiar Sistémica
-            </p>
+          {/* ── Sprint 4 VIII — Factores de Riesgo y Protección (formato FamiliarTab) ── */}
+          {(() => {
+            const IND_RIESGO = [
+              { key: 'posicion_rigida',          titulo: 'Posición rígida en el sistema',     desc: 'Chivo expiatorio, héroe, cuidador parental.' },
+              { key: 'corte_emocional',          titulo: 'Corte emocional',                    desc: 'Ruptura significativa con la familia de origen.' },
+              { key: 'patron_transgeneracional', titulo: 'Patrón transgeneracional repetido',  desc: 'Lealtad a un guion familiar disfuncional.' },
+              { key: 'aislamiento_relacional',   titulo: 'Aislamiento relacional',             desc: 'Ausencia de red de apoyo significativa.' },
+              { key: 'indiferenciacion',         titulo: 'Indiferenciación de sí mismo',       desc: 'Incapacidad de tener pensamientos, sentimientos, valores y decisiones propias, distintas de las de su familia o pareja.' },
+              { key: 'homeostasis_individual',   titulo: 'Homeostasis individual',             desc: 'El síntoma protege al sistema de un cambio mayor.' },
+            ]
+            const IND_PROTECCION = [
+              { key: 'claridad_limites',         titulo: 'Claridad de límites',                desc: 'Capacidad de mantener distancia emocional adecuada sin fusionarse ni aislarse.' },
+              { key: 'diferenciacion_self',      titulo: 'Diferenciación de mí mismo (del self)', desc: 'Distinguir los propios pensamientos y emociones de los de los demás.' },
+              { key: 'capacidad_introspeccion',  titulo: 'Capacidad de introspección',         desc: 'Reflexionar sobre sí mismo y evaluarse de forma honesta para mejorar.' },
+              { key: 'autonomia',                titulo: 'Autonomía',                           desc: 'Mantener distancia emocional y física de las fuentes de estrés sin aislarse.' },
+              { key: 'habilidad_relacionarse',   titulo: 'Habilidad para relacionarse',        desc: 'Establecer vínculos íntimos equilibrando las propias necesidades con las del otro.' },
+            ]
+            const FAM_RIESGO = [
+              { key: 'limites_difusos',           titulo: 'Límites difusos o rígidos',              desc: 'Familias aglutinadas (donde no hay individualidad ni privacidad) o familias desligadas (donde hay desapego extremo y falta de apoyo).' },
+              { key: 'triangulacion',             titulo: 'Triangulación',                           desc: 'Involucrar a un tercero (frecuentemente un hijo) para desviar el conflicto entre dos miembros (generalmente la pareja).' },
+              { key: 'parentificacion',           titulo: 'Parentificación',                         desc: 'Inversión de roles donde un hijo asume responsabilidades parentales, emocionales o económicas que no corresponden a su edad.' },
+              { key: 'comunicacion_patologica',   titulo: 'Comunicación patológica',                 desc: 'Presencia de dobles mensajes (mensajes contradictorios), descalificaciones continuas o secretos familiares disfuncionales.' },
+              { key: 'rigidez_homeostatica',      titulo: 'Rigidez homeostática',                    desc: 'Incapacidad del sistema para cambiar y adaptarse a las nuevas etapas del ciclo vital (ej. tratar a un adolescente como si fuera un niño pequeño).' },
+              { key: 'alianzas_destructivas',     titulo: 'Alianzas e interacciones destructivas',   desc: 'Coaliciones (unión de dos miembros contra un tercero) que rompen las jerarquías naturales de la familia.' },
+              { key: 'ciclo_vital_no_resuelto',   titulo: 'Ciclo vital no resuelto',                 desc: 'Dificultades para transitar etapas evolutivas (nido vacío, adolescencia, jubilación).' },
+              { key: 'lealtades_invisibles',      titulo: 'Lealtades invisibles',                    desc: 'Mandatos transgeneracionales no cuestionados.' },
+              { key: 'delegacion_sintoma',        titulo: 'Delegación del síntoma',                  desc: 'Un miembro (identificado como paciente) porta el conflicto de todo el sistema.' },
+            ]
+            const FAM_PROTECCION = [
+              { key: 'limites_claros',            titulo: 'Límites claros y flexibles',              desc: 'Reglas comprensibles que definen los roles de cada uno, permitiendo la cercanía emocional sin perder la autonomía individual.' },
+              { key: 'cohesion_familiar',         titulo: 'Cohesión familiar',                       desc: 'Sentimiento de pertenencia, afecto mutuo y apoyo emocional disponible entre los miembros del grupo.' },
+              { key: 'comunicacion_asertiva',     titulo: 'Comunicación asertiva y abierta',         desc: 'Capacidad para expresar emociones, resolver conflictos de forma directa y validar los puntos de vista de los demás.' },
+              { key: 'flexibilidad',              titulo: 'Flexibilidad y adaptabilidad',             desc: 'Capacidad del sistema para reorganizar sus reglas, roles y jerarquías ante crisis o cambios del entorno.' },
+              { key: 'jerarquia_parental',        titulo: 'Jerarquía parental clara',                desc: 'Figuras de autoridad (padres/cuidadores) coordinadas, que actúan de mutuo acuerdo y ejercen un liderazgo nutridor.' },
+              { key: 'redes_apoyo',               titulo: 'Redes de apoyo externas',                 desc: 'Conexiones saludables con la familia extensa, la escuela, amigos o la comunidad que sostienen al sistema familiar.' },
+            ]
 
-            {/* ── INDIVIDUAL ── */}
-            <div className="space-y-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-primary-600">Individual</p>
+            function toggleInd(
+              setter: React.Dispatch<React.SetStateAction<{ individual: string[]; familiar: string[] }>>,
+              key: string
+            ) {
+              setter(prev => ({
+                ...prev,
+                individual: prev.individual.includes(key)
+                  ? prev.individual.filter(x => x !== key)
+                  : [...prev.individual, key],
+              }))
+            }
+            function toggleFam(
+              setter: React.Dispatch<React.SetStateAction<{ individual: string[]; familiar: string[] }>>,
+              key: string
+            ) {
+              setter(prev => ({
+                ...prev,
+                familiar: prev.familiar.includes(key)
+                  ? prev.familiar.filter(x => x !== key)
+                  : [...prev.familiar, key],
+              }))
+            }
 
-              {/* Factores de Riesgo — Individual */}
-              <div className="space-y-1.5">
-                <p className="text-sm font-medium text-gray-700">Factores de Riesgo</p>
-                {[
-                  'Posición rígida en el sistema. Chivo expiatorio, héroe, cuidador parental.',
-                  'Corte emocional. Ruptura significativa con la familia de origen.',
-                  'Patrón transgeneracional repetido. Lealtad a un guion familiar disfuncional.',
-                  'Aislamiento relacional. Ausencia de red de apoyo significativa.',
-                  'Indiferenciación de sí mismo. Incapacidad de tener pensamientos, sentimientos, valores y decisiones propias, distintas de las de su familia o pareja.',
-                  'Homeostasis individual. El síntoma protege al sistema de un cambio mayor.',
-                ].map(item => (
-                  <label key={item} className="flex items-start gap-2 cursor-pointer group">
-                    <input
-                      type="checkbox"
-                      checked={factoresRiesgo.individual.includes(item)}
-                      onChange={() => setFactoresRiesgo(prev => ({
-                        ...prev,
-                        individual: prev.individual.includes(item)
-                          ? prev.individual.filter(x => x !== item)
-                          : [...prev.individual, item],
-                      }))}
-                      className="mt-0.5 w-4 h-4 rounded accent-primary-600 shrink-0"
-                    />
-                    <span className="text-sm text-gray-600 leading-snug group-hover:text-gray-800">{item}</span>
-                  </label>
-                ))}
+            return (
+              <div className="space-y-5">
+                {/* Header */}
+                <p className="text-xs font-bold uppercase tracking-widest text-gray-400 border-b border-gray-100 pb-1">
+                  Terapia Familiar Sistémica
+                </p>
+
+                {/* ── INDIVIDUAL ── */}
+                <div className="space-y-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-primary-600">Individual</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    {/* Riesgo Individual */}
+                    <div>
+                      <p className="text-xs font-semibold mb-3 text-red-500">Factores de Riesgo</p>
+                      <div className="space-y-3">
+                        {IND_RIESGO.map(f => (
+                          <label key={f.key} className="flex items-start gap-2.5 cursor-pointer group">
+                            <input
+                              type="checkbox"
+                              checked={factoresRiesgo.individual.includes(f.key)}
+                              onChange={() => toggleInd(setFactoresRiesgo, f.key)}
+                              className="w-4 h-4 rounded mt-0.5 flex-shrink-0"
+                              style={{ accentColor: '#ef4444' }}
+                            />
+                            <div>
+                              <p className="text-sm font-medium text-gray-700 leading-snug group-hover:text-gray-900">{f.titulo}</p>
+                              <p className="text-xs text-gray-400 leading-snug mt-0.5">{f.desc}</p>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    {/* Protección Individual */}
+                    <div>
+                      <p className="text-xs font-semibold mb-3 text-emerald-600">Factores de Protección</p>
+                      <div className="space-y-3">
+                        {IND_PROTECCION.map(f => (
+                          <label key={f.key} className="flex items-start gap-2.5 cursor-pointer group">
+                            <input
+                              type="checkbox"
+                              checked={factoresProteccion.individual.includes(f.key)}
+                              onChange={() => toggleInd(setFactoresProteccion, f.key)}
+                              className="w-4 h-4 rounded mt-0.5 flex-shrink-0"
+                              style={{ accentColor: '#059669' }}
+                            />
+                            <div>
+                              <p className="text-sm font-medium text-gray-700 leading-snug group-hover:text-gray-900">{f.titulo}</p>
+                              <p className="text-xs text-gray-400 leading-snug mt-0.5">{f.desc}</p>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── FAMILIAR ── */}
+                <div className="space-y-3 pt-4 border-t border-gray-100">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-primary-600">Familiar</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    {/* Riesgo Familiar */}
+                    <div>
+                      <p className="text-xs font-semibold mb-3 text-red-500">Factores de Riesgo</p>
+                      <div className="space-y-3">
+                        {FAM_RIESGO.map(f => (
+                          <label key={f.key} className="flex items-start gap-2.5 cursor-pointer group">
+                            <input
+                              type="checkbox"
+                              checked={factoresRiesgo.familiar.includes(f.key)}
+                              onChange={() => toggleFam(setFactoresRiesgo, f.key)}
+                              className="w-4 h-4 rounded mt-0.5 flex-shrink-0"
+                              style={{ accentColor: '#ef4444' }}
+                            />
+                            <div>
+                              <p className="text-sm font-medium text-gray-700 leading-snug group-hover:text-gray-900">{f.titulo}</p>
+                              <p className="text-xs text-gray-400 leading-snug mt-0.5">{f.desc}</p>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    {/* Protección Familiar */}
+                    <div>
+                      <p className="text-xs font-semibold mb-3 text-emerald-600">Factores de Protección</p>
+                      <div className="space-y-3">
+                        {FAM_PROTECCION.map(f => (
+                          <label key={f.key} className="flex items-start gap-2.5 cursor-pointer group">
+                            <input
+                              type="checkbox"
+                              checked={factoresProteccion.familiar.includes(f.key)}
+                              onChange={() => toggleFam(setFactoresProteccion, f.key)}
+                              className="w-4 h-4 rounded mt-0.5 flex-shrink-0"
+                              style={{ accentColor: '#059669' }}
+                            />
+                            <div>
+                              <p className="text-sm font-medium text-gray-700 leading-snug group-hover:text-gray-900">{f.titulo}</p>
+                              <p className="text-xs text-gray-400 leading-snug mt-0.5">{f.desc}</p>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
-
-              {/* Factores de Protección — Individual */}
-              <div className="space-y-1.5">
-                <p className="text-sm font-medium text-gray-700">Factores de Protección</p>
-                {[
-                  'Claridad de límites. Capacidad de mantener distancia emocional adecuada sin fusionarse ni aislarse.',
-                  'Diferenciación de mí mismo (del self). Distinguir los propios pensamientos y emociones de los de los demás.',
-                  'Capacidad de introspección. Reflexionar sobre sí mismo y evaluarse de forma honesta para mejorar.',
-                  'Autonomía. Mantener distancia emocional y física de las fuentes de estrés sin aislarse.',
-                  'Habilidad para relacionarse. Establecer vínculos íntimos equilibrando las propias necesidades con las del otro.',
-                ].map(item => (
-                  <label key={item} className="flex items-start gap-2 cursor-pointer group">
-                    <input
-                      type="checkbox"
-                      checked={factoresProteccion.individual.includes(item)}
-                      onChange={() => setFactoresProteccion(prev => ({
-                        ...prev,
-                        individual: prev.individual.includes(item)
-                          ? prev.individual.filter(x => x !== item)
-                          : [...prev.individual, item],
-                      }))}
-                      className="mt-0.5 w-4 h-4 rounded accent-primary-600 shrink-0"
-                    />
-                    <span className="text-sm text-gray-600 leading-snug group-hover:text-gray-800">{item}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            {/* ── FAMILIAR ── */}
-            <div className="space-y-3 pt-2 border-t border-gray-100">
-              <p className="text-xs font-semibold uppercase tracking-wide text-primary-600">Familiar</p>
-
-              {/* Factores de Riesgo — Familiar */}
-              <div className="space-y-1.5">
-                <p className="text-sm font-medium text-gray-700">Factores de Riesgo</p>
-                {[
-                  'Límites difusos o rígidos. Familias aglutinadas (donde no hay individualidad ni privacidad) o familias desligadas (donde hay desapego extremo y falta de apoyo).',
-                  'Triangulación. Involucrar a un tercero (frecuentemente un hijo) para desviar el conflicto entre dos miembros (generalmente la pareja).',
-                  'Parentificación. Inversión de roles donde un hijo asume responsabilidades parentales, emocionales o económicas que no corresponden a su edad.',
-                  'Comunicación patológica. Presencia de dobles mensajes (mensajes contradictorios), descalificaciones continuas o secretos familiares disfuncionales.',
-                  'Rigidez homeostática. Incapacidad del sistema para cambiar y adaptarse a las nuevas etapas del ciclo vital (ej. tratar a un adolescente como si fuera un niño pequeño).',
-                  'Alianzas e interacciones destructivas. Coaliciones (unión de dos miembros contra un tercero) que rompen las jerarquías naturales de la familia.',
-                  'Ciclo vital no resuelto. Dificultades para transitar etapas evolutivas (nido vacío, adolescencia, jubilación).',
-                  'Lealtades invisibles. Mandatos transgeneracionales no cuestionados.',
-                  'Delegación del síntoma. Un miembro (identificado como paciente) porta el conflicto de todo el sistema.',
-                ].map(item => (
-                  <label key={item} className="flex items-start gap-2 cursor-pointer group">
-                    <input
-                      type="checkbox"
-                      checked={factoresRiesgo.familiar.includes(item)}
-                      onChange={() => setFactoresRiesgo(prev => ({
-                        ...prev,
-                        familiar: prev.familiar.includes(item)
-                          ? prev.familiar.filter(x => x !== item)
-                          : [...prev.familiar, item],
-                      }))}
-                      className="mt-0.5 w-4 h-4 rounded accent-primary-600 shrink-0"
-                    />
-                    <span className="text-sm text-gray-600 leading-snug group-hover:text-gray-800">{item}</span>
-                  </label>
-                ))}
-              </div>
-
-              {/* Factores de Protección — Familiar */}
-              <div className="space-y-1.5">
-                <p className="text-sm font-medium text-gray-700">Factores de Protección</p>
-                {[
-                  'Límites claros y flexibles. Reglas comprensibles que definen los roles de cada uno, permitiendo la cercanía emocional sin perder la autonomía individual.',
-                  'Cohesión familiar. Sentimiento de pertenencia, afecto mutuo y apoyo emocional disponible entre los miembros del grupo.',
-                  'Comunicación asertiva y abierta. Capacidad para expresar emociones, resolver conflictos de forma directa y validar los puntos de vista de los demás.',
-                  'Flexibilidad y adaptabilidad. Capacidad del sistema para reorganizar sus reglas, roles y jerarquías ante crisis o cambios del entorno.',
-                  'Jerarquía parental clara. Figuras de autoridad (padres/cuidadores) coordinadas, que actúan de mutuo acuerdo y ejercen un liderazgo nutridor.',
-                  'Redes de apoyo externas. Conexiones saludables con la familia extensa, la escuela, amigos o la comunidad que sostienen al sistema familiar.',
-                ].map(item => (
-                  <label key={item} className="flex items-start gap-2 cursor-pointer group">
-                    <input
-                      type="checkbox"
-                      checked={factoresProteccion.familiar.includes(item)}
-                      onChange={() => setFactoresProteccion(prev => ({
-                        ...prev,
-                        familiar: prev.familiar.includes(item)
-                          ? prev.familiar.filter(x => x !== item)
-                          : [...prev.familiar, item],
-                      }))}
-                      className="mt-0.5 w-4 h-4 rounded accent-primary-600 shrink-0"
-                    />
-                    <span className="text-sm text-gray-600 leading-snug group-hover:text-gray-800">{item}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          </div>
+            )
+          })()}
 
           <div className="flex items-center justify-between pt-2 border-t border-gray-100">
             <p className="text-xs text-gray-400">
