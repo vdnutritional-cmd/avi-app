@@ -41,24 +41,16 @@ const TIPOS_DERIVACION = [
   { key: 'Otro Médico de la salud',    desc: 'Cualquier otro especialista médico no listado.' },
 ]
 
-// Selector de opciones en pills — paleta pastel AVI
+// Selector de opciones en pills — paleta AVI primary (lila)
 function PillSelector({
   options,
   value,
   onChange,
-  colorActive = 'primary',
 }: {
   options: string[]
   value: string
   onChange: (v: string) => void
-  colorActive?: 'primary' | 'calm' | 'warning'
 }) {
-  const activeClass = {
-    primary: 'bg-primary-100 border-primary-300 text-primary-700 font-semibold',
-    calm:    'bg-calm-100   border-calm-300   text-calm-600   font-semibold',
-    warning: 'bg-red-100    border-red-300    text-red-700    font-semibold',
-  }[colorActive]
-
   return (
     <div className="flex gap-2 flex-wrap mt-1">
       {options.map(op => (
@@ -68,8 +60,8 @@ function PillSelector({
           onClick={() => onChange(op)}
           className={`px-4 py-1.5 rounded-full border text-sm transition-all
             ${value === op
-              ? activeClass
-              : 'bg-white border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-600'
+              ? 'bg-primary-100 border-primary-300 text-primary-700 font-semibold'
+              : 'bg-white border-gray-200 text-gray-400 hover:border-primary-200 hover:text-primary-500'
             }`}
         >
           {op}
@@ -345,7 +337,7 @@ export default function DerivacionesCierresTab({ patientId, therapistId }: Props
 
         {/* sensacion_paciente_final — solo cuando percepcion_alivio = SI */}
         {data.percepcion_alivio === 'SI' && (
-          <div className="bg-calm-50 border border-calm-200 rounded-2xl px-5 py-5 space-y-4">
+          <div className="bg-primary-50 border border-primary-100 rounded-2xl px-5 py-5 space-y-4">
             <FieldLabel>Sensación del paciente al cierre</FieldLabel>
             <Pregunta>
               <em>
@@ -358,20 +350,13 @@ export default function DerivacionesCierresTab({ patientId, therapistId }: Props
             {/* Valor actual */}
             <div className="flex items-center gap-3 pt-1">
               <span className={`text-4xl font-bold ${
-                sensacionNum === null ? 'text-gray-300'
-                  : sensacionNum >= 8 ? 'text-calm-500'
-                  : sensacionNum >= 5 ? 'text-primary-400'
-                  : 'text-red-400'
+                sensacionNum === null ? 'text-gray-300' : 'text-primary-500'
               }`}>
                 {sensacionNum === null ? '—' : sensacionNum}
               </span>
               {sensacionNum !== null && <span className="text-sm text-gray-400">/ 10</span>}
               {sensacionNum !== null && (
-                <span className={`text-xs font-medium px-2 py-1 rounded-full ml-1 ${
-                  sensacionNum >= 8 ? 'bg-calm-100 text-calm-600'
-                    : sensacionNum >= 5 ? 'bg-primary-100 text-primary-600'
-                    : 'bg-red-100 text-red-500'
-                }`}>
+                <span className="text-xs font-medium px-2 py-1 rounded-full ml-1 bg-primary-100 text-primary-600">
                   {sensacionNum >= 8 ? 'Excelente' : sensacionNum >= 5 ? 'Regular' : 'Bajo'}
                 </span>
               )}
@@ -379,7 +364,7 @@ export default function DerivacionesCierresTab({ patientId, therapistId }: Props
 
             {sensacionNum === null && (
               cuestionarioPendiente ? (
-                <div className="flex items-center gap-2 text-sm text-primary-600 bg-primary-50
+                <div className="flex items-center gap-2 text-sm text-primary-700 bg-primary-100
                                 border border-primary-200 rounded-xl px-4 py-2.5">
                   <span>⏳</span>
                   <span>Cuestionario enviado — esperando respuesta del paciente</span>
@@ -435,8 +420,8 @@ export default function DerivacionesCierresTab({ patientId, therapistId }: Props
             </div>
           </label>
           {data.abandono && (
-            <div className="flex items-center gap-2 text-sm text-red-700 bg-red-50
-                            border border-red-200 rounded-xl px-4 py-2.5 mt-1">
+            <div className="flex items-center gap-2 text-sm text-primary-700 bg-primary-50
+                            border border-primary-200 rounded-xl px-4 py-2.5 mt-1">
               <span>⚠️</span>
               <span>Este paciente está marcado como abandono del proceso.</span>
             </div>
