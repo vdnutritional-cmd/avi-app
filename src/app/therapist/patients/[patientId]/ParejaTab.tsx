@@ -532,7 +532,7 @@ export default function ParejaTab({ patientId, therapistId }: Props) {
       {/* ── Conclusión clínica ── */}
       <SectionCard title="Conclusión clínica">
         <Instruccion>
-          Una vez seleccionadas las opciones de los tres apartados, genera el análisis. Puedes editar el resultado antes de guardar.
+          Una vez seleccionadas las opciones de los cuatro apartados, genera el análisis. Puedes editar el resultado antes de guardar.
         </Instruccion>
         <div className="space-y-3 pt-1">
           <div className="flex items-center gap-3">
