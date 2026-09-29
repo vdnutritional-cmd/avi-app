@@ -146,10 +146,12 @@ export default async function EstadisticasPage({
     .gte('session_date', mesInicio)
     .lt('session_date', mesSiguiente)
 
+  // Notas iniciales: excluir archivados para evitar doble conteo con la cuenta destino de fusiones
   let notasIniQuery = admin
     .from('therapist_patients')
     .select('patient_id, initial_note_date, initial_note_pro_bono, initial_note')
     .eq('therapist_id', therapistId)
+    .neq('status', 'archived')
     .not('initial_note', 'is', null)
     .not('initial_note_date', 'is', null)
     .gte('initial_note_date', mesInicio)

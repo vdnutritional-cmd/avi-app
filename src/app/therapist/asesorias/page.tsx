@@ -43,10 +43,12 @@ export default async function AsesoriasPage({
     .order('session_date', { ascending: true })
 
   // Notas iniciales del mes (cuentan como sesión)
+  // Excluir archivados: son cuentas fusionadas cuya nota fue copiada al destino activo → evita doble conteo
   const { data: notasIniciales } = await supabase
     .from('therapist_patients')
     .select('initial_note_date, initial_note_pro_bono, initial_note_virtual')
     .eq('therapist_id', user!.id)
+    .neq('status', 'archived')
     .not('initial_note', 'is', null)
     .not('initial_note_date', 'is', null)
     .gte('initial_note_date', mesInicio)
@@ -96,6 +98,7 @@ export default async function AsesoriasPage({
       .from('therapist_patients')
       .select('initial_note_date, initial_note_pro_bono')
       .eq('therapist_id', user!.id)
+      .neq('status', 'archived')
       .not('initial_note', 'is', null)
       .not('initial_note_date', 'is', null)
       .gte('initial_note_date', seisMesesAtras)
