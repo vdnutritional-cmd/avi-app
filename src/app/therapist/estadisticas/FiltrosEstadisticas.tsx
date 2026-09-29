@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation'
 
 interface Props {
-  tipo: 'activos' | 'inactivos'
+  tipo: 'activos' | 'inactivos' | 'total'
   pid: string
   mes: string
   pacientes: { id: string; nombre: string }[]
@@ -19,7 +19,7 @@ export default function FiltrosEstadisticas({ tipo, pid, mes, pacientes }: Props
 
   return (
     <div className="flex flex-wrap items-center gap-3">
-      {/* Toggle Activos / Inactivos */}
+      {/* Toggle Activos / Inactivos / Total */}
       <div className="flex rounded-xl border border-gray-200 overflow-hidden">
         <button
           onClick={() => navTo({ tipo: 'activos', pid: 'all' })}
@@ -40,6 +40,16 @@ export default function FiltrosEstadisticas({ tipo, pid, mes, pacientes }: Props
           }`}
         >
           Inactivos
+        </button>
+        <button
+          onClick={() => navTo({ tipo: 'total', pid: 'all' })}
+          className={`px-4 py-2 text-sm font-medium transition-colors border-l border-gray-200 ${
+            tipo === 'total'
+              ? 'bg-primary-600 text-white'
+              : 'bg-white text-gray-600 hover:bg-gray-50'
+          }`}
+        >
+          Total
         </button>
       </div>
 

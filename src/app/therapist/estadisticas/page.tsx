@@ -33,6 +33,8 @@ const TIPOS_DERIVACION = [
   'Otro Médico de la salud',
 ]
 
+type Tipo = 'activos' | 'inactivos' | 'total'
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default async function EstadisticasPage({
@@ -46,10 +48,12 @@ export default async function EstadisticasPage({
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
 
-  const admin        = createAdminClient()
-  const therapistId  = user.id
-  const tipo         = (tipoParam === 'inactivos' ? 'inactivos' : 'activos') as 'activos' | 'inactivos'
-  const pid          = pidParam ?? 'all'
+  const admin       = createAdminClient()
+  const therapistId = user.id
+  const tipo        = (['activos', 'inactivos', 'total'].includes(tipoParam ?? '')
+    ? tipoParam
+    : 'activos') as Tipo
+  const pid         = pidParam ?? 'all'
 
   // ── Mes a mostrar ──────────────────────────────────────────────────────────
   const now = new Date()
@@ -62,13 +66,20 @@ export default async function EstadisticasPage({
   const mesSiguiente = new Date(year, month, 1).toISOString().split('T')[0]
   const isCurrentMonth = mesKey === `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
 
-  // ── 1. Pacientes en scope (activos o inactivos, sin archivados) ─────────────
+  // ── 1. Pacientes en scope ──────────────────────────────────────────────────
+  // Para activos/inactivos: filtrar por is_active + excluir archivados
+  // Para total: TODOS los pacientes (incluyendo archivados, para que las sesiones cuadren con Mis Asesorías)
   let relacionesQuery = admin
     .from('therapist_patients')
-    .select('patient_id, is_active, empresa_id, sensacion_paciente_inicial, initial_note_date, initial_note_pro_bono, initial_note, convenio_empresas(nombre)')
+    .select('patient_id, is_active, empresa_id, sensacion_paciente_inicial, initial_note_date, initial_note_pro_bono, initial_note, status, convenio_empresas(nombre)')
     .eq('therapist_id', therapistId)
-    .eq('is_active', tipo === 'activos')
-    .neq('status', 'archived')
+
+  if (tipo === 'activos') {
+    relacionesQuery = relacionesQuery.eq('is_active', true).neq('status', 'archived')
+  } else if (tipo === 'inactivos') {
+    relacionesQuery = relacionesQuery.eq('is_active', false).neq('status', 'archived')
+  }
+  // tipo === 'total': sin filtros adicionales → incluye activos + inactivos + archivados
 
   if (pid !== 'all') {
     relacionesQuery = relacionesQuery.eq('patient_id', pid)
@@ -95,51 +106,102 @@ export default async function EstadisticasPage({
     nombreByPatient[p.id] = p.full_name ?? p.email ?? p.id
   }
 
-  const pacientesParaDropdown = pacienteIds.map(id => ({
-    id,
-    nombre: nombreByPatient[id] ?? id,
-  })).sort((a, b) => a.nombre.localeCompare(b.nombre))
+  // Dropdown: para "total" mostrar solo no archivados; para activos/inactivos los del scope
+  let pacientesParaDropdown: { id: string; nombre: string }[]
+  if (tipo === 'total') {
+    // Obtener todos los no archivados para el dropdown
+    const { data: noArchivados } = await admin
+      .from('therapist_patients')
+      .select('patient_id')
+      .eq('therapist_id', therapistId)
+      .neq('status', 'archived')
+    const idsNoArchivados = (noArchivados ?? []).map(r => r.patient_id as string)
+    const { data: profilesDropdown } = idsNoArchivados.length > 0
+      ? await admin.from('profiles').select('id, full_name, email').in('id', idsNoArchivados)
+      : { data: [] }
+    const nombreDD: Record<string, string> = {}
+    for (const p of profilesDropdown ?? []) {
+      nombreDD[p.id] = p.full_name ?? p.email ?? p.id
+    }
+    pacientesParaDropdown = idsNoArchivados
+      .map(id => ({ id, nombre: nombreDD[id] ?? id }))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre))
+  } else {
+    pacientesParaDropdown = pacienteIds
+      .map(id => ({ id, nombre: nombreByPatient[id] ?? id }))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre))
+  }
 
-  // ── 2. Sesiones presenciales del periodo ───────────────────────────────────
-  const [{ data: sesionesRows }, notasEnPeriodo] = await Promise.all([
-    pacienteIds.length > 0
-      ? admin
-          .from('therapist_session_notes')
-          .select('patient_id, session_date, is_pro_bono')
-          .eq('therapist_id', therapistId)
-          .in('patient_id', pacienteIds)
-          .gte('session_date', mesInicio)
-          .lt('session_date', mesSiguiente)
-      : Promise.resolve({ data: [] }),
-    // Notas iniciales que caen en el periodo
-    Promise.resolve(
-      (relaciones ?? []).filter(r =>
-        r.initial_note &&
-        r.initial_note_date &&
-        r.initial_note_date >= mesInicio &&
-        r.initial_note_date < mesSiguiente
-      ).map(r => ({
-        patient_id: r.patient_id as string,
-        session_date: r.initial_note_date as string,
-        is_pro_bono: (r.initial_note_pro_bono as boolean) ?? false,
-      }))
-    ),
+  // ── 2. Sesiones del periodo ────────────────────────────────────────────────
+  // Para tipo=total y pid=all: consultar TODAS las sesiones del terapeuta en el periodo
+  // (sin filtro de patient_id), igual que Mis Asesorías — incluye archivados.
+  // Para activos/inactivos o pid específico: filtrar por pacienteIds.
+
+  const consultarTodasLasSesiones = tipo === 'total' && pid === 'all'
+
+  let sesionesQuery = admin
+    .from('therapist_session_notes')
+    .select('patient_id, session_date, is_pro_bono')
+    .eq('therapist_id', therapistId)
+    .gte('session_date', mesInicio)
+    .lt('session_date', mesSiguiente)
+
+  let notasIniQuery = admin
+    .from('therapist_patients')
+    .select('patient_id, initial_note_date, initial_note_pro_bono, initial_note')
+    .eq('therapist_id', therapistId)
+    .not('initial_note', 'is', null)
+    .not('initial_note_date', 'is', null)
+    .gte('initial_note_date', mesInicio)
+    .lt('initial_note_date', mesSiguiente)
+
+  if (!consultarTodasLasSesiones) {
+    if (pacienteIds.length > 0) {
+      sesionesQuery  = sesionesQuery.in('patient_id', pacienteIds)
+      notasIniQuery  = notasIniQuery.in('patient_id', pacienteIds)
+    } else {
+      // Sin pacientes en scope → sin sesiones
+      const todasLasSesiones: { patient_id: string; session_date: string; is_pro_bono: boolean }[] = []
+      const pacientesEnPeriodoIds: string[] = []
+      return renderPage({
+        year, month, mesKey, isCurrentMonth, tipo, pid,
+        pacientesParaDropdown, todasLasSesiones, pacientesEnPeriodoIds,
+        relaciones: relaciones ?? [],
+        derivacionesRows: [],
+        expedientesRows: [],
+        todosActivosRows: [],
+        derivActivosRows: [],
+        empresaByPatient,
+        nombreByPatient,
+      })
+    }
+  }
+
+  const [{ data: sesionesRows }, { data: notasRows }] = await Promise.all([
+    sesionesQuery,
+    notasIniQuery,
   ])
 
-  const todasLasSesiones = [
+  type SesionRow = { patient_id: string; session_date: string; is_pro_bono: boolean }
+
+  const todasLasSesiones: SesionRow[] = [
     ...(sesionesRows ?? []).map(s => ({
       patient_id: s.patient_id as string,
       session_date: s.session_date as string,
       is_pro_bono: (s.is_pro_bono as boolean) ?? false,
     })),
-    ...notasEnPeriodo,
+    ...(notasRows ?? []).map(n => ({
+      patient_id: n.patient_id as string,
+      session_date: n.initial_note_date as string,
+      is_pro_bono: (n.initial_note_pro_bono as boolean) ?? false,
+    })),
   ]
 
   // Pacientes únicos atendidos en el periodo
   const pacientesEnPeriodoSet = new Set(todasLasSesiones.map(s => s.patient_id))
   const pacientesEnPeriodoIds = [...pacientesEnPeriodoSet]
 
-  // ── 3. Datos de Derivaciones y Cierres (para pacientes en periodo) ─────────
+  // ── 3. Derivaciones y expedientes (para pacientes en periodo) ──────────────
   const [{ data: derivacionesRows }, { data: expedientesRows }] = await Promise.all([
     pacientesEnPeriodoIds.length > 0
       ? supabase
@@ -157,7 +219,7 @@ export default async function EstadisticasPage({
       : Promise.resolve({ data: [] }),
   ])
 
-  // ── 4. TODOS los pacientes activos (para Satisfacción) ────────────────────
+  // ── 4. Todos los activos para Satisfacción ─────────────────────────────────
   const { data: todosActivosRows } = await admin
     .from('therapist_patients')
     .select('patient_id, sensacion_paciente_inicial')
@@ -175,9 +237,51 @@ export default async function EstadisticasPage({
         .in('patient_id', todosActivosIds)
     : { data: [] }
 
+  return renderPage({
+    year, month, mesKey, isCurrentMonth, tipo, pid,
+    pacientesParaDropdown, todasLasSesiones, pacientesEnPeriodoIds,
+    relaciones: relaciones ?? [],
+    derivacionesRows: derivacionesRows ?? [],
+    expedientesRows: expedientesRows ?? [],
+    todosActivosRows: todosActivosRows ?? [],
+    derivActivosRows: derivActivosRows ?? [],
+    empresaByPatient,
+    nombreByPatient,
+  })
+}
+
+// ── Renderer ──────────────────────────────────────────────────────────────────
+
+interface RenderProps {
+  year: number
+  month: number
+  mesKey: string
+  isCurrentMonth: boolean
+  tipo: Tipo
+  pid: string
+  pacientesParaDropdown: { id: string; nombre: string }[]
+  todasLasSesiones: { patient_id: string; session_date: string; is_pro_bono: boolean }[]
+  pacientesEnPeriodoIds: string[]
+  relaciones: Record<string, unknown>[]
+  derivacionesRows: Record<string, unknown>[]
+  expedientesRows: Record<string, unknown>[]
+  todosActivosRows: Record<string, unknown>[]
+  derivActivosRows: Record<string, unknown>[]
+  empresaByPatient: Record<string, string>
+  nombreByPatient: Record<string, string>
+}
+
+function renderPage({
+  year, month, mesKey, isCurrentMonth, tipo, pid,
+  pacientesParaDropdown, todasLasSesiones, pacientesEnPeriodoIds,
+  relaciones, derivacionesRows, expedientesRows,
+  todosActivosRows, derivActivosRows,
+  empresaByPatient, nombreByPatient,
+}: RenderProps) {
+
   // ── Cálculos ───────────────────────────────────────────────────────────────
 
-  // A) Sesiones totales + por empresa
+  // A) Sesiones por empresa
   const totalSesiones = todasLasSesiones.length
   const sesionesPorEmpresa: Record<string, number> = {}
   for (const s of todasLasSesiones) {
@@ -188,9 +292,9 @@ export default async function EstadisticasPage({
   // B) Personas atendidas
   const personasAtendidas = pacientesEnPeriodoIds.length
 
-  // C) Motivo de consulta (tipo_caso + problematica agrupados)
+  // C) Motivo de consulta
   const motivoMap: Record<string, number> = {}
-  for (const exp of expedientesRows ?? []) {
+  for (const exp of expedientesRows) {
     const tc = (exp.tipo_caso as string) ?? ''
     const pr = (exp.problematica as string) ?? ''
     if (!tc && !pr) continue
@@ -199,10 +303,10 @@ export default async function EstadisticasPage({
   }
   const motivoEntries = Object.entries(motivoMap).sort(([, a], [, b]) => b - a)
 
-  // D) Derivaciones (suma por tipo + total)
+  // D) Derivaciones
   const derivacionesPorTipo: Record<string, number> = {}
   let totalDerivaciones = 0
-  for (const d of derivacionesRows ?? []) {
+  for (const d of derivacionesRows) {
     const tipos = Array.isArray(d.derivacion_tipos) ? d.derivacion_tipos as string[] : []
     for (const t of tipos) {
       derivacionesPorTipo[t] = (derivacionesPorTipo[t] ?? 0) + 1
@@ -210,29 +314,29 @@ export default async function EstadisticasPage({
     }
   }
 
-  // E) Métricas de derivaciones/cierres
-  const casosRiesgo       = (derivacionesRows ?? []).filter(d => d.caso_riesgo === 'SI').length
-  const asistSeguimiento  = (derivacionesRows ?? []).filter(d => d.asistencia_seguimiento === 'SI').length
-  const percepcionAlivio  = (derivacionesRows ?? []).filter(d => d.percepcion_alivio === 'SI').length
-  const cambioFunc        = (derivacionesRows ?? []).filter(d => d.cambio_funcionamiento === 'SI').length
-  const abandono          = (derivacionesRows ?? []).filter(d => d.abandono === true).length
-  const atenEspecializada = (derivacionesRows ?? []).filter(d => d.atencion_especializada === 'SI').length
+  // E) Métricas de cierres
+  const casosRiesgo       = derivacionesRows.filter(d => d.caso_riesgo === 'SI').length
+  const asistSeguimiento  = derivacionesRows.filter(d => d.asistencia_seguimiento === 'SI').length
+  const percepcionAlivio  = derivacionesRows.filter(d => d.percepcion_alivio === 'SI').length
+  const cambioFunc        = derivacionesRows.filter(d => d.cambio_funcionamiento === 'SI').length
+  const abandono          = derivacionesRows.filter(d => d.abandono === true).length
+  const atenEspecializada = derivacionesRows.filter(d => d.atencion_especializada === 'SI').length
 
-  // F) Satisfacción — distribución sensacion_inicial y sensacion_final (todos activos)
-  const totalActivos = todosActivosIds.length
+  // F) Satisfacción (todos los activos)
+  const totalActivos = todosActivosRows.length
 
   const finalPorPatient: Record<string, string> = {}
-  for (const d of derivActivosRows ?? []) {
+  for (const d of derivActivosRows) {
     finalPorPatient[d.patient_id as string] = (d.sensacion_paciente_final as string) ?? 'n/a'
   }
 
   const distInicial: Record<string, number> = { 'n/a': 0, '1': 0, '2': 0, '3': 0, '4': 0, '5': 0, '6': 0, '7': 0, '8': 0, '9': 0, '10': 0 }
   const distFinal:   Record<string, number> = { 'n/a': 0, '1': 0, '2': 0, '3': 0, '4': 0, '5': 0, '6': 0, '7': 0, '8': 0, '9': 0, '10': 0 }
 
-  for (const r of todosActivosRows ?? []) {
+  for (const r of todosActivosRows) {
     const ini = r.sensacion_paciente_inicial
-    const key = (ini !== null && ini !== undefined) ? String(ini) : 'n/a'
-    if (key in distInicial) distInicial[key]++
+    const keyIni = (ini !== null && ini !== undefined) ? String(ini) : 'n/a'
+    if (keyIni in distInicial) distInicial[keyIni]++
     else distInicial['n/a']++
 
     const fin = finalPorPatient[r.patient_id as string] ?? 'n/a'
@@ -240,13 +344,17 @@ export default async function EstadisticasPage({
     else distFinal['n/a']++
   }
 
-  // G) Tabla Calificación inicial y final (pacientes en periodo)
-  const calificaciones = pacientesEnPeriodoIds.map(pid => {
-    const rel = (relaciones ?? []).find(r => r.patient_id === pid)
-    const der = (derivacionesRows ?? []).find(d => d.patient_id === pid)
+  // G) Tabla calificación por paciente (pacientes en periodo + en relaciones para que tengamos los datos)
+  const relacionesByPid: Record<string, Record<string, unknown>> = {}
+  for (const r of relaciones) {
+    relacionesByPid[r.patient_id as string] = r
+  }
+  const calificaciones = pacientesEnPeriodoIds.map(id => {
+    const rel = relacionesByPid[id]
+    const der = derivacionesRows.find(d => d.patient_id === id)
     return {
-      pid,
-      nombre: nombreByPatient[pid] ?? pid,
+      pid: id,
+      nombre: nombreByPatient[id] ?? id,
       inicial: rel?.sensacion_paciente_inicial !== null && rel?.sensacion_paciente_inicial !== undefined
         ? String(rel.sensacion_paciente_inicial)
         : 'n/a',
@@ -255,12 +363,15 @@ export default async function EstadisticasPage({
   }).sort((a, b) => a.nombre.localeCompare(b.nombre))
 
   // ── Navegación de meses ────────────────────────────────────────────────────
-  const prevMes = mesAnterior(year, month)
-  const nextMes = mesSiguienteStr(year, month)
+  const [year2, month2] = [year, month]
+  const prevMes = mesAnterior(year2, month2)
+  const nextMes = mesSiguienteStr(year2, month2)
   const baseParams = (m: string) =>
     `/therapist/estadisticas?mes=${m}&tipo=${tipo}&pid=${pid}`
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  const tipoLabel = tipo === 'activos' ? 'activos' : tipo === 'inactivos' ? 'inactivos' : 'activos + inactivos'
+
+  // ── JSX ────────────────────────────────────────────────────────────────────
   return (
     <div className="max-w-3xl space-y-8">
 
@@ -268,7 +379,7 @@ export default async function EstadisticasPage({
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Estadísticas del Terapeuta</h1>
         <p className="text-gray-500 mt-1 text-sm">
-          Información clínica y operativa de tu práctica · pacientes {tipo}
+          Información clínica y operativa de tu práctica · pacientes {tipoLabel}
         </p>
       </div>
 
@@ -283,7 +394,7 @@ export default async function EstadisticasPage({
             ← ant.
           </Link>
           <span className="text-sm font-medium text-gray-700 capitalize min-w-[150px] text-center">
-            {nombreMesLargo(year, month)}
+            {nombreMesLargo(year2, month2)}
           </span>
           <Link
             href={isCurrentMonth ? '#' : baseParams(nextMes)}
@@ -297,7 +408,7 @@ export default async function EstadisticasPage({
           </Link>
         </div>
 
-        {/* Toggle activos/inactivos + dropdown */}
+        {/* Toggle activos/inactivos/total + dropdown */}
         <FiltrosEstadisticas
           tipo={tipo}
           pid={pid}
@@ -305,15 +416,6 @@ export default async function EstadisticasPage({
           pacientes={pacientesParaDropdown}
         />
       </div>
-
-      {/* ── Sin sesiones en el periodo ─────────────────────────────────────── */}
-      {pacienteIds.length === 0 && (
-        <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center">
-          <p className="text-gray-400 text-sm">
-            No hay pacientes {tipo} registrados.
-          </p>
-        </div>
-      )}
 
       {/* ── A. Resumen del periodo ─────────────────────────────────────────── */}
       <section className="space-y-3">
@@ -361,6 +463,10 @@ export default async function EstadisticasPage({
         </section>
       )}
 
+      {totalSesiones === 0 && (
+        <EmptyCard text={`No hay sesiones registradas en ${nombreMesLargo(year2, month2)} para pacientes ${tipoLabel}.`} />
+      )}
+
       {/* ── C. Motivo de consulta ──────────────────────────────────────────── */}
       <section className="space-y-3">
         <SectionTitle>Motivo de consulta</SectionTitle>
@@ -392,7 +498,6 @@ export default async function EstadisticasPage({
       <section className="space-y-3">
         <SectionTitle>Derivaciones y Cierres</SectionTitle>
 
-        {/* Derivaciones por tipo */}
         <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-3">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Derivaciones</p>
           {TIPOS_DERIVACION.map(t => (
@@ -409,10 +514,9 @@ export default async function EstadisticasPage({
           </div>
         </div>
 
-        {/* Grid de métricas de cierre */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           <MetricCard label="Casos de riesgo" value={casosRiesgo}
-            sub={`con respuesta SI`} color="red" />
+            sub="con respuesta SI" color="red" />
           <MetricCard label="Asistencia de seguimiento" value={asistSeguimiento}
             sub="con respuesta SI" />
           <MetricCard label="Percepción de alivio" value={percepcionAlivio}
@@ -426,7 +530,7 @@ export default async function EstadisticasPage({
         </div>
       </section>
 
-      {/* ── E. Satisfacción del asesorado (todos los activos, sin filtro de mes) */}
+      {/* ── E. Satisfacción del asesorado ──────────────────────────────────── */}
       <section className="space-y-3">
         <SectionTitle>
           Satisfacción del asesorado
@@ -435,19 +539,12 @@ export default async function EstadisticasPage({
           </span>
         </SectionTitle>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-
-          {/* Calificación inicial */}
           <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-2">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
-              Calificación inicial (sensacion_paciente_inicial)
+              Calificación inicial
             </p>
             {(['n/a', '1','2','3','4','5','6','7','8','9','10'] as const).map(v => (
-              <ScoreRow
-                key={v}
-                label={v}
-                count={distInicial[v] ?? 0}
-                total={totalActivos}
-              />
+              <ScoreRow key={v} label={v} count={distInicial[v] ?? 0} total={totalActivos} />
             ))}
             <div className="flex justify-between text-xs text-gray-400 border-t border-gray-100 pt-2 mt-1">
               <span>Total</span>
@@ -456,19 +553,12 @@ export default async function EstadisticasPage({
               </span>
             </div>
           </div>
-
-          {/* Calificación final */}
           <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-2">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
-              Calificación final (sensacion_paciente_final)
+              Calificación final
             </p>
             {(['n/a', '1','2','3','4','5','6','7','8','9','10'] as const).map(v => (
-              <ScoreRow
-                key={v}
-                label={v}
-                count={distFinal[v] ?? 0}
-                total={totalActivos}
-              />
+              <ScoreRow key={v} label={v} count={distFinal[v] ?? 0} total={totalActivos} />
             ))}
             <div className="flex justify-between text-xs text-gray-400 border-t border-gray-100 pt-2 mt-1">
               <span>Total</span>
@@ -480,12 +570,12 @@ export default async function EstadisticasPage({
         </div>
       </section>
 
-      {/* ── F. Calificación inicial y final por paciente ───────────────────── */}
+      {/* ── F. Calificación por paciente ───────────────────────────────────── */}
       {calificaciones.length > 0 && (
         <section className="space-y-3">
           <SectionTitle>Calificación inicial y final por paciente</SectionTitle>
           <p className="text-xs text-gray-400">
-            Pacientes atendidos en {nombreMesLargo(year, month)} · {tipo}
+            Pacientes atendidos en {nombreMesLargo(year2, month2)} · {tipoLabel}
           </p>
           <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
             <table className="w-full text-sm">
@@ -500,12 +590,8 @@ export default async function EstadisticasPage({
                 {calificaciones.map(c => (
                   <tr key={c.pid} className="hover:bg-gray-50 transition-colors">
                     <td className="px-5 py-3 text-gray-700">{c.nombre}</td>
-                    <td className="px-5 py-3 text-center">
-                      <ScoreBadge value={c.inicial} />
-                    </td>
-                    <td className="px-5 py-3 text-center">
-                      <ScoreBadge value={c.final} />
-                    </td>
+                    <td className="px-5 py-3 text-center"><ScoreBadge value={c.inicial} /></td>
+                    <td className="px-5 py-3 text-center"><ScoreBadge value={c.final} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -529,10 +615,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 }
 
 function KpiCard({ label, value, sub, accent }: {
-  label: string
-  value: number
-  sub?: string
-  accent?: boolean
+  label: string; value: number; sub?: string; accent?: boolean
 }) {
   return (
     <div className={`rounded-2xl p-5 ${accent ? 'bg-primary-50 border border-primary-100' : 'bg-white border border-gray-100'}`}>
@@ -544,9 +627,7 @@ function KpiCard({ label, value, sub, accent }: {
 }
 
 function MetricCard({ label, value, sub, color = 'default' }: {
-  label: string
-  value: number
-  sub?: string
+  label: string; value: number; sub?: string
   color?: 'red' | 'green' | 'amber' | 'blue' | 'default'
 }) {
   const colors = {
@@ -559,7 +640,7 @@ function MetricCard({ label, value, sub, color = 'default' }: {
   return (
     <div className={`rounded-2xl p-4 border ${colors[color]}`}>
       <p className="text-xs text-gray-500 mb-1 leading-tight">{label}</p>
-      <p className={`text-2xl font-bold ${color !== 'default' ? '' : 'text-gray-800'}`}>{value}</p>
+      <p className="text-2xl font-bold">{value}</p>
       {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
     </div>
   )
@@ -582,10 +663,7 @@ function ScoreRow({ label, count, total }: { label: string; count: number; total
       </span>
       <div className="flex-1 bg-gray-100 rounded-full h-3 overflow-hidden">
         {count > 0 && (
-          <div
-            className="h-3 rounded-full bg-primary-400"
-            style={{ width: `${Math.max(pct, 4)}%` }}
-          />
+          <div className="h-3 rounded-full bg-primary-400" style={{ width: `${Math.max(pct, 4)}%` }} />
         )}
       </div>
       <span className="w-6 text-right shrink-0 text-gray-500">{count}</span>
