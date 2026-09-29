@@ -90,7 +90,7 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // 5. Bloquear los inactivos
+  // 5. Bloquear los inactivos y marcar abandono en derivaciones_cierres
   let bloqueados = 0
   for (const r of aBloquear) {
     const { error: updError } = await admin
@@ -104,6 +104,22 @@ export async function GET(req: NextRequest) {
     } else {
       bloqueados++
       console.log(`[cron] Bloqueado: paciente ${r.patient_id} · terapeuta ${r.therapist_id} · última actividad ${r.ultima_actividad}`)
+
+      // Marcar abandono automático en patient_derivaciones_cierres
+      const { error: abError } = await admin
+        .from('patient_derivaciones_cierres')
+        .upsert(
+          {
+            therapist_id: r.therapist_id,
+            patient_id:   r.patient_id,
+            abandono:     true,
+          },
+          { onConflict: 'therapist_id,patient_id' }
+        )
+
+      if (abError) {
+        console.error(`[cron] Error upsert abandono ${r.patient_id}:`, abError.message)
+      }
     }
   }
 

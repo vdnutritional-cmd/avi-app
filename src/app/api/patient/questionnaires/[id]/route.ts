@@ -43,6 +43,58 @@ export async function PATCH(
   let score: object = {}
   let interpretation = ''
 
+  // ── sensacion_final: respuesta numérica 1-10 ─────────────────────────────
+  if (quest.questionnaire_type === 'sensacion_final') {
+    const valor = responses['sensacion'] // número 1-10
+    if (typeof valor !== 'number' || valor < 1 || valor > 10) {
+      return NextResponse.json({ error: 'Valor de sensación inválido (debe ser 1-10)' }, { status: 400 })
+    }
+
+    // Guardar cuestionario como completado
+    const { error: updateErr } = await supabase
+      .from('patient_questionnaires')
+      .update({
+        responses,
+        score: { sensacion: valor },
+        interpretation: `Sensación final del paciente: ${valor}/10`,
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .eq('patient_id', user.id)
+
+    if (updateErr) {
+      console.error('[questionnaire/sensacion_final] Error al guardar cuestionario:', updateErr)
+      return NextResponse.json({ error: 'Error al guardar las respuestas' }, { status: 500 })
+    }
+
+    // Obtener therapist_id del cuestionario para el upsert
+    const { data: questFull } = await supabase
+      .from('patient_questionnaires')
+      .select('therapist_id')
+      .eq('id', id)
+      .single()
+
+    if (questFull?.therapist_id) {
+      const { error: dcErr } = await supabase
+        .from('patient_derivaciones_cierres')
+        .upsert(
+          {
+            therapist_id:             questFull.therapist_id,
+            patient_id:               user.id,
+            sensacion_paciente_final: String(valor),
+          },
+          { onConflict: 'therapist_id,patient_id' }
+        )
+
+      if (dcErr) {
+        console.error('[questionnaire/sensacion_final] Error al actualizar derivaciones_cierres:', dcErr)
+      }
+    }
+
+    return NextResponse.json({ ok: true, score: { sensacion: valor } })
+  }
+
   if (quest.questionnaire_type === 'mcmaster_fad') {
     const resultado = calcularResultadoFAD(responses)
     score = resultado

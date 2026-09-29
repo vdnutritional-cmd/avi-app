@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import ExpedienteTab from './ExpedienteTab'
 import DatosGeneralesTab from './DatosGeneralesTab'
 import TipoCasoTab from './TipoCasoTab'
+import DerivacionesCierresTab from './DerivacionesCierresTab'
 
 const MAX_SESIONES_PRESENCIALES = 12
 
@@ -138,7 +139,7 @@ export default function PatientDetailPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [expedienteRow, setExpedienteRow] = useState<Record<string, any> | null | undefined>(undefined)
 
-  const [activeTab, setActiveTab] = useState<'datos-generales' | 'tipo-caso' | 'sesiones' | 'presenciales' | 'analisis' | 'nota' | 'expediente'>('datos-generales')
+  const [activeTab, setActiveTab] = useState<'datos-generales' | 'tipo-caso' | 'sesiones' | 'presenciales' | 'analisis' | 'nota' | 'expediente' | 'derivaciones-cierres'>('datos-generales')
   const [therapistId, setTherapistId] = useState<string | null>(null)
   const [tier, setTier] = useState<'esencial' | 'clinico'>('esencial')
   const streamRef = useRef<HTMLDivElement>(null)
@@ -702,6 +703,7 @@ export default function PatientDetailPage() {
           { id: 'nota',            label: 'Nota inicial' + (savedNote ? ' ✓' : ' ⚠️'),        locked: false },
           { id: 'presenciales',    label: `Sesiones presenciales (${sessionNotes.length}/${MAX_SESIONES_PRESENCIALES})`, locked: false },
           { id: 'analisis',        label: `Análisis (${analyses.length})`,                     locked: false },
+          { id: 'derivaciones-cierres', label: 'Derivaciones y Cierres', locked: false },
           { id: 'expediente',      label: tier === 'clinico' ? 'AVI-CLÍNICO' : '🔒 AVI-CLÍNICO', locked: tier !== 'clinico' },
         ].map(tab => (
           <button key={tab.id}
@@ -2125,6 +2127,14 @@ export default function PatientDetailPage() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* ── TAB: Derivaciones y Cierres ── */}
+      {activeTab === 'derivaciones-cierres' && therapistId && (
+        <DerivacionesCierresTab
+          patientId={patientId}
+          therapistId={therapistId}
+        />
       )}
 
       {/* ── TAB: Expediente ── */}

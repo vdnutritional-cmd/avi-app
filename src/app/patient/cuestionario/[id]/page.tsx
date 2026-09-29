@@ -78,6 +78,16 @@ export default function CuestionarioPage({ params }: { params: Promise<{ id: str
     )
   }
 
+  // ── Sensación Final (tipo especial: selector 1-10) ───────────────────────
+  if (quest.questionnaire_type === 'sensacion_final') {
+    return (
+      <SensacionFinalPage
+        id={id}
+        onCompletado={() => setCompletado(true)}
+      />
+    )
+  }
+
   // Seleccionar ítems según tipo
   const items = quest.questionnaire_type === 'mcmaster_fad' ? FAD_ITEMS : []
   const totalPaginas = Math.ceil(items.length / POR_PAGINA)
@@ -203,6 +213,108 @@ export default function CuestionarioPage({ params }: { params: Promise<{ id: str
               ? 'Enviar cuestionario'
               : `Siguiente (${pagina + 1}/${totalPaginas})`
           }
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ── Sensación Final — selector 1-10 ──────────────────────────────────────────
+function SensacionFinalPage({ id, onCompletado }: { id: string; onCompletado: () => void }) {
+  const [seleccion, setSeleccion] = useState<number | null>(null)
+  const [enviando, setEnviando]   = useState(false)
+
+  const etiquetas: Record<number, string> = {
+    1:  'Pésimo',
+    2:  'Muy mal',
+    3:  'Mal',
+    4:  'Regular',
+    5:  'Más o menos',
+    6:  'Bien',
+    7:  'Bastante bien',
+    8:  'Muy bien',
+    9:  'Excelente',
+    10: 'Increíble',
+  }
+
+  const colorClase = (n: number) => {
+    if (n <= 3)  return 'bg-red-500 text-white border-red-600'
+    if (n <= 5)  return 'bg-amber-400 text-white border-amber-500'
+    if (n <= 7)  return 'bg-yellow-400 text-gray-800 border-yellow-500'
+    return 'bg-teal-500 text-white border-teal-600'
+  }
+
+  const colorInactivo = 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'
+
+  async function handleEnviar() {
+    if (!seleccion) return
+    setEnviando(true)
+    try {
+      const res = await fetch(`/api/patient/questionnaires/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ responses: { sensacion: seleccion } }),
+      })
+      if (!res.ok) throw new Error('Error al enviar')
+      onCompletado()
+    } catch {
+      alert('Hubo un error al enviar tu respuesta. Intenta de nuevo.')
+    } finally {
+      setEnviando(false)
+    }
+  }
+
+  return (
+    <div className="min-h-[calc(100vh-120px)] flex flex-col bg-gray-50">
+      {/* Pregunta */}
+      <div className="flex-1 flex flex-col items-center justify-center px-6 py-10 space-y-8">
+        <div className="w-16 h-16 rounded-full bg-teal-100 flex items-center justify-center text-3xl">
+          💚
+        </div>
+        <div className="text-center space-y-3 max-w-sm">
+          <p className="text-base font-semibold text-gray-800 leading-relaxed">
+            Considerando que ya te ves mucho mejor que cuando iniciaste tu proceso de Acompañamiento Terapéutico,
+            por favor responde:
+          </p>
+          <p className="text-lg font-bold text-gray-900">
+            ¿Cómo te sientes en este momento?
+          </p>
+          <p className="text-xs text-gray-400">
+            donde 1 es pésimo (muy muy mal) y 10 es excelente
+          </p>
+        </div>
+
+        {/* Selector 1-10 */}
+        <div className="grid grid-cols-5 gap-3 w-full max-w-xs">
+          {Array.from({ length: 10 }, (_, i) => i + 1).map(n => (
+            <button
+              key={n}
+              onClick={() => setSeleccion(n)}
+              className={`h-14 w-full rounded-2xl border-2 text-xl font-bold transition-all
+                ${seleccion === n ? colorClase(n) : colorInactivo}`}
+            >
+              {n}
+            </button>
+          ))}
+        </div>
+
+        {/* Etiqueta del valor seleccionado */}
+        {seleccion && (
+          <p className="text-base font-semibold text-gray-700">
+            {seleccion} — {etiquetas[seleccion]}
+          </p>
+        )}
+      </div>
+
+      {/* Botón enviar */}
+      <div className="sticky bottom-0 bg-white border-t border-gray-100 px-6 py-4">
+        <button
+          onClick={handleEnviar}
+          disabled={!seleccion || enviando}
+          className="w-full py-3.5 rounded-2xl bg-teal-600 text-white text-sm font-semibold
+                     hover:bg-teal-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {enviando ? 'Enviando...' : 'Enviar respuesta'}
         </button>
       </div>
     </div>
