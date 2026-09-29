@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { resolveFactores, SCHEMA_LABELS, FactorGroup } from './factores-nota-inicial'
 
 // ── Constantes ────────────────────────────────────────────────────────────────
 const FUNCIONES_FAMILIARES = [
@@ -244,6 +245,13 @@ export default function FamiliarTab({ patientId, therapistId }: Props) {
 
   const [loadingCiclo,    setLoadingCiclo]    = useState(false)
   const [loadingProcesos, setLoadingProcesos] = useState(false)
+  const [loadingNota,     setLoadingNota]     = useState(false)
+
+  // Factores desde Nota Inicial (read-only, agrupados por esquema)
+  const [notaFactores, setNotaFactores] = useState<{
+    riesgo: FactorGroup[]
+    proteccion: FactorGroup[]
+  }>({ riesgo: [], proteccion: [] })
 
   // Locks de análisis
   const [unlockedCiclo,     setUnlockedCiclo]     = useState(false)
@@ -254,7 +262,10 @@ export default function FamiliarTab({ patientId, therapistId }: Props) {
   const cicloLocked    = !!saved.ciclo_vital_analisis && !unlockedCiclo
   const procesosLocked = !!saved.procesos_analisis    && !unlockedProcesos
 
-  useEffect(() => { load() }, [patientId]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    load()
+    cargarDesdeNota()
+  }, [patientId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function load() {
     setLoading(true)
@@ -314,20 +325,86 @@ export default function FamiliarTab({ patientId, therapistId }: Props) {
     setData(prev => ({ ...prev, funciones: { ...prev.funciones, [key]: value } }))
   }
 
+  // ── Cargar Factores desde Nota Inicial ───────────────────────────────────
+  async function cargarDesdeNota() {
+    setLoadingNota(true)
+    try {
+      const supabase = createClient()
+      const [{ data: tp }, { data: profile }] = await Promise.all([
+        supabase
+          .from('therapist_patients')
+          .select('factores_riesgo_sel, factores_proteccion_sel, factores_riesgo_trec, factores_proteccion_trec, factores_riesgo_tcc, factores_proteccion_tcc')
+          .eq('therapist_id', therapistId)
+          .eq('patient_id', patientId)
+          .maybeSingle(),
+        supabase
+          .from('profiles')
+          .select('therapy_profile')
+          .eq('id', therapistId)
+          .maybeSingle(),
+      ])
+
+      const schemas = (profile?.therapy_profile ?? '').split('_').filter(Boolean)
+
+      const COL_RIESGO: Record<string, string> = {
+        famsis: 'factores_riesgo_sel',
+        trec:   'factores_riesgo_trec',
+        cc:     'factores_riesgo_tcc',
+      }
+      const COL_PROT: Record<string, string> = {
+        famsis: 'factores_proteccion_sel',
+        trec:   'factores_proteccion_trec',
+        cc:     'factores_proteccion_tcc',
+      }
+
+      const riesgoGroups: FactorGroup[]     = []
+      const proteccionGroups: FactorGroup[] = []
+
+      for (const schema of schemas) {
+        const rColName = COL_RIESGO[schema]
+        const pColName = COL_PROT[schema]
+        if (!rColName || !pColName) continue
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const tpRow = tp as Record<string, any> | null
+        const rKeys: string[] = (tpRow?.[rColName] as { familiar?: string[] } | null)?.familiar ?? []
+        const pKeys: string[] = (tpRow?.[pColName] as { familiar?: string[] } | null)?.familiar ?? []
+
+        const rItems = resolveFactores(schema, 'familiar', 'riesgo', rKeys)
+        const pItems = resolveFactores(schema, 'familiar', 'proteccion', pKeys)
+
+        if (rItems.length > 0) {
+          riesgoGroups.push({ schema, schemaLabel: SCHEMA_LABELS[schema] ?? schema, items: rItems })
+        }
+        if (pItems.length > 0) {
+          proteccionGroups.push({ schema, schemaLabel: SCHEMA_LABELS[schema] ?? schema, items: pItems })
+        }
+      }
+
+      setNotaFactores({ riesgo: riesgoGroups, proteccion: proteccionGroups })
+    } finally {
+      setLoadingNota(false)
+    }
+  }
+
   function buildFamiliarContext() {
     // Serializa todos los apartados 1-8 para enviarlo al API
     const funcionesTexto = FUNCIONES_FAMILIARES
       .map(f => `  - ${f.label}: ${data.funciones[f.key] ?? 'Sin seleccionar'}`)
       .join('\n')
 
-    const riesgoTexto     = data.riesgo_items.map(k => FACTORES_RIESGO.find(f => f.key === k)?.titulo ?? k).join(', ')
-    const proteccionTexto = data.proteccion_items.map(k => FACTORES_PROTECCION.find(f => f.key === k)?.titulo ?? k).join(', ')
+    const riesgoTexto = notaFactores.riesgo.length > 0
+      ? notaFactores.riesgo.map(g => `${g.schemaLabel}: ${g.items.map(i => i.titulo).join(', ')}`).join(' | ')
+      : 'Ninguno registrado en Nota Inicial'
+    const proteccionTexto = notaFactores.proteccion.length > 0
+      ? notaFactores.proteccion.map(g => `${g.schemaLabel}: ${g.items.map(i => i.titulo).join(', ')}`).join(' | ')
+      : 'Ninguno registrado en Nota Inicial'
 
     return {
-      sintomas:         data.sintomas,
-      detonadores:      data.detonadores,
-      factores_riesgo:  riesgoTexto     || 'Ninguno seleccionado',
-      factores_proteccion: proteccionTexto || 'Ninguno seleccionado',
+      sintomas:            data.sintomas,
+      detonadores:         data.detonadores,
+      factores_riesgo:     riesgoTexto,
+      factores_proteccion: proteccionTexto,
       funciones_texto:  funcionesTexto,
       maternaje:      data.maternaje,
       paternaje:      data.paternaje,
@@ -451,55 +528,100 @@ export default function FamiliarTab({ patientId, therapistId }: Props) {
         />
       </SectionCard>
 
-      {/* ── Apartado 3: Factores de riesgo y de protección ── */}
-      <SectionCard num="3" title="Factores de riesgo y de protección" desc="Selecciona los factores de riesgo y protección que actualmente vive o ha desarrollado la familia.">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-
-          {/* Factores de Riesgo */}
-          <div>
-            <p className="text-xs font-semibold mb-3 text-red-500">Factores de Riesgo</p>
-            <div className="space-y-3">
-              {FACTORES_RIESGO.map(f => (
-                <label key={f.key} className="flex items-start gap-2.5 cursor-pointer group">
-                  <input
-                    type="checkbox"
-                    checked={data.riesgo_items.includes(f.key)}
-                    onChange={() => toggleArray('riesgo_items', f.key)}
-                    className="w-4 h-4 rounded mt-0.5 flex-shrink-0"
-                    style={{ accentColor: '#ef4444' }}
-                  />
-                  <div>
-                    <p className="text-sm font-medium text-gray-700 leading-snug group-hover:text-gray-900">{f.titulo}</p>
-                    <p className="text-xs text-gray-400 leading-snug mt-0.5">{f.desc}</p>
-                  </div>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {/* Factores de Protección */}
-          <div>
-            <p className="text-xs font-semibold mb-3 text-emerald-600">Factores de Protección</p>
-            <div className="space-y-3">
-              {FACTORES_PROTECCION.map(f => (
-                <label key={f.key} className="flex items-start gap-2.5 cursor-pointer group">
-                  <input
-                    type="checkbox"
-                    checked={data.proteccion_items.includes(f.key)}
-                    onChange={() => toggleArray('proteccion_items', f.key)}
-                    className="w-4 h-4 rounded mt-0.5 flex-shrink-0"
-                    style={{ accentColor: '#059669' }}
-                  />
-                  <div>
-                    <p className="text-sm font-medium text-gray-700 leading-snug group-hover:text-gray-900">{f.titulo}</p>
-                    <p className="text-xs text-gray-400 leading-snug mt-0.5">{f.desc}</p>
-                  </div>
-                </label>
-              ))}
-            </div>
-          </div>
-
+      {/* ── Apartado 3: Factores de riesgo y de protección (desde Nota Inicial) ── */}
+      <SectionCard
+        num="3"
+        title="Factores de riesgo y de protección"
+        desc="Factores activos registrados en la Nota Inicial para el Tipo de Caso Familiar, agrupados por Esquema Terapéutico."
+      >
+        {/* Botón sincronizar */}
+        <div className="flex items-center justify-between mb-5">
+          <p className="text-xs text-gray-400">
+            Estos factores se obtienen automáticamente de la Nota Inicial.
+          </p>
+          <button
+            onClick={cargarDesdeNota}
+            disabled={loadingNota}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl
+                       border border-primary-200 text-primary-700 bg-primary-50
+                       hover:bg-primary-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loadingNota ? (
+              <>
+                <span className="w-3 h-3 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+                Actualizando…
+              </>
+            ) : (
+              <>↺ Actualizar desde Nota Inicial</>
+            )}
+          </button>
         </div>
+
+        {loadingNota ? (
+          <div className="flex justify-center py-8 text-gray-400 text-sm">Cargando factores…</div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+
+            {/* Factores de Riesgo */}
+            <div>
+              <p className="text-xs font-semibold mb-3 text-red-500">Factores de Riesgo</p>
+              {notaFactores.riesgo.length === 0 ? (
+                <p className="text-xs text-gray-400 italic">
+                  Sin factores de riesgo registrados en la Nota Inicial para este tipo de caso.
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {notaFactores.riesgo.map(group => (
+                    <div key={group.schema}>
+                      <p className="text-xs font-semibold text-gray-500 mb-2">{group.schemaLabel}</p>
+                      <ul className="space-y-2">
+                        {group.items.map(item => (
+                          <li key={item.key} className="flex items-start gap-2">
+                            <span className="mt-1.5 w-2 h-2 rounded-full bg-red-400 flex-shrink-0" />
+                            <div>
+                              <p className="text-sm font-medium text-gray-700 leading-snug">{item.titulo}</p>
+                              <p className="text-xs text-gray-400 leading-snug mt-0.5">{item.desc}</p>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Factores de Protección */}
+            <div>
+              <p className="text-xs font-semibold mb-3 text-emerald-600">Factores de Protección</p>
+              {notaFactores.proteccion.length === 0 ? (
+                <p className="text-xs text-gray-400 italic">
+                  Sin factores de protección registrados en la Nota Inicial para este tipo de caso.
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {notaFactores.proteccion.map(group => (
+                    <div key={group.schema}>
+                      <p className="text-xs font-semibold text-gray-500 mb-2">{group.schemaLabel}</p>
+                      <ul className="space-y-2">
+                        {group.items.map(item => (
+                          <li key={item.key} className="flex items-start gap-2">
+                            <span className="mt-1.5 w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0" />
+                            <div>
+                              <p className="text-sm font-medium text-gray-700 leading-snug">{item.titulo}</p>
+                              <p className="text-xs text-gray-400 leading-snug mt-0.5">{item.desc}</p>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+          </div>
+        )}
       </SectionCard>
 
       {/* ── Apartado 4: Funciones familiares ── */}
