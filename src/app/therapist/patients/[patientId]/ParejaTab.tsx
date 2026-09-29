@@ -263,10 +263,28 @@ export default function ParejaTab({ patientId, therapistId }: Props) {
     setGenError('')
     setGenerating(true)
     try {
+      // Serializar los factores de la Nota Inicial para incluirlos en el análisis
+      const factoresRiesgoTexto = notaFactores.riesgo.length > 0
+        ? notaFactores.riesgo
+            .map(g => `${g.schemaLabel}: ${g.items.map(i => i.titulo).join(', ')}`)
+            .join(' | ')
+        : ''
+      const factoresProteccionTexto = notaFactores.proteccion.length > 0
+        ? notaFactores.proteccion
+            .map(g => `${g.schemaLabel}: ${g.items.map(i => i.titulo).join(', ')}`)
+            .join(' | ')
+        : ''
+
       const res = await fetch('/api/analisis-clinicos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'pareja_areas', patientId, eros, philia, agape, tipoAmor, estructura }),
+        body: JSON.stringify({
+          type: 'pareja_areas',
+          patientId,
+          eros, philia, agape, tipoAmor, estructura,
+          factoresRiesgo:     factoresRiesgoTexto,
+          factoresProteccion: factoresProteccionTexto,
+        }),
       })
       const json = await res.json()
       if (!res.ok || json.error) {

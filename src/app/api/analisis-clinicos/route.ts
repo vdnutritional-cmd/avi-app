@@ -780,12 +780,18 @@ export async function POST(request: NextRequest) {
 
     // ── ÁREAS FUNCIONALES Y DISFUNCIONALES DE PAREJA ─────────────────────────
     if (type === 'pareja_areas') {
-      const { eros = [], philia = [], agape = [], tipoAmor = '', estructura = '' } = body as {
+      const {
+        eros = [], philia = [], agape = [],
+        tipoAmor = '', estructura = '',
+        factoresRiesgo = '', factoresProteccion = '',
+      } = body as {
         eros?: string[]
         philia?: string[]
         agape?: string[]
         tipoAmor?: string
         estructura?: string
+        factoresRiesgo?: string
+        factoresProteccion?: string
       }
 
       // 1. Nota inicial del paciente para contexto
@@ -803,22 +809,26 @@ export async function POST(request: NextRequest) {
 
       // 2. RAG: fuentes de ConsultoríaFuentes sobre terapia de pareja
       const ragQuery = [
-        'EROS PHILIA ÁGAPE amor pareja disfuncional',
-        eros.length   ? `EROS: ${eros.join(', ')}`     : '',
-        philia.length ? `PHILIA: ${philia.join(', ')}` : '',
-        agape.length  ? `ÁGAPE: ${agape.join(', ')}`   : '',
+        'EROS PHILIA ÁGAPE amor pareja disfuncional factores riesgo protección',
+        eros.length          ? `EROS: ${eros.join(', ')}`               : '',
+        philia.length        ? `PHILIA: ${philia.join(', ')}`           : '',
+        agape.length         ? `ÁGAPE: ${agape.join(', ')}`             : '',
+        factoresRiesgo       ? `Factores de riesgo: ${factoresRiesgo}`  : '',
+        factoresProteccion   ? `Factores de protección: ${factoresProteccion}` : '',
         notaInicial.slice(0, 1500),
       ].filter(Boolean).join('\n')
 
       const fuentesTexto = await retrieveChunksByProfile(ragQuery, therapyProfile, 8)
 
-      // 3. Construir listado de selecciones de los 3 apartados
+      // 3. Construir listado de selecciones de los 3 apartados + factores
       const sintomasTexto = [
-        eros.length   ? `EROS (fusión):\n${eros.map(s => `  • ${s}`).join('\n')}`             : '',
-        philia.length ? `PHILIA (intimidad):\n${philia.map(s => `  • ${s}`).join('\n')}`       : '',
-        agape.length  ? `ÁGAPE (compromiso auténtico):\n${agape.map(s => `  • ${s}`).join('\n')}` : '',
-        tipoAmor      ? `TIPO DE AMOR seleccionado: ${tipoAmor}`                               : '',
-        estructura    ? `ESTRUCTURA de la pareja: ${estructura}`                               : '',
+        eros.length        ? `EROS (fusión):\n${eros.map(s => `  • ${s}`).join('\n')}`                  : '',
+        philia.length      ? `PHILIA (intimidad):\n${philia.map(s => `  • ${s}`).join('\n')}`            : '',
+        agape.length       ? `ÁGAPE (compromiso auténtico):\n${agape.map(s => `  • ${s}`).join('\n')}`   : '',
+        tipoAmor           ? `TIPO DE AMOR seleccionado: ${tipoAmor}`                                    : '',
+        estructura         ? `ESTRUCTURA de la pareja: ${estructura}`                                    : '',
+        factoresRiesgo     ? `FACTORES DE RIESGO (Nota Inicial — Tipo de Caso Pareja):\n${factoresRiesgo.split(' | ').map(s => `  • ${s}`).join('\n')}` : '',
+        factoresProteccion ? `FACTORES DE PROTECCIÓN (Nota Inicial — Tipo de Caso Pareja):\n${factoresProteccion.split(' | ').map(s => `  • ${s}`).join('\n')}` : '',
       ].filter(Boolean).join('\n\n')
 
       if (!sintomasTexto) {
@@ -826,23 +836,28 @@ export async function POST(request: NextRequest) {
       }
 
       // 4. Prompt con RAG
+      const tieneFact = factoresRiesgo || factoresProteccion
       const prompt = [
         'Eres un supervisor clínico especializado en terapia de pareja con enfoque en Personalismo, Satir y Gottman.',
         '',
-        'A partir de los SÍNTOMAS SELECCIONADOS del modelo EROS-PHILIA-ÁGAPE y apoyándote',
-        'en las FUENTES CLÍNICAS proporcionadas, redacta una conclusión clínica breve (máx. 3 párrafos) que:',
+        'A partir de los DATOS CLÍNICOS SELECCIONADOS (áreas EROS-PHILIA-ÁGAPE, tipo de amor, estructura',
+        tieneFact ? 'y factores de riesgo/protección de la Nota Inicial)' : ')',
+        'y apoyándote en las FUENTES CLÍNICAS proporcionadas, redacta una conclusión clínica breve (máx. 3 párrafos) que:',
         '',
         '1. Identifique el patrón disfuncional predominante en la pareja según las áreas afectadas.',
         '2. Describa cómo interactúan los síntomas entre sí y qué impacto tienen en el vínculo.',
-        '3. Señale una dirección terapéutica orientativa, congruente con el caso clínico.',
+        tieneFact
+          ? '3. Integre los factores de riesgo y protección identificados en la Nota Inicial: señala cómo los factores de riesgo agravan el cuadro y cómo los factores de protección pueden aprovecharse como recursos terapéuticos.'
+          : '3. Señale una dirección terapéutica orientativa, congruente con el caso clínico.',
+        '4. Concluya con una dirección terapéutica orientativa fundamentada en los hallazgos previos.',
         '',
         'RESTRICCIONES:',
         '- NO uses viñetas ni listas. Redacta en párrafos continuos y formales.',
-        '- NO inventes síntomas que no estén en la lista seleccionada.',
-        '- Usa el contexto del caso SOLO para dar sentido clínico a los síntomas — no para diagnosticar.',
+        '- NO inventes datos que no estén en los campos seleccionados.',
+        '- Usa el contexto del caso SOLO para dar sentido clínico — no para diagnosticar.',
         '- Lenguaje técnico pero comprensible para el terapeuta.',
         '',
-        '══ SÍNTOMAS SELECCIONADOS ══',
+        '══ DATOS CLÍNICOS SELECCIONADOS ══',
         sintomasTexto,
         '',
         '══ CONTEXTO DEL CASO (solo referencia) ══',
