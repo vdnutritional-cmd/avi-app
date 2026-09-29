@@ -41,22 +41,22 @@ const TIPOS_DERIVACION = [
   { key: 'Otro Médico de la salud',    desc: 'Cualquier otro especialista médico no listado.' },
 ]
 
-// Selector de opciones en pills
+// Selector de opciones en pills — paleta pastel AVI
 function PillSelector({
   options,
   value,
   onChange,
-  colorActive = 'blue',
+  colorActive = 'primary',
 }: {
   options: string[]
   value: string
   onChange: (v: string) => void
-  colorActive?: 'blue' | 'red' | 'teal'
+  colorActive?: 'primary' | 'calm' | 'warning'
 }) {
   const activeClass = {
-    blue: 'bg-blue-600 border-blue-600 text-white font-semibold',
-    red:  'bg-red-500  border-red-500  text-white font-semibold',
-    teal: 'bg-teal-600 border-teal-600 text-white font-semibold',
+    primary: 'bg-primary-100 border-primary-300 text-primary-700 font-semibold',
+    calm:    'bg-calm-100   border-calm-300   text-calm-600   font-semibold',
+    warning: 'bg-red-100    border-red-300    text-red-700    font-semibold',
   }[colorActive]
 
   return (
@@ -69,7 +69,7 @@ function PillSelector({
           className={`px-4 py-1.5 rounded-full border text-sm transition-all
             ${value === op
               ? activeClass
-              : 'bg-white border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700'
+              : 'bg-white border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-600'
             }`}
         >
           {op}
@@ -242,7 +242,7 @@ export default function DerivacionesCierresTab({ patientId, therapistId }: Props
                   checked={data.derivacion_tipos.includes(t.key)}
                   onChange={() => toggleTipo(t.key)}
                   className="w-4 h-4 rounded mt-0.5 flex-shrink-0"
-                  style={{ accentColor: '#2563eb' }}
+                  style={{ accentColor: '#c026d3' }}
                 />
                 <div>
                   <p className="text-sm font-medium text-gray-700 leading-snug group-hover:text-gray-900">
@@ -266,7 +266,7 @@ export default function DerivacionesCierresTab({ patientId, therapistId }: Props
             options={['No aplica', 'SI', 'NO']}
             value={data.caso_riesgo}
             onChange={v => setData(prev => ({ ...prev, caso_riesgo: v }))}
-            colorActive="red"
+            colorActive="warning"
           />
         </div>
 
@@ -281,7 +281,7 @@ export default function DerivacionesCierresTab({ patientId, therapistId }: Props
             options={['No aplica', 'SI', 'NO']}
             value={data.asistencia_seguimiento}
             onChange={v => setData(prev => ({ ...prev, asistencia_seguimiento: v }))}
-            colorActive="blue"
+            colorActive="primary"
           />
         </div>
 
@@ -300,7 +300,7 @@ export default function DerivacionesCierresTab({ patientId, therapistId }: Props
               atencion_especializada: v,
               atencion_especializada_cual: v !== 'SI' ? '' : prev.atencion_especializada_cual,
             }))}
-            colorActive="blue"
+            colorActive="primary"
           />
           {data.atencion_especializada === 'SI' && (
             <div className="mt-3 space-y-1">
@@ -339,13 +339,13 @@ export default function DerivacionesCierresTab({ patientId, therapistId }: Props
             options={['NO', 'SI']}
             value={data.percepcion_alivio}
             onChange={v => setData(prev => ({ ...prev, percepcion_alivio: v }))}
-            colorActive="teal"
+            colorActive="calm"
           />
         </div>
 
         {/* sensacion_paciente_final — solo cuando percepcion_alivio = SI */}
         {data.percepcion_alivio === 'SI' && (
-          <div className="bg-teal-50 border border-teal-200 rounded-2xl px-5 py-5 space-y-4">
+          <div className="bg-calm-50 border border-calm-200 rounded-2xl px-5 py-5 space-y-4">
             <FieldLabel>Sensación del paciente al cierre</FieldLabel>
             <Pregunta>
               <em>
@@ -359,18 +359,18 @@ export default function DerivacionesCierresTab({ patientId, therapistId }: Props
             <div className="flex items-center gap-3 pt-1">
               <span className={`text-4xl font-bold ${
                 sensacionNum === null ? 'text-gray-300'
-                  : sensacionNum >= 8 ? 'text-teal-600'
-                  : sensacionNum >= 5 ? 'text-amber-500'
-                  : 'text-red-500'
+                  : sensacionNum >= 8 ? 'text-calm-500'
+                  : sensacionNum >= 5 ? 'text-primary-400'
+                  : 'text-red-400'
               }`}>
                 {sensacionNum === null ? '—' : sensacionNum}
               </span>
               {sensacionNum !== null && <span className="text-sm text-gray-400">/ 10</span>}
               {sensacionNum !== null && (
                 <span className={`text-xs font-medium px-2 py-1 rounded-full ml-1 ${
-                  sensacionNum >= 8 ? 'bg-teal-100 text-teal-700'
-                    : sensacionNum >= 5 ? 'bg-amber-100 text-amber-700'
-                    : 'bg-red-100 text-red-600'
+                  sensacionNum >= 8 ? 'bg-calm-100 text-calm-600'
+                    : sensacionNum >= 5 ? 'bg-primary-100 text-primary-600'
+                    : 'bg-red-100 text-red-500'
                 }`}>
                   {sensacionNum >= 8 ? 'Excelente' : sensacionNum >= 5 ? 'Regular' : 'Bajo'}
                 </span>
@@ -379,8 +379,8 @@ export default function DerivacionesCierresTab({ patientId, therapistId }: Props
 
             {sensacionNum === null && (
               cuestionarioPendiente ? (
-                <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50
-                                border border-amber-200 rounded-xl px-4 py-2.5">
+                <div className="flex items-center gap-2 text-sm text-primary-600 bg-primary-50
+                                border border-primary-200 rounded-xl px-4 py-2.5">
                   <span>⏳</span>
                   <span>Cuestionario enviado — esperando respuesta del paciente</span>
                 </div>
@@ -388,7 +388,7 @@ export default function DerivacionesCierresTab({ patientId, therapistId }: Props
                 <button
                   onClick={handleEnviarCuestionario}
                   disabled={enviandoCuest}
-                  className="w-full py-2.5 px-4 bg-teal-600 hover:bg-teal-700 text-white text-sm
+                  className="w-full py-2.5 px-4 bg-primary-600 hover:bg-primary-700 text-white text-sm
                              font-semibold rounded-xl transition-colors disabled:opacity-50"
                 >
                   {enviandoCuest ? 'Enviando...' : '📩 Enviar cuestionario al paciente'}
@@ -409,7 +409,7 @@ export default function DerivacionesCierresTab({ patientId, therapistId }: Props
             options={['NO', 'SI']}
             value={data.cambio_funcionamiento}
             onChange={v => setData(prev => ({ ...prev, cambio_funcionamiento: v }))}
-            colorActive="teal"
+            colorActive="calm"
           />
         </div>
 
@@ -422,7 +422,7 @@ export default function DerivacionesCierresTab({ patientId, therapistId }: Props
               checked={data.abandono}
               onChange={e => setData(prev => ({ ...prev, abandono: e.target.checked }))}
               className="w-4 h-4 rounded mt-0.5 flex-shrink-0"
-              style={{ accentColor: '#ef4444' }}
+              style={{ accentColor: '#c026d3' }}
             />
             <div>
               <p className="text-sm font-medium text-gray-700 leading-snug group-hover:text-gray-900">
