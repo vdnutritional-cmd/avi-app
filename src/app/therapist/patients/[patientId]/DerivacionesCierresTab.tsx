@@ -288,6 +288,10 @@ export default function DerivacionesCierresTab({ patientId, therapistId }: Props
         {/* atencion_especializada */}
         <div className="space-y-2">
           <FieldLabel>Atención especializada</FieldLabel>
+          <Pregunta>
+            ¿Requieres derivar al asesorado o paciente a una <strong>ATENCIÓN ESPECIALIZADA</strong> como
+            una clínica de salud?
+          </Pregunta>
           <PillSelector
             options={['No aplica', 'SI', 'NO']}
             value={data.atencion_especializada}
@@ -299,15 +303,15 @@ export default function DerivacionesCierresTab({ patientId, therapistId }: Props
             colorActive="blue"
           />
           {data.atencion_especializada === 'SI' && (
-            <div className="mt-3">
-              <label className="text-xs font-medium text-gray-500 block mb-1">
-                ¿Cuál atención especializada?
+            <div className="mt-3 space-y-1">
+              <label className="text-xs font-medium text-gray-500 block">
+                ¿Cuál? — Nombre de la Institución de Salud que propones
               </label>
               <textarea
                 value={data.atencion_especializada_cual}
                 onChange={e => setData(prev => ({ ...prev, atencion_especializada_cual: e.target.value }))}
                 rows={2}
-                placeholder="Describe la atención especializada requerida..."
+                placeholder="Ej. Centro de Salud Mental XYZ, Clínica ABC..."
                 className="w-full text-sm rounded-xl border border-gray-200 px-3 py-2.5
                            focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none placeholder-gray-300"
               />
