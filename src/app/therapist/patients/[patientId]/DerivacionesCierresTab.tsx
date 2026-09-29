@@ -258,7 +258,6 @@ export default function DerivacionesCierresTab({ patientId, therapistId }: Props
             options={['No aplica', 'SI', 'NO']}
             value={data.caso_riesgo}
             onChange={v => setData(prev => ({ ...prev, caso_riesgo: v }))}
-            colorActive="warning"
           />
         </div>
 
@@ -273,7 +272,6 @@ export default function DerivacionesCierresTab({ patientId, therapistId }: Props
             options={['No aplica', 'SI', 'NO']}
             value={data.asistencia_seguimiento}
             onChange={v => setData(prev => ({ ...prev, asistencia_seguimiento: v }))}
-            colorActive="primary"
           />
         </div>
 
@@ -292,7 +290,6 @@ export default function DerivacionesCierresTab({ patientId, therapistId }: Props
               atencion_especializada: v,
               atencion_especializada_cual: v !== 'SI' ? '' : prev.atencion_especializada_cual,
             }))}
-            colorActive="primary"
           />
           {data.atencion_especializada === 'SI' && (
             <div className="mt-3 space-y-1">
@@ -305,7 +302,7 @@ export default function DerivacionesCierresTab({ patientId, therapistId }: Props
                 rows={2}
                 placeholder="Ej. Centro de Salud Mental XYZ, Clínica ABC..."
                 className="w-full text-sm rounded-xl border border-gray-200 px-3 py-2.5
-                           focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none placeholder-gray-300"
+                           focus:outline-none focus:ring-2 focus:ring-primary-300 resize-none placeholder-gray-300"
               />
             </div>
           )}
@@ -331,7 +328,6 @@ export default function DerivacionesCierresTab({ patientId, therapistId }: Props
             options={['NO', 'SI']}
             value={data.percepcion_alivio}
             onChange={v => setData(prev => ({ ...prev, percepcion_alivio: v }))}
-            colorActive="calm"
           />
         </div>
 
@@ -394,7 +390,6 @@ export default function DerivacionesCierresTab({ patientId, therapistId }: Props
             options={['NO', 'SI']}
             value={data.cambio_funcionamiento}
             onChange={v => setData(prev => ({ ...prev, cambio_funcionamiento: v }))}
-            colorActive="calm"
           />
         </div>
 
