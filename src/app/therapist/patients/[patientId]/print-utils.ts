@@ -508,24 +508,24 @@ export async function imprimirHistoriaClinica(
 function sharedCSS() {
   return `
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    @page { margin: 2.2cm 2.5cm; }
+    @page { margin: 1.4cm 2cm; }
     body {
       font-family: 'Georgia', 'Times New Roman', serif;
-      font-size: 10.5pt;
+      font-size: 10pt;
       color: #1a1a1a;
-      line-height: 1.55;
+      line-height: 1.45;
     }
 
     /* ─── Pre-header ─── */
     .pre-header {
-      margin-bottom: 10pt;
+      margin-bottom: 5pt;
     }
     .pre-header-row {
       display: flex;
       justify-content: space-between;
-      font-size: 9.5pt;
+      font-size: 9pt;
       color: #333;
-      padding: 2.5pt 0;
+      padding: 2pt 0;
       border-bottom: 0.5pt solid #dde3ee;
     }
     .pre-header-row:last-child { border-bottom: none; }
@@ -536,24 +536,24 @@ function sharedCSS() {
       text-align: center;
       border-bottom: 2pt solid #2d3a8c;
       border-top: 0.5pt solid #2d3a8c;
-      padding: 10pt 0;
-      margin-bottom: 14pt;
+      padding: 5pt 0;
+      margin-bottom: 6pt;
     }
     .header h1 {
-      font-size: 14pt;
-      letter-spacing: 0.5pt;
+      font-size: 13pt;
+      letter-spacing: 0.4pt;
       color: #2d3a8c;
       text-transform: uppercase;
     }
     .header .subtitle {
-      font-size: 10pt;
+      font-size: 9.5pt;
       color: #5060a4;
       font-style: italic;
-      margin-top: 2pt;
+      margin-top: 1pt;
     }
     .header .badge-original {
-      margin-top: 6pt;
-      font-size: 8.5pt;
+      margin-top: 4pt;
+      font-size: 8pt;
       color: #b243d5;
       font-weight: bold;
       letter-spacing: 0.3pt;
@@ -563,58 +563,57 @@ function sharedCSS() {
     .meta {
       display: flex;
       justify-content: space-between;
-      margin-bottom: 18pt;
-      font-size: 9.5pt;
+      margin-bottom: 8pt;
+      font-size: 9pt;
       color: #444;
       background: #f4f6fb;
-      padding: 6pt 10pt;
-      border-radius: 4pt;
+      padding: 4pt 8pt;
+      border-radius: 3pt;
     }
     .meta strong { color: #1a1a1a; }
-    .badge { font-size: 8.5pt; background: #e8f0fe; color: #2d3a8c; padding: 1pt 6pt; border-radius: 20pt; margin-left: 5pt; }
+    .badge { font-size: 8pt; background: #e8f0fe; color: #2d3a8c; padding: 1pt 5pt; border-radius: 20pt; margin-left: 4pt; }
 
     /* ─── Secciones ─── */
-    .section { margin-bottom: 16pt; page-break-inside: avoid; }
-    .section-break-before { page-break-before: always; margin-bottom: 16pt; }
+    .section { margin-bottom: 10pt; }
+    .section-break-before { page-break-before: always; margin-bottom: 10pt; }
     .section-title {
-      font-size: 10.5pt;
+      font-size: 10pt;
       font-weight: bold;
       color: #2d3a8c;
       text-transform: uppercase;
-      letter-spacing: 0.4pt;
+      letter-spacing: 0.3pt;
       border-bottom: 1pt solid #b0bbd4;
-      padding-bottom: 4pt;
-      margin-bottom: 10pt;
+      padding-bottom: 3pt;
+      margin-bottom: 6pt;
     }
-    .section-title .num { font-size: 9pt; font-weight: normal; margin-right: 4pt; opacity: 0.7; }
-    .section-body { font-size: 10pt; line-height: 1.65; color: #1a1a1a; white-space: pre-wrap; }
-    .empty { color: #999; font-style: italic; font-size: 9.5pt; }
+    .section-title .num { font-size: 8.5pt; font-weight: normal; margin-right: 4pt; opacity: 0.7; }
+    .section-body { font-size: 9.5pt; line-height: 1.5; color: #1a1a1a; white-space: pre-wrap; }
+    .empty { color: #999; font-style: italic; font-size: 9pt; }
 
     /* ─── Sesiones ─── */
     .session-card {
       border: 0.5pt solid #c8d0e8;
-      border-radius: 5pt;
-      margin-bottom: 18pt;
-      page-break-inside: avoid;
+      border-radius: 4pt;
+      margin-bottom: 8pt;
       overflow: hidden;
     }
     .session-header {
       background: #eef1f9;
-      padding: 7pt 12pt;
+      padding: 4pt 10pt;
       display: flex;
       align-items: center;
-      gap: 12pt;
+      gap: 10pt;
       border-bottom: 0.5pt solid #c8d0e8;
     }
     .session-num {
-      font-size: 11pt;
+      font-size: 10.5pt;
       font-weight: bold;
       color: #2d3a8c;
     }
-    .session-date { font-size: 9.5pt; color: #444; }
-    .session-badge { font-size: 8pt; background: #dde8f8; color: #2d3a8c; padding: 1pt 6pt; border-radius: 20pt; }
-    .session-body { padding: 10pt 14pt; }
-    .session-field { margin-bottom: 9pt; }
+    .session-date { font-size: 9pt; color: #444; }
+    .session-badge { font-size: 7.5pt; background: #dde8f8; color: #2d3a8c; padding: 1pt 5pt; border-radius: 20pt; }
+    .session-body { padding: 6pt 10pt; }
+    .session-field { margin-bottom: 5pt; }
     .session-field-title {
       font-size: 9pt;
       font-weight: bold;
@@ -843,9 +842,9 @@ export async function imprimirBitacoraSesiones(
         </div>
         <div class="session-body">
           ${campoHTML(1, 'Objetivo de la sesión / Seguimiento',              s.session_objetivo)}
-          ${campoHTML(2, 'Emociones identificadas',                          s.session_emociones)}
-          ${campoHTML(3, 'Recursos personales del paciente',                 s.session_recursos)}
-          ${campoHTML(4, 'Desarrollo de la sesión / Intervención realizada', s.session_desarrollo)}
+          ${campoHTML(2, 'Desarrollo de la sesión / Intervención realizada', s.session_desarrollo)}
+          ${campoHTML(3, 'Emociones identificadas',                          s.session_emociones)}
+          ${campoHTML(4, 'Recursos personales del paciente',                 s.session_recursos)}
           ${campoHTML(5, 'Observaciones particulares / Acuerdos / Tareas',   s.notes)}
         </div>
       </div>`
