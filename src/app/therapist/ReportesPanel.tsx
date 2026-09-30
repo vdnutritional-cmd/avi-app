@@ -12,9 +12,23 @@ import {
   imprimirNotaInicialDesdeReportes,
   imprimirSesionesDesdeReportes,
   imprimirAnalisisDesdeReportes,
+  imprimirHCOriginalDesdeReportes,
+  imprimirHCActualizadaDesdeReportes,
+  imprimirReporteValorativoDesdeReportes,
+  imprimirIntegracionPlanDesdeReportes,
+  imprimirReporteProcesoDesdeReportes,
   printHtmlViaIframe,
   buildReportHeader,
 } from './patients/[patientId]/print-utils'
+
+// ── Catálogo AVI-CLÍNICO (orden = orden en ImpresionesTab) ──
+const REPORTES_CLINICO = [
+  { id: 'hc-original',    icon: '🔒', name: 'Historia Clínica — Original',            desc: 'Inamovible. Generada una sola vez.' },
+  { id: 'hc-actualizada', icon: '📄', name: 'Historia Clínica — Actualizada',          desc: 'Toda la información a la fecha.' },
+  { id: 'valorativo',     icon: '📋', name: 'Reporte Valorativo',                      desc: 'Datos generales, prediagnóstico y análisis clínicos.' },
+  { id: 'integracion',    icon: '🗂',  name: 'Integración y Plan de Intervención',      desc: 'Diagnóstico integrado, propuesta técnica y objetivos.' },
+  { id: 'proceso',        icon: '📊', name: 'Reporte de Proceso',                      desc: 'Motivos, información de interés y proceso psicológico.' },
+] as const
 
 interface Empresa  { id: string; nombre: string; logo_url: string | null }
 interface Paciente { id: string; nombre: string }
@@ -35,8 +49,12 @@ export default function ReportesPanel({ tier, terapeutaNombre }: Props) {
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [pid,     setPid]     = useState('')
 
-  // ── Acordeón ─────────────────────────────────────────────────
+  // ── Acordeones ───────────────────────────────────────────────
   const [openEsencial, setOpenEsencial] = useState(true)
+  const [openClinico,  setOpenClinico]  = useState(false)
+
+  // ── AVI-CLÍNICO ───────────────────────────────────────────────
+  const [printingClinico, setPrintingClinico] = useState<string | null>(null)
 
   // ── Sesiones ──────────────────────────────────────────────────
   const [sessionOpt, setSessionOpt] = useState('all')
@@ -161,6 +179,25 @@ export default function ReportesPanel({ tier, terapeutaNombre }: Props) {
     } catch (e: unknown) {
       setErrorRA(e instanceof Error ? e.message : 'Error al generar el reporte.')
     } finally { setLoadingRA(false) }
+  }
+
+  // ── Tier gate ─────────────────────────────────────────────────
+  const isClinico = tier === 'clinico'
+
+  async function printClinico(id: string) {
+    if (!pid || !isClinico) return
+    setPrintingClinico(id)
+    try {
+      switch (id) {
+        case 'hc-original':    await imprimirHCOriginalDesdeReportes(pid);    break
+        case 'hc-actualizada': await imprimirHCActualizadaDesdeReportes(pid); break
+        case 'valorativo':     await imprimirReporteValorativoDesdeReportes(pid); break
+        case 'integracion':    await imprimirIntegracionPlanDesdeReportes(pid);   break
+        case 'proceso':        await imprimirReporteProcesoDesdeReportes(pid);    break
+      }
+    } finally {
+      setPrintingClinico(null)
+    }
   }
 
   // ── Empresas con logo ─────────────────────────────────────────
@@ -368,14 +405,59 @@ export default function ReportesPanel({ tier, terapeutaNombre }: Props) {
             )}
           </div>
 
-          {/* ── AVI-CLÍNICO placeholder (pendiente) ─────────────── */}
-          <div className="border border-gray-100 rounded-2xl overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3.5 bg-gray-50 opacity-60">
-              <span className="text-sm font-semibold text-gray-500">🔒 Reportes AVI-CLÍNICO</span>
-              <span className="text-xs text-gray-400 bg-white border border-gray-200 px-2 py-0.5 rounded-full">
-                {tier === 'clinico' ? 'Próximamente' : 'Plan Clínico'}
-              </span>
-            </div>
+          {/* ── AVI-CLÍNICO accordion ────────────────────────────── */}
+          <div className="border border-indigo-100 rounded-2xl overflow-hidden">
+            <button
+              onClick={() => setOpenClinico(v => !v)}
+              className="w-full flex items-center justify-between px-4 py-3 bg-indigo-50 hover:bg-indigo-100 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-indigo-800">🧠 AVI-CLÍNICO</span>
+                {isClinico
+                  ? <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-medium">Plan Clínico</span>
+                  : <span className="text-xs bg-amber-50 text-amber-600 border border-amber-200 px-2 py-0.5 rounded-full font-medium">🔒 Requiere Plan Clínico</span>
+                }
+              </div>
+              <svg
+                className={`w-4 h-4 text-indigo-400 transition-transform duration-200 ${openClinico ? 'rotate-180' : ''}`}
+                fill="none" stroke="currentColor" viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            {openClinico && (
+              <div className="p-3">
+                {!pid && (
+                  <p className="text-xs text-gray-400 text-center py-3">Selecciona un paciente arriba.</p>
+                )}
+                <div className={`space-y-0.5 ${!isClinico ? 'opacity-40 pointer-events-none select-none' : ''}`}>
+                  {REPORTES_CLINICO.map(r => (
+                    <button
+                      key={r.id}
+                      onClick={() => printClinico(r.id)}
+                      disabled={!!printingClinico || !pid || !isClinico}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-indigo-50
+                                 text-left transition-colors disabled:cursor-not-allowed group"
+                    >
+                      <span className="text-base leading-none">{r.icon}</span>
+                      <span className="flex-1 text-sm text-gray-700 group-hover:text-indigo-700 font-medium">{r.name}</span>
+                      {printingClinico === r.id
+                        ? <span className="w-3.5 h-3.5 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                        : <span className="text-xs text-indigo-300 opacity-0 group-hover:opacity-100 flex-shrink-0 transition-opacity">🖨</span>
+                      }
+                    </button>
+                  ))}
+                </div>
+                {!isClinico && (
+                  <div className="mt-3 pt-3 border-t border-gray-100 text-center">
+                    <a href="/pricing" className="text-xs text-purple-600 hover:text-purple-800 underline underline-offset-2">
+                      Ver planes →
+                    </a>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
         </div>

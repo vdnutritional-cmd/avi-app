@@ -2274,3 +2274,83 @@ export async function imprimirAnalisisDesdeReportes(
 
   printHtmlViaIframe(html)
 }
+
+// ──────────────────────────────────────────────────────────
+// Wrappers AVI-CLÍNICO para ReportesPanel
+// Cada función carga los datos necesarios y llama a la
+// función de impresión existente.
+// Sprint 10 (Cambio XII) — E7
+// ──────────────────────────────────────────────────────────
+
+/** Historia Clínica Original (inamovible). Alerta si no fue generada. */
+export async function imprimirHCOriginalDesdeReportes(patientId: string) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+
+  const [{ data: expediente }, { data: profile }] = await Promise.all([
+    supabase.from('patient_expediente')
+      .select('hc_original')
+      .eq('therapist_id', user.id)
+      .eq('patient_id', patientId)
+      .maybeSingle(),
+    supabase.from('profiles').select('full_name').eq('id', patientId).single(),
+  ])
+
+  const hcData = (expediente?.hc_original ?? null) as HistoriaClinicaV2 | null
+  if (!hcData) {
+    alert('La Historia Clínica Original aún no ha sido generada. Ve a Impresiones en AVI-CLÍNICO para generarla.')
+    return
+  }
+  await imprimirHistoriaClinicaV2(patientId, user.id, profile?.full_name ?? null, hcData, true)
+}
+
+/** Historia Clínica Actualizada. Alerta si no fue generada. */
+export async function imprimirHCActualizadaDesdeReportes(patientId: string) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+
+  const [{ data: expediente }, { data: profile }] = await Promise.all([
+    supabase.from('patient_expediente')
+      .select('hc_actualizada')
+      .eq('therapist_id', user.id)
+      .eq('patient_id', patientId)
+      .maybeSingle(),
+    supabase.from('profiles').select('full_name').eq('id', patientId).single(),
+  ])
+
+  const hcData = (expediente?.hc_actualizada ?? null) as HistoriaClinicaV2 | null
+  if (!hcData) {
+    alert('La Historia Clínica Actualizada aún no ha sido generada. Ve a Impresiones en AVI-CLÍNICO para generarla.')
+    return
+  }
+  await imprimirHistoriaClinicaV2(patientId, user.id, profile?.full_name ?? null, hcData, false)
+}
+
+/** Reporte Valorativo — carga datos internamente. */
+export async function imprimirReporteValorativoDesdeReportes(patientId: string) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+  const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', patientId).single()
+  await imprimirReporteValorativo(patientId, user.id, profile?.full_name ?? null)
+}
+
+/** Integración y Plan de Intervención — carga datos internamente. */
+export async function imprimirIntegracionPlanDesdeReportes(patientId: string) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+  const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', patientId).single()
+  await imprimirIntegracionPlan(patientId, user.id, profile?.full_name ?? null)
+}
+
+/** Reporte de Proceso — carga datos internamente. */
+export async function imprimirReporteProcesoDesdeReportes(patientId: string) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+  const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', patientId).single()
+  await imprimirReporteProceso(patientId, user.id, profile?.full_name ?? null)
+}
