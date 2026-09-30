@@ -2186,56 +2186,89 @@ export async function imprimirAnalisisDesdeReportes(
   if (!user) return
 
   const [{ data: analysis }, { data: profile }, { data: terapeutaProfile }] = await Promise.all([
-    supabase.from('analyses').select('summary, emotional_patterns, reformulation, created_at').eq('id', analysisId).single(),
+    // El análisis se guarda completo en la columna 'content' (texto Markdown)
+    supabase.from('analyses').select('content, created_at').eq('id', analysisId).single(),
     supabase.from('profiles').select('full_name').eq('id', patientId).single(),
     supabase.from('profiles').select('full_name').eq('id', user.id).single(),
   ])
 
   if (!analysis) { alert('No se encontró el análisis.'); return }
 
-  const pacienteNombre   = profile?.full_name ?? 'Paciente'
-  const terapeutaNombre  = terapeutaProfile?.full_name ?? '—'
-  const fecha = new Date((analysis.created_at as string) + '').toLocaleDateString('es-MX', {
+  const pacienteNombre  = profile?.full_name ?? 'Paciente'
+  const terapeutaNombre = terapeutaProfile?.full_name ?? '—'
+  const fecha = new Date((analysis.created_at as string)).toLocaleDateString('es-MX', {
     day: 'numeric', month: 'long', year: 'numeric',
   })
   const fechaHoy = new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })
+
+  // Convertir Markdown básico a HTML
+  const contenidoHtml = ((analysis.content as string) ?? '')
+    // negrita **texto** → <strong>
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    // encabezados ##
+    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+    .replace(/^# (.+)$/gm, '<h1 class="titulo">$1</h1>')
+    // líneas en blanco → separador de párrafo
+    .replace(/\n\n/g, '</p><p>')
+    .replace(/\n/g, '<br/>')
 
   const html = `<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8"/>
-  <title>Análisis Consúltame — ${pacienteNombre}</title>
+  <title>Análisis Clínico y Propuesta Técnica — ${pacienteNombre}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 10.5pt; color: #222; padding: 36px 44px; line-height: 1.6; }
-    .header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 1.5px solid #ddd; padding-bottom: 10px; margin-bottom: 8px; }
-    .sub { font-size: 8.5pt; color: #888; margin-bottom: 20px; }
-    h1 { font-size: 15pt; font-weight: 700; }
-    h2 { font-size: 11pt; font-weight: 600; color: #5b21b6; margin: 20px 0 8px; border-bottom: 1px solid #ede9fe; padding-bottom: 4px; }
-    p { margin-bottom: 8px; }
-    @media print { body { padding: 20px; } }
+    @page { margin: 1.4cm 2cm; }
+    body { font-family: 'Georgia','Times New Roman',serif; font-size: 10pt; color: #1a1a1a; line-height: 1.55; }
+    .report-header { display: flex; justify-content: space-between; align-items: flex-start;
+                     border-bottom: 2pt solid #2d3a8c; padding-bottom: 6pt; margin-bottom: 6pt; }
+    .report-header-left { font-size: 9pt; color: #444; }
+    .report-header-right { text-align: right; font-size: 9pt; color: #444; }
+    .report-by { font-size: 8.5pt; color: #888; margin-bottom: 12pt; }
+    .doc-title { text-align: center; padding: 5pt 0; margin-bottom: 8pt;
+                 border-bottom: 1pt solid #b0bbd4; border-top: 0.5pt solid #b0bbd4; }
+    .doc-title h1 { font-size: 13pt; color: #2d3a8c; text-transform: uppercase; letter-spacing: 0.4pt; }
+    .doc-title .sub { font-size: 9.5pt; color: #5060a4; font-style: italic; }
+    .meta { display: flex; justify-content: space-between; font-size: 9pt; color: #444;
+            background: #f4f6fb; padding: 4pt 8pt; border-radius: 3pt; margin-bottom: 10pt; }
+    .content { font-size: 10pt; line-height: 1.6; }
+    .content h1.titulo { font-size: 12pt; color: #2d3a8c; margin: 12pt 0 4pt; }
+    .content h2 { font-size: 10.5pt; font-weight: bold; color: #2d3a8c;
+                  text-transform: uppercase; letter-spacing: 0.3pt;
+                  border-bottom: 1pt solid #b0bbd4; padding-bottom: 3pt; margin: 12pt 0 5pt; }
+    .content p { margin-bottom: 6pt; }
+    .content strong { color: #1a1a1a; }
+    @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
   </style>
 </head>
 <body>
-  <div class="header">
-    <div>
-      <h1>Análisis Consúltame</h1>
-      <div style="font-size:9pt;color:#666;">${pacienteNombre} · ${fecha}</div>
+  <!-- Encabezado: fecha izq, paciente/análisis der -->
+  <div class="report-header">
+    <div class="report-header-left">
+      <div><strong>Fecha:</strong> ${fechaHoy}</div>
     </div>
-    <div style="font-size:9pt;color:#777;text-align:right;">${fechaHoy}</div>
+    <div class="report-header-right">
+      <div><strong>Asesorado:</strong> ${pacienteNombre}</div>
+      <div style="font-size:8.5pt;color:#666;">Análisis generado: ${fecha}</div>
+    </div>
   </div>
-  <div class="sub">Reporte impreso por: <strong>${terapeutaNombre}</strong></div>
+  <div class="report-by">Reporte impreso por: <strong>${terapeutaNombre}</strong></div>
 
-  <h2>Resumen del análisis</h2>
-  <p>${((analysis.summary as string) ?? '').replace(/\n/g, '<br/>')}</p>
+  <!-- Título -->
+  <div class="doc-title">
+    <h1>Análisis Clínico y Propuesta Técnica</h1>
+    <div class="sub">Consúltame AVI</div>
+  </div>
 
-  ${analysis.emotional_patterns ? `
-  <h2>Patrones emocionales</h2>
-  <p>${((analysis.emotional_patterns as string) ?? '').replace(/\n/g, '<br/>')}</p>` : ''}
+  <!-- Meta -->
+  <div class="meta">
+    <span><strong>Paciente:</strong> ${pacienteNombre}</span>
+    <span><strong>Terapeuta:</strong> ${terapeutaNombre}</span>
+  </div>
 
-  ${analysis.reformulation ? `
-  <h2>Reformulación clínica</h2>
-  <p>${((analysis.reformulation as string) ?? '').replace(/\n/g, '<br/>')}</p>` : ''}
+  <!-- Contenido del análisis -->
+  <div class="content"><p>${contenidoHtml}</p></div>
 
 </body>
 </html>`
