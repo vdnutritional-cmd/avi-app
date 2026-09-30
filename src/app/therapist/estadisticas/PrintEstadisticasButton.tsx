@@ -4,6 +4,7 @@
 
 interface PrintEstadisticasProps {
   terapeutaNombre: string
+  logoUrl?: string | null
   mes: string              // e.g. "octubre de 2026"
   tipoLabel: string        // e.g. "activos"
   totalSesiones: number
@@ -24,7 +25,7 @@ interface PrintEstadisticasProps {
 export default function PrintEstadisticasButton(props: PrintEstadisticasProps) {
   function handlePrint() {
     const {
-      terapeutaNombre, mes, tipoLabel,
+      terapeutaNombre, logoUrl, mes, tipoLabel,
       totalSesiones, personasAtendidas,
       institucionRows, motivoEntries,
       totalDerivaciones, derivacionesPorTipo,
@@ -87,6 +88,10 @@ export default function PrintEstadisticasButton(props: PrintEstadisticasProps) {
     </div>
     <div class="header-right">
       ${date}<br/>
+      ${logoUrl
+        ? `<img src="${logoUrl}" alt="Logo" style="max-width:200px;max-height:80px;object-fit:contain;display:block;margin-left:auto;margin-bottom:4px;" />`
+        : `<strong>${terapeutaNombre}</strong>`
+      }<br/>
       Reporte impreso por: <strong>${terapeutaNombre}</strong>
     </div>
   </div>
@@ -140,6 +145,9 @@ export default function PrintEstadisticasButton(props: PrintEstadisticasProps) {
     win.document.write(html)
     win.document.close()
     win.focus()
+    win.onload = () => win.print()
+    // fallback si onload ya disparó antes de asignarlo
+    setTimeout(() => { if (!win.closed) win.print() }, 500)
   }
 
   return (
