@@ -123,9 +123,15 @@ export async function POST(req: NextRequest) {
     const colMap = tipo === 'riesgo' ? SCHEMA_RIESGO_COL : SCHEMA_PROTECCION_COL
     const grupos: FactorGrupo[] = []
     for (const schema of ['famsis', 'trec', 'cc'] as const) {
-      const col   = colMap[schema]
-      const keys: string[] = (relacion as Record<string, unknown> | null)?.[col] as string[] ?? []
-      if (!keys?.length) continue
+      const col    = colMap[schema]
+      const rawObj = (relacion as Record<string, unknown> | null)?.[col]
+      // El jsonb guardado es { individual: string[], familiar: string[], pareja: string[] }
+      const obj: Record<string, string[]> =
+        rawObj && typeof rawObj === 'object' && !Array.isArray(rawObj)
+          ? (rawObj as Record<string, string[]>)
+          : {}
+      const keys: string[] = obj[caseType] ?? []
+      if (!keys.length) continue
       const items = resolveFactores(schema, caseType, tipo, keys)
       if (!items.length) continue
       grupos.push({ esquema: SCHEMA_LABELS[schema], items: items.map(f => f.titulo) })

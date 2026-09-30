@@ -2090,14 +2090,21 @@ export async function imprimirNotaInicialDesdeReportes(patientId: string) {
   }
 
   // ── Construir HTML de factores por esquema ────────────────────────────────
-  // Muestra: "Tipo de caso: X" y luego cada Enfoque con sus factores activos.
+  // Cada columna en BD es { individual: string[], familiar: string[], pareja: string[] }.
+  // Extraemos sólo los keys del tipo de caso del paciente y mostramos factores activos.
   function buildFactoresHtml(tipo: 'riesgo' | 'proteccion'): string {
     const colMap = tipo === 'riesgo' ? SCHEMA_RIESGO_COL : SCHEMA_PROTECCION_COL
     const parts: string[] = []
     for (const schema of ['famsis', 'trec', 'cc'] as const) {
-      const col   = colMap[schema]
-      const keys: string[] = (rel as Record<string, unknown>)[col] as string[] ?? []
-      if (!keys?.length) continue
+      const col    = colMap[schema]
+      const rawObj = (rel as Record<string, unknown>)[col]
+      // El jsonb guardado es { individual: [], familiar: [], pareja: [] }
+      const obj: Record<string, string[]> =
+        rawObj && typeof rawObj === 'object' && !Array.isArray(rawObj)
+          ? (rawObj as Record<string, string[]>)
+          : {}
+      const keys: string[] = obj[caseType] ?? []
+      if (!keys.length) continue
       const items = resolveFactores(schema, caseType, tipo, keys)
       if (!items.length) continue
       parts.push(
@@ -2106,7 +2113,7 @@ export async function imprimirNotaInicialDesdeReportes(patientId: string) {
       )
     }
     if (!parts.length) return ''
-    // Encabezado de tipo de caso
+    // Encabezado: Tipo de caso
     const header =
       `<div style="font-size:9pt;color:#555;margin-bottom:6pt;">` +
       `<strong>Tipo de caso:</strong> ${tipoCasoStr || CASE_LABEL[caseType]}` +
