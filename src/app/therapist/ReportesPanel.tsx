@@ -50,7 +50,7 @@ export default function ReportesPanel({ tier, terapeutaNombre }: Props) {
   const [pid,     setPid]     = useState('')
 
   // ── Acordeones ───────────────────────────────────────────────
-  const [openEsencial, setOpenEsencial] = useState(true)
+  const [openEsencial, setOpenEsencial] = useState(false)
   const [openClinico,  setOpenClinico]  = useState(false)
 
   // ── AVI-CLÍNICO ───────────────────────────────────────────────
