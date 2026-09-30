@@ -1960,3 +1960,187 @@ export async function imprimirIntegracionPlan(
   win.document.close()
   win.focus()
 }
+
+// ──────────────────────────────────────────────────────────
+// buildReportHeader — encabezado compartido para todos los
+// reportes terapéuticos (Sprint 10 — Cambio XII)
+// ──────────────────────────────────────────────────────────
+
+export interface ReportHeaderOptions {
+  terapeutaNombre: string
+  /** URL pública del logo de la empresa CONVENIO. Si no hay, muestra el nombre. */
+  logoUrl?: string | null
+  /** Qué mostrar a la derecha: logo de empresa o nombre del terapeuta */
+  side?: 'logo' | 'name'
+}
+
+/**
+ * Genera el HTML del encabezado compartido:
+ * - Izquierda: fecha de impresión
+ * - Derecha: logo OR nombre del terapeuta
+ * - Debajo: "Reporte impreso por: <nombre>"
+ */
+export function buildReportHeader(opts: ReportHeaderOptions): string {
+  const { terapeutaNombre, logoUrl, side = 'name' } = opts
+
+  const date = new Date().toLocaleDateString('es-MX', {
+    day: 'numeric', month: 'long', year: 'numeric',
+  })
+
+  const rightContent =
+    side === 'logo' && logoUrl
+      ? `<img src="${logoUrl}" alt="Logo empresa" style="height:48px;max-width:140px;object-fit:contain;" />`
+      : `<span style="font-size:10pt;font-weight:600;color:#444;">${terapeutaNombre}</span>`
+
+  return `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:8px;">
+      <span style="font-size:9pt;color:#777;">${date}</span>
+      <div style="display:flex;align-items:center;">${rightContent}</div>
+    </div>
+    <div style="font-size:8.5pt;color:#888;border-bottom:1.5px solid #ddd;padding-bottom:10px;margin-bottom:16px;">
+      Reporte impreso por: <strong>${terapeutaNombre}</strong>
+    </div>
+  `
+}
+
+// ──────────────────────────────────────────────────────────
+// Funciones wrapper para /therapist/reportes
+// Cargan los datos automáticamente a partir del patientId
+// Sprint 10 (Cambio XII) — E5
+// ──────────────────────────────────────────────────────────
+
+/** Carga Nota Inicial y la imprime sin necesitar datos pre-cargados. */
+export async function imprimirNotaInicialDesdeReportes(patientId: string) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+
+  const [{ data: rel }, { data: profile }] = await Promise.all([
+    supabase
+      .from('therapist_patients')
+      .select('initial_note, initial_note_date, initial_note_motivo, initial_note_subyacente, initial_note_premisas, initial_note_pro_bono, initial_note_virtual')
+      .eq('therapist_id', user.id)
+      .eq('patient_id', patientId)
+      .single(),
+    supabase.from('profiles').select('full_name').eq('id', patientId).single(),
+  ])
+
+  if (!rel) { alert('No se encontró la Nota Inicial de este paciente.'); return }
+
+  await imprimirNotaInicial(user.id, profile?.full_name ?? null, {
+    initial_note:            (rel.initial_note            as string) ?? '',
+    initial_note_date:       (rel.initial_note_date       as string) ?? null,
+    initial_note_motivo:     (rel.initial_note_motivo     as string) ?? '',
+    initial_note_subyacente: (rel.initial_note_subyacente as string) ?? '',
+    initial_note_premisas:   (rel.initial_note_premisas   as string) ?? '',
+    initial_note_pro_bono:   (rel.initial_note_pro_bono   as boolean) ?? false,
+    initial_note_virtual:    (rel.initial_note_virtual    as boolean) ?? false,
+  })
+}
+
+/** Carga sesiones presenciales y las imprime. sessionId = undefined → todas. */
+export async function imprimirSesionesDesdeReportes(
+  patientId:  string,
+  sessionId?: string,
+) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+
+  let q = supabase
+    .from('therapist_session_notes')
+    .select('id, session_number, session_date, session_objetivo, session_desarrollo, notes, is_pro_bono, is_virtual')
+    .eq('therapist_id', user.id)
+    .eq('patient_id', patientId)
+    .order('session_date', { ascending: true })
+
+  if (sessionId) q = q.eq('id', sessionId)
+
+  const [{ data: rows }, { data: profile }] = await Promise.all([
+    q,
+    supabase.from('profiles').select('full_name').eq('id', patientId).single(),
+  ])
+
+  const sesiones: SessionPresencialPrint[] = (rows ?? []).map(s => ({
+    session_number:     s.session_number   as number,
+    session_date:       s.session_date     as string,
+    session_objetivo:   s.session_objetivo  as string | null,
+    session_desarrollo: s.session_desarrollo as string | null,
+    notes:              s.notes             as string | null,
+    is_pro_bono:        (s.is_pro_bono      as boolean) ?? false,
+    is_virtual:         (s.is_virtual       as boolean) ?? false,
+  }))
+
+  await imprimirBitacoraSesiones(user.id, profile?.full_name ?? null, sesiones)
+}
+
+/** Carga un análisis Consúltame por ID y abre ventana de impresión. */
+export async function imprimirAnalisisDesdeReportes(
+  patientId:  string,
+  analysisId: string,
+) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+
+  const [{ data: analysis }, { data: profile }, { data: terapeutaProfile }] = await Promise.all([
+    supabase.from('analyses').select('summary, emotional_patterns, reformulation, created_at').eq('id', analysisId).single(),
+    supabase.from('profiles').select('full_name').eq('id', patientId).single(),
+    supabase.from('profiles').select('full_name').eq('id', user.id).single(),
+  ])
+
+  if (!analysis) { alert('No se encontró el análisis.'); return }
+
+  const pacienteNombre   = profile?.full_name ?? 'Paciente'
+  const terapeutaNombre  = terapeutaProfile?.full_name ?? '—'
+  const fecha = new Date((analysis.created_at as string) + '').toLocaleDateString('es-MX', {
+    day: 'numeric', month: 'long', year: 'numeric',
+  })
+  const fechaHoy = new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })
+
+  const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Análisis Consúltame — ${pacienteNombre}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 10.5pt; color: #222; padding: 36px 44px; line-height: 1.6; }
+    .header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 1.5px solid #ddd; padding-bottom: 10px; margin-bottom: 8px; }
+    .sub { font-size: 8.5pt; color: #888; margin-bottom: 20px; }
+    h1 { font-size: 15pt; font-weight: 700; }
+    h2 { font-size: 11pt; font-weight: 600; color: #5b21b6; margin: 20px 0 8px; border-bottom: 1px solid #ede9fe; padding-bottom: 4px; }
+    p { margin-bottom: 8px; }
+    @media print { body { padding: 20px; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h1>Análisis Consúltame</h1>
+      <div style="font-size:9pt;color:#666;">${pacienteNombre} · ${fecha}</div>
+    </div>
+    <div style="font-size:9pt;color:#777;text-align:right;">${fechaHoy}</div>
+  </div>
+  <div class="sub">Reporte impreso por: <strong>${terapeutaNombre}</strong></div>
+
+  <h2>Resumen del análisis</h2>
+  <p>${((analysis.summary as string) ?? '').replace(/\n/g, '<br/>')}</p>
+
+  ${analysis.emotional_patterns ? `
+  <h2>Patrones emocionales</h2>
+  <p>${((analysis.emotional_patterns as string) ?? '').replace(/\n/g, '<br/>')}</p>` : ''}
+
+  ${analysis.reformulation ? `
+  <h2>Reformulación clínica</h2>
+  <p>${((analysis.reformulation as string) ?? '').replace(/\n/g, '<br/>')}</p>` : ''}
+
+</body>
+</html>`
+
+  const win = window.open('', '_blank', 'width=900,height=700')
+  if (!win) { alert('Permite ventanas emergentes para imprimir.'); return }
+  win.document.write(html)
+  win.document.close()
+  win.focus()
+}

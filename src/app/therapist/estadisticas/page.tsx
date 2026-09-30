@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import FiltrosEstadisticas from './FiltrosEstadisticas'
+import PrintEstadisticasButton from './PrintEstadisticasButton'
 
 export const dynamic = 'force-dynamic'
 
@@ -84,6 +85,14 @@ export default async function EstadisticasPage({
 
   const { data: relaciones } = await relacionesQuery
 
+  // Nombre del terapeuta (para encabezado de impresión)
+  const { data: therapistProfile } = await admin
+    .from('profiles')
+    .select('full_name, email')
+    .eq('id', therapistId)
+    .single()
+  const terapeutaNombre = (therapistProfile?.full_name || therapistProfile?.email || user.email || 'Terapeuta') as string
+
   // Mapa patient_id → empresa nombre
   const empresaByPatient: Record<string, string> = {}
   for (const r of relaciones ?? []) {
@@ -133,6 +142,7 @@ export default async function EstadisticasPage({
       // Sin pacientes en scope → página vacía
       return renderPage({
         year, month, mesKey, isCurrentMonth, tipo, pid,
+        terapeutaNombre,
         todasLasSesiones: [], pacientesEnPeriodoIds: [],
         relaciones: [],
         derivacionesRows: [], expedientesRows: [],
@@ -207,6 +217,7 @@ export default async function EstadisticasPage({
 
   return renderPage({
     year, month, mesKey, isCurrentMonth, tipo, pid,
+    terapeutaNombre,
     todasLasSesiones, pacientesEnPeriodoIds,
     relaciones: relaciones ?? [],
     derivacionesRows: derivacionesRows ?? [],
@@ -227,6 +238,7 @@ interface RenderProps {
   isCurrentMonth: boolean
   tipo: Tipo
   pid: string
+  terapeutaNombre: string
   todasLasSesiones: { patient_id: string; session_date: string; is_pro_bono: boolean }[]
   pacientesEnPeriodoIds: string[]
   relaciones: Record<string, unknown>[]
@@ -240,6 +252,7 @@ interface RenderProps {
 
 function renderPage({
   year, month, mesKey, isCurrentMonth, tipo, pid,
+  terapeutaNombre,
   todasLasSesiones, pacientesEnPeriodoIds,
   relaciones, derivacionesRows, expedientesRows,
   todosActivosRows, derivActivosRows,
@@ -351,6 +364,15 @@ function renderPage({
   const baseParams = (m: string) => `/therapist/estadisticas?mes=${m}&tipo=${tipo}&pid=${pid}`
 
   const tipoLabel = tipo === 'activos' ? 'activos' : tipo === 'inactivos' ? 'inactivos' : 'activos + inactivos'
+
+  // ── Datos para botón de impresión ──────────────────────────────────────────
+  const institucionRows = Object.entries(sesionesPorEmpresa)
+    .map(([nombre, total]) => ({
+      nombre,
+      total,
+      pct: totalSesiones > 0 ? Math.round((total / totalSesiones) * 100) : 0,
+    }))
+    .sort((a, b) => b.total - a.total)
 
   // ── JSX ────────────────────────────────────────────────────────────────────
   return (
@@ -568,6 +590,30 @@ function renderPage({
             </table>
           </div>
         </section>
+      )}
+
+      {/* ── Botón de impresión ─────────────────────────────────────────────── */}
+      {totalSesiones > 0 && (
+        <div className="flex justify-end pt-2">
+          <PrintEstadisticasButton
+            terapeutaNombre={terapeutaNombre}
+            mes={nombreMesLargo(year, month)}
+            tipoLabel={tipoLabel}
+            totalSesiones={totalSesiones}
+            personasAtendidas={personasAtendidas}
+            institucionRows={institucionRows}
+            motivoEntries={motivoEntries}
+            totalDerivaciones={totalDerivaciones}
+            derivacionesPorTipo={derivacionesPorTipo}
+            casosRiesgo={casosRiesgo}
+            asistSeguimiento={asistSeguimiento}
+            percepcionAlivio={percepcionAlivio}
+            cambioFunc={cambioFunc}
+            abandono={abandono}
+            atenEspecializada={atenEspecializada}
+            calificaciones={calificaciones}
+          />
+        </div>
       )}
 
     </div>
