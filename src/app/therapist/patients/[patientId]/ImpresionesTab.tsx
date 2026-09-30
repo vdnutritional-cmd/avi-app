@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
   imprimirHistoriaClinicaV2,
-  imprimirNotaInicial,
+  imprimirNotaInicialDesdeReportes,
   imprimirBitacoraSesiones,
   imprimirReporteValorativo,
   imprimirReporteProceso,
@@ -312,7 +312,7 @@ export default function ImpresionesTab({ patientId, therapistId, patientName }: 
   async function printNotaInicial() {
     if (!notaInicial) return
     setPrinting('nota')
-    try { await imprimirNotaInicial(therapistId, patientName, notaInicial) }
+    try { await imprimirNotaInicialDesdeReportes(patientId) }
     finally { setPrinting(null) }
   }
 
