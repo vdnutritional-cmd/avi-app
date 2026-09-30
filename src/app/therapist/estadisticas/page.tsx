@@ -93,14 +93,15 @@ export default async function EstadisticasPage({
     .single()
   const terapeutaNombre = (therapistProfile?.full_name || therapistProfile?.email || user.email || 'Terapeuta') as string
 
-  // Logo de empresa CONVENIO del terapeuta (para encabezado de impresión)
-  const { data: empresaRel } = await admin
+  // Empresas CONVENIO del terapeuta (para selector de logo al imprimir)
+  const { data: empresaRels } = await admin
     .from('therapist_empresa')
-    .select('empresa_id, convenio_empresas(logo_url)')
+    .select('empresa_id, convenio_empresas(nombre, logo_url)')
     .eq('therapist_id', therapistId)
-    .limit(1)
-    .maybeSingle()
-  const logoUrl = (empresaRel?.convenio_empresas as { logo_url?: string | null } | null)?.logo_url ?? null
+  const empresasParaLogo = (empresaRels ?? []).map(r => {
+    const e = r.convenio_empresas as { nombre?: string; logo_url?: string | null } | null
+    return { id: r.empresa_id as string, nombre: e?.nombre ?? '', logo_url: e?.logo_url ?? null }
+  })
 
   // Mapa patient_id → empresa nombre
   const empresaByPatient: Record<string, string> = {}
@@ -151,7 +152,7 @@ export default async function EstadisticasPage({
       // Sin pacientes en scope → página vacía
       return renderPage({
         year, month, mesKey, isCurrentMonth, tipo, pid,
-        terapeutaNombre, logoUrl,
+        terapeutaNombre, empresasParaLogo,
         todasLasSesiones: [], pacientesEnPeriodoIds: [],
         relaciones: [],
         derivacionesRows: [], expedientesRows: [],
@@ -226,7 +227,7 @@ export default async function EstadisticasPage({
 
   return renderPage({
     year, month, mesKey, isCurrentMonth, tipo, pid,
-    terapeutaNombre, logoUrl,
+    terapeutaNombre, empresasParaLogo,
     todasLasSesiones, pacientesEnPeriodoIds,
     relaciones: relaciones ?? [],
     derivacionesRows: derivacionesRows ?? [],
@@ -248,7 +249,7 @@ interface RenderProps {
   tipo: Tipo
   pid: string
   terapeutaNombre: string
-  logoUrl: string | null
+  empresasParaLogo: { id: string; nombre: string; logo_url: string | null }[]
   todasLasSesiones: { patient_id: string; session_date: string; is_pro_bono: boolean }[]
   pacientesEnPeriodoIds: string[]
   relaciones: Record<string, unknown>[]
@@ -262,7 +263,7 @@ interface RenderProps {
 
 function renderPage({
   year, month, mesKey, isCurrentMonth, tipo, pid,
-  terapeutaNombre, logoUrl,
+  terapeutaNombre, empresasParaLogo,
   todasLasSesiones, pacientesEnPeriodoIds,
   relaciones, derivacionesRows, expedientesRows,
   todosActivosRows, derivActivosRows,
@@ -607,7 +608,7 @@ function renderPage({
         <div className="flex justify-end pt-2">
           <PrintEstadisticasButton
             terapeutaNombre={terapeutaNombre}
-            logoUrl={logoUrl}
+            empresas={empresasParaLogo}
             mes={nombreMesLargo(year, month)}
             tipoLabel={tipoLabel}
             totalSesiones={totalSesiones}

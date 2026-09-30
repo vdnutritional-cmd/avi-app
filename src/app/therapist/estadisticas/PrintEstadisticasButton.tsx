@@ -1,12 +1,22 @@
 'use client'
 
+import { useState } from 'react'
+
 // ── PrintEstadisticasButton — abre ventana de impresión con estadísticas (E3)
+// Si el terapeuta pertenece a múltiples empresas con logo, muestra un modal
+// para elegir con qué logo imprimir (Opción A).
+
+interface Empresa {
+  id: string
+  nombre: string
+  logo_url: string | null
+}
 
 interface PrintEstadisticasProps {
   terapeutaNombre: string
-  logoUrl?: string | null
-  mes: string              // e.g. "octubre de 2026"
-  tipoLabel: string        // e.g. "activos"
+  empresas: Empresa[]
+  mes: string
+  tipoLabel: string
   totalSesiones: number
   personasAtendidas: number
   institucionRows: { nombre: string; total: number; pct: number }[]
@@ -23,9 +33,23 @@ interface PrintEstadisticasProps {
 }
 
 export default function PrintEstadisticasButton(props: PrintEstadisticasProps) {
-  function handlePrint() {
+  const [showModal, setShowModal] = useState(false)
+
+  const empresasConLogo = props.empresas.filter(e => e.logo_url)
+
+  function handleClick() {
+    if (empresasConLogo.length > 1) {
+      setShowModal(true)
+    } else {
+      // 0 o 1 empresa con logo → imprimir directo
+      doPrint(empresasConLogo[0]?.logo_url ?? null)
+    }
+  }
+
+  function doPrint(logoUrl: string | null) {
+    setShowModal(false)
     const {
-      terapeutaNombre, logoUrl, mes, tipoLabel,
+      terapeutaNombre, mes, tipoLabel,
       totalSesiones, personasAtendidas,
       institucionRows, motivoEntries,
       totalDerivaciones, derivacionesPorTipo,
@@ -64,7 +88,6 @@ export default function PrintEstadisticasButton(props: PrintEstadisticasProps) {
     h1 { font-size: 15pt; font-weight: 700; margin-bottom: 4px; }
     h2 { font-size: 11pt; font-weight: 600; color: #5b21b6; margin: 20px 0 8px; border-bottom: 1.5px solid #ede9fe; padding-bottom: 4px; }
     .header-bar { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 1.5px solid #ddd; padding-bottom: 10px; margin-bottom: 16px; }
-    .header-left { }
     .header-right { font-size: 9pt; color: #777; text-align: right; }
     table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 9.5pt; }
     th { background: #f5f5f5; padding: 5px 10px; text-align: left; font-weight: 600; color: #555; font-size: 8.5pt; text-transform: uppercase; letter-spacing: 0.04em; }
@@ -146,20 +169,65 @@ export default function PrintEstadisticasButton(props: PrintEstadisticasProps) {
     win.document.close()
     win.focus()
     win.onload = () => win.print()
-    // fallback si onload ya disparó antes de asignarlo
     setTimeout(() => { if (!win.closed) win.print() }, 500)
   }
 
   return (
-    <button
-      onClick={handlePrint}
-      className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-purple-700 bg-purple-50 border border-purple-200 rounded-xl hover:bg-purple-100 transition-colors"
-    >
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-          d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-      </svg>
-      Imprimir estadística
-    </button>
+    <>
+      <button
+        onClick={handleClick}
+        className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-purple-700 bg-purple-50 border border-purple-200 rounded-xl hover:bg-purple-100 transition-colors"
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+            d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+        </svg>
+        Imprimir estadística
+      </button>
+
+      {/* Modal de selección de logo */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-80 max-w-[90vw]">
+            <h3 className="text-sm font-semibold text-gray-800 mb-1">¿Con qué logo deseas imprimir?</h3>
+            <p className="text-xs text-gray-500 mb-4">Perteneces a más de una empresa CONVENIO.</p>
+
+            <div className="flex flex-col gap-2">
+              {empresasConLogo.map(e => (
+                <button
+                  key={e.id}
+                  onClick={() => doPrint(e.logo_url)}
+                  className="flex items-center gap-3 px-3 py-2 rounded-xl border border-gray-200 hover:border-purple-400 hover:bg-purple-50 transition-colors text-left"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={e.logo_url!} alt={e.nombre} className="h-8 w-20 object-contain shrink-0" />
+                  <span className="text-sm text-gray-700 truncate">{e.nombre}</span>
+                </button>
+              ))}
+
+              {/* Opción sin logo */}
+              <button
+                onClick={() => doPrint(null)}
+                className="flex items-center gap-3 px-3 py-2 rounded-xl border border-gray-200 hover:border-purple-400 hover:bg-purple-50 transition-colors text-left"
+              >
+                <div className="h-8 w-20 shrink-0 flex items-center justify-center bg-gray-100 rounded text-gray-400">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                </div>
+                <span className="text-sm text-gray-700">Sin logo (nombre del terapeuta)</span>
+              </button>
+            </div>
+
+            <button
+              onClick={() => setShowModal(false)}
+              className="mt-4 w-full text-xs text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
