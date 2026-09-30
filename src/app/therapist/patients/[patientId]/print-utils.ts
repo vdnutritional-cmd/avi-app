@@ -2083,7 +2083,14 @@ export async function imprimirNotaInicialDesdeReportes(patientId: string) {
     tipoCasoStr.toLowerCase().includes('pareja') ? 'pareja' :
     tipoCasoStr.toLowerCase().includes('famil')  ? 'familiar' : 'individual'
 
+  const CASE_LABEL: Record<typeof caseType, string> = {
+    individual: 'Individual',
+    familiar:   'Familiar',
+    pareja:     'Pareja',
+  }
+
   // ── Construir HTML de factores por esquema ────────────────────────────────
+  // Muestra: "Tipo de caso: X" y luego cada Enfoque con sus factores activos.
   function buildFactoresHtml(tipo: 'riesgo' | 'proteccion'): string {
     const colMap = tipo === 'riesgo' ? SCHEMA_RIESGO_COL : SCHEMA_PROTECCION_COL
     const parts: string[] = []
@@ -2098,7 +2105,13 @@ export async function imprimirNotaInicialDesdeReportes(patientId: string) {
         `<ul class="factor-list">${items.map(f => `<li>${f.titulo}</li>`).join('')}</ul>`
       )
     }
-    return parts.join('')
+    if (!parts.length) return ''
+    // Encabezado de tipo de caso
+    const header =
+      `<div style="font-size:9pt;color:#555;margin-bottom:6pt;">` +
+      `<strong>Tipo de caso:</strong> ${tipoCasoStr || CASE_LABEL[caseType]}` +
+      `</div>`
+    return header + parts.join('')
   }
 
   const factoresRiesgoHtml     = buildFactoresHtml('riesgo')
