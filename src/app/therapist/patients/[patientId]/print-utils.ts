@@ -144,6 +144,27 @@ export function vias2html(text: string): string {
     .replace(/\n/g, '<br>')
 }
 
+// ──────────────────────────────────────────────────────────
+// Impresión vía iframe — evita el bloqueador de popups
+// Funciona en móvil y en navegadores con popups bloqueados.
+// ──────────────────────────────────────────────────────────
+
+export function printHtmlViaIframe(html: string): void {
+  const iframe = document.createElement('iframe')
+  iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;border:none;visibility:hidden;'
+  document.body.appendChild(iframe)
+  const doc = iframe.contentDocument ?? iframe.contentWindow?.document
+  if (!doc) { document.body.removeChild(iframe); return }
+  doc.open()
+  doc.write(html)
+  doc.close()
+  // Dar tiempo a imágenes y fuentes para cargar antes de imprimir
+  setTimeout(() => {
+    try { iframe.contentWindow?.print() } catch { /* noop */ }
+    setTimeout(() => { try { document.body.removeChild(iframe) } catch { /* noop */ } }, 2000)
+  }, 400)
+}
+
 function field(label: string, value: string | null | undefined, fallback = '—') {
   return `<div class="field"><span class="label">${label}:</span> <span class="value">${value || fallback}</span></div>`
 }
@@ -464,11 +485,7 @@ export async function imprimirHistoriaClinica(
 </body>
 </html>`
 
-  const win = window.open('', '_blank', 'width=900,height=700')
-  if (!win) { alert('Permite ventanas emergentes para imprimir.'); return }
-  win.document.write(html)
-  win.document.close()
-  win.focus()
+  printHtmlViaIframe(html)
 }
 
 // ──────────────────────────────────────────────────────────
@@ -725,11 +742,7 @@ export async function imprimirNotaInicial(
 </body>
 </html>`
 
-  const win = window.open('', '_blank', 'width=900,height=700')
-  if (!win) { alert('Permite ventanas emergentes para imprimir.'); return }
-  win.document.write(html)
-  win.document.close()
-  win.focus()
+  printHtmlViaIframe(html)
 }
 
 // ──────────────────────────────────────────────────────────
@@ -839,11 +852,7 @@ export async function imprimirBitacoraSesiones(
 </body>
 </html>`
 
-  const win = window.open('', '_blank', 'width=900,height=700')
-  if (!win) { alert('Permite ventanas emergentes para imprimir.'); return }
-  win.document.write(html)
-  win.document.close()
-  win.focus()
+  printHtmlViaIframe(html)
 }
 
 // ──────────────────────────────────────────────────────────
@@ -1272,11 +1281,7 @@ export async function imprimirReporteValorativo(
 </body>
 </html>`
 
-  const win = window.open('', '_blank', 'width=900,height=700')
-  if (!win) { alert('Permite ventanas emergentes para imprimir.'); return }
-  win.document.write(html)
-  win.document.close()
-  win.focus()
+  printHtmlViaIframe(html)
 }
 
 // ──────────────────────────────────────────────────────────
@@ -1488,11 +1493,7 @@ export async function imprimirHistoriaClinicaV2(
 </body>
 </html>`
 
-  const winV2 = window.open('', '_blank', 'width=900,height=700')
-  if (!winV2) { alert('Permite ventanas emergentes para imprimir.'); return }
-  winV2.document.write(html)
-  winV2.document.close()
-  winV2.focus()
+  printHtmlViaIframe(html)
 }
 
 // ──────────────────────────────────────────────────────────
@@ -1504,11 +1505,6 @@ export async function imprimirReporteProceso(
   therapistId: string,
   patientName: string | null,
 ) {
-  // Abrir la ventana ANTES del await para que el browser lo considere acción del usuario
-  const win = window.open('', '_blank', 'width=900,height=700')
-  if (!win) { alert('Permite ventanas emergentes para imprimir.'); return }
-  win.document.write('<html><body style="font-family:Georgia,serif;padding:40px;color:#555;"><p>⏳ Generando Reporte de Proceso…</p></body></html>')
-
   const supabase = createClient()
 
   // Fetch de datos en paralelo
@@ -1713,10 +1709,7 @@ export async function imprimirReporteProceso(
 </body>
 </html>`
 
-  win.document.open()
-  win.document.write(html)
-  win.document.close()
-  win.focus()
+  printHtmlViaIframe(html)
 }
 
 // ──────────────────────────────────────────────────────────
@@ -1954,11 +1947,7 @@ export async function imprimirIntegracionPlan(
 </body>
 </html>`
 
-  const win = window.open('', '_blank', 'width=900,height=700')
-  if (!win) { alert('Permite ventanas emergentes para imprimir.'); return }
-  win.document.write(html)
-  win.document.close()
-  win.focus()
+  printHtmlViaIframe(html)
 }
 
 // ──────────────────────────────────────────────────────────
@@ -2138,9 +2127,5 @@ export async function imprimirAnalisisDesdeReportes(
 </body>
 </html>`
 
-  const win = window.open('', '_blank', 'width=900,height=700')
-  if (!win) { alert('Permite ventanas emergentes para imprimir.'); return }
-  win.document.write(html)
-  win.document.close()
-  win.focus()
+  printHtmlViaIframe(html)
 }

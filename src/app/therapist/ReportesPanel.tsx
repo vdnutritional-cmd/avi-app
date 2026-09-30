@@ -12,6 +12,7 @@ import {
   imprimirNotaInicialDesdeReportes,
   imprimirSesionesDesdeReportes,
   imprimirAnalisisDesdeReportes,
+  printHtmlViaIframe,
 } from './patients/[patientId]/print-utils'
 
 interface Empresa  { id: string; nombre: string; logo_url: string | null }
@@ -38,7 +39,7 @@ export default function ReportesPanel({ tier, terapeutaNombre }: Props) {
 
   // ── Sesiones ──────────────────────────────────────────────────
   const [sessionOpt, setSessionOpt] = useState('all')
-  const [sesiones,   setSesiones]   = useState<{ id: string; label: string }[]>([])
+  const [sesiones,   setSesiones]   = useState<{ id: string; label: string; date: string }[]>([])
   const [loadingSes, setLoadingSes] = useState(false)
 
   // ── Análisis ──────────────────────────────────────────────────
@@ -47,8 +48,7 @@ export default function ReportesPanel({ tier, terapeutaNombre }: Props) {
   const [loadingAnal,    setLoadingAnal]    = useState(false)
 
   // ── Reporte de la Atención ────────────────────────────────────
-  const [rDateFrom, setRDateFrom] = useState('')
-  const [rDateTo,   setRDateTo]   = useState('')
+  const [raOpt,     setRaOpt]     = useState('all') // 'all' o session id
   const [loadingRA, setLoadingRA] = useState(false)
   const [errorRA,   setErrorRA]   = useState('')
 
@@ -83,6 +83,7 @@ export default function ReportesPanel({ tier, terapeutaNombre }: Props) {
     setPid(p)
     setSessionOpt('all')
     setAnalisisOpt('')
+    setRaOpt('all')
     setSesiones([])
     setAnalisisFechas([])
     setErrorRA('')
@@ -94,6 +95,7 @@ export default function ReportesPanel({ tier, terapeutaNombre }: Props) {
       const data = await res.json()
       setSesiones((data.sesiones ?? []).map((s: { id: string; number: number; date: string }) => ({
         id: String(s.id),
+        date: s.date,
         label: `Sesión ${s.number} — ${new Date(s.date + 'T12:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}`,
       })))
     } catch { setSesiones([]) }
@@ -128,19 +130,30 @@ export default function ReportesPanel({ tier, terapeutaNombre }: Props) {
   }
 
   async function generarReporteAtencion() {
-    if (!pid)       { setErrorRA('Selecciona un paciente primero.'); return }
-    if (!rDateFrom) { setErrorRA('Selecciona la fecha de inicio.'); return }
-    if (!rDateTo)   { setErrorRA('Selecciona la fecha de fin.'); return }
+    if (!pid) { setErrorRA('Selecciona un paciente primero.'); return }
+    if (sesiones.length === 0) { setErrorRA('Este paciente no tiene sesiones registradas.'); return }
+    // Derivar rango de fechas desde el dropdown de sesiones
+    let dateFrom: string
+    let dateTo: string
+    if (raOpt === 'all') {
+      dateFrom = sesiones[0].date
+      dateTo   = sesiones[sesiones.length - 1].date
+    } else {
+      const s = sesiones.find(x => x.id === raOpt)
+      if (!s) { setErrorRA('Sesión no encontrada.'); return }
+      dateFrom = s.date
+      dateTo   = s.date
+    }
     setLoadingRA(true); setErrorRA('')
     try {
       const res  = await fetch('/api/therapist/reporte-atencion', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ patient_id: pid, date_from: rDateFrom, date_to: rDateTo, patient_status: 'activos' }),
+        body: JSON.stringify({ patient_id: pid, date_from: dateFrom, date_to: dateTo, patient_status: 'activos' }),
       })
       const data = await res.json()
       if (data.error) throw new Error(data.error)
-      imprimirReporteAtencion({ ...data, terapeutaNombre, logoUrl, dateFrom: rDateFrom, dateTo: rDateTo })
+      imprimirReporteAtencion({ ...data, terapeutaNombre, logoUrl, dateFrom, dateTo })
     } catch (e: unknown) {
       setErrorRA(e instanceof Error ? e.message : 'Error al generar el reporte.')
     } finally { setLoadingRA(false) }
@@ -306,48 +319,45 @@ export default function ReportesPanel({ tier, terapeutaNombre }: Props) {
                 </div>
 
                 {/* E6 — Reporte de la Atención */}
-                <div className="px-4 py-3.5 space-y-3">
+                <div className="px-4 py-3.5 space-y-2.5">
                   <p className="text-sm text-gray-800 font-medium">Reporte de la Atención</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1">
-                      <label className="text-xs text-gray-500">Desde</label>
-                      <input
-                        type="date"
-                        value={rDateFrom}
-                        onChange={e => { setRDateFrom(e.target.value); setErrorRA('') }}
-                        disabled={!pid}
-                        className="w-full border border-gray-200 rounded-xl px-2 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-purple-300 disabled:opacity-50"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs text-gray-500">Hasta</label>
-                      <input
-                        type="date"
-                        value={rDateTo}
-                        onChange={e => { setRDateTo(e.target.value); setErrorRA('') }}
-                        disabled={!pid}
-                        className="w-full border border-gray-200 rounded-xl px-2 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-purple-300 disabled:opacity-50"
-                      />
-                    </div>
-                  </div>
-                  {errorRA && <p className="text-red-500 text-xs">{errorRA}</p>}
-                  <button
-                    onClick={generarReporteAtencion}
-                    disabled={loadingRA || !pid || !rDateFrom || !rDateTo}
-                    className="w-full bg-purple-700 hover:bg-purple-800 disabled:opacity-50 text-white text-xs font-semibold py-2 rounded-xl transition-colors flex items-center justify-center gap-1.5"
-                  >
-                    {loadingRA ? (
-                      <>
-                        <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <div className="flex gap-2 items-center">
+                    <select
+                      value={raOpt}
+                      onChange={e => { setRaOpt(e.target.value); setErrorRA('') }}
+                      disabled={loadingSes || !pid || sesiones.length === 0}
+                      className="flex-1 border border-gray-200 rounded-xl px-3 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-purple-300 disabled:opacity-50"
+                    >
+                      <option value="all">Todas las sesiones</option>
+                      {sesiones.map(s => (
+                        <option key={s.id} value={s.id}>{s.label}</option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={generarReporteAtencion}
+                      disabled={loadingRA || !pid || sesiones.length === 0}
+                      className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-purple-700
+                                 bg-purple-50 border border-purple-200 rounded-xl hover:bg-purple-100
+                                 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0"
+                    >
+                      {loadingRA ? (
+                        <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
                         </svg>
-                        Generando (IA)…
-                      </>
-                    ) : (
-                      <>🖨️ Generar e imprimir</>
-                    )}
-                  </button>
+                      ) : (
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                            d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                        </svg>
+                      )}
+                      {loadingRA ? 'Generando…' : 'Imprimir'}
+                    </button>
+                  </div>
+                  {errorRA && <p className="text-xs text-red-500">{errorRA}</p>}
+                  {pid && !loadingSes && sesiones.length === 0 && (
+                    <p className="text-xs text-gray-400">Este paciente no tiene sesiones registradas.</p>
+                  )}
                 </div>
 
               </div>
@@ -443,11 +453,5 @@ function imprimirReporteAtencion(data: {
   </div>
   </body></html>`
 
-  const win = window.open('', '_blank', 'width=900,height=700')
-  if (!win) { alert('Permite ventanas emergentes para imprimir.'); return }
-  win.document.write(html)
-  win.document.close()
-  win.focus()
-  win.onload = () => win.print()
-  setTimeout(() => { if (!win.closed) win.print() }, 500)
+  printHtmlViaIframe(html)
 }
