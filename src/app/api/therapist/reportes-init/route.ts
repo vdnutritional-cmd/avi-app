@@ -1,45 +1,38 @@
 // ─────────────────────────────────────────────────────────────
-// /therapist/reportes/esencial — Reportes AVI-Esencial (E5 + E6)
-// Server component
+// GET /api/therapist/reportes-init
+// Devuelve empresas y pacientes activos para el panel de reportes
 // ─────────────────────────────────────────────────────────────
+import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { redirect } from 'next/navigation'
-import EsencialClient from './EsencialClient'
 
 export const dynamic = 'force-dynamic'
 
-export default async function EsencialPage() {
+export async function GET() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/auth/login')
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const therapistId = user.id
   const admin = createAdminClient()
+  const therapistId = user.id
 
-  // Nombre del terapeuta
-  const { data: profile } = await admin
-    .from('profiles')
-    .select('full_name, email')
-    .eq('id', therapistId)
-    .single()
-  const terapeutaNombre = profile?.full_name || profile?.email || user.email || 'Terapeuta'
-
-  // Empresas con logo (para selector de encabezado)
+  // ── Empresas con logo ─────────────────────────────────────────
   const { data: empresaRels } = await admin
     .from('therapist_empresa')
     .select('empresa_id, convenio_empresas(nombre, logo_url)')
     .eq('therapist_id', therapistId)
+
   const empresas = (empresaRels ?? []).map(r => {
     const e = r.convenio_empresas as { nombre?: string; logo_url?: string | null } | null
     return { id: r.empresa_id as string, nombre: e?.nombre ?? '', logo_url: e?.logo_url ?? null }
   })
 
-  // Lista de pacientes no archivados
+  // ── Solo pacientes ACTIVOS (no archivados) ───────────────────
   const { data: relaciones } = await admin
     .from('therapist_patients')
-    .select('patient_id, is_active')
+    .select('patient_id')
     .eq('therapist_id', therapistId)
+    .eq('is_active', true)
     .neq('status', 'archived')
 
   const pacienteIds = (relaciones ?? []).map(r => r.patient_id as string)
@@ -47,19 +40,9 @@ export default async function EsencialPage() {
     ? await admin.from('profiles').select('id, full_name, email').in('id', pacienteIds)
     : { data: [] }
 
-  const activoSet = new Set(
-    (relaciones ?? []).filter(r => r.is_active).map(r => r.patient_id as string)
-  )
-
-  const pacientes = (profiles ?? [])
-    .map(p => ({ id: p.id, nombre: p.full_name ?? p.email ?? p.id, activo: activoSet.has(p.id) }))
+  const pacientesActivos = (profiles ?? [])
+    .map(p => ({ id: p.id, nombre: p.full_name ?? p.email ?? p.id }))
     .sort((a, b) => a.nombre.localeCompare(b.nombre))
 
-  return (
-    <EsencialClient
-      terapeutaNombre={terapeutaNombre as string}
-      empresas={empresas}
-      pacientes={pacientes}
-    />
-  )
+  return NextResponse.json({ empresas, pacientesActivos })
 }

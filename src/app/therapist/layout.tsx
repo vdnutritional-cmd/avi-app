@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import PushRegistrar from './PushRegistrar'
 import Sidebar from './Sidebar'
+import ReportesPanel from './ReportesPanel'
 import WhatsAppSupport from '@/components/WhatsAppSupport'
 import ActivarPlan from './ActivarPlan'
 import InactivityGuard from '@/components/InactivityGuard'
@@ -53,6 +54,10 @@ export default async function TherapistLayout({ children }: { children: React.Re
 
         <PushRegistrar />
         <WhatsAppSupport />
+        <ReportesPanel
+          tier={subscription?.tier ?? null}
+          terapeutaNombre={profile?.full_name ?? profile?.email ?? user.email ?? 'Terapeuta'}
+        />
       </div>
     </InactivityGuard>
   )
