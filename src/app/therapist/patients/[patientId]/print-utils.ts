@@ -910,6 +910,7 @@ export async function imprimirReporteValorativo(
   patientId:   string,
   therapistId: string,
   patientName: string | null,
+  headerOpts?: Partial<ReportHeaderOptions>,
 ) {
   const supabase = createClient()
 
@@ -1221,6 +1222,8 @@ export async function imprimirReporteValorativo(
     </button>
   </div>
 
+  ${headerOpts ? buildReportHeader({ terapeutaNombre, logoUrl: headerOpts.logoUrl ?? null, side: headerOpts.side ?? 'name' }) : ''}
+
   <!-- Pre-header -->
   <div class="pre-header">
     <div class="pre-header-row">
@@ -1354,6 +1357,7 @@ export async function imprimirHistoriaClinicaV2(
   patientName: string | null,
   data: HistoriaClinicaV2,
   isOriginal = false,
+  headerOpts?: Partial<ReportHeaderOptions>,
 ) {
   const supabase = createClient()
 
@@ -1428,6 +1432,8 @@ export async function imprimirHistoriaClinicaV2(
       🖨 Imprimir / Guardar PDF
     </button>
   </div>
+
+  ${headerOpts ? buildReportHeader({ terapeutaNombre, logoUrl: headerOpts.logoUrl ?? null, side: headerOpts.side ?? 'name' }) : ''}
 
   <div class="pre-header">
     <div class="pre-header-row">
@@ -1551,6 +1557,7 @@ export async function imprimirReporteProceso(
   patientId:   string,
   therapistId: string,
   patientName: string | null,
+  headerOpts?: Partial<ReportHeaderOptions>,
 ) {
   const supabase = createClient()
 
@@ -1673,6 +1680,8 @@ export async function imprimirReporteProceso(
     </button>
   </div>
 
+  ${headerOpts ? buildReportHeader({ terapeutaNombre, logoUrl: headerOpts.logoUrl ?? null, side: headerOpts.side ?? 'name' }) : ''}
+
   <div class="pre-header">
     <div class="pre-header-row">
       <span><strong>Asesorado:</strong> ${patientName ?? '—'}</span>
@@ -1767,6 +1776,7 @@ export async function imprimirIntegracionPlan(
   patientId:   string,
   therapistId: string,
   patientName: string | null,
+  headerOpts?: Partial<ReportHeaderOptions>,
 ) {
   const supabase = createClient()
 
@@ -1897,6 +1907,8 @@ export async function imprimirIntegracionPlan(
       🖨 Imprimir / Guardar PDF
     </button>
   </div>
+
+  ${headerOpts ? buildReportHeader({ terapeutaNombre, logoUrl: headerOpts.logoUrl ?? null, side: headerOpts.side ?? 'name' }) : ''}
 
   <div class="pre-header">
     <div class="pre-header-row">

@@ -188,6 +188,11 @@ export default function ImpresionesTab({ patientId, therapistId, patientName }: 
   const [errorAct,      setErrorAct]     = useState<string | null>(null)
   const [showActEditor, setShowActEditor] = useState(false)
 
+  // Encabezado del reporte
+  const [empresas,       setEmpresas]       = useState<{ id: string; nombre: string; logo_url: string | null }[]>([])
+  const [logoUrl,        setLogoUrl]        = useState<string | null>(null)
+  const [terapeutaNombre, setTerapeutaNombre] = useState('')
+
   // Otros datos
   const [notaInicial, setNotaInicial] = useState<NotaInicialPrint | null>(null)
   const [sesiones,    setSesiones]    = useState<SessionPresencialPrint[]>([])
@@ -198,6 +203,18 @@ export default function ImpresionesTab({ patientId, therapistId, patientName }: 
     setLoadingData(true)
     try {
       const supabase = createClient()
+
+      // Cargar empresas (para selector de encabezado) y nombre del terapeuta
+      const [initRes, terapeutaRes] = await Promise.all([
+        fetch('/api/therapist/reportes-init').then(r => r.json()),
+        supabase.from('profiles').select('full_name').eq('id', therapistId).single(),
+      ])
+      const emps: { id: string; nombre: string; logo_url: string | null }[] = initRes.empresas ?? []
+      setEmpresas(emps)
+      setTerapeutaNombre(terapeutaRes.data?.full_name ?? '')
+      const conLogo = emps.filter(e => e.logo_url)
+      setLogoUrl(conLogo[0]?.logo_url ?? null)
+
       const [expedienteRes, notaRes, sesionesRes] = await Promise.all([
         supabase.from('patient_expediente')
           .select('hc_original, hc_actualizada')
@@ -291,7 +308,7 @@ export default function ImpresionesTab({ patientId, therapistId, patientName }: 
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ patientId, type: 'actualizada', sections: data }),
       })
-      await imprimirHistoriaClinicaV2(patientId, therapistId, patientName, data, false)
+      await imprimirHistoriaClinicaV2(patientId, therapistId, patientName, data, false, headerOpts)
     } finally { setPrinting(null) }
   }
 
@@ -300,11 +317,14 @@ export default function ImpresionesTab({ patientId, therapistId, patientName }: 
     return { ...hcActData, ...hcActEdits }
   }
 
+  // ── headerOpts compartido ────────────────────────────────
+  const headerOpts = { terapeutaNombre, logoUrl, side: logoUrl ? 'logo' : 'name' } as const
+
   // ── Imprimir HC Original ─────────────────────────────────
   async function imprimirOriginal() {
     if (!hcOriginalSaved) return
     setPrinting('orig')
-    try { await imprimirHistoriaClinicaV2(patientId, therapistId, patientName, hcOriginalSaved, true) }
+    try { await imprimirHistoriaClinicaV2(patientId, therapistId, patientName, hcOriginalSaved, true, headerOpts) }
     finally { setPrinting(null) }
   }
 
@@ -312,7 +332,7 @@ export default function ImpresionesTab({ patientId, therapistId, patientName }: 
   async function printNotaInicial() {
     if (!notaInicial) return
     setPrinting('nota')
-    try { await imprimirNotaInicialDesdeReportes(patientId) }
+    try { await imprimirNotaInicialDesdeReportes(patientId, headerOpts) }
     finally { setPrinting(null) }
   }
 
@@ -320,28 +340,28 @@ export default function ImpresionesTab({ patientId, therapistId, patientName }: 
   async function printBitacora() {
     if (!sesiones.length) return
     setPrinting('bitacora')
-    try { await imprimirBitacoraSesiones(therapistId, patientName, sesiones) }
+    try { await imprimirBitacoraSesiones(therapistId, patientName, sesiones, headerOpts) }
     finally { setPrinting(null) }
   }
 
   // ── Reporte Valorativo ───────────────────────────────────
   async function printReporteValorativo() {
     setPrinting('valorativo')
-    try { await imprimirReporteValorativo(patientId, therapistId, patientName) }
+    try { await imprimirReporteValorativo(patientId, therapistId, patientName, headerOpts) }
     finally { setPrinting(null) }
   }
 
   // ── Reporte de Proceso ───────────────────────────────────
   async function printReporteProceso() {
     setPrinting('proceso')
-    try { await imprimirReporteProceso(patientId, therapistId, patientName) }
+    try { await imprimirReporteProceso(patientId, therapistId, patientName, headerOpts) }
     finally { setPrinting(null) }
   }
 
   // ── Integración y Plan de Tratamiento ───────────────────
   async function printIntegracionPlan() {
     setPrinting('integracion')
-    try { await imprimirIntegracionPlan(patientId, therapistId, patientName) }
+    try { await imprimirIntegracionPlan(patientId, therapistId, patientName, headerOpts) }
     finally { setPrinting(null) }
   }
 
@@ -359,6 +379,30 @@ export default function ImpresionesTab({ patientId, therapistId, patientName }: 
         <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">
           Índice de Impresiones
         </p>
+
+        {/* Selector de encabezado (si hay al menos 1 empresa con logo) */}
+        {empresas.filter(e => e.logo_url).length >= 1 && (
+          <div className="bg-gray-50 border border-gray-100 rounded-2xl p-4 space-y-2 mb-4">
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              Encabezado del reporte
+            </label>
+            <select
+              value={logoUrl ?? '__nombre__'}
+              onChange={e => setLogoUrl(e.target.value === '__nombre__' ? null : e.target.value)}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-purple-300"
+            >
+              {empresas.filter(e => e.logo_url).map(e => (
+                <option key={e.id} value={e.logo_url!}>{e.nombre} (logo)</option>
+              ))}
+              <option value="__nombre__">{terapeutaNombre} (nombre)</option>
+            </select>
+            {logoUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={logoUrl} alt="Vista previa del logo" className="h-7 max-w-[100px] object-contain" />
+            )}
+          </div>
+        )}
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
 
           {/* HC Original */}
