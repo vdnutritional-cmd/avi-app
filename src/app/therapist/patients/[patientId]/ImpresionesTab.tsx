@@ -206,7 +206,7 @@ export default function ImpresionesTab({ patientId, therapistId, patientName }: 
           .select('initial_note, initial_note_date, initial_note_motivo, initial_note_subyacente, initial_note_premisas, initial_note_pro_bono, initial_note_virtual')
           .eq('therapist_id', therapistId).eq('patient_id', patientId).single(),
         supabase.from('therapist_session_notes')
-          .select('session_number, session_date, session_objetivo, session_desarrollo, notes, is_pro_bono, is_virtual')
+          .select('session_number, session_date, session_objetivo, session_emociones, session_recursos, session_desarrollo, notes, is_pro_bono, is_virtual')
           .eq('therapist_id', therapistId).eq('patient_id', patientId)
           .order('session_number', { ascending: true }),
       ])
@@ -227,6 +227,8 @@ export default function ImpresionesTab({ patientId, therapistId, patientName }: 
         session_number:     s.session_number,
         session_date:       s.session_date,
         session_objetivo:   s.session_objetivo   ?? null,
+        session_emociones:  s.session_emociones  ?? null,
+        session_recursos:   s.session_recursos   ?? null,
         session_desarrollo: s.session_desarrollo ?? null,
         notes:              s.notes              ?? null,
         is_pro_bono:        s.is_pro_bono        ?? false,

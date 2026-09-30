@@ -15,6 +15,7 @@ export async function GET(req: NextRequest) {
     .from('analyses')
     .select('id, created_at')
     .eq('patient_id', pid)
+    .eq('therapist_id', user.id)
     .order('created_at', { ascending: false })
 
   const analisis = (data ?? []).map(a => ({

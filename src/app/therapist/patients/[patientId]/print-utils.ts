@@ -4,6 +4,12 @@
  */
 
 import { createClient } from '@/lib/supabase/client'
+import {
+  resolveFactores,
+  SCHEMA_LABELS,
+  SCHEMA_RIESGO_COL,
+  SCHEMA_PROTECCION_COL,
+} from './factores-nota-inicial'
 
 // ──────────────────────────────────────────────────────────
 // Constantes clínicas
@@ -59,16 +65,23 @@ export interface NotaInicialPrint {
   initial_note_premisas:   string
   initial_note_pro_bono:   boolean
   initial_note_virtual:    boolean
+  // Campos opcionales — presentes cuando se imprime desde Reportes
+  frecuencia_config?:          string | null
+  sensacion_paciente_inicial?: string | null
+  factoresRiesgoHtml?:         string
+  factoresProteccionHtml?:     string
 }
 
 export interface SessionPresencialPrint {
-  session_number:    number
-  session_date:      string
-  session_objetivo:  string | null
+  session_number:     number
+  session_date:       string
+  session_objetivo:   string | null
+  session_emociones:  string | null  // Emociones identificadas
+  session_recursos:   string | null  // Recursos personales del paciente
   session_desarrollo: string | null
-  notes:             string | null  // Observaciones particulares
-  is_pro_bono:       boolean
-  is_virtual:        boolean
+  notes:              string | null  // Observaciones particulares / Acuerdos / Tareas
+  is_pro_bono:        boolean
+  is_virtual:         boolean
 }
 
 export interface PrintableData {
@@ -739,6 +752,38 @@ export async function imprimirNotaInicial(
     }
   </div>
 
+  ${data.frecuencia_config ? `
+  <!-- 5. Frecuencia de las sesiones -->
+  <div class="section">
+    <div class="section-title"><span class="num">5.</span> Frecuencia de las sesiones</div>
+    <div class="section-body">${data.frecuencia_config}</div>
+  </div>` : ''}
+
+  ${data.sensacion_paciente_inicial ? `
+  <!-- 6. Sensación inicial del paciente -->
+  <div class="section">
+    <div class="section-title"><span class="num">6.</span> Sensación inicial del paciente</div>
+    <div class="section-body">${data.sensacion_paciente_inicial.replace(/\n/g, '<br>')}</div>
+  </div>` : ''}
+
+  ${data.factoresRiesgoHtml ? `
+  <!-- 7. Factores de riesgo activos -->
+  <div class="section">
+    <div class="section-title"><span class="num">7.</span> Factores de riesgo activos</div>
+    <style>
+      .factor-schema { font-weight:bold; font-size:9.5pt; color:#2d3a8c; margin: 6pt 0 3pt; }
+      .factor-list   { list-style:disc; padding-left:18pt; font-size:10pt; margin-bottom:6pt; }
+    </style>
+    ${data.factoresRiesgoHtml}
+  </div>` : ''}
+
+  ${data.factoresProteccionHtml ? `
+  <!-- 8. Factores de protección activos -->
+  <div class="section">
+    <div class="section-title"><span class="num">8.</span> Factores de protección activos</div>
+    ${data.factoresProteccionHtml}
+  </div>` : ''}
+
 </body>
 </html>`
 
@@ -797,9 +842,11 @@ export async function imprimirBitacoraSesiones(
           ${badges}
         </div>
         <div class="session-body">
-          ${campoHTML(1, 'Objetivo de la sesión',      s.session_objetivo)}
-          ${campoHTML(2, 'Desarrollo de la sesión',    s.session_desarrollo)}
-          ${campoHTML(3, 'Observaciones particulares', s.notes)}
+          ${campoHTML(1, 'Objetivo de la sesión / Seguimiento',              s.session_objetivo)}
+          ${campoHTML(2, 'Emociones identificadas',                          s.session_emociones)}
+          ${campoHTML(3, 'Recursos personales del paciente',                 s.session_recursos)}
+          ${campoHTML(4, 'Desarrollo de la sesión / Intervención realizada', s.session_desarrollo)}
+          ${campoHTML(5, 'Observaciones particulares / Acuerdos / Tareas',   s.notes)}
         </div>
       </div>`
   }).join('')
@@ -2004,17 +2051,58 @@ export async function imprimirNotaInicialDesdeReportes(patientId: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return
 
-  const [{ data: rel }, { data: profile }] = await Promise.all([
+  const [{ data: rel }, { data: profile }, { data: expediente }] = await Promise.all([
     supabase
       .from('therapist_patients')
-      .select('initial_note, initial_note_date, initial_note_motivo, initial_note_subyacente, initial_note_premisas, initial_note_pro_bono, initial_note_virtual')
+      .select(`
+        initial_note, initial_note_date, initial_note_motivo,
+        initial_note_subyacente, initial_note_premisas,
+        initial_note_pro_bono, initial_note_virtual,
+        frecuencia_config, sensacion_paciente_inicial,
+        factores_riesgo_sel, factores_proteccion_sel,
+        factores_riesgo_trec, factores_proteccion_trec,
+        factores_riesgo_tcc, factores_proteccion_tcc
+      `)
       .eq('therapist_id', user.id)
       .eq('patient_id', patientId)
       .single(),
     supabase.from('profiles').select('full_name').eq('id', patientId).single(),
+    supabase
+      .from('patient_expediente')
+      .select('tipo_caso')
+      .eq('therapist_id', user.id)
+      .eq('patient_id', patientId)
+      .maybeSingle(),
   ])
 
   if (!rel) { alert('No se encontró la Nota Inicial de este paciente.'); return }
+
+  // ── Resolver tipo de caso ─────────────────────────────────────────────────
+  const tipoCasoStr = (expediente?.tipo_caso as string | null) ?? ''
+  const caseType: 'individual' | 'familiar' | 'pareja' =
+    tipoCasoStr.toLowerCase().includes('pareja') ? 'pareja' :
+    tipoCasoStr.toLowerCase().includes('famil')  ? 'familiar' : 'individual'
+
+  // ── Construir HTML de factores por esquema ────────────────────────────────
+  function buildFactoresHtml(tipo: 'riesgo' | 'proteccion'): string {
+    const colMap = tipo === 'riesgo' ? SCHEMA_RIESGO_COL : SCHEMA_PROTECCION_COL
+    const parts: string[] = []
+    for (const schema of ['famsis', 'trec', 'cc'] as const) {
+      const col   = colMap[schema]
+      const keys: string[] = (rel as Record<string, unknown>)[col] as string[] ?? []
+      if (!keys?.length) continue
+      const items = resolveFactores(schema, caseType, tipo, keys)
+      if (!items.length) continue
+      parts.push(
+        `<div class="factor-schema">${SCHEMA_LABELS[schema]}</div>` +
+        `<ul class="factor-list">${items.map(f => `<li>${f.titulo}</li>`).join('')}</ul>`
+      )
+    }
+    return parts.join('')
+  }
+
+  const factoresRiesgoHtml     = buildFactoresHtml('riesgo')
+  const factoresProteccionHtml = buildFactoresHtml('proteccion')
 
   await imprimirNotaInicial(user.id, profile?.full_name ?? null, {
     initial_note:            (rel.initial_note            as string) ?? '',
@@ -2024,6 +2112,10 @@ export async function imprimirNotaInicialDesdeReportes(patientId: string) {
     initial_note_premisas:   (rel.initial_note_premisas   as string) ?? '',
     initial_note_pro_bono:   (rel.initial_note_pro_bono   as boolean) ?? false,
     initial_note_virtual:    (rel.initial_note_virtual    as boolean) ?? false,
+    frecuencia_config:          (rel.frecuencia_config          as string | null) ?? null,
+    sensacion_paciente_inicial: (rel.sensacion_paciente_inicial as string | null) ?? null,
+    factoresRiesgoHtml:         factoresRiesgoHtml     || undefined,
+    factoresProteccionHtml:     factoresProteccionHtml || undefined,
   })
 }
 
@@ -2038,7 +2130,7 @@ export async function imprimirSesionesDesdeReportes(
 
   let q = supabase
     .from('therapist_session_notes')
-    .select('id, session_number, session_date, session_objetivo, session_desarrollo, notes, is_pro_bono, is_virtual')
+    .select('id, session_number, session_date, session_objetivo, session_emociones, session_recursos, session_desarrollo, notes, is_pro_bono, is_virtual')
     .eq('therapist_id', user.id)
     .eq('patient_id', patientId)
     .order('session_date', { ascending: true })
@@ -2051,9 +2143,11 @@ export async function imprimirSesionesDesdeReportes(
   ])
 
   const sesiones: SessionPresencialPrint[] = (rows ?? []).map(s => ({
-    session_number:     s.session_number   as number,
-    session_date:       s.session_date     as string,
+    session_number:     s.session_number    as number,
+    session_date:       s.session_date      as string,
     session_objetivo:   s.session_objetivo  as string | null,
+    session_emociones:  s.session_emociones as string | null,
+    session_recursos:   s.session_recursos  as string | null,
     session_desarrollo: s.session_desarrollo as string | null,
     notes:              s.notes             as string | null,
     is_pro_bono:        (s.is_pro_bono      as boolean) ?? false,

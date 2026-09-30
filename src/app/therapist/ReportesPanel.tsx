@@ -13,6 +13,7 @@ import {
   imprimirSesionesDesdeReportes,
   imprimirAnalisisDesdeReportes,
   printHtmlViaIframe,
+  buildReportHeader,
 } from './patients/[patientId]/print-utils'
 
 interface Empresa  { id: string; nombre: string; logo_url: string | null }
@@ -153,7 +154,7 @@ export default function ReportesPanel({ tier, terapeutaNombre }: Props) {
       })
       const data = await res.json()
       if (data.error) throw new Error(data.error)
-      imprimirReporteAtencion({ ...data, terapeutaNombre, logoUrl, dateFrom, dateTo })
+      imprimirReporteAtencion({ ...data, terapeutaNombre, logoUrl })
     } catch (e: unknown) {
       setErrorRA(e instanceof Error ? e.message : 'Error al generar el reporte.')
     } finally { setLoadingRA(false) }
@@ -399,59 +400,265 @@ function PrintBtn({ onClick, disabled }: { onClick: () => void; disabled?: boole
   )
 }
 
-// ── Función de impresión: Reporte de la Atención ──────────────
-function imprimirReporteAtencion(data: {
-  s6: string; s7: string; s8: string
-  pacientes: { nombre: string; motivo: string; total_sesiones: number; fechas: string[] }[]
-  terapeutaNombre: string; logoUrl: string | null
-  dateFrom: string; dateTo: string
-}) {
-  const { s6, s7, s8, pacientes, terapeutaNombre, logoUrl, dateFrom, dateTo } = data
-  const date    = new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })
-  const fmtDate = (d: string) => new Date(d + 'T12:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })
+// ── Tipos de la respuesta del API ────────────────────────────
+interface SesionResumen {
+  fecha: string; numero: number
+  intervencion: string; acuerdo: string; seguimiento: string
+}
+interface FactorGrupo { esquema: string; items: string[] }
+interface ItemFecha   { fecha: string; texto: string }
 
-  const rightContent = logoUrl
-    ? `<img src="${logoUrl}" alt="Logo" style="height:48px;max-width:140px;object-fit:contain;" />`
-    : `<span style="font-size:10pt;font-weight:600;">${terapeutaNombre}</span>`
+interface ReporteAtencionData {
+  paciente_nombre:            string
+  terapeuta_nombre:           string
+  tipo_caso:                  string
+  problematica:               string
+  motivo_subyacente:          string
+  motivo_consulta:            string
+  emociones:                  ItemFecha[]
+  recursos:                   ItemFecha[]
+  factores_riesgo:            FactorGrupo[]
+  factores_proteccion:        FactorGrupo[]
+  sesiones_resumenes:         SesionResumen[]
+  derivacion_tipos:           string[]
+  atencion_especializada:     string
+  atencion_especializada_cual: string
+  total_sesiones:             number
+  // Meta para el encabezado
+  terapeutaNombre:            string
+  logoUrl:                    string | null
+}
 
-  const pacientesHtml = pacientes.map(p => `
-    <div style="margin-bottom:8px;padding:10px;background:#f9f5ff;border-radius:8px;">
-      <strong>${p.nombre}</strong> — ${p.total_sesiones} sesión(es)<br/>
-      <span style="font-size:9pt;color:#666;">Motivo: ${p.motivo || 'No especificado'}</span>
-    </div>`).join('')
+// ── Función de impresión: Reporte de la Atención (9 secciones) ─
+function imprimirReporteAtencion(data: ReporteAtencionData) {
+  const {
+    paciente_nombre, tipo_caso, problematica, motivo_subyacente, motivo_consulta,
+    emociones, recursos, factores_riesgo, factores_proteccion,
+    sesiones_resumenes, derivacion_tipos, atencion_especializada,
+    atencion_especializada_cual, total_sesiones,
+    terapeutaNombre, logoUrl,
+  } = data
 
-  const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"/>
-  <title>Reporte de la Atención</title>
+  const encabezado = buildReportHeader({
+    terapeutaNombre,
+    logoUrl,
+    side: logoUrl ? 'logo' : 'name',
+  })
+
+  // Helper: lista de items por fecha
+  const listaFechas = (items: ItemFecha[]) =>
+    items.length === 0
+      ? '<p class="empty">Sin datos registrados en el periodo.</p>'
+      : items.map(i =>
+          `<div class="fecha-item">
+             <div class="fecha-label">${i.fecha}</div>
+             <div class="fecha-texto">${i.texto.replace(/\n/g, '<br>')}</div>
+           </div>`
+        ).join('')
+
+  // Helper: factores de riesgo/protección
+  const factoresHtml = (grupos: FactorGrupo[]) =>
+    grupos.length === 0
+      ? '<p class="empty">Sin factores registrados.</p>'
+      : grupos.map(g =>
+          `<div class="factor-schema">${g.esquema}</div>
+           <ul class="factor-list">${g.items.map(f => `<li>${f}</li>`).join('')}</ul>`
+        ).join('')
+
+  // Helper: resúmenes de sesiones por campo
+  const resumenFecha = (campo: keyof SesionResumen) =>
+    sesiones_resumenes.length === 0
+      ? '<p class="empty">Sin sesiones en el periodo.</p>'
+      : sesiones_resumenes.map(s => `
+          <div class="fecha-item">
+            <div class="fecha-label">Sesión ${s.numero} · ${s.fecha}</div>
+            <div class="fecha-texto">${((s[campo] as string) || '—').replace(/\n/g, '<br>')}</div>
+          </div>`
+        ).join('')
+
+  // Sección 9 — Derivación
+  const derivStr = derivacion_tipos.length > 0 ? derivacion_tipos.join(', ') : 'n/a'
+  const atEspStr = atencion_especializada === 'SI' && atencion_especializada_cual
+    ? `Sí — ${atencion_especializada_cual}`
+    : atencion_especializada === 'SI' ? 'Sí' : 'No aplica'
+
+  const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Reporte de la Atención — ${paciente_nombre}</title>
   <style>
     * { box-sizing:border-box; margin:0; padding:0; }
-    body { font-family:'Helvetica Neue',Arial,sans-serif; font-size:10.5pt; color:#222; padding:36px 44px; line-height:1.6; }
-    .header { display:flex; justify-content:space-between; align-items:center; border-bottom:1.5px solid #ddd; padding-bottom:10px; margin-bottom:6px; }
-    .sub-header { font-size:8.5pt; color:#888; margin-bottom:20px; }
-    h1 { font-size:16pt; font-weight:700; margin-bottom:2px; }
-    h2 { font-size:11pt; font-weight:600; color:#5b21b6; margin:22px 0 8px; border-bottom:1px solid #ede9fe; padding-bottom:4px; }
-    p { margin-bottom:10px; }
-    .firma-block { margin-top:48px; border-top:1px solid #ddd; padding-top:16px; }
-    @media print { body { padding:20px; } }
-  </style></head><body>
-  <div class="header">
-    <div>
-      <h1>Reporte de la Atención</h1>
-      <div style="font-size:9pt;color:#666;">Del ${fmtDate(dateFrom)} al ${fmtDate(dateTo)}</div>
+    @page { margin:2.2cm 2.5cm; }
+    body { font-family:'Georgia','Times New Roman',serif; font-size:10.5pt; color:#1a1a1a; line-height:1.6; }
+
+    /* Encabezado */
+    .doc-title { text-align:center; border-bottom:2pt solid #2d3a8c; border-top:0.5pt solid #2d3a8c;
+                 padding:10pt 0; margin-bottom:14pt; }
+    .doc-title h1 { font-size:14pt; letter-spacing:0.5pt; color:#2d3a8c; text-transform:uppercase; }
+    .doc-title .sub { font-size:10pt; color:#5060a4; font-style:italic; margin-top:2pt; }
+    .meta { display:flex; justify-content:space-between; margin-bottom:18pt; font-size:9.5pt;
+            color:#444; background:#f4f6fb; padding:6pt 10pt; border-radius:4pt; }
+    .meta strong { color:#1a1a1a; }
+
+    /* Secciones */
+    .section { margin-bottom:16pt; }
+    .section-title { font-size:10.5pt; font-weight:bold; color:#2d3a8c; text-transform:uppercase;
+                     letter-spacing:0.4pt; border-bottom:1pt solid #b0bbd4;
+                     padding-bottom:4pt; margin-bottom:10pt; }
+    .section-title .num { font-size:9pt; font-weight:normal; margin-right:4pt; opacity:0.7; }
+    .section-body { font-size:10pt; line-height:1.65; color:#1a1a1a; white-space:pre-wrap; }
+    .empty { color:#999; font-style:italic; font-size:9.5pt; }
+
+    /* Items por fecha */
+    .fecha-item { margin-bottom:10pt; padding-left:8pt; border-left:2pt solid #c8d0e8; }
+    .fecha-label { font-size:9pt; font-weight:bold; color:#2d3a8c; margin-bottom:2pt; }
+    .fecha-texto { font-size:10pt; color:#1a1a1a; line-height:1.6; }
+
+    /* Factores */
+    .factor-schema { font-size:9.5pt; font-weight:bold; color:#2d3a8c; margin:6pt 0 3pt; }
+    .factor-list   { list-style:disc; padding-left:18pt; font-size:10pt; margin-bottom:6pt; }
+
+    /* Derivación */
+    .deriv-row { display:flex; gap:12pt; margin-bottom:6pt; }
+    .deriv-label { font-weight:bold; color:#333; min-width:140pt; font-size:10pt; }
+    .deriv-val { font-size:10pt; color:#1a1a1a; }
+
+    /* Firma */
+    .firma-section { margin-top:28pt; border-top:1pt solid #ccc; padding-top:14pt;
+                     display:grid; grid-template-columns:1fr 1fr; gap:30pt; }
+    .firma-item { text-align:center; }
+    .firma-linea { border-top:1pt solid #333; padding-top:5pt; font-size:9.5pt; color:#444; }
+    .firma-name { margin-top:4pt; font-size:9.5pt; font-weight:bold; color:#1a1a1a; }
+    .firma-label { font-size:10pt; font-weight:bold; color:#333; margin-bottom:20pt; }
+
+    @media print {
+      body { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+      .no-print { display:none !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="no-print" style="text-align:right;padding:10pt 0 14pt;">
+    <button onclick="window.print()"
+      style="padding:8pt 18pt;background:#2d3a8c;color:white;border:none;border-radius:8pt;font-size:10pt;cursor:pointer;">
+      🖨 Imprimir / Guardar PDF
+    </button>
+  </div>
+
+  <!-- Encabezado formal (fecha + logo/nombre + "Reporte impreso por") -->
+  ${encabezado}
+
+  <!-- Título del documento -->
+  <div class="doc-title">
+    <h1>Reporte de la Atención</h1>
+    <div class="sub">Reporte terapéutico integral</div>
+  </div>
+
+  <!-- Meta -->
+  <div class="meta">
+    <div><strong>Asesorado:</strong> ${paciente_nombre}</div>
+    <div><strong>Total sesiones en el periodo:</strong> ${total_sesiones}</div>
+  </div>
+
+  <!-- 1. Motivo de consulta -->
+  <div class="section">
+    <div class="section-title"><span class="num">1.</span> Motivo de Consulta</div>
+    ${tipo_caso ? `<div class="section-body"><strong>Tipo de caso:</strong> ${tipo_caso}</div>` : ''}
+    ${problematica ? `<div class="section-body" style="margin-top:4pt;"><strong>Problemática:</strong> ${problematica.replace(/\n/g, '<br>')}</div>` : ''}
+    ${motivo_subyacente ? `<div class="section-body" style="margin-top:4pt;"><strong>Motivo de consulta subyacente:</strong> ${motivo_subyacente.replace(/\n/g, '<br>')}</div>` : ''}
+    ${!tipo_caso && !problematica && !motivo_subyacente ? '<p class="empty">Sin información registrada.</p>' : ''}
+  </div>
+
+  <!-- 2. Situación principal -->
+  <div class="section">
+    <div class="section-title"><span class="num">2.</span> Situación Principal</div>
+    ${motivo_consulta
+      ? `<div class="section-body">${motivo_consulta.replace(/\n/g, '<br>')}</div>`
+      : '<p class="empty">Sin registrar.</p>'}
+  </div>
+
+  <!-- 3. Emociones identificadas -->
+  <div class="section">
+    <div class="section-title"><span class="num">3.</span> Emociones Identificadas</div>
+    ${listaFechas(emociones)}
+  </div>
+
+  <!-- 4. Recursos personales -->
+  <div class="section">
+    <div class="section-title"><span class="num">4.</span> Recursos Personales del Paciente</div>
+    ${listaFechas(recursos)}
+  </div>
+
+  <!-- 5. Factores de riesgo y protección -->
+  <div class="section">
+    <div class="section-title"><span class="num">5.</span> Factores de Riesgo y Protección</div>
+    <div style="margin-bottom:8pt;">
+      <div style="font-size:9pt;font-weight:bold;color:#444;text-transform:uppercase;letter-spacing:0.3pt;margin-bottom:4pt;">
+        Factores de riesgo
+      </div>
+      ${factoresHtml(factores_riesgo)}
     </div>
-    <div style="text-align:right;">${rightContent}</div>
+    <div>
+      <div style="font-size:9pt;font-weight:bold;color:#444;text-transform:uppercase;letter-spacing:0.3pt;margin-bottom:4pt;">
+        Factores de protección
+      </div>
+      ${factoresHtml(factores_proteccion)}
+    </div>
   </div>
-  <div class="sub-header">${date} · Reporte impreso por: <strong>${terapeutaNombre}</strong></div>
-  <h2>1. Datos del / los asesorado(s)</h2>${pacientesHtml}
-  <h2>2. Número de sesiones atendidas</h2>
-  <p>Total de sesiones en el periodo: <strong>${pacientes.reduce((a, p) => a + p.total_sesiones, 0)}</strong></p>
-  <h2>3. Resumen de las sesiones</h2><p>${s6.replace(/\n/g, '<br/>')}</p>
-  <h2>4. Análisis del proceso terapéutico</h2><p>${s7.replace(/\n/g, '<br/>')}</p>
-  <h2>5. Conclusiones y recomendaciones</h2><p>${s8.replace(/\n/g, '<br/>')}</p>
-  <div class="firma-block">
-    <div style="display:inline-block;border-bottom:1px solid #444;width:220px;padding-bottom:4px;font-size:9.5pt;">${terapeutaNombre}</div>
-    <div style="font-size:8.5pt;color:#666;margin-top:4px;">Nombre y firma del Terapeuta</div>
+
+  <!-- 6. Intervención realizada -->
+  <div class="section">
+    <div class="section-title"><span class="num">6.</span> Intervención Realizada</div>
+    ${resumenFecha('intervencion')}
   </div>
-  </body></html>`
+
+  <!-- 7. Acuerdos -->
+  <div class="section">
+    <div class="section-title"><span class="num">7.</span> Acuerdos</div>
+    ${resumenFecha('acuerdo')}
+  </div>
+
+  <!-- 8. Seguimiento -->
+  <div class="section">
+    <div class="section-title"><span class="num">8.</span> Seguimiento</div>
+    ${resumenFecha('seguimiento')}
+  </div>
+
+  <!-- 9. Derivación y Atención especializada -->
+  <div class="section">
+    <div class="section-title"><span class="num">9.</span> Derivación y Atención Especializada</div>
+    <div class="deriv-row">
+      <span class="deriv-label">Derivación:</span>
+      <span class="deriv-val">${derivStr}</span>
+    </div>
+    <div class="deriv-row">
+      <span class="deriv-label">Atención especializada:</span>
+      <span class="deriv-val">${atEspStr}</span>
+    </div>
+  </div>
+
+  <!-- Firma -->
+  <div class="firma-section">
+    <div class="firma-item">
+      <div class="firma-label">Elabora</div>
+      <div class="firma-linea">
+        <div class="firma-name">${terapeutaNombre}</div>
+        <div style="font-size:8.5pt;color:#666;">Nombre y firma del Terapeuta</div>
+      </div>
+    </div>
+    <div class="firma-item">
+      <div class="firma-label">VoBo</div>
+      <div class="firma-linea">
+        <div class="firma-name">&nbsp;</div>
+        <div style="font-size:8.5pt;color:#666;">Nombre y firma</div>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>`
 
   printHtmlViaIframe(html)
 }
