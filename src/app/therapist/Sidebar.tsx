@@ -114,7 +114,7 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
           >
             <NavLink href="/therapist/configuracion/seguridad"     icon="🔐" label="Seguridad (2FA)"              onClose={closeSidebar} />
             <NavLink href="/therapist/configuracion/terapia"      icon="🧠" label="Enfoque terapéutico"         onClose={closeSidebar} />
-            <NavLink href="/therapist/configuracion/politica-baja" icon="🔒" label="Política de baja"           onClose={closeSidebar} />
+            <NavLink href="/therapist/configuracion/politica-baja" icon="🔒" label="Política de baja de un asesorado o paciente" onClose={closeSidebar} />
           </NavGroup>
         </nav>
 
