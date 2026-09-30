@@ -15,6 +15,7 @@ interface SidebarProps {
 export default function Sidebar({ fullName, email, subscriptionStatus, patientSlots, tier }: SidebarProps) {
   const [open, setOpen] = useState(false)
   const [openGroup, setOpenGroup] = useState<string | null>(null)
+  const [openReportes, setOpenReportes] = useState(false)
 
   const closeSidebar = () => setOpen(false)
   const toggleGroup = (name: string) =>
@@ -97,10 +98,55 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
             isOpen={openGroup === 'informacion'}
             onToggle={() => toggleGroup('informacion')}
           >
-            <NavLink href="/therapist/asesorias"    icon="📈" label="Mis asesorías"                        onClose={closeSidebar} />
-            <NavLink href="/therapist/estadisticas"  icon="📊" label="Mi estadística"                        onClose={closeSidebar} />
-            <NavLink href="/therapist/reportes"      icon="🖨️" label="Reportes terapéuticos"                onClose={closeSidebar} />
-            <NavLink href="/therapist/auditoria"    icon="🔍" label="Auditorías información pacientes"      onClose={closeSidebar} />
+            <NavLink href="/therapist/asesorias"   icon="📈" label="Mis asesorías"                   onClose={closeSidebar} />
+            <NavLink href="/therapist/estadisticas" icon="📊" label="Mi estadística"                   onClose={closeSidebar} />
+
+            {/* Sub-acordeón: Reportes terapéuticos */}
+            <div>
+              <button
+                onClick={() => setOpenReportes(p => !p)}
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-gray-600
+                           hover:bg-primary-50 hover:text-primary-700 transition-colors text-sm"
+              >
+                <span>🖨️</span>
+                <span className="flex-1 text-left">Reportes terapéuticos</span>
+                <svg className={`w-3.5 h-3.5 transition-transform duration-200 ${openReportes ? 'rotate-180' : ''}`}
+                     fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {openReportes && (
+                <div className="mt-1 ml-4 pl-3 border-l border-gray-100 space-y-0.5">
+                  <Link
+                    href="/therapist/reportes/esencial"
+                    onClick={closeSidebar}
+                    className="flex items-center gap-3 px-3 py-2 rounded-xl text-gray-600
+                               hover:bg-primary-50 hover:text-primary-700 transition-colors text-sm"
+                  >
+                    <span>📄</span>
+                    <span>Reportes AVI-Esencial</span>
+                  </Link>
+                  {tier === 'clinico' ? (
+                    <Link
+                      href="/therapist/reportes/clinico"
+                      onClick={closeSidebar}
+                      className="flex items-center gap-3 px-3 py-2 rounded-xl text-gray-600
+                                 hover:bg-primary-50 hover:text-primary-700 transition-colors text-sm"
+                    >
+                      <span>🏥</span>
+                      <span>Reportes AVI-CLÍNICO</span>
+                    </Link>
+                  ) : (
+                    <div className="flex items-center gap-3 px-3 py-2 rounded-xl text-gray-300 text-sm cursor-not-allowed select-none">
+                      <span>🔒</span>
+                      <span>Reportes AVI-CLÍNICO</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <NavLink href="/therapist/auditoria"   icon="🔍" label="Auditorías información pacientes"  onClose={closeSidebar} />
             <NavLink href="/therapist/tutoriales"   icon="🎬" label="Consejos prácticos y Tutoriales"       onClose={closeSidebar} />
             <PlanInfo status={subscriptionStatus} patientSlots={patientSlots} tier={tier} />
           </NavGroup>
