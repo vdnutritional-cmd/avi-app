@@ -20,7 +20,7 @@ export default function FiltrosEstadisticas({ tipo, pid, mes, pacientes }: Props
   return (
     <div className="flex flex-wrap items-center gap-3">
       {/* Toggle Activos / Inactivos / Total */}
-      <div className="flex rounded-xl border border-gray-200 overflow-hidden">
+      <div className="flex rounded-xl border border-gray-200 overflow-hidden divide-x divide-gray-200">
         <button
           onClick={() => navTo({ tipo: 'activos', pid: 'all' })}
           className={`px-4 py-2 text-sm font-medium transition-colors ${
@@ -33,7 +33,7 @@ export default function FiltrosEstadisticas({ tipo, pid, mes, pacientes }: Props
         </button>
         <button
           onClick={() => navTo({ tipo: 'inactivos', pid: 'all' })}
-          className={`px-4 py-2 text-sm font-medium transition-colors border-l border-gray-200 ${
+          className={`px-4 py-2 text-sm font-medium transition-colors ${
             tipo === 'inactivos'
               ? 'bg-primary-600 text-white'
               : 'bg-white text-gray-600 hover:bg-gray-50'
@@ -43,7 +43,7 @@ export default function FiltrosEstadisticas({ tipo, pid, mes, pacientes }: Props
         </button>
         <button
           onClick={() => navTo({ tipo: 'total', pid: 'all' })}
-          className={`px-4 py-2 text-sm font-medium transition-colors border-l border-gray-200 ${
+          className={`px-4 py-2 text-sm font-medium transition-colors ${
             tipo === 'total'
               ? 'bg-primary-600 text-white'
               : 'bg-white text-gray-600 hover:bg-gray-50'
