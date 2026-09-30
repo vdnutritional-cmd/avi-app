@@ -114,20 +114,23 @@ export default function ReportesPanel({ tier, terapeutaNombre }: Props) {
     setLoadingAnal(false)
   }
 
+  // ── Opciones de encabezado compartidas ───────────────────────
+  const headerOpts = { terapeutaNombre, logoUrl, side: logoUrl ? 'logo' : 'name' } as const
+
   // ── Acciones de impresión ─────────────────────────────────────
   async function printNotaInicial() {
     if (!pid) return
-    await imprimirNotaInicialDesdeReportes(pid)
+    await imprimirNotaInicialDesdeReportes(pid, headerOpts)
   }
 
   async function printSesiones() {
     if (!pid) return
-    await imprimirSesionesDesdeReportes(pid, sessionOpt === 'all' ? undefined : sessionOpt)
+    await imprimirSesionesDesdeReportes(pid, sessionOpt === 'all' ? undefined : sessionOpt, headerOpts)
   }
 
   async function printAnalisis() {
     if (!pid || !analisisOpt) return
-    await imprimirAnalisisDesdeReportes(pid, analisisOpt)
+    await imprimirAnalisisDesdeReportes(pid, analisisOpt, headerOpts)
   }
 
   async function generarReporteAtencion() {
@@ -208,8 +211,8 @@ export default function ReportesPanel({ tier, terapeutaNombre }: Props) {
 
         <div className="p-5 space-y-5 pb-10">
 
-          {/* ── Selector de logo (solo si 2+ empresas con logo) ── */}
-          {empresasConLogo.length > 1 && (
+          {/* ── Selector de encabezado (si hay al menos 1 empresa con logo) ── */}
+          {empresasConLogo.length >= 1 && (
             <div className="bg-gray-50 border border-gray-100 rounded-2xl p-4 space-y-2">
               <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
                 Encabezado del reporte

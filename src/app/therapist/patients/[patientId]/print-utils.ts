@@ -653,6 +653,7 @@ export async function imprimirNotaInicial(
   therapistId: string,
   patientName: string | null,
   data: NotaInicialPrint,
+  headerOpts?: Partial<ReportHeaderOptions>,
 ) {
   const supabase = createClient()
   const { data: terapeutaRow } = await supabase
@@ -695,11 +696,12 @@ export async function imprimirNotaInicial(
     </button>
   </div>
 
-  <!-- Pre-header -->
+  ${buildReportHeader({ terapeutaNombre, logoUrl: headerOpts?.logoUrl ?? null, side: headerOpts?.side ?? 'name' })}
+
+  <!-- Asesorado -->
   <div class="pre-header">
     <div class="pre-header-row">
-      <span><strong>Asesorado:</strong> ${patientName ?? '—'}</span>
-      <span><strong>Asesor/Terapeuta:</strong> ${terapeutaNombre}</span>
+      <span><strong>Asesorado/a:</strong> ${patientName ?? '—'}</span>
     </div>
   </div>
 
@@ -797,6 +799,7 @@ export async function imprimirBitacoraSesiones(
   therapistId: string,
   patientName: string | null,
   sesiones: SessionPresencialPrint[],
+  headerOpts?: Partial<ReportHeaderOptions>,
 ) {
   const supabase = createClient()
   const { data: terapeutaRow } = await supabase
@@ -865,15 +868,13 @@ export async function imprimirBitacoraSesiones(
     </button>
   </div>
 
-  <!-- Pre-header (2 renglones) -->
+  ${buildReportHeader({ terapeutaNombre, logoUrl: headerOpts?.logoUrl ?? null, side: headerOpts?.side ?? 'name' })}
+
+  <!-- Asesorado y período -->
   <div class="pre-header">
     <div class="pre-header-row">
-      <span></span>
-      <span><strong>Fecha:</strong> ${periodo}</span>
-    </div>
-    <div class="pre-header-row">
-      <span><strong>Asesorado:</strong> ${patientName ?? '—'}</span>
-      <span><strong>Asesor/Terapeuta:</strong> ${terapeutaNombre}</span>
+      <span><strong>Asesorado/a:</strong> ${patientName ?? '—'}</span>
+      <span><strong>Período:</strong> ${periodo}</span>
     </div>
   </div>
 
@@ -2045,7 +2046,7 @@ export function buildReportHeader(opts: ReportHeaderOptions): string {
 // ──────────────────────────────────────────────────────────
 
 /** Carga Nota Inicial y la imprime sin necesitar datos pre-cargados. */
-export async function imprimirNotaInicialDesdeReportes(patientId: string) {
+export async function imprimirNotaInicialDesdeReportes(patientId: string, headerOpts?: Partial<ReportHeaderOptions>) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return
@@ -2135,13 +2136,14 @@ export async function imprimirNotaInicialDesdeReportes(patientId: string) {
     sensacion_paciente_inicial: (rel.sensacion_paciente_inicial as string | null) ?? null,
     factoresRiesgoHtml:         factoresRiesgoHtml     || undefined,
     factoresProteccionHtml:     factoresProteccionHtml || undefined,
-  })
+  }, headerOpts)
 }
 
 /** Carga sesiones presenciales y las imprime. sessionId = undefined → todas. */
 export async function imprimirSesionesDesdeReportes(
-  patientId:  string,
-  sessionId?: string,
+  patientId:   string,
+  sessionId?:  string,
+  headerOpts?: Partial<ReportHeaderOptions>,
 ) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -2173,13 +2175,14 @@ export async function imprimirSesionesDesdeReportes(
     is_virtual:         (s.is_virtual       as boolean) ?? false,
   }))
 
-  await imprimirBitacoraSesiones(user.id, profile?.full_name ?? null, sesiones)
+  await imprimirBitacoraSesiones(user.id, profile?.full_name ?? null, sesiones, headerOpts)
 }
 
 /** Carga un análisis Consúltame por ID y abre ventana de impresión. */
 export async function imprimirAnalisisDesdeReportes(
-  patientId:  string,
-  analysisId: string,
+  patientId:   string,
+  analysisId:  string,
+  headerOpts?: Partial<ReportHeaderOptions>,
 ) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -2243,17 +2246,13 @@ export async function imprimirAnalisisDesdeReportes(
   </style>
 </head>
 <body>
-  <!-- Encabezado: fecha izq, paciente/análisis der -->
-  <div class="report-header">
-    <div class="report-header-left">
-      <div><strong>Fecha:</strong> ${fechaHoy}</div>
-    </div>
-    <div class="report-header-right">
-      <div><strong>Asesorado:</strong> ${pacienteNombre}</div>
-      <div style="font-size:8.5pt;color:#666;">Análisis generado: ${fecha}</div>
-    </div>
+  ${buildReportHeader({ terapeutaNombre, logoUrl: headerOpts?.logoUrl ?? null, side: headerOpts?.side ?? 'name' })}
+
+  <!-- Asesorado y fecha de análisis -->
+  <div class="meta" style="margin-bottom:8pt;">
+    <span><strong>Asesorado/a:</strong> ${pacienteNombre}</span>
+    <span style="font-size:8.5pt;color:#666;">Análisis generado: ${fecha}</span>
   </div>
-  <div class="report-by">Reporte impreso por: <strong>${terapeutaNombre}</strong></div>
 
   <!-- Título -->
   <div class="doc-title">
