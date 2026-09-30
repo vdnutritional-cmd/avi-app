@@ -364,8 +364,8 @@ function renderPage({
         </p>
       </div>
 
-      {/* ── Controles: mes + filtros ────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center gap-3 justify-between">
+      {/* ── Controles ──────────────────────────────────────────────────────── */}
+      <div className="space-y-3">
         {/* Navegación de meses */}
         <div className="flex items-center gap-2">
           <Link
