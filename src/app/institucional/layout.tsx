@@ -55,7 +55,7 @@ export default async function InstitucionalLayout({ children }: { children: Reac
               href="/therapist/dashboard"
               className="text-xs font-medium text-primary-600 hover:text-primary-800 transition-colors"
             >
-              Panel terapeuta →
+              Panel terapeuta
             </Link>
           )}
           <InstitucionalLogoutButton />
