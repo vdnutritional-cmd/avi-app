@@ -175,31 +175,8 @@ export default async function ReporteTerapeutaPage({
   }
 
   // ── 2. Sesiones del periodo ────────────────────────────────────────────────
-  const esTotal = tipo === 'total'
-
-  let sesionesQuery = admin
-    .from('therapist_session_notes')
-    .select('patient_id, session_date, is_pro_bono, therapist_id')
-    .in('therapist_id', therapistIds)
-    .gte('session_date', mesInicio)
-    .lt('session_date', mesSiguiente)
-
-  let notasIniQuery = admin
-    .from('therapist_patients')
-    .select('patient_id, initial_note_date, initial_note_pro_bono, initial_note')
-    .in('therapist_id', therapistIds)
-    .eq('empresa_id', empresaId)
-    .neq('status', 'archived')
-    .not('initial_note', 'is', null)
-    .not('initial_note_date', 'is', null)
-    .gte('initial_note_date', mesInicio)
-    .lt('initial_note_date', mesSiguiente)
-
-  if (!esTotal && pacienteIds.length > 0) {
-    sesionesQuery = sesionesQuery.in('patient_id', pacienteIds)
-    notasIniQuery = notasIniQuery.in('patient_id', pacienteIds)
-  } else if (!esTotal && pacienteIds.length === 0) {
-    // Sin pacientes → no hay datos
+  // pacienteIds ya excluye archivados para todos los tipos (activos/inactivos/total)
+  if (pacienteIds.length === 0) {
     return renderPage({
       year, month, mesKey, isCurrentMonth, tipo, pid, terapeutaId,
       piNombre, empresas, terapeutas, empresaId, empresaActual,
@@ -209,6 +186,26 @@ export default async function ReporteTerapeutaPage({
       empresaByPatient, nombreByPatient,
     })
   }
+
+  const sesionesQuery = admin
+    .from('therapist_session_notes')
+    .select('patient_id, session_date, is_pro_bono, therapist_id')
+    .in('therapist_id', therapistIds)
+    .in('patient_id', pacienteIds)
+    .gte('session_date', mesInicio)
+    .lt('session_date', mesSiguiente)
+
+  const notasIniQuery = admin
+    .from('therapist_patients')
+    .select('patient_id, initial_note_date, initial_note_pro_bono, initial_note')
+    .in('therapist_id', therapistIds)
+    .eq('empresa_id', empresaId)
+    .neq('status', 'archived')
+    .not('initial_note', 'is', null)
+    .not('initial_note_date', 'is', null)
+    .gte('initial_note_date', mesInicio)
+    .lt('initial_note_date', mesSiguiente)
+    .in('patient_id', pacienteIds)
 
   const [{ data: sesionesRows }, { data: notasRows }] = await Promise.all([sesionesQuery, notasIniQuery])
 

@@ -138,16 +138,20 @@ export default async function ReporteGeneralPage({
   }
 
   // ── 2. Sesiones del periodo ────────────────────────────────────────────────
-  const esTotal = tipo === 'total'
+  // pacienteIds ya excluye archivados para todos los tipos (activos/inactivos/total)
+  if (pacienteIds.length === 0) {
+    return renderPage({ year, month, mesKey, isCurrentMonth, tipo, pid, piNombre, empresas, empresaId, empresaActual, todasLasSesiones: [], pacientesEnPeriodoIds: [], relaciones: [], derivacionesRows: [], expedientesRows: [], todosActivosRows: [], derivActivosRows: [], empresaByPatient, nombreByPatient })
+  }
 
-  let sesionesQuery = admin
+  const sesionesQuery = admin
     .from('therapist_session_notes')
     .select('patient_id, session_date, is_pro_bono')
     .in('therapist_id', therapistIds)
+    .in('patient_id', pacienteIds)
     .gte('session_date', mesInicio)
     .lt('session_date', mesSiguiente)
 
-  let notasIniQuery = admin
+  const notasIniQuery = admin
     .from('therapist_patients')
     .select('patient_id, initial_note_date, initial_note_pro_bono, initial_note')
     .in('therapist_id', therapistIds)
@@ -157,13 +161,7 @@ export default async function ReporteGeneralPage({
     .not('initial_note_date', 'is', null)
     .gte('initial_note_date', mesInicio)
     .lt('initial_note_date', mesSiguiente)
-
-  if (!esTotal && pacienteIds.length > 0) {
-    sesionesQuery = sesionesQuery.in('patient_id', pacienteIds)
-    notasIniQuery = notasIniQuery.in('patient_id', pacienteIds)
-  } else if (!esTotal && pacienteIds.length === 0) {
-    return renderPage({ year, month, mesKey, isCurrentMonth, tipo, pid, piNombre, empresas, empresaId, empresaActual, todasLasSesiones: [], pacientesEnPeriodoIds: [], relaciones: [], derivacionesRows: [], expedientesRows: [], todosActivosRows: [], derivActivosRows: [], empresaByPatient, nombreByPatient })
-  }
+    .in('patient_id', pacienteIds)
 
   const [{ data: sesionesRows }, { data: notasRows }] = await Promise.all([sesionesQuery, notasIniQuery])
 
