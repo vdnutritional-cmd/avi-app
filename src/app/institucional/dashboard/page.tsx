@@ -85,27 +85,37 @@ export default async function InstitucionalDashboardPage() {
       const empresaNombre = (pi.convenio_empresas as { nombre?: string } | null)?.nombre ?? 'Empresa'
       const nivel = pi.nivel as 'N1' | 'N2' | 'N3'
 
-      const { data: empresaRels } = await admin
-        .from('therapist_empresa')
-        .select('therapist_id, profiles(full_name, email)')
+      // Consultamos therapist_patients directamente por empresa_id.
+      // Esto incluye todos los terapeutas que tienen pacientes asignados a esta empresa,
+      // independientemente de si están en therapist_empresa o no.
+      const { data: patientRows } = await admin
+        .from('therapist_patients')
+        .select('therapist_id, profiles!therapist_id(full_name, email)')
         .eq('empresa_id', empresaId)
+        .eq('is_active', true)
 
-      const terapeutas: TerapeutaRow[] = await Promise.all(
-        (empresaRels ?? []).map(async (rel) => {
-          const p = rel.profiles as { full_name?: string; email?: string } | null
-          const { count } = await admin
-            .from('therapist_patients')
-            .select('*', { count: 'exact', head: true })
-            .eq('therapist_id', rel.therapist_id as string)
-            .eq('empresa_id', empresaId)
-            .eq('is_active', true)
-          return {
+      // Agrupar por terapeuta y contar
+      const therapistMap = new Map<string, { nombre: string; email: string; count: number }>()
+      for (const row of patientRows ?? []) {
+        const tid = row.therapist_id as string
+        const p = row.profiles as { full_name?: string; email?: string } | null
+        const existing = therapistMap.get(tid)
+        if (existing) {
+          existing.count++
+        } else {
+          therapistMap.set(tid, {
             nombre: p?.full_name ?? 'Sin nombre',
             email:  p?.email    ?? '',
-            pacientesActivos: count ?? 0,
-          }
-        })
-      )
+            count: 1,
+          })
+        }
+      }
+
+      const terapeutas: TerapeutaRow[] = Array.from(therapistMap.values()).map(t => ({
+        nombre: t.nombre,
+        email:  t.email,
+        pacientesActivos: t.count,
+      }))
 
       return { empresaId, empresaNombre, nivel, terapeutas }
     })
