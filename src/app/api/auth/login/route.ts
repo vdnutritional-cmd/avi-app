@@ -122,16 +122,18 @@ export async function POST(req: NextRequest) {
     const needsMfa = aal?.nextLevel === 'aal2' && aal?.currentLevel !== 'aal2'
 
     // Si es terapeuta, verificar si también es persona institucional activa
-    // En ese caso, el portal institucional es su destino primario de login
+    // En ese caso, el portal institucional es su destino primario de login.
+    // Usamos .limit(1) en lugar de .maybeSingle() para evitar error cuando
+    // el terapeuta pertenece a más de una empresa en convenio.
     let role: string = profile?.role ?? 'patient'
     if (role === 'therapist') {
-      const { data: piRow } = await admin
+      const { data: piRows } = await admin
         .from('convenio_personas_institucionales')
         .select('id')
         .eq('therapist_id', data.user.id)
         .eq('is_active', true)
-        .maybeSingle()
-      if (piRow) role = 'institucional'
+        .limit(1)
+      if (piRows && piRows.length > 0) role = 'institucional'
     }
 
     return NextResponse.json(

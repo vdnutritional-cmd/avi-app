@@ -29,14 +29,19 @@ export default async function TherapistLayout({ children }: { children: React.Re
   // Si el terapeuta es persona institucional con opera_como_terapeuta=false,
   // redirigir a su panel institucional (el panel de terapeuta está desactivado).
   const admin = createAdminClient()
-  const { data: piBlock } = await admin
+  // Fetch todos los registros institucionales activos del terapeuta.
+  // Un terapeuta puede pertenecer a más de una empresa; .maybeSingle() falla en ese caso.
+  const { data: piRecords } = await admin
     .from('convenio_personas_institucionales')
     .select('opera_como_terapeuta')
     .eq('therapist_id', user.id)
     .eq('is_active', true)
-    .maybeSingle()
 
-  if (piBlock && !piBlock.opera_como_terapeuta) {
+  const hasPI = (piRecords?.length ?? 0) > 0
+  // Bloquear acceso al panel de terapeuta solo si TODOS los registros tienen opera=false
+  const canActAsTherapist = piRecords?.some(r => r.opera_como_terapeuta) ?? true
+
+  if (hasPI && !canActAsTherapist) {
     redirect('/institucional/dashboard')
   }
 
@@ -61,7 +66,7 @@ export default async function TherapistLayout({ children }: { children: React.Re
           subscriptionStatus={subscription?.status ?? null}
           patientSlots={subscription?.patient_slots ?? null}
           tier={subscription?.tier ?? null}
-          isInstitucional={!!piBlock}
+          isInstitucional={hasPI}
         />
 
         {/* Contenido principal — padding-top extra en móvil para el botón hamburger */}

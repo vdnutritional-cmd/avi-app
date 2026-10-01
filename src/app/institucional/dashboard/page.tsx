@@ -9,6 +9,13 @@ interface TerapeutaRow {
   pacientesActivos: number
 }
 
+interface EmpresaBlock {
+  empresaId: string
+  empresaNombre: string
+  nivel: 'N1' | 'N2' | 'N3'
+  terapeutas: TerapeutaRow[]
+}
+
 // ── Componentes UI simples ─────────────────────────────────────────────────────
 function SeccionBloqueada({ titulo }: { titulo: string }) {
   return (
@@ -54,98 +61,136 @@ export default async function InstitucionalDashboardPage() {
 
   const admin = createAdminClient()
 
-  // Obtener datos del PI (persona institucional)
-  const { data: pi } = await admin
+  // Fetch todos los registros institucionales activos.
+  // .maybeSingle() falla cuando hay más de una fila; usamos array.
+  const { data: piRecords } = await admin
     .from('convenio_personas_institucionales')
     .select('nivel, opera_como_terapeuta, empresa_id, convenio_empresas(nombre)')
     .eq('therapist_id', user.id)
     .eq('is_active', true)
-    .maybeSingle()
 
-  if (!pi) redirect('/therapist/dashboard')
+  if (!piRecords || piRecords.length === 0) redirect('/therapist/dashboard')
 
-  const nivel = pi.nivel as 'N1' | 'N2' | 'N3'
-  const empresaId = pi.empresa_id as string
-  const empresaNombre = (pi.convenio_empresas as { nombre?: string } | null)?.nombre ?? 'Empresa'
+  // Nivel más alto entre todas las empresas (para gating de secciones globales)
+  const NIVEL_ORDER: Record<string, number> = { N1: 1, N2: 2, N3: 3 }
+  const topNivel = piRecords.reduce((best, r) =>
+    NIVEL_ORDER[r.nivel] < NIVEL_ORDER[best] ? r.nivel : best,
+    piRecords[0].nivel
+  ) as 'N1' | 'N2' | 'N3'
 
-  // ── Cargar terapeutas de la empresa ──────────────────────────────────────────
-  const { data: empresaRels } = await admin
-    .from('therapist_empresa')
-    .select('therapist_id, profiles(full_name, email)')
-    .eq('empresa_id', empresaId)
+  // ── Cargar terapeutas y pacientes por empresa ──────────────────────────────
+  const empresaBlocks: EmpresaBlock[] = await Promise.all(
+    piRecords.map(async (pi) => {
+      const empresaId = pi.empresa_id as string
+      const empresaNombre = (pi.convenio_empresas as { nombre?: string } | null)?.nombre ?? 'Empresa'
+      const nivel = pi.nivel as 'N1' | 'N2' | 'N3'
 
-  // Para cada terapeuta, contar pacientes activos
-  const terapeutas: TerapeutaRow[] = await Promise.all(
-    (empresaRels ?? []).map(async (rel) => {
-      const p = rel.profiles as { full_name?: string; email?: string } | null
-      const therapistId = rel.therapist_id as string
-
-      const { count } = await admin
-        .from('therapist_patients')
-        .select('*', { count: 'exact', head: true })
-        .eq('therapist_id', therapistId)
+      const { data: empresaRels } = await admin
+        .from('therapist_empresa')
+        .select('therapist_id, profiles(full_name, email)')
         .eq('empresa_id', empresaId)
-        .eq('is_active', true)
 
-      return {
-        nombre: p?.full_name ?? 'Sin nombre',
-        email:  p?.email    ?? '',
-        pacientesActivos: count ?? 0,
-      }
+      const terapeutas: TerapeutaRow[] = await Promise.all(
+        (empresaRels ?? []).map(async (rel) => {
+          const p = rel.profiles as { full_name?: string; email?: string } | null
+          const { count } = await admin
+            .from('therapist_patients')
+            .select('*', { count: 'exact', head: true })
+            .eq('therapist_id', rel.therapist_id as string)
+            .eq('empresa_id', empresaId)
+            .eq('is_active', true)
+          return {
+            nombre: p?.full_name ?? 'Sin nombre',
+            email:  p?.email    ?? '',
+            pacientesActivos: count ?? 0,
+          }
+        })
+      )
+
+      return { empresaId, empresaNombre, nivel, terapeutas }
     })
   )
 
-  const totalPacientes = terapeutas.reduce((s, t) => s + t.pacientesActivos, 0)
-
-  const canN1N2 = nivel === 'N1' || nivel === 'N2'
+  const canN1N2 = topNivel === 'N1' || topNivel === 'N2'
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
 
       {/* Encabezado */}
       <div>
         <h1 className="text-xl font-bold text-gray-800">Panel Institucional</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          {empresaNombre} · {terapeutas.length} terapeuta{terapeutas.length !== 1 ? 's' : ''} · {totalPacientes} paciente{totalPacientes !== 1 ? 's' : ''} activo{totalPacientes !== 1 ? 's' : ''}
-        </p>
-      </div>
-
-      {/* ── Sección 1: Lista de terapeutas con pacientes activos (todos los niveles) ── */}
-      <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-50">
-          <h2 className="font-semibold text-gray-700 text-sm">Terapeutas de la empresa</h2>
-        </div>
-        {terapeutas.length === 0 ? (
-          <p className="px-5 py-6 text-sm text-gray-400 text-center">
-            No hay terapeutas registrados en esta empresa todavía.
+        {piRecords.length > 1 && (
+          <p className="text-sm text-gray-500 mt-1">
+            Tienes acceso a {piRecords.length} empresas en convenio
           </p>
-        ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Terapeuta</th>
-                <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide hidden sm:table-cell">Correo</th>
-                <th className="text-right px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Pac. activos</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {terapeutas.map((t, i) => (
-                <tr key={i} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-5 py-3.5 font-medium text-gray-800">{t.nombre}</td>
-                  <td className="px-5 py-3.5 text-gray-500 hidden sm:table-cell">{t.email}</td>
-                  <td className="px-5 py-3.5 text-right">
-                    <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary-50 text-primary-700 font-bold text-sm">
-                      {t.pacientesActivos}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
         )}
       </div>
 
-      {/* ── Sección 2: Estadística institucional (N1/N2); bloqueada para N3 ── */}
+      {/* ── Bloque por empresa ─────────────────────────────────────────────── */}
+      {empresaBlocks.map((bloque) => {
+        const total = bloque.terapeutas.reduce((s, t) => s + t.pacientesActivos, 0)
+        return (
+          <section key={bloque.empresaId} className="space-y-4">
+            {/* Encabezado de empresa — solo si hay más de una */}
+            {piRecords.length > 1 && (
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-semibold text-gray-700">{bloque.empresaNombre}</h2>
+                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                  bloque.nivel === 'N1' ? 'bg-green-100 text-green-700' :
+                  bloque.nivel === 'N2' ? 'bg-blue-100 text-blue-700' :
+                  'bg-amber-100 text-amber-700'
+                }`}>
+                  {bloque.nivel}
+                </span>
+              </div>
+            )}
+
+            {/* Resumen */}
+            <p className="text-sm text-gray-500">
+              {bloque.terapeutas.length} terapeuta{bloque.terapeutas.length !== 1 ? 's' : ''} · {total} paciente{total !== 1 ? 's' : ''} activo{total !== 1 ? 's' : ''}
+            </p>
+
+            {/* Tabla de terapeutas */}
+            <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-gray-50">
+                <h3 className="font-semibold text-gray-700 text-sm">Terapeutas de la empresa</h3>
+              </div>
+              {bloque.terapeutas.length === 0 ? (
+                <p className="px-5 py-6 text-sm text-gray-400 text-center">
+                  No hay terapeutas registrados en esta empresa todavía.
+                </p>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Terapeuta</th>
+                      <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide hidden sm:table-cell">Correo</th>
+                      <th className="text-right px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Pac. activos</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {bloque.terapeutas.map((t, i) => (
+                      <tr key={i} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-5 py-3.5 font-medium text-gray-800">{t.nombre}</td>
+                        <td className="px-5 py-3.5 text-gray-500 hidden sm:table-cell">{t.email}</td>
+                        <td className="px-5 py-3.5 text-right">
+                          <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary-50 text-primary-700 font-bold text-sm">
+                            {t.pacientesActivos}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </section>
+        )
+      })}
+
+      {/* ── Secciones gateadas por nivel más alto (aplican a todas las empresas) ── */}
+
+      {/* Estadística institucional (N1/N2) */}
       {canN1N2 ? (
         <SeccionProxima
           titulo="Estadística institucional general"
@@ -155,7 +200,7 @@ export default async function InstitucionalDashboardPage() {
         <SeccionBloqueada titulo="Estadística institucional general" />
       )}
 
-      {/* ── Sección 3: Reporte por terapeuta (N1/N2); bloqueada para N3 ── */}
+      {/* Reporte por terapeuta (N1/N2) */}
       {canN1N2 ? (
         <SeccionProxima
           titulo="Reporte por terapeuta"
@@ -165,8 +210,8 @@ export default async function InstitucionalDashboardPage() {
         <SeccionBloqueada titulo="Reporte por terapeuta" />
       )}
 
-      {/* ── Sección 4: Reporte Institucional General (N1 únicamente) ── */}
-      {nivel === 'N1' ? (
+      {/* Reporte Institucional General (N1 únicamente) */}
+      {topNivel === 'N1' ? (
         <SeccionProxima
           titulo="Reporte Institucional General"
           descripcion="Reporte ejecutivo completo de la empresa: tendencias, estadísticas agregadas y análisis de bienestar."

@@ -20,17 +20,27 @@ export default async function InstitucionalLayout({ children }: { children: Reac
 
   const admin = createAdminClient()
 
-  const { data: pi } = await admin
+  // Fetch todos los registros activos — un terapeuta puede pertenecer a varias empresas.
+  // .maybeSingle() falla (devuelve null) cuando hay más de una fila, por eso usamos array.
+  const { data: piRecords } = await admin
     .from('convenio_personas_institucionales')
     .select('nivel, opera_como_terapeuta, empresa_id, convenio_empresas(nombre)')
     .eq('therapist_id', user.id)
     .eq('is_active', true)
-    .maybeSingle()
 
-  // Si no tiene registro institucional activo, redirigir al panel normal
-  if (!pi) redirect('/therapist/dashboard')
+  // Si no tiene ningún registro institucional activo, redirigir al panel normal
+  if (!piRecords || piRecords.length === 0) redirect('/therapist/dashboard')
 
-  const empresaNombre = (pi.convenio_empresas as { nombre?: string } | null)?.nombre ?? 'Empresa'
+  // Nivel más alto (N1 > N2 > N3) entre todas las empresas del usuario
+  const NIVEL_ORDER: Record<string, number> = { N1: 1, N2: 2, N3: 3 }
+  const sorted = [...piRecords].sort(
+    (a, b) => NIVEL_ORDER[a.nivel] - NIVEL_ORDER[b.nivel]
+  )
+  const topNivel = sorted[0].nivel
+  const canActAsTherapist = piRecords.some(r => r.opera_como_terapeuta)
+  const empresaNombres = piRecords
+    .map(r => (r.convenio_empresas as { nombre?: string } | null)?.nombre ?? 'Empresa')
+    .join(', ')
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -39,18 +49,18 @@ export default async function InstitucionalLayout({ children }: { children: Reac
         <div className="flex items-center gap-3">
           <span className="text-xl font-bold text-primary-700">AVI</span>
           <span className="text-gray-300">·</span>
-          <span className="text-sm text-gray-700 font-semibold">{empresaNombre}</span>
+          <span className="text-sm text-gray-700 font-semibold">{empresaNombres}</span>
           <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-            pi.nivel === 'N1' ? 'bg-green-100 text-green-700' :
-            pi.nivel === 'N2' ? 'bg-blue-100 text-blue-700' :
+            topNivel === 'N1' ? 'bg-green-100 text-green-700' :
+            topNivel === 'N2' ? 'bg-blue-100 text-blue-700' :
             'bg-amber-100 text-amber-700'
           }`}>
-            {pi.nivel}
+            {topNivel}
           </span>
         </div>
         <div className="flex items-center gap-4">
           <span className="text-xs text-gray-500 hidden sm:inline">{profile?.full_name}</span>
-          {pi.opera_como_terapeuta && (
+          {canActAsTherapist && (
             <Link
               href="/therapist/dashboard"
               className="text-xs font-medium text-primary-600 hover:text-primary-800 transition-colors"
