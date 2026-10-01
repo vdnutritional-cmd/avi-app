@@ -76,7 +76,10 @@ function LoginForm() {
         return
       }
 
-      const destination = body.role === 'therapist' ? '/therapist/dashboard' : '/patient/chat'
+      const destination =
+        body.role === 'therapist'      ? '/therapist/dashboard'     :
+        body.role === 'institucional'  ? '/institucional/dashboard'  :
+        '/patient/chat'
       router.push(redirectTo ?? destination)
       router.refresh()
     } catch {

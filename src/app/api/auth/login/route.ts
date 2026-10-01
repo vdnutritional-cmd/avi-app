@@ -121,8 +121,21 @@ export async function POST(req: NextRequest) {
     const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
     const needsMfa = aal?.nextLevel === 'aal2' && aal?.currentLevel !== 'aal2'
 
+    // Si es terapeuta, verificar si también es persona institucional activa
+    // En ese caso, el portal institucional es su destino primario de login
+    let role: string = profile?.role ?? 'patient'
+    if (role === 'therapist') {
+      const { data: piRow } = await admin
+        .from('convenio_personas_institucionales')
+        .select('id')
+        .eq('therapist_id', data.user.id)
+        .eq('is_active', true)
+        .maybeSingle()
+      if (piRow) role = 'institucional'
+    }
+
     return NextResponse.json(
-      { role: profile?.role ?? 'patient', needsMfa: needsMfa ?? false },
+      { role, needsMfa: needsMfa ?? false },
       { status: 200 }
     )
   } catch (e) {

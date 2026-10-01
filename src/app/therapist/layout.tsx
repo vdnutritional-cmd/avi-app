@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import PushRegistrar from './PushRegistrar'
 import Sidebar from './Sidebar'
@@ -23,6 +24,21 @@ export default async function TherapistLayout({ children }: { children: React.Re
     .single()
 
   if (profile?.role !== 'therapist') redirect('/patient/chat')
+
+  // ── Bloqueo institucional ────────────────────────────────────────────────────
+  // Si el terapeuta es persona institucional con opera_como_terapeuta=false,
+  // redirigir a su panel institucional (el panel de terapeuta está desactivado).
+  const admin = createAdminClient()
+  const { data: piBlock } = await admin
+    .from('convenio_personas_institucionales')
+    .select('opera_como_terapeuta')
+    .eq('therapist_id', user.id)
+    .eq('is_active', true)
+    .maybeSingle()
+
+  if (piBlock && !piBlock.opera_como_terapeuta) {
+    redirect('/institucional/dashboard')
+  }
 
   const { data: subscription } = await supabase
     .from('subscriptions')
