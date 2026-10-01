@@ -119,6 +119,7 @@ export default async function ReporteGeneralPage({
 
   if (tipo === 'activos') relacionesQuery = relacionesQuery.eq('is_active', true).neq('status', 'archived')
   else if (tipo === 'inactivos') relacionesQuery = relacionesQuery.eq('is_active', false).neq('status', 'archived')
+  else relacionesQuery = relacionesQuery.neq('status', 'archived') // total: activos + inactivos sin archivados
 
   const { data: relaciones } = await relacionesQuery
   const pacienteIds = (relaciones ?? []).map(r => r.patient_id as string)

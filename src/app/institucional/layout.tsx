@@ -61,7 +61,7 @@ export default async function InstitucionalLayout({ children }: { children: Reac
           isInstitucional={true}
           hasEmpresas={hasEmpresas}
           disabled={!canActAsTherapist}
-          hideInstitucionalLink={true}
+          hideInstitucionalLink={false}
         />
 
         {/* Contenido principal — padding-top extra en móvil para el botón hamburger */}
