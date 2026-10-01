@@ -10,7 +10,7 @@ import { createClient } from '@/lib/supabase/server'
  */
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const { token, email, password, datosGenerales } = body
+  const { token, email, password, datosGenerales, empresa_id } = body
 
   if (!token || !email || !password || !datosGenerales?.asesorado_nombre) {
     return NextResponse.json({ error: 'Datos incompletos' }, { status: 400 })
@@ -64,11 +64,25 @@ export async function POST(req: NextRequest) {
   })
 
   // ── 4. Vincular paciente con terapeuta ────────────────────────────────────
+  // Si no se envió empresa_id explícita, intentar auto-asignar si el terapeuta
+  // tiene exactamente 1 empresa activa asignada.
+  let resolvedEmpresaId: string | null = empresa_id ?? null
+  if (!resolvedEmpresaId) {
+    const { data: empresaRels } = await admin
+      .from('therapist_empresa')
+      .select('empresa_id')
+      .eq('therapist_id', therapistProfile.id)
+    if ((empresaRels ?? []).length === 1) {
+      resolvedEmpresaId = (empresaRels![0] as { empresa_id: string }).empresa_id
+    }
+  }
+
   await admin.from('therapist_patients').insert({
     therapist_id: therapistProfile.id,
     patient_id:   patientId,
     status:       'active',
     is_active:    true,
+    ...(resolvedEmpresaId ? { empresa_id: resolvedEmpresaId } : {}),
   })
 
   // ── 5. Crear expediente con Datos Generales ───────────────────────────────
@@ -136,7 +150,7 @@ export async function GET(req: NextRequest) {
   const admin = createAdminClient()
   const { data, error } = await admin
     .from('profiles')
-    .select('full_name')
+    .select('id, full_name')
     .eq('registro_token', token)
     .eq('role', 'therapist')
     .single()
@@ -145,5 +159,16 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Token inválido' }, { status: 404 })
   }
 
-  return NextResponse.json({ therapistName: data.full_name })
+  // Obtener empresas activas del terapeuta para el paso de selección
+  const { data: empresaRels } = await admin
+    .from('therapist_empresa')
+    .select('empresa_id, convenio_empresas(nombre)')
+    .eq('therapist_id', data.id)
+
+  const empresas = (empresaRels ?? []).map(r => {
+    const e = r.convenio_empresas as { nombre?: string } | null
+    return { id: r.empresa_id as string, nombre: e?.nombre ?? '' }
+  })
+
+  return NextResponse.json({ therapistName: data.full_name, empresas })
 }
