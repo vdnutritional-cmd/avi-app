@@ -108,7 +108,7 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
           {/* Bloque: Información */}
           <NavGroup
             name="informacion"
-            label="Información"
+            label="Información / Reportes"
             icon="📊"
             isOpen={openGroup === 'informacion'}
             onToggle={() => toggleGroup('informacion')}
