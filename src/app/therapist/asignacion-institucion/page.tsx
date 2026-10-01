@@ -31,10 +31,12 @@ export default async function AsignacionInstitucionPage() {
   // Si no pertenece a ninguna empresa, no tiene nada que hacer aquí
   if (empresas.length === 0) redirect('/therapist/patients')
 
-  // Todos los pacientes activos del terapeuta
+  // Todos los pacientes activos del terapeuta.
+  // Usamos profiles!patient_id para resolver la ambigüedad: therapist_patients
+  // tiene dos FKs a profiles (therapist_id y patient_id).
   const { data: pacientesRels } = await admin
     .from('therapist_patients')
-    .select('patient_id, empresa_id, profiles(full_name, email)')
+    .select('patient_id, empresa_id, profiles!patient_id(full_name, email)')
     .eq('therapist_id', user.id)
     .eq('is_active', true)
     .order('created_at', { ascending: false })
