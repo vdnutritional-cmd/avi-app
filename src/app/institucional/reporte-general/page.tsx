@@ -57,6 +57,11 @@ export default async function ReporteGeneralPage({
   const empresaId = empParam ?? ''
   const empresaActual = empresas.find(e => e.id === empresaId)
 
+  // ── Validar mes antes de cualquier early return ────────────────────────────
+  const now = new Date()
+  const defaultMes = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  const validMes = (mes && /^\d{4}-\d{2}$/.test(mes)) ? mes : defaultMes
+
   if (!empresaId) {
     return (
       <div className="max-w-3xl space-y-8">
@@ -66,7 +71,7 @@ export default async function ReporteGeneralPage({
         </div>
         <FiltrosReporte basePath="/institucional/reporte-general" showTerapeutaFilter={false}
           empresas={empresas} terapeutas={[]} empresaId="" terapeutaId="all"
-          tipo="activos" pid="all" mes={mes ?? ''} pacientes={[]} />
+          tipo="activos" pid="all" mes={validMes} pacientes={[]} />
       </div>
     )
   }
@@ -83,8 +88,7 @@ export default async function ReporteGeneralPage({
   ])]
 
   // ── Parámetros de fecha ────────────────────────────────────────────────────
-  const now = new Date()
-  const [ySt, mSt] = (mes ?? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`).split('-')
+  const [ySt, mSt] = validMes.split('-')
   const year = parseInt(ySt); const month = parseInt(mSt)
   const mesKey = `${year}-${String(month).padStart(2, '0')}`
   const mesInicio = `${mesKey}-01`

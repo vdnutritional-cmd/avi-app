@@ -28,20 +28,25 @@ export default function FiltrosReporte({
   const router = useRouter()
   const [, startTransition] = useTransition()
 
+  // Garantizar que mes siempre sea YYYY-MM válido
+  const now = new Date()
+  const defaultMes = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  const mesSafe = /^\d{4}-\d{2}$/.test(mes) ? mes : defaultMes
+
   function nav(params: Record<string, string>) {
-    const sp = new URLSearchParams({ empresaId, terapeutaId, tipo, pid, mes, ...params })
+    const sp = new URLSearchParams({ empresaId, terapeutaId, tipo, pid, mes: mesSafe, ...params })
     startTransition(() => router.push(`${basePath}?${sp.toString()}`))
   }
 
   function onEmpresa(val: string) {
     // Al cambiar empresa, resetear terapeuta y paciente
-    const sp = new URLSearchParams({ empresaId: val, terapeutaId: 'all', tipo, pid: 'all', mes })
+    const sp = new URLSearchParams({ empresaId: val, terapeutaId: 'all', tipo, pid: 'all', mes: mesSafe })
     startTransition(() => router.push(`${basePath}?${sp.toString()}`))
   }
 
   function onTerapeuta(val: string) {
     // Al cambiar terapeuta, resetear paciente
-    const sp = new URLSearchParams({ empresaId, terapeutaId: val, tipo, pid: 'all', mes })
+    const sp = new URLSearchParams({ empresaId, terapeutaId: val, tipo, pid: 'all', mes: mesSafe })
     startTransition(() => router.push(`${basePath}?${sp.toString()}`))
   }
 
