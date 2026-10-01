@@ -157,7 +157,7 @@ export default async function InstitucionalDashboardPage() {
             {/* Encabezado de empresa — solo si hay más de una */}
             {piRecords.length > 1 && (
               <div className="flex items-center gap-2">
-                <h2 className="text-base font-semibold text-gray-700">{bloque.empresaNombre}</h2>
+                <h2 className="text-base font-semibold text-primary-700">{bloque.empresaNombre}</h2>
                 <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
                   bloque.nivel === 'N1' ? 'bg-green-100 text-green-700' :
                   bloque.nivel === 'N2' ? 'bg-blue-100 text-blue-700' :
