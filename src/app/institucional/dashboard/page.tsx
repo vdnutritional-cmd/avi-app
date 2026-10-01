@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 interface TerapeutaRow {
@@ -38,17 +39,32 @@ function SeccionProxima({ titulo, descripcion }: { titulo: string; descripcion: 
     <div className="bg-white border border-gray-200 rounded-2xl p-5">
       <div className="flex items-center justify-between">
         <h3 className="font-semibold text-gray-700 text-sm">{titulo}</h3>
+        <span className="text-xs bg-primary-100 text-primary-700 px-2 py-1 rounded-full font-medium">Próximamente</span>
+      </div>
+      <p className="text-xs text-gray-500 mt-2">{descripcion}</p>
+      <button disabled className="mt-4 w-full py-2 bg-gray-100 text-gray-400 text-sm rounded-xl cursor-not-allowed font-medium">
+        Disponible próximamente
+      </button>
+    </div>
+  )
+}
+
+function SeccionActiva({ titulo, descripcion, href }: { titulo: string; descripcion: string; href: string }) {
+  return (
+    <div className="bg-white border border-primary-100 rounded-2xl p-5">
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold text-gray-700 text-sm">{titulo}</h3>
         <span className="text-xs bg-primary-100 text-primary-700 px-2 py-1 rounded-full font-medium">
-          Próximamente
+          Disponible
         </span>
       </div>
       <p className="text-xs text-gray-500 mt-2">{descripcion}</p>
-      <button
-        disabled
-        className="mt-4 w-full py-2 bg-gray-100 text-gray-400 text-sm rounded-xl cursor-not-allowed font-medium"
+      <Link
+        href={href}
+        className="mt-4 w-full py-2 bg-primary-600 text-white text-sm rounded-xl font-medium hover:bg-primary-700 transition-colors text-center block"
       >
-        Disponible próximamente
-      </button>
+        Ver reporte →
+      </Link>
     </div>
   )
 }
@@ -225,9 +241,10 @@ export default async function InstitucionalDashboardPage() {
 
       {/* Reporte por terapeuta (N1/N2) */}
       {canN1N2 ? (
-        <SeccionProxima
+        <SeccionActiva
           titulo="Reporte por terapeuta"
-          descripcion="Reporte individual de desempeño y atención por cada terapeuta de la empresa."
+          descripcion="Estadística de sesiones, motivos, derivaciones y satisfacción por terapeuta y empresa."
+          href="/institucional/reporte-terapeuta"
         />
       ) : (
         <SeccionBloqueada titulo="Reporte por terapeuta" />
@@ -235,9 +252,10 @@ export default async function InstitucionalDashboardPage() {
 
       {/* Reporte Institucional General (N1 únicamente) */}
       {topNivel === 'N1' ? (
-        <SeccionProxima
+        <SeccionActiva
           titulo="Reporte Institucional General"
-          descripcion="Reporte ejecutivo completo de la empresa: tendencias, estadísticas agregadas y análisis de bienestar."
+          descripcion="Estadística agregada de todos los terapeutas de la empresa: sesiones, derivaciones y satisfacción."
+          href="/institucional/reporte-general"
         />
       ) : (
         <SeccionBloqueada titulo="Reporte Institucional General" />

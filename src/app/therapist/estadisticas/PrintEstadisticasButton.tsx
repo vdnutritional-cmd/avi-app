@@ -17,6 +17,8 @@ interface PrintEstadisticasProps {
   empresas: Empresa[]
   mes: string
   tipoLabel: string
+  reportTitle?: string   // default: "Mi Estadística"
+  impresoPor?: string    // default: terapeutaNombre
   totalSesiones: number
   personasAtendidas: number
   institucionRows: { nombre: string; total: number; pct: number }[]
@@ -55,7 +57,11 @@ export default function PrintEstadisticasButton(props: PrintEstadisticasProps) {
       totalDerivaciones, derivacionesPorTipo,
       casosRiesgo, asistSeguimiento, percepcionAlivio, cambioFunc, abandono, atenEspecializada,
       calificaciones,
+      reportTitle = 'Mi Estadística',
+      impresoPor,
     } = props
+
+    const nombreImpresion = impresoPor ?? terapeutaNombre
 
     const date = new Date().toLocaleDateString('es-MX', {
       day: 'numeric', month: 'long', year: 'numeric',
@@ -81,7 +87,7 @@ export default function PrintEstadisticasButton(props: PrintEstadisticasProps) {
 <html lang="es">
 <head>
   <meta charset="UTF-8"/>
-  <title>Mi Estadística — ${mes}</title>
+  <title>${reportTitle} — ${mes}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 10.5pt; color: #222; padding: 32px 40px; line-height: 1.5; }
@@ -106,16 +112,16 @@ export default function PrintEstadisticasButton(props: PrintEstadisticasProps) {
 
   <div class="header-bar">
     <div class="header-left">
-      <h1>Mi Estadística</h1>
+      <h1>${reportTitle}</h1>
       <div style="font-size:9pt;color:#666;">Pacientes ${tipoLabel} · ${mes}</div>
     </div>
     <div class="header-right">
       ${date}<br/>
       ${logoUrl
         ? `<img src="${logoUrl}" alt="Logo" style="max-width:200px;max-height:80px;object-fit:contain;display:block;margin-left:auto;margin-bottom:4px;" />`
-        : `<strong>${terapeutaNombre}</strong>`
+        : `<strong>${nombreImpresion}</strong>`
       }<br/>
-      Reporte impreso por: <strong>${terapeutaNombre}</strong>
+      Reporte impreso por: <strong>${nombreImpresion}</strong>
     </div>
   </div>
 
