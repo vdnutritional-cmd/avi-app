@@ -77,7 +77,7 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
         {/* Nav */}
         <nav className="p-4 space-y-1 overflow-y-auto flex-1">
           {disabled && (
-            <div className="mb-3 px-3 py-2.5 rounded-xl bg-gray-100 border border-gray-200 text-xs text-gray-500 leading-snug">
+            <div className="mb-3 px-3 py-2.5 rounded-xl bg-primary-50 border border-primary-200 text-xs text-primary-700 leading-snug font-medium">
               🔒 Panel terapeuta no disponible para este perfil
             </div>
           )}
