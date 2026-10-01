@@ -85,37 +85,50 @@ export default async function InstitucionalDashboardPage() {
       const empresaNombre = (pi.convenio_empresas as { nombre?: string } | null)?.nombre ?? 'Empresa'
       const nivel = pi.nivel as 'N1' | 'N2' | 'N3'
 
-      // Consultamos therapist_patients directamente por empresa_id.
-      // Esto incluye todos los terapeutas que tienen pacientes asignados a esta empresa,
-      // independientemente de si están en therapist_empresa o no.
-      const { data: patientRows } = await admin
-        .from('therapist_patients')
+      // Fuente 1: terapeutas registrados en therapist_empresa para esta empresa
+      const { data: empresaRels } = await admin
+        .from('therapist_empresa')
         .select('therapist_id, profiles!therapist_id(full_name, email)')
         .eq('empresa_id', empresaId)
+
+      // Fuente 2: PIs con opera_como_terapeuta=true (pueden ser terapeutas activos
+      // de la empresa que aún no están en therapist_empresa)
+      const { data: piTerapeutas } = await admin
+        .from('convenio_personas_institucionales')
+        .select('therapist_id, profiles!therapist_id(full_name, email)')
+        .eq('empresa_id', empresaId)
+        .eq('opera_como_terapeuta', true)
         .eq('is_active', true)
 
-      // Agrupar por terapeuta y contar
-      const therapistMap = new Map<string, { nombre: string; email: string; count: number }>()
-      for (const row of patientRows ?? []) {
-        const tid = row.therapist_id as string
-        const p = row.profiles as { full_name?: string; email?: string } | null
-        const existing = therapistMap.get(tid)
-        if (existing) {
-          existing.count++
-        } else {
-          therapistMap.set(tid, {
-            nombre: p?.full_name ?? 'Sin nombre',
-            email:  p?.email    ?? '',
-            count: 1,
+      // Unión deduplicada por therapist_id
+      type TerapeutaEntry = { therapist_id: string; profiles: { full_name?: string; email?: string } | null }
+      const therapistMap = new Map<string, TerapeutaEntry>()
+      for (const r of [...(empresaRels ?? []), ...(piTerapeutas ?? [])]) {
+        if (!therapistMap.has(r.therapist_id as string)) {
+          therapistMap.set(r.therapist_id as string, {
+            therapist_id: r.therapist_id as string,
+            profiles: r.profiles as { full_name?: string; email?: string } | null,
           })
         }
       }
 
-      const terapeutas: TerapeutaRow[] = Array.from(therapistMap.values()).map(t => ({
-        nombre: t.nombre,
-        email:  t.email,
-        pacientesActivos: t.count,
-      }))
+      // Contar pacientes activos por terapeuta filtrando por empresa_id
+      const terapeutas: TerapeutaRow[] = await Promise.all(
+        Array.from(therapistMap.values()).map(async (t) => {
+          const p = t.profiles
+          const { count } = await admin
+            .from('therapist_patients')
+            .select('*', { count: 'exact', head: true })
+            .eq('therapist_id', t.therapist_id)
+            .eq('empresa_id', empresaId)
+            .eq('is_active', true)
+          return {
+            nombre: p?.full_name ?? 'Sin nombre',
+            email:  p?.email    ?? '',
+            pacientesActivos: count ?? 0,
+          }
+        })
+      )
 
       return { empresaId, empresaNombre, nivel, terapeutas }
     })
