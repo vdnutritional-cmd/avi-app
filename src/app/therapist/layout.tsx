@@ -45,6 +45,17 @@ export default async function TherapistLayout({ children }: { children: React.Re
     redirect('/institucional/dashboard')
   }
 
+  // ── Empresas del terapeuta (para acordeón "Mis pacientes" en Sidebar) ────────
+  // Todos los terapeutas vinculados a una empresa pueden gestionar asignaciones,
+  // independientemente de si son Persona Institucional.
+  const { data: empresaRels } = await admin
+    .from('therapist_empresa')
+    .select('empresa_id')
+    .eq('therapist_id', user.id)
+    .limit(1)
+
+  const hasEmpresas = (empresaRels?.length ?? 0) > 0
+
   const { data: subscription } = await supabase
     .from('subscriptions')
     .select('status, plan, patient_slots, tier')
@@ -67,6 +78,7 @@ export default async function TherapistLayout({ children }: { children: React.Re
           patientSlots={subscription?.patient_slots ?? null}
           tier={subscription?.tier ?? null}
           isInstitucional={hasPI}
+          hasEmpresas={hasEmpresas}
         />
 
         {/* Contenido principal — padding-top extra en móvil para el botón hamburger */}

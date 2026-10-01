@@ -11,9 +11,10 @@ interface SidebarProps {
   patientSlots: number | null
   tier: string | null
   isInstitucional?: boolean
+  hasEmpresas?: boolean
 }
 
-export default function Sidebar({ fullName, email, subscriptionStatus, patientSlots, tier, isInstitucional }: SidebarProps) {
+export default function Sidebar({ fullName, email, subscriptionStatus, patientSlots, tier, isInstitucional, hasEmpresas }: SidebarProps) {
   const [open, setOpen] = useState(false)
   const [openGroup, setOpenGroup] = useState<string | null>(null)
 
@@ -75,7 +76,7 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
         <nav className="p-4 space-y-1 overflow-y-auto flex-1">
           <NavLink href="/therapist/dashboard" icon="🏠" label="Dashboard" onClose={closeSidebar} />
 
-          {isInstitucional ? (
+          {hasEmpresas ? (
             <NavGroup
               name="pacientes"
               label="Mis pacientes"
