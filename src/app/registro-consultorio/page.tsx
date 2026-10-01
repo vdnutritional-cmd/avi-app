@@ -44,7 +44,7 @@ const ESTADOS_MEXICO = [
   'Tlaxcala', 'Veracruz de Ignacio de la Llave', 'Yucatán', 'Zacatecas',
 ]
 
-const STEPS = [
+const BASE_STEPS = [
   { id: 'cuenta',    label: 'Cuenta'    },
   { id: 'asesorado', label: 'Asesorado' },
   { id: 'contacto',  label: 'Contacto'  },
@@ -94,12 +94,32 @@ function RegistroConsultorioForm() {
   const [loading,    setLoading]    = useState(false)
   const [registrado, setRegistrado] = useState(false)
 
+  // Empresa (convenio)
+  const [empresas,  setEmpresas]  = useState<{ id: string; nombre: string }[]>([])
+  const [empresaId, setEmpresaId] = useState('')
+
+  // Steps dinámicos: insertar 'Empresa' entre 'Cuenta' y 'Asesorado' si hay ≥2 empresas
+  const steps = empresas.length >= 2
+    ? [
+        { id: 'cuenta',    label: 'Cuenta'    },
+        { id: 'empresa',   label: 'Empresa'   },
+        { id: 'asesorado', label: 'Asesorado' },
+        { id: 'contacto',  label: 'Contacto'  },
+        { id: 'pareja',    label: 'Pareja'    },
+        { id: 'hijos',     label: 'Hijos'     },
+        { id: 'salud',     label: 'Salud'     },
+      ]
+    : BASE_STEPS
+
   // Validar token
   useEffect(() => {
     if (!token) { setTokenInvalido(true); return }
     fetch(`/api/auth/registro-consultorio?t=${encodeURIComponent(token)}`)
       .then(r => r.json())
-      .then(d => { if (d.error) setTokenInvalido(true); else setTherapistName(d.therapistName) })
+      .then(d => {
+        if (d.error) setTokenInvalido(true)
+        else { setTherapistName(d.therapistName); setEmpresas(d.empresas ?? []) }
+      })
       .catch(() => setTokenInvalido(true))
   }, [token])
 
@@ -126,12 +146,16 @@ function RegistroConsultorioForm() {
 
   // ── Validaciones por paso ────────────────────────────────────────────────
   function validarPasoActual(): string | null {
-    if (step === 0) {
+    const currentId = steps[step]?.id
+    if (currentId === 'cuenta') {
       if (!email.includes('@'))    return 'Ingresa un correo válido'
       const pw = checkPassword(password)
       if (!pw.valid) return 'La contraseña no cumple los requisitos: ' + pw.errors.join(', ')
     }
-    if (step === 1) {
+    if (currentId === 'empresa') {
+      if (!empresaId) return 'Selecciona la empresa a la que perteneces'
+    }
+    if (currentId === 'asesorado') {
       if (!nombres.trim())   return 'El nombre es requerido'
       if (!apPaterno.trim()) return 'El apellido paterno es requerido'
       if (!dg.asesorado_sexo) return 'Selecciona el sexo'
@@ -166,6 +190,7 @@ function RegistroConsultorioForm() {
           token,
           email: email.trim().toLowerCase(),
           password,
+          ...(empresaId ? { empresa_id: empresaId } : {}),
           datosGenerales: {
             ...dg,
             asesorado_nombre: nombreCompleto,
@@ -238,7 +263,7 @@ function RegistroConsultorioForm() {
 
         {/* Stepper */}
         <div className="flex items-center gap-1">
-          {STEPS.map((s, i) => (
+          {steps.map((s, i) => (
             <div key={s.id} className="flex-1 flex flex-col items-center gap-1">
               <div className={`w-full h-1.5 rounded-full transition-colors ${i <= step ? 'bg-primary-600' : 'bg-gray-200'}`} />
               <span className={`text-[10px] ${i === step ? 'text-primary-700 font-semibold' : 'text-gray-400'}`}>{s.label}</span>
@@ -249,8 +274,8 @@ function RegistroConsultorioForm() {
         {/* Tarjeta del paso actual */}
         <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 space-y-4">
 
-          {/* ── Paso 0: Cuenta ── */}
-          {step === 0 && <>
+          {/* ── Paso: Cuenta ── */}
+          {steps[step]?.id === 'cuenta' && <>
             <h2 className="text-base font-semibold text-gray-800">Datos de tu cuenta</h2>
             <Field label="¿Cuál es tu correo electrónico?">
               <input type="email" value={email} onChange={e => setEmail(e.target.value)}
@@ -270,8 +295,33 @@ function RegistroConsultorioForm() {
             </Field>
           </>}
 
-          {/* ── Paso 1: Asesorado ── */}
-          {step === 1 && <>
+          {/* ── Paso: Empresa ── */}
+          {steps[step]?.id === 'empresa' && <>
+            <h2 className="text-base font-semibold text-gray-800">Selecciona tu empresa</h2>
+            <p className="text-xs text-gray-500 leading-relaxed">
+              Tu registro está asociado a más de una empresa convenio. Elige a cuál corresponde esta consulta.
+            </p>
+            <div className="space-y-3 pt-1">
+              {empresas.map(e => (
+                <button
+                  key={e.id}
+                  type="button"
+                  onClick={() => setEmpresaId(e.id)}
+                  className={`w-full text-left px-4 py-3.5 rounded-2xl border-2 transition-colors text-sm font-medium ${
+                    empresaId === e.id
+                      ? 'border-primary-500 bg-primary-50 text-primary-800'
+                      : 'border-gray-200 bg-white text-gray-700 hover:border-primary-300'
+                  }`}
+                >
+                  {empresaId === e.id && <span className="mr-2">✓</span>}
+                  {e.nombre}
+                </button>
+              ))}
+            </div>
+          </>}
+
+          {/* ── Paso: Asesorado ── */}
+          {steps[step]?.id === 'asesorado' && <>
             <h2 className="text-base font-semibold text-gray-800">Datos del asesorado</h2>
             <Field label="Nombre(s)">
               <input type="text" value={nombres} onChange={e => setNombres(e.target.value)}
@@ -345,8 +395,8 @@ function RegistroConsultorioForm() {
             </div>
           </>}
 
-          {/* ── Paso 2: Contacto ── */}
-          {step === 2 && <>
+          {/* ── Paso: Contacto ── */}
+          {steps[step]?.id === 'contacto' && <>
             <h2 className="text-base font-semibold text-gray-800">Datos de contacto</h2>
             <Field label="Correo electrónico">
               <input type="email" value={email} disabled
@@ -364,8 +414,8 @@ function RegistroConsultorioForm() {
             </Field>
           </>}
 
-          {/* ── Paso 3: Pareja ── */}
-          {step === 3 && <>
+          {/* ── Paso: Pareja ── */}
+          {steps[step]?.id === 'pareja' && <>
             <h2 className="text-base font-semibold text-gray-800">Datos de la pareja</h2>
             <p className="text-xs text-gray-400">Si no aplica, deja los campos en blanco.</p>
             <Field label="Nombre completo" optional>
@@ -391,8 +441,8 @@ function RegistroConsultorioForm() {
             </Field>
           </>}
 
-          {/* ── Paso 4: Hijos ── */}
-          {step === 4 && <>
+          {/* ── Paso: Hijos ── */}
+          {steps[step]?.id === 'hijos' && <>
             <h2 className="text-base font-semibold text-gray-800">Hijos</h2>
             <p className="text-xs text-gray-400">Si no hay hijos, deja la tabla en blanco y continúa.</p>
             <div className="space-y-4">
@@ -437,8 +487,8 @@ function RegistroConsultorioForm() {
             )}
           </>}
 
-          {/* ── Paso 5: Salud ── */}
-          {step === 5 && <>
+          {/* ── Paso: Salud ── */}
+          {steps[step]?.id === 'salud' && <>
             <h2 className="text-base font-semibold text-gray-800">Salud</h2>
             <Field label="¿Padece alguna enfermedad?" optional>
               <input type="text" value={dg.salud_padece_enfermedad}
@@ -485,7 +535,7 @@ function RegistroConsultorioForm() {
               ← Anterior
             </button>
           )}
-          {step < STEPS.length - 1 ? (
+          {step < steps.length - 1 ? (
             <button onClick={siguiente}
               className="flex-1 py-3 rounded-2xl bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors">
               Siguiente →
