@@ -34,38 +34,25 @@ function SeccionBloqueada({ titulo }: { titulo: string }) {
   )
 }
 
-function SeccionProxima({ titulo, descripcion }: { titulo: string; descripcion: string }) {
-  return (
-    <div className="bg-white border border-gray-200 rounded-2xl p-5">
-      <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-gray-700 text-sm">{titulo}</h3>
-        <span className="text-xs bg-primary-100 text-primary-700 px-2 py-1 rounded-full font-medium">Próximamente</span>
-      </div>
-      <p className="text-xs text-gray-500 mt-2">{descripcion}</p>
-      <button disabled className="mt-4 w-full py-2 bg-gray-100 text-gray-400 text-sm rounded-xl cursor-not-allowed font-medium">
-        Disponible próximamente
-      </button>
-    </div>
-  )
-}
 
 function SeccionActiva({ titulo, descripcion, href }: { titulo: string; descripcion: string; href: string }) {
   return (
-    <div className="bg-white border border-primary-100 rounded-2xl p-5">
-      <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-gray-700 text-sm">{titulo}</h3>
-        <span className="text-xs bg-primary-100 text-primary-700 px-2 py-1 rounded-full font-medium">
-          Disponible
-        </span>
+    <Link
+      href={href}
+      className="group bg-white border border-primary-100 rounded-2xl p-5 hover:border-primary-300 hover:shadow-sm transition-all block"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <h3 className="font-semibold text-gray-700 text-sm group-hover:text-primary-700 transition-colors">{titulo}</h3>
+          <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">{descripcion}</p>
+        </div>
+        <span className="shrink-0 text-primary-400 group-hover:text-primary-600 transition-colors text-lg mt-0.5">→</span>
       </div>
-      <p className="text-xs text-gray-500 mt-2">{descripcion}</p>
-      <Link
-        href={href}
-        className="mt-4 w-full py-2 bg-primary-600 text-white text-sm rounded-xl font-medium hover:bg-primary-700 transition-colors text-center block"
-      >
-        Ver reporte →
-      </Link>
-    </div>
+      <div className="mt-3 pt-3 border-t border-gray-50 flex items-center justify-between">
+        <span className="text-xs bg-primary-50 text-primary-600 px-2 py-0.5 rounded-full font-medium">Disponible</span>
+        <span className="text-xs text-primary-500 font-medium group-hover:underline">Ver reporte</span>
+      </div>
+    </Link>
   )
 }
 
@@ -227,39 +214,30 @@ export default async function InstitucionalDashboardPage() {
         )
       })}
 
-      {/* ── Secciones gateadas por nivel más alto (aplican a todas las empresas) ── */}
+      {/* ── Reportes (N1/N2) ──────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Reporte por terapeuta */}
+        {canN1N2 ? (
+          <SeccionActiva
+            titulo="Reporte por terapeuta"
+            descripcion="Estadística de sesiones, motivos, derivaciones y satisfacción por terapeuta y empresa."
+            href="/institucional/reporte-terapeuta"
+          />
+        ) : (
+          <SeccionBloqueada titulo="Reporte por terapeuta" />
+        )}
 
-      {/* Estadística institucional (N1/N2) */}
-      {canN1N2 ? (
-        <SeccionProxima
-          titulo="Estadística institucional general"
-          descripcion="Resumen estadístico de sesiones, avances y diagnósticos de todos los asesorados de la empresa."
-        />
-      ) : (
-        <SeccionBloqueada titulo="Estadística institucional general" />
-      )}
-
-      {/* Reporte por terapeuta (N1/N2) */}
-      {canN1N2 ? (
-        <SeccionActiva
-          titulo="Reporte por terapeuta"
-          descripcion="Estadística de sesiones, motivos, derivaciones y satisfacción por terapeuta y empresa."
-          href="/institucional/reporte-terapeuta"
-        />
-      ) : (
-        <SeccionBloqueada titulo="Reporte por terapeuta" />
-      )}
-
-      {/* Reporte Institucional General (N1 únicamente) */}
-      {topNivel === 'N1' ? (
-        <SeccionActiva
-          titulo="Reporte Institucional General"
-          descripcion="Estadística agregada de todos los terapeutas de la empresa: sesiones, derivaciones y satisfacción."
-          href="/institucional/reporte-general"
-        />
-      ) : (
-        <SeccionBloqueada titulo="Reporte Institucional General" />
-      )}
+        {/* Reporte Institucional General (N1 únicamente) */}
+        {topNivel === 'N1' ? (
+          <SeccionActiva
+            titulo="Reporte Institucional General"
+            descripcion="Estadística agregada de todos los terapeutas de la empresa: sesiones, derivaciones y satisfacción."
+            href="/institucional/reporte-general"
+          />
+        ) : (
+          <SeccionBloqueada titulo="Reporte Institucional General" />
+        )}
+      </div>
 
     </div>
   )
