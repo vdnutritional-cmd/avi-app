@@ -73,8 +73,22 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
 
         {/* Nav */}
         <nav className="p-4 space-y-1 overflow-y-auto flex-1">
-          <NavLink href="/therapist/dashboard" icon="🏠" label="Dashboard"      onClose={closeSidebar} />
-          <NavLink href="/therapist/patients"  icon="👥" label="Mis pacientes"  onClose={closeSidebar} />
+          <NavLink href="/therapist/dashboard" icon="🏠" label="Dashboard" onClose={closeSidebar} />
+
+          {isInstitucional ? (
+            <NavGroup
+              name="pacientes"
+              label="Mis pacientes"
+              icon="👥"
+              isOpen={openGroup === 'pacientes'}
+              onToggle={() => toggleGroup('pacientes')}
+            >
+              <NavLink href="/therapist/patients"                 icon="🔍" label="Seleccionar paciente"    onClose={closeSidebar} />
+              <NavLink href="/therapist/asignacion-institucion"   icon="🏢" label="Asignación a Institución" onClose={closeSidebar} />
+            </NavGroup>
+          ) : (
+            <NavLink href="/therapist/patients" icon="👥" label="Mis pacientes" onClose={closeSidebar} />
+          )}
 
           {/* Bloque: Registro de pacientes */}
           <NavGroup

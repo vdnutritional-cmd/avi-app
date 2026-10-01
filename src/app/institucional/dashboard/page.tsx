@@ -93,13 +93,11 @@ export default async function InstitucionalDashboardPage() {
       const terapeutas: TerapeutaRow[] = await Promise.all(
         (empresaRels ?? []).map(async (rel) => {
           const p = rel.profiles as { full_name?: string; email?: string } | null
-          // Contamos todos los pacientes activos del terapeuta, sin filtrar por empresa_id,
-          // porque pacientes registrados antes del campo empresa_id (o por rutas alternas)
-          // tienen ese campo en NULL aunque pertenezcan a la empresa.
           const { count } = await admin
             .from('therapist_patients')
             .select('*', { count: 'exact', head: true })
             .eq('therapist_id', rel.therapist_id as string)
+            .eq('empresa_id', empresaId)
             .eq('is_active', true)
           return {
             nombre: p?.full_name ?? 'Sin nombre',
