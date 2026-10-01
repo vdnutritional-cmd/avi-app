@@ -10,9 +10,10 @@ interface SidebarProps {
   subscriptionStatus: string | null
   patientSlots: number | null
   tier: string | null
+  isInstitucional?: boolean
 }
 
-export default function Sidebar({ fullName, email, subscriptionStatus, patientSlots, tier }: SidebarProps) {
+export default function Sidebar({ fullName, email, subscriptionStatus, patientSlots, tier, isInstitucional }: SidebarProps) {
   const [open, setOpen] = useState(false)
   const [openGroup, setOpenGroup] = useState<string | null>(null)
 
@@ -136,6 +137,9 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
         <div className="mx-4 border-t border-gray-100" />
         <div className="p-4 space-y-3">
           <PlanBadge status={subscriptionStatus} patientSlots={patientSlots} tier={tier} />
+          {isInstitucional && (
+            <NavLink href="/institucional/dashboard" icon="🏢" label="Administración Institucional" onClose={closeSidebar} />
+          )}
           {email === 'pepe.vargas.papa@gmail.com' && (
             <NavLink href="/admin/terapeutas" icon="⚙️" label="Administración" onClose={closeSidebar} />
           )}

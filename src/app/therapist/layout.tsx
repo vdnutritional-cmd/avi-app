@@ -61,6 +61,7 @@ export default async function TherapistLayout({ children }: { children: React.Re
           subscriptionStatus={subscription?.status ?? null}
           patientSlots={subscription?.patient_slots ?? null}
           tier={subscription?.tier ?? null}
+          isInstitucional={!!piBlock}
         />
 
         {/* Contenido principal — padding-top extra en móvil para el botón hamburger */}

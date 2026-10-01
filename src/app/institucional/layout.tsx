@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import InstitucionalLogoutButton from './LogoutButton'
 
 export default async function InstitucionalLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -57,12 +58,7 @@ export default async function InstitucionalLayout({ children }: { children: Reac
               Panel terapeuta →
             </Link>
           )}
-          <Link
-            href="/api/auth/logout"
-            className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            Salir
-          </Link>
+          <InstitucionalLogoutButton />
         </div>
       </header>
 
