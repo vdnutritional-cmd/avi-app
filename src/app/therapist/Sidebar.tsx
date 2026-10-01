@@ -12,9 +12,11 @@ interface SidebarProps {
   tier: string | null
   isInstitucional?: boolean
   hasEmpresas?: boolean
+  disabled?: boolean             // nav en gris — opera_como_terapeuta=false
+  hideInstitucionalLink?: boolean // ocultar link "Administración Institucional" (ya estás ahí)
 }
 
-export default function Sidebar({ fullName, email, subscriptionStatus, patientSlots, tier, isInstitucional, hasEmpresas }: SidebarProps) {
+export default function Sidebar({ fullName, email, subscriptionStatus, patientSlots, tier, isInstitucional, hasEmpresas, disabled, hideInstitucionalLink }: SidebarProps) {
   const [open, setOpen] = useState(false)
   const [openGroup, setOpenGroup] = useState<string | null>(null)
 
@@ -74,6 +76,12 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
 
         {/* Nav */}
         <nav className="p-4 space-y-1 overflow-y-auto flex-1">
+          {disabled && (
+            <div className="mb-3 px-3 py-2.5 rounded-xl bg-gray-100 border border-gray-200 text-xs text-gray-500 leading-snug">
+              🔒 Panel terapeuta no disponible para este perfil
+            </div>
+          )}
+          <div className={disabled ? 'opacity-40 pointer-events-none select-none' : ''}>
           <NavLink href="/therapist/dashboard" icon="🏠" label="Dashboard" onClose={closeSidebar} />
 
           {hasEmpresas ? (
@@ -146,13 +154,14 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
             <NavLink href="/therapist/configuracion/terapia"      icon="🧠" label="Enfoque terapéutico"         onClose={closeSidebar} />
             <NavLink href="/therapist/configuracion/politica-baja" icon="🔒" label="Política de baja de un asesorado o paciente" onClose={closeSidebar} />
           </NavGroup>
+          </div>
         </nav>
 
         {/* Separador + Plan + Logout — justo bajo el nav */}
         <div className="mx-4 border-t border-gray-100" />
         <div className="p-4 space-y-3">
           <PlanBadge status={subscriptionStatus} patientSlots={patientSlots} tier={tier} />
-          {isInstitucional && (
+          {isInstitucional && !hideInstitucionalLink && (
             <NavLink href="/institucional/dashboard" icon="🏢" label="Administración Institucional" onClose={closeSidebar} />
           )}
           {email === 'pepe.vargas.papa@gmail.com' && (
