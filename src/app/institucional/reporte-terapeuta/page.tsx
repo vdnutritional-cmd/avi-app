@@ -184,6 +184,7 @@ export default async function ReporteTerapeutaPage({
       relaciones: [], derivacionesRows: [], expedientesRows: [],
       todosActivosRows: [], derivActivosRows: [],
       empresaByPatient, nombreByPatient,
+      sinConvenioSesiones: 0, sinConvenioPersonas: 0,
     })
   }
 
@@ -251,6 +252,39 @@ export default async function ReporteTerapeutaPage({
         .in('patient_id', todosActivosIds)
     : { data: [] }
 
+  // ── 5. Pacientes SIN convenio (referencia de reconciliación) ──────────────
+  let scQuery = admin
+    .from('therapist_patients')
+    .select('patient_id, is_active, status, initial_note_date, initial_note')
+    .in('therapist_id', therapistIds)
+    .is('empresa_id', null)
+
+  if (tipo === 'activos') scQuery = scQuery.eq('is_active', true).neq('status', 'archived')
+  else if (tipo === 'inactivos') scQuery = scQuery.eq('is_active', false).neq('status', 'archived')
+  else scQuery = scQuery.neq('status', 'archived')
+
+  const { data: scRels } = await scQuery
+  const scPacIds = (scRels ?? []).map(r => r.patient_id as string)
+
+  const { data: scSesRaw } = scPacIds.length > 0
+    ? await admin.from('therapist_session_notes')
+        .select('patient_id')
+        .in('therapist_id', therapistIds)
+        .in('patient_id', scPacIds)
+        .gte('session_date', mesInicio)
+        .lt('session_date', mesSiguiente)
+    : { data: [] }
+
+  const scNotasPacIds = (scRels ?? [])
+    .filter(r => r.initial_note != null && r.initial_note_date != null &&
+      (r.initial_note_date as string) >= mesInicio &&
+      (r.initial_note_date as string) < mesSiguiente)
+    .map(r => r.patient_id as string)
+
+  const allScPacIds = [...(scSesRaw ?? []).map(s => s.patient_id as string), ...scNotasPacIds]
+  const sinConvenioSesiones = allScPacIds.length
+  const sinConvenioPersonas = new Set(allScPacIds).size
+
   return renderPage({
     year, month, mesKey, isCurrentMonth, tipo, pid, terapeutaId,
     piNombre, empresas, terapeutas, empresaId, empresaActual,
@@ -261,6 +295,7 @@ export default async function ReporteTerapeutaPage({
     todosActivosRows: todosActivosRows ?? [],
     derivActivosRows: derivActivosRows ?? [],
     empresaByPatient, nombreByPatient,
+    sinConvenioSesiones, sinConvenioPersonas,
   })
 }
 
@@ -283,6 +318,8 @@ interface RenderProps {
   derivActivosRows: Record<string, unknown>[]
   empresaByPatient: Record<string, string>
   nombreByPatient: Record<string, string>
+  sinConvenioSesiones: number
+  sinConvenioPersonas: number
 }
 
 function renderPage({
@@ -292,6 +329,7 @@ function renderPage({
   relaciones, derivacionesRows, expedientesRows,
   todosActivosRows, derivActivosRows,
   empresaByPatient, nombreByPatient,
+  sinConvenioSesiones, sinConvenioPersonas,
 }: RenderProps) {
   const archivedSet = new Set(relaciones.filter(r => r.status === 'archived').map(r => r.patient_id as string))
   const pacientesParaDropdown = pacientesEnPeriodoIds
@@ -435,6 +473,19 @@ function renderPage({
           <section className="space-y-3">
             <SectionTitle>Sesiones por institución</SectionTitle>
             <TableSimple rows={institucionRows.map(r => [r.nombre, String(r.total), `${r.pct}%`])} headers={['Institución', 'Sesiones', '%']} />
+            {sinConvenioSesiones > 0 && (
+              <div className="flex items-center justify-between px-5 py-3 bg-gray-50 border border-dashed border-gray-200 rounded-xl text-sm">
+                <div>
+                  <span className="text-gray-600 font-medium">Pacientes sin Convenio</span>
+                  <span className="ml-2 text-xs text-gray-400">(referencia — no incluidos en totales del convenio)</span>
+                </div>
+                <div className="flex items-center gap-3 text-gray-600 shrink-0">
+                  <span className="font-semibold">{sinConvenioSesiones} ses.</span>
+                  <span className="text-gray-300">·</span>
+                  <span>{sinConvenioPersonas} personas</span>
+                </div>
+              </div>
+            )}
           </section>
 
           {motivoEntries.length > 0 && (
