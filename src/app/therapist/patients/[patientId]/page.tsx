@@ -617,7 +617,7 @@ export default function PatientDetailPage() {
       ].join(' ')}
     >
       <Icon size={14} className="shrink-0 flex-none" />
-      <span className="flex-1 truncate text-[13px] leading-tight">{label}</span>
+      <span className="flex-1 truncate text-sm leading-tight">{label}</span>
       {badge !== undefined && badge !== 0 && badge !== '' && (
         <span className="shrink-0 text-[10px] bg-primary-100 text-primary-700 px-1.5 py-0.5 rounded-full font-semibold leading-none">{badge}</span>
       )}
