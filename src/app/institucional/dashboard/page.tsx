@@ -190,7 +190,7 @@ export default async function InstitucionalDashboardPage() {
             )}
 
             {/* Tarjetas de resumen */}
-            <div className="flex gap-3 md:w-2/3 md:mx-auto">
+            <div className="flex gap-6 md:w-2/3 md:mx-auto">
               {/* Verde — Terapeutas */}
               <div className="flex-1 bg-green-50 border border-green-200 rounded-2xl px-4 py-3 flex flex-col items-center justify-center gap-0.5">
                 <span className="text-3xl font-bold text-green-700 leading-none">
