@@ -216,17 +216,6 @@ export default async function InstitucionalDashboardPage() {
 
       {/* ── Reportes (N1/N2) ──────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Reporte por terapeuta */}
-        {canN1N2 ? (
-          <SeccionActiva
-            titulo="Reporte por terapeuta"
-            descripcion="Estadística de sesiones, motivos, derivaciones y satisfacción por terapeuta y empresa."
-            href="/institucional/reporte-terapeuta"
-          />
-        ) : (
-          <SeccionBloqueada titulo="Reporte por terapeuta" />
-        )}
-
         {/* Reporte Institucional General (N1 únicamente) */}
         {topNivel === 'N1' ? (
           <SeccionActiva
@@ -236,6 +225,17 @@ export default async function InstitucionalDashboardPage() {
           />
         ) : (
           <SeccionBloqueada titulo="Reporte Institucional General" />
+        )}
+
+        {/* Reporte por terapeuta */}
+        {canN1N2 ? (
+          <SeccionActiva
+            titulo="Reporte por terapeuta"
+            descripcion="Estadística de sesiones, motivos, derivaciones y satisfacción por terapeuta y empresa."
+            href="/institucional/reporte-terapeuta"
+          />
+        ) : (
+          <SeccionBloqueada titulo="Reporte por terapeuta" />
         )}
       </div>
 
