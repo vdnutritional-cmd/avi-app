@@ -13,20 +13,27 @@ import CuestionariosTab from './CuestionariosTab'
 // ──────────────────────────────────────────────
 // Props
 // ──────────────────────────────────────────────
+type ClinicSubTab = 'individual' | 'familiar' | 'pareja' | 'prediagnostico' | 'analisis-clinicos' | 'impresiones' | 'cuestionarios'
+
 interface Props {
   patientId: string
   therapistId: string
   patientEmail: string | null
   patientName: string | null
+  /** Cuando se pasa desde el sidebar EHR, sobreescribe el subTab interno y oculta la sub-nav */
+  controlledSubTab?: ClinicSubTab
 }
 
 // ──────────────────────────────────────────────
 // Main component
 // ──────────────────────────────────────────────
-export default function ExpedienteTab({ patientId, therapistId, patientEmail: _patientEmail, patientName }: Props) {
+export default function ExpedienteTab({ patientId, therapistId, patientEmail: _patientEmail, patientName, controlledSubTab }: Props) {
   const [tipoCaso, setTipoCaso] = useState('')
   const [loading, setLoading] = useState(true)
-  const [subTab, setSubTab] = useState<'individual' | 'familiar' | 'pareja' | 'prediagnostico' | 'analisis-clinicos' | 'impresiones' | 'cuestionarios'>('prediagnostico')
+  const [subTab, setSubTab] = useState<ClinicSubTab>('prediagnostico')
+
+  // Cuando el sidebar controla el sub-tab, usamos ese valor
+  const activeSubTab: ClinicSubTab = controlledSubTab ?? subTab
 
   // Cargar expediente al montar
   useEffect(() => {
@@ -91,28 +98,30 @@ export default function ExpedienteTab({ patientId, therapistId, patientEmail: _p
   return (
     <div className="space-y-4">
 
-      {/* Sub-navegación */}
-      <div className="flex gap-2 border-b border-gray-200 pb-3 overflow-x-auto">
-        {SUB_TABS.map(tab => (
-          <button
-            key={tab.id}
-            disabled={!tab.ready}
-            onClick={() => tab.ready && setSubTab(tab.id as typeof subTab)}
-            className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap
-              ${subTab === tab.id && tab.ready
-                ? 'bg-primary-600 text-white'
-                : tab.ready
-                  ? 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  : 'bg-gray-50 text-gray-300 cursor-not-allowed'
-              }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      {/* Sub-navegación — solo visible cuando NO hay sidebar controlando */}
+      {!controlledSubTab && (
+        <div className="flex gap-2 border-b border-gray-200 pb-3 overflow-x-auto">
+          {SUB_TABS.map(tab => (
+            <button
+              key={tab.id}
+              disabled={!tab.ready}
+              onClick={() => tab.ready && setSubTab(tab.id as ClinicSubTab)}
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap
+                ${activeSubTab === tab.id && tab.ready
+                  ? 'bg-primary-600 text-white'
+                  : tab.ready
+                    ? 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    : 'bg-gray-50 text-gray-300 cursor-not-allowed'
+                }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* ── Individual ── */}
-      {subTab === 'individual' && (
+      {activeSubTab === 'individual' && (
         <IndividualTab
           patientId={patientId}
           therapistId={therapistId}
@@ -121,7 +130,7 @@ export default function ExpedienteTab({ patientId, therapistId, patientEmail: _p
       )}
 
       {/* ── Impresiones ── */}
-      {subTab === 'impresiones' && (
+      {activeSubTab === 'impresiones' && (
         <ImpresionesTab
           patientId={patientId}
           therapistId={therapistId}
@@ -130,7 +139,7 @@ export default function ExpedienteTab({ patientId, therapistId, patientEmail: _p
       )}
 
       {/* ── Familiar ── */}
-      {subTab === 'familiar' && (
+      {activeSubTab === 'familiar' && (
         <FamiliarTab
           patientId={patientId}
           therapistId={therapistId}
@@ -138,7 +147,7 @@ export default function ExpedienteTab({ patientId, therapistId, patientEmail: _p
       )}
 
       {/* ── Prediagnóstico ── */}
-      {subTab === 'prediagnostico' && (
+      {activeSubTab === 'prediagnostico' && (
         <PrediagnosticoTab
           patientId={patientId}
           therapistId={therapistId}
@@ -146,7 +155,7 @@ export default function ExpedienteTab({ patientId, therapistId, patientEmail: _p
       )}
 
       {/* ── Análisis Clínicos ── */}
-      {subTab === 'analisis-clinicos' && (
+      {activeSubTab === 'analisis-clinicos' && (
         <AnalisisClanicosTab
           patientId={patientId}
           therapistId={therapistId}
@@ -154,7 +163,7 @@ export default function ExpedienteTab({ patientId, therapistId, patientEmail: _p
       )}
 
       {/* ── Pareja ── */}
-      {subTab === 'pareja' && (
+      {activeSubTab === 'pareja' && (
         <ParejaTab
           patientId={patientId}
           therapistId={therapistId}
@@ -162,7 +171,7 @@ export default function ExpedienteTab({ patientId, therapistId, patientEmail: _p
       )}
 
       {/* ── Cuestionarios ── */}
-      {subTab === 'cuestionarios' && (
+      {activeSubTab === 'cuestionarios' && (
         <CuestionariosTab
           patientId={patientId}
           therapistId={therapistId}

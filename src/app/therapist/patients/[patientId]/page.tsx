@@ -3,6 +3,11 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import {
+  User, FolderOpen, MessageSquare, FileText, Calendar, Search,
+  ArrowRightCircle, Users, Heart, ClipboardList, Activity,
+  CheckSquare, Printer, AlertTriangle, Lock,
+} from 'lucide-react'
 import ExpedienteTab from './ExpedienteTab'
 import DatosGeneralesTab from './DatosGeneralesTab'
 import TipoCasoTab from './TipoCasoTab'
@@ -139,7 +144,8 @@ export default function PatientDetailPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [expedienteRow, setExpedienteRow] = useState<Record<string, any> | null | undefined>(undefined)
 
-  const [activeTab, setActiveTab] = useState<'datos-generales' | 'tipo-caso' | 'sesiones' | 'presenciales' | 'analisis' | 'nota' | 'expediente' | 'derivaciones-cierres'>('datos-generales')
+  type PatientTab = 'datos-generales' | 'tipo-caso' | 'sesiones' | 'presenciales' | 'analisis' | 'nota' | 'derivaciones-cierres' | 'individual' | 'familiar' | 'pareja' | 'prediagnostico' | 'analisis-clinicos' | 'cuestionarios' | 'impresiones'
+  const [activeTab, setActiveTab] = useState<PatientTab>('datos-generales')
   const [therapistId, setTherapistId] = useState<string | null>(null)
   const [tier, setTier] = useState<'esencial' | 'clinico'>('esencial')
   const streamRef = useRef<HTMLDivElement>(null)
@@ -583,8 +589,68 @@ export default function PatientDetailPage() {
   const tipoFamActive = !tipoCasoActivo || tipoCasoActivo === 'Familiar'
   const tipoParActive = !tipoCasoActivo || tipoCasoActivo === 'Pareja'
 
+  // ── Helpers para sidebar ───────────────────────────────────────────────────
+  const isClinico = tier === 'clinico'
+  type SidebarItem = {
+    id: PatientTab
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    Icon: any
+    label: string
+    badge?: string | number
+    alert?: boolean
+    dim?: boolean
+  }
+
+  const navItem = ({ id, Icon, label, badge, alert, dim }: SidebarItem) => (
+    <button
+      key={id}
+      onClick={() => { if (!dim) setActiveTab(id) }}
+      title={dim ? 'No disponible para este tipo de caso' : undefined}
+      className={[
+        'w-full flex items-center gap-2 px-3 py-2 text-left transition-colors',
+        dim
+          ? 'text-gray-300 cursor-not-allowed'
+          : activeTab === id
+            ? 'bg-primary-50 text-primary-700 font-medium border-r-2 border-primary-500'
+            : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700',
+      ].join(' ')}
+    >
+      <Icon size={14} className="shrink-0 flex-none" />
+      <span className="flex-1 truncate text-xs leading-tight">{label}</span>
+      {badge !== undefined && badge !== 0 && badge !== '' && (
+        <span className="shrink-0 text-[10px] bg-primary-100 text-primary-700 px-1.5 py-0.5 rounded-full font-semibold leading-none">{badge}</span>
+      )}
+      {alert && (
+        <AlertTriangle size={11} className="shrink-0 text-amber-500" />
+      )}
+    </button>
+  )
+
+  const esencialItems: SidebarItem[] = [
+    { id: 'datos-generales',      Icon: User,             label: 'Datos generales' },
+    { id: 'tipo-caso',            Icon: FolderOpen,        label: 'Tipo de caso' },
+    { id: 'sesiones',             Icon: MessageSquare,     label: 'Sesiones AVI', badge: patterns.length || undefined },
+    { id: 'nota',                 Icon: FileText,          label: 'Nota inicial', alert: !savedNote },
+    { id: 'presenciales',         Icon: Calendar,          label: 'Ses. presenciales', badge: sessionNotes.length > 0 ? `${sessionNotes.length}/${MAX_SESIONES_PRESENCIALES}` : undefined },
+    { id: 'analisis',             Icon: Search,            label: 'Análisis', badge: analyses.length || undefined },
+    { id: 'derivaciones-cierres', Icon: ArrowRightCircle,  label: 'Derivaciones' },
+  ]
+
+  const clinicoItems: SidebarItem[] = [
+    { id: 'tipo-caso',        Icon: FolderOpen,     label: 'Tipo de caso' },
+    { id: 'individual',       Icon: User,           label: 'Individual',  dim: !isClinico || (!!tipoCasoActivo && tipoCasoActivo !== 'Individual') },
+    { id: 'familiar',         Icon: Users,          label: 'Familiar',    dim: !isClinico || (!!tipoCasoActivo && tipoCasoActivo !== 'Familiar') },
+    { id: 'pareja',           Icon: Heart,          label: 'Pareja',      dim: !isClinico || (!!tipoCasoActivo && tipoCasoActivo !== 'Pareja') },
+    { id: 'prediagnostico',   Icon: ClipboardList,  label: 'Prediagnóstico',    dim: !isClinico },
+    { id: 'analisis-clinicos',Icon: Activity,       label: 'Análisis clínicos', dim: !isClinico },
+    { id: 'cuestionarios',    Icon: CheckSquare,    label: 'Cuestionarios',     dim: !isClinico },
+    { id: 'impresiones',      Icon: Printer,        label: 'Impresiones clínicas', dim: !isClinico },
+  ]
+
+  const clinicoTabIds: PatientTab[] = ['individual','familiar','pareja','prediagnostico','analisis-clinicos','cuestionarios','impresiones']
+
   return (
-    <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
+    <div className="max-w-5xl mx-auto px-4 py-8">
 
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -694,38 +760,34 @@ export default function PatientDetailPage() {
         </button>
       </div>
 
-      {/* Tabs */}
-      <div className="flex border-b border-gray-200 overflow-x-auto">
-        {[
-          { id: 'datos-generales', label: 'Datos Generales',                                   locked: false },
-          { id: 'tipo-caso',       label: 'Tipo de caso',                                      locked: false },
-          { id: 'sesiones',        label: `Sesiones AVI (${patterns.length})`,                 locked: false },
-          { id: 'nota',            label: 'Nota inicial' + (savedNote ? ' ✓' : ' ⚠️'),        locked: false },
-          { id: 'presenciales',    label: `Sesiones presenciales (${sessionNotes.length}/${MAX_SESIONES_PRESENCIALES})`, locked: false },
-          { id: 'analisis',        label: `Análisis (${analyses.length})`,                     locked: false },
-          { id: 'derivaciones-cierres', label: 'Derivaciones y Cierres', locked: false },
-          { id: 'expediente',      label: tier === 'clinico' ? 'AVI-CLÍNICO' : '🔒 AVI-CLÍNICO', locked: tier !== 'clinico' },
-        ].map(tab => (
-          <button key={tab.id}
-            onClick={() => {
-              if (tab.locked) {
-                alert('AVI-CLÍNICO está disponible en AVI Clínico. Actualiza tu plan en Planes y precios.')
-                return
-              }
-              setActiveTab(tab.id as typeof activeTab)
-            }}
-            title={tab.locked ? 'Disponible en AVI Clínico' : undefined}
-            className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
-              tab.locked
-                ? 'border-transparent text-gray-300 cursor-not-allowed'
-                : activeTab === tab.id
-                  ? 'border-primary-600 text-primary-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}>
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      {/* ── Layout dos columnas: Sidebar + Contenido ── */}
+      <div className="flex mt-6">
+
+        {/* ── Sidebar EHR ── */}
+        <aside className="w-48 shrink-0 border-r border-gray-100 self-start sticky top-4 pb-8">
+
+          {/* AVI-Esencial */}
+          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest px-3 pt-1 pb-1.5">AVI-Esencial</p>
+          {esencialItems.map(item => navItem(item))}
+
+          {/* Separador */}
+          <div className="border-t border-gray-100 mx-3 my-2.5" />
+
+          {/* AVI-Clínico */}
+          <div className="flex items-center gap-1.5 px-3 pb-1.5">
+            <p className={`text-[10px] font-semibold uppercase tracking-widest ${!isClinico ? 'text-gray-300' : 'text-gray-400'}`}>AVI-Clínico</p>
+            {!isClinico && <Lock size={10} className="text-gray-300" />}
+          </div>
+          {clinicoItems.map(item => navItem({ ...item, dim: item.dim || !isClinico }))}
+          {!isClinico && (
+            <p className="text-[10px] text-gray-300 px-3 pt-1 leading-relaxed">
+              Disponible en plan Clínico
+            </p>
+          )}
+        </aside>
+
+        {/* ── Área de contenido ── */}
+        <main className="flex-1 min-w-0 pl-6 space-y-4">
 
       {/* ── TAB: Datos Generales ── */}
       {activeTab === 'datos-generales' && therapistId && (
@@ -2137,15 +2199,19 @@ export default function PatientDetailPage() {
         />
       )}
 
-      {/* ── TAB: Expediente ── */}
-      {activeTab === 'expediente' && therapistId && (
+      {/* ── AVI-CLÍNICO tabs (controlados por el sidebar) ── */}
+      {clinicoTabIds.includes(activeTab) && therapistId && isClinico && (
         <ExpedienteTab
           patientId={patientId}
           therapistId={therapistId}
           patientEmail={profile?.email ?? null}
           patientName={profile?.full_name ?? null}
+          controlledSubTab={activeTab as 'individual' | 'familiar' | 'pareja' | 'prediagnostico' | 'analisis-clinicos' | 'cuestionarios' | 'impresiones'}
         />
       )}
+
+        </main>
+      </div>
     </div>
   )
 }
