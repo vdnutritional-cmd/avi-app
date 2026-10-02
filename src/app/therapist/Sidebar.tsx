@@ -124,13 +124,22 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
             <NavLink href="/therapist/asesorias"   icon="📈" label="Mis asesorías"                   onClose={closeSidebar} />
             <NavLink href="/therapist/estadisticas" icon="📊" label="Mi estadística"                   onClose={closeSidebar} />
 
-            {/* Reportes terapéuticos — abre el panel flotante */}
+            {/* Reportes terapéuticos — desktop: página dedicada · móvil: panel deslizante */}
+            <Link
+              href="/therapist/reportes"
+              className="hidden md:flex items-center gap-3 px-3 py-2 rounded-xl text-gray-600
+                         hover:bg-primary-50 hover:text-primary-700 transition-colors text-sm"
+              onClick={closeSidebar}
+            >
+              <span>🖨️</span>
+              <span className="flex-1 text-left">Reportes terapéuticos</span>
+            </Link>
             <button
               onClick={() => {
                 window.dispatchEvent(new CustomEvent('avi:openReportes'))
                 closeSidebar()
               }}
-              className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-gray-600
+              className="md:hidden w-full flex items-center gap-3 px-3 py-2 rounded-xl text-gray-600
                          hover:bg-primary-50 hover:text-primary-700 transition-colors text-sm"
             >
               <span>🖨️</span>
