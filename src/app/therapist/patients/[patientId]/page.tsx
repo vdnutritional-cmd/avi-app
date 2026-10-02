@@ -671,13 +671,53 @@ export default function PatientDetailPage() {
   const activeGroup = esencialTabIds.includes(activeTab) ? 'AVI-Esencial' : 'AVI-Clínico'
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
+    <div className="max-w-5xl mx-auto px-4 py-6 md:py-8">
+
+      {/* ── Móvil: fila superior (← Mis pacientes + ☰ Nav) ── */}
+      <div className="md:hidden flex items-center justify-between mb-1">
+        <button
+          onClick={() => router.push('/therapist/patients')}
+          className="text-sm text-gray-400 hover:text-gray-600 flex items-center gap-1"
+        >
+          ← Mis pacientes
+        </button>
+        <button
+          onClick={() => setSheetOpen(true)}
+          className="flex items-center gap-1 text-xs font-medium text-primary-600 border border-primary-200 rounded-lg px-2 py-1 hover:bg-primary-50 transition-colors"
+        >
+          <Menu size={12} />
+          Nav
+        </button>
+      </div>
+
+      {/* ── Móvil: breadcrumb sección activa ── */}
+      <p className="md:hidden text-[11px] text-gray-400 mb-3">
+        <span className="font-semibold text-gray-600">{activeGroup}</span>
+        {' / '}
+        {TAB_LABELS[activeTab]}
+      </p>
+
+      {/* ── Móvil: Analizar caso (antes del nombre) ── */}
+      <div className="md:hidden mb-4">
+        <button
+          onClick={requestAnalysis}
+          disabled={analyzing || !savedNote.trim()}
+          title={!savedNote.trim() ? 'Primero agrega una nota inicial' : ''}
+          className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-xl
+                     font-semibold text-sm hover:bg-primary-700 transition-colors
+                     disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {analyzing
+            ? <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Analizando...</>
+            : '🔍 Analizar caso'}
+        </button>
+      </div>
 
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <button onClick={() => router.push('/therapist/patients')}
-            className="text-sm text-gray-400 hover:text-gray-600 mb-2 flex items-center gap-1">
+            className="hidden md:flex text-sm text-gray-400 hover:text-gray-600 mb-2 items-center gap-1">
             ← Mis pacientes
           </button>
 
@@ -771,29 +811,13 @@ export default function PatientDetailPage() {
           onClick={requestAnalysis}
           disabled={analyzing || !savedNote.trim()}
           title={!savedNote.trim() ? 'Primero agrega una nota inicial' : ''}
-          className="flex items-center gap-2 px-5 py-3 bg-primary-600 text-white rounded-xl
+          className="hidden md:flex items-center gap-2 px-5 py-3 bg-primary-600 text-white rounded-xl
                      font-semibold text-sm hover:bg-primary-700 transition-colors
                      disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {analyzing
             ? <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Analizando...</>
             : '🔍 Analizar caso'}
-        </button>
-      </div>
-
-      {/* ── Barra de navegación móvil (M3 Bottom Sheet trigger) ── */}
-      <div className="md:hidden mt-4 flex items-center justify-between bg-white border border-gray-100 rounded-xl px-4 py-2.5 shadow-sm">
-        <p className="text-xs text-gray-500 truncate">
-          <span className="font-semibold text-gray-700">{activeGroup}</span>
-          {' / '}
-          <span>{TAB_LABELS[activeTab]}</span>
-        </p>
-        <button
-          onClick={() => setSheetOpen(true)}
-          className="ml-3 flex items-center gap-1.5 text-xs font-medium text-primary-600 border border-primary-200 rounded-lg px-2.5 py-1.5 hover:bg-primary-50 transition-colors shrink-0"
-        >
-          <Menu size={13} />
-          Nav
         </button>
       </div>
 
