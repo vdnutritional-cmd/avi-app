@@ -2366,3 +2366,344 @@ export async function imprimirReporteProcesoDesdeReportes(patientId: string) {
   const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', patientId).single()
   await imprimirReporteProceso(patientId, user.id, profile?.full_name ?? null)
 }
+
+// ──────────────────────────────────────────────────────────
+// Reporte: Datos Generales del Asesorado (una sola hoja + Genograma)
+// ──────────────────────────────────────────────────────────
+
+export async function imprimirDatosGeneralesDesdeReportes(
+  patientId: string,
+  headerOpts?: Partial<ReportHeaderOptions>,
+) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+
+  const [expedienteRes, terapeutaRes, pacienteRes] = await Promise.all([
+    supabase.from('patient_expediente').select('*').eq('therapist_id', user.id).eq('patient_id', patientId).maybeSingle(),
+    supabase.from('profiles').select('full_name').eq('id', user.id).single(),
+    supabase.from('profiles').select('full_name, email').eq('id', patientId).single(),
+  ])
+
+  const dg              = expedienteRes.data
+  const terapeutaNombre = terapeutaRes.data?.full_name ?? '—'
+  const patientName     = pacienteRes.data?.full_name ?? pacienteRes.data?.email ?? '—'
+  const patientEmail    = pacienteRes.data?.email ?? ''
+  const fechaHoy        = new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })
+
+  const v = (val: string | null | undefined) => val?.trim() || '—'
+
+  // Hijos con datos
+  const hijos: Array<{ nombre: string; edad: string; ocupacion: string; vive_en_casa: string }> = dg?.hijos ?? []
+  const hijosRows = Array(6).fill(null).map((_, i) => ({
+    nombre:      hijos[i]?.nombre      ?? '',
+    edad:        hijos[i]?.edad        ?? '',
+    ocupacion:   hijos[i]?.ocupacion   ?? '',
+    vive_en_casa: hijos[i]?.vive_en_casa ?? '',
+  }))
+
+  const hijosHTML = hijosRows.map((h, i) =>
+    `<tr>
+      <td class="num">${i + 1}</td>
+      <td>${h.nombre || '<span class="empty">—</span>'}</td>
+      <td>${h.edad   || '—'}</td>
+      <td>${h.ocupacion || '—'}</td>
+      <td>${h.vive_en_casa || '—'}</td>
+    </tr>`
+  ).join('')
+
+  // Salud
+  const saludAyuda = dg?.salud_ayuda_psicologica === 'Sí'
+    ? `Sí — ${v(dg?.salud_ayuda_tiempo)}`
+    : v(dg?.salud_ayuda_psicologica)
+  const saludMeds = dg?.salud_medicamentos === 'Sí'
+    ? `Sí — ${v(dg?.salud_medicamentos_cual)}`
+    : v(dg?.salud_medicamentos)
+
+  const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Datos Generales — ${patientName}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    @page { size: letter; margin: 1.4cm 2cm 1.6cm; }
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 9.5pt;
+      color: #1a1a1a;
+      line-height: 1.35;
+    }
+
+    /* ─── Encabezado ─── */
+    .top-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 2pt solid #7c3aed;
+      padding-bottom: 7pt;
+      margin-bottom: 5pt;
+    }
+    .brand { display: flex; align-items: center; gap: 7pt; }
+    .brand-mark {
+      width: 26pt; height: 26pt; border-radius: 5pt;
+      background: #7c3aed; color: #fff;
+      font-size: 14pt; font-weight: bold;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .brand-name { font-size: 13pt; font-weight: bold; color: #7c3aed; }
+    .brand-sub  { font-size: 8pt; color: #666; margin-top: 1pt; }
+    .header-meta { text-align: right; font-size: 8pt; color: #555; line-height: 1.6; }
+    .report-title {
+      text-align: center;
+      font-size: 11pt;
+      font-weight: bold;
+      color: #7c3aed;
+      text-transform: uppercase;
+      letter-spacing: 0.4pt;
+      margin: 5pt 0 7pt;
+    }
+
+    /* ─── Secciones ─── */
+    .section { margin-bottom: 7pt; }
+    .sec-header {
+      background: #7c3aed;
+      color: #fff;
+      font-size: 8pt;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 0.4pt;
+      padding: 2.5pt 7pt;
+    }
+    .sec-body {
+      border: 0.5pt solid #c4b5fd;
+      border-top: none;
+      padding: 5pt 7pt;
+    }
+    .grid2  { display: grid; grid-template-columns: 1fr 1fr; gap: 4pt 14pt; }
+    .grid3  { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4pt 10pt; }
+    .field  { margin-bottom: 3pt; }
+    .flabel {
+      font-size: 7pt; font-weight: bold; color: #7c3aed;
+      text-transform: uppercase; letter-spacing: 0.3pt;
+      margin-bottom: 1pt;
+    }
+    .fvalue {
+      font-size: 9pt; color: #1a1a1a;
+      border-bottom: 0.5pt solid #e9d5ff;
+      padding-bottom: 1pt; min-height: 11pt;
+    }
+    .empty { color: #bbb; font-style: italic; }
+
+    /* ─── Tabla hijos ─── */
+    .hijo-table { width: 100%; border-collapse: collapse; font-size: 8.5pt; }
+    .hijo-table th {
+      font-size: 7pt; font-weight: bold; color: #7c3aed;
+      text-transform: uppercase; letter-spacing: 0.3pt;
+      padding: 2pt 4pt; border-bottom: 0.5pt solid #c4b5fd;
+      text-align: left;
+    }
+    .hijo-table td { padding: 2.5pt 4pt; border-bottom: 0.5pt solid #f3e8ff; }
+    .hijo-table tr:last-child td { border-bottom: none; }
+    .num { color: #aaa; font-size: 8pt; }
+
+    /* ─── Genograma ─── */
+    .genograma-box {
+      border: 1pt solid #7c3aed;
+      height: 145pt;
+      position: relative;
+      margin-top: 7pt;
+    }
+    .genograma-label {
+      position: absolute; top: 5pt; right: 8pt;
+      font-size: 8pt; font-weight: bold;
+      color: #7c3aed; text-transform: uppercase; letter-spacing: 0.8pt;
+    }
+
+    /* ─── Firmas ─── */
+    .firmas {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 40pt;
+      margin-top: 10pt;
+    }
+    .firma-item { text-align: center; }
+    .firma-line { border-top: 0.75pt solid #555; padding-top: 4pt; font-size: 8pt; color: #555; }
+
+    /* ─── Pie ─── */
+    .footer {
+      border-top: 0.5pt solid #e9d5ff;
+      margin-top: 8pt;
+      padding-top: 4pt;
+      text-align: center;
+      font-size: 7pt;
+      color: #aaa;
+    }
+
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .no-print { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="no-print" style="text-align:right;padding:8pt 0 12pt;">
+    <button onclick="window.print()" style="padding:7pt 16pt;background:#7c3aed;color:white;border:none;border-radius:6pt;font-size:9.5pt;cursor:pointer;">
+      🖨 Imprimir / Guardar PDF
+    </button>
+  </div>
+
+  ${buildReportHeader({ terapeutaNombre, logoUrl: headerOpts?.logoUrl ?? null, side: headerOpts?.side ?? 'name' })}
+
+  <!-- Encabezado de hoja -->
+  <div class="top-header">
+    <div class="brand">
+      <div class="brand-mark">A</div>
+      <div>
+        <div class="brand-name">AVI Therapy Companion</div>
+        <div class="brand-sub">Registro clínico — Datos generales del asesorado</div>
+      </div>
+    </div>
+    <div class="header-meta">
+      <div><strong>Terapeuta:</strong> ${terapeutaNombre}</div>
+      <div><strong>Fecha:</strong> ${fechaHoy}</div>
+    </div>
+  </div>
+
+  <div class="report-title">Datos Generales del Asesorado</div>
+
+  <!-- 1. Datos del asesorado -->
+  <div class="section">
+    <div class="sec-header">Datos del asesorado</div>
+    <div class="sec-body">
+      <div class="grid2" style="margin-bottom:4pt;">
+        <div class="field">
+          <div class="flabel">Nombre completo</div>
+          <div class="fvalue">${v(dg?.asesorado_nombre)}</div>
+        </div>
+        <div class="grid2">
+          <div class="field">
+            <div class="flabel">Sexo</div>
+            <div class="fvalue">${v(dg?.asesorado_sexo)}</div>
+          </div>
+          <div class="field">
+            <div class="flabel">Edad</div>
+            <div class="fvalue">${v(dg?.asesorado_edad)}</div>
+          </div>
+        </div>
+      </div>
+      <div class="grid3">
+        <div class="field">
+          <div class="flabel">Fecha de nacimiento</div>
+          <div class="fvalue">${dg?.asesorado_fecha_nacimiento ? new Date(dg.asesorado_fecha_nacimiento + 'T00:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' }) : '—'}</div>
+        </div>
+        <div class="field">
+          <div class="flabel">Lugar de nacimiento</div>
+          <div class="fvalue">${v(dg?.asesorado_lugar_nacimiento)}</div>
+        </div>
+        <div class="field">
+          <div class="flabel">Estado civil</div>
+          <div class="fvalue">${v(dg?.asesorado_estado_civil)}</div>
+        </div>
+      </div>
+      <div class="grid3" style="margin-top:4pt;">
+        <div class="field">
+          <div class="flabel">Escolaridad</div>
+          <div class="fvalue">${v(dg?.asesorado_escolaridad)}</div>
+        </div>
+        <div class="field">
+          <div class="flabel">Ocupación</div>
+          <div class="fvalue">${v(dg?.asesorado_ocupacion)}</div>
+        </div>
+        <div class="field">
+          <div class="flabel">Religión — Parroquia</div>
+          <div class="fvalue">${v(dg?.asesorado_religion)}${dg?.asesorado_parroquia ? ' — ' + dg.asesorado_parroquia : ''}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Contacto + 3. Pareja (lado a lado) -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:7pt;margin-bottom:7pt;">
+    <div class="section" style="margin-bottom:0;">
+      <div class="sec-header">Datos de contacto</div>
+      <div class="sec-body">
+        <div class="field"><div class="flabel">Teléfono</div><div class="fvalue">${v(dg?.contacto_telefono)}</div></div>
+        <div class="field"><div class="flabel">Correo electrónico</div><div class="fvalue">${patientEmail || '—'}</div></div>
+        <div class="field"><div class="flabel">Domicilio</div><div class="fvalue">${v(dg?.contacto_domicilio)}</div></div>
+      </div>
+    </div>
+    <div class="section" style="margin-bottom:0;">
+      <div class="sec-header">Datos de la pareja</div>
+      <div class="sec-body">
+        <div class="field"><div class="flabel">Nombre completo</div><div class="fvalue">${v(dg?.pareja_nombre)}</div></div>
+        <div class="grid3">
+          <div class="field"><div class="flabel">Sexo</div><div class="fvalue">${v(dg?.pareja_sexo)}</div></div>
+          <div class="field"><div class="flabel">Edad</div><div class="fvalue">${v(dg?.pareja_edad)}</div></div>
+          <div class="field"><div class="flabel">Fecha nac.</div><div class="fvalue">${dg?.pareja_fecha_nacimiento ? new Date(dg.pareja_fecha_nacimiento + 'T00:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. Hijos + 5. Salud (lado a lado) -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:7pt;">
+    <div class="section" style="margin-bottom:0;">
+      <div class="sec-header">Datos de los hijos</div>
+      <div class="sec-body" style="padding:4pt 5pt;">
+        <table class="hijo-table">
+          <thead>
+            <tr>
+              <th style="width:12pt">#</th>
+              <th>Nombre</th>
+              <th style="width:24pt">Edad</th>
+              <th>Ocupación</th>
+              <th style="width:36pt">En casa</th>
+            </tr>
+          </thead>
+          <tbody>${hijosHTML}</tbody>
+        </table>
+      </div>
+    </div>
+    <div class="section" style="margin-bottom:0;">
+      <div class="sec-header">Salud</div>
+      <div class="sec-body">
+        <div class="field"><div class="flabel">¿Padece alguna enfermedad?</div><div class="fvalue">${v(dg?.salud_padece_enfermedad)}</div></div>
+        <div class="field"><div class="flabel">¿Ha recibido ayuda psicológica o psiquiátrica?</div><div class="fvalue">${saludAyuda}</div></div>
+        <div class="field"><div class="flabel">¿Toma medicamentos actualmente?</div><div class="fvalue">${saludMeds}</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Genograma -->
+  <div class="genograma-box">
+    <div class="genograma-label">Genograma</div>
+  </div>
+
+  <!-- Firmas -->
+  <div class="firmas">
+    <div class="firma-item">
+      <div class="firma-line">
+        <div style="font-size:8.5pt;font-weight:bold;color:#333;">${v(dg?.asesorado_nombre)}</div>
+        <div>Nombre y firma del Asesorado</div>
+      </div>
+    </div>
+    <div class="firma-item">
+      <div class="firma-line">
+        <div style="font-size:8.5pt;font-weight:bold;color:#333;">${terapeutaNombre}</div>
+        <div>Nombre y firma del Terapeuta</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pie de página -->
+  <div class="footer">
+    AVI Therapy Companion · avi-app.com.mx · Documento de uso clínico confidencial
+  </div>
+
+</body>
+</html>`
+
+  printHtmlViaIframe(html)
+}

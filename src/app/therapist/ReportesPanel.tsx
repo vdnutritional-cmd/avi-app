@@ -18,12 +18,13 @@ import {
   imprimirReporteValorativoDesdeReportes,
   imprimirIntegracionPlanDesdeReportes,
   imprimirReporteProcesoDesdeReportes,
+  imprimirDatosGeneralesDesdeReportes,
 } from './patients/[patientId]/print-utils'
 import { imprimirReporteAtencion, type ReporteAtencionData } from './reportes/reporte-atencion-print'
 
 // ── Tipos ─────────────────────────────────────────────────────
 type ReportId =
-  | 'nota-inicial' | 'sesiones' | 'analisis' | 'reporte-atencion'
+  | 'datos-generales' | 'nota-inicial' | 'sesiones' | 'analisis' | 'reporte-atencion'
   | 'hc-original' | 'hc-actualizada' | 'valorativo' | 'integracion' | 'proceso'
 
 interface Empresa  { id: string; nombre: string; logo_url: string | null }
@@ -36,6 +37,7 @@ interface Props {
 
 // ── Catálogos ─────────────────────────────────────────────────
 const ESENCIAL_ITEMS: { id: ReportId; label: string }[] = [
+  { id: 'datos-generales',  label: 'Datos Generales' },
   { id: 'nota-inicial',     label: 'Nota Inicial' },
   { id: 'sesiones',         label: 'Sesiones presenciales' },
   { id: 'analisis',         label: 'Análisis clínico y Propuesta técnica' },
@@ -149,6 +151,8 @@ export default function ReportesPanel({ tier, terapeutaNombre }: Props) {
   async function handlePrint() {
     if (!pid || !selected) return
     switch (selected) {
+      case 'datos-generales':
+        await imprimirDatosGeneralesDesdeReportes(pid, headerOpts); break
       case 'nota-inicial':
         await imprimirNotaInicialDesdeReportes(pid, headerOpts); break
       case 'sesiones':

@@ -17,12 +17,13 @@ import {
   imprimirReporteValorativoDesdeReportes,
   imprimirIntegracionPlanDesdeReportes,
   imprimirReporteProcesoDesdeReportes,
+  imprimirDatosGeneralesDesdeReportes,
 } from '../patients/[patientId]/print-utils'
 import { imprimirReporteAtencion, type ReporteAtencionData } from './reporte-atencion-print'
 
 // ── Tipos ─────────────────────────────────────────────────────
 type ReportId =
-  | 'nota-inicial' | 'sesiones' | 'analisis' | 'reporte-atencion'
+  | 'datos-generales' | 'nota-inicial' | 'sesiones' | 'analisis' | 'reporte-atencion'
   | 'hc-original' | 'hc-actualizada' | 'valorativo' | 'integracion' | 'proceso'
 
 interface Empresa  { id: string; nombre: string; logo_url: string | null }
@@ -31,6 +32,7 @@ interface Props    { tier: string | null; terapeutaNombre: string }
 
 // ── Catálogos ─────────────────────────────────────────────────
 const ESENCIAL_ITEMS: { id: ReportId; label: string; desc: string }[] = [
+  { id: 'datos-generales',   label: 'Datos Generales',                       desc: 'Ficha del asesorado con genograma (1 hoja).' },
   { id: 'nota-inicial',      label: 'Nota Inicial',                          desc: 'Primera consulta del paciente.' },
   { id: 'sesiones',          label: 'Sesiones presenciales',                 desc: 'Todas o una sesión específica.' },
   { id: 'analisis',          label: 'Análisis clínico y Propuesta técnica',  desc: 'Selecciona la fecha del análisis.' },
@@ -132,6 +134,8 @@ export default function ReportesPageClient({ tier, terapeutaNombre }: Props) {
   async function handlePrint() {
     if (!pid || !selected) return
     switch (selected) {
+      case 'datos-generales':
+        await imprimirDatosGeneralesDesdeReportes(pid, headerOpts); break
       case 'nota-inicial':
         await imprimirNotaInicialDesdeReportes(pid, headerOpts); break
       case 'sesiones':
