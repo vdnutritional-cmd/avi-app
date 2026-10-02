@@ -541,11 +541,11 @@ function renderPage({
                     {tipoAsesoriaRows.map((r, i) => (
                       <tr key={i} className="hover:bg-gray-50">
                         <td className="px-4 py-3 text-gray-700 font-medium">{r.nombre}</td>
-                        <td className="px-4 py-3 text-right font-semibold text-primary-600">{r.total}</td>
-                        <td className="px-4 py-3 text-right text-blue-600">{r.virtuales}</td>
-                        <td className="px-4 py-3 text-right text-gray-700">{r.presenciales}</td>
-                        <td className="px-4 py-3 text-right text-amber-600 border-l border-gray-100">{r.proBono}</td>
-                        <td className="px-4 py-3 text-right text-green-600">{r.facturables}</td>
+                        <td className="px-4 py-3 text-right font-semibold text-primary-600">{r.total || ''}</td>
+                        <td className="px-4 py-3 text-right text-blue-600">{r.virtuales || ''}</td>
+                        <td className="px-4 py-3 text-right text-gray-700">{r.presenciales || ''}</td>
+                        <td className="px-4 py-3 text-right text-amber-600 border-l border-gray-100">{r.proBono || ''}</td>
+                        <td className="px-4 py-3 text-right text-green-600">{r.facturables || ''}</td>
                       </tr>
                     ))}
                     {tipoAsesoriaRows.length > 0 && (() => {
