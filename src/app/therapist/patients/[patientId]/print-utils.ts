@@ -2503,7 +2503,7 @@ export async function imprimirDatosGeneralesDesdeReportes(
       padding: 1.5pt 3pt; border-bottom: 0.5pt solid #c4b5fd;
       text-align: left;
     }
-    .hijo-table td { padding: 2pt 3pt; border-bottom: 0.5pt solid #f3e8ff; }
+    .hijo-table td { padding: 2pt 3pt; border-bottom: 0.5pt solid #f3e8ff; font-size: 10px; }
     .hijo-table tr:last-child td { border-bottom: none; }
     .num { color: #aaa; font-size: 7.5pt; }
 
