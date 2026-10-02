@@ -363,7 +363,7 @@ export default function ReportesPageClient({ tier, terapeutaNombre }: Props) {
       <div className="hidden md:flex gap-0 h-full -mt-8 -mb-8 -mr-8 ml-2">
 
         {/* ── Sidebar izquierdo ── */}
-        <aside className="w-64 shrink-0 border-r border-gray-200 bg-white flex flex-col h-screen sticky top-0 overflow-y-auto">
+        <aside className="w-72 shrink-0 border-r border-gray-200 bg-white flex flex-col h-screen sticky top-0 overflow-y-auto">
 
           {/* Header del sidebar */}
           <div className="px-4 pt-5 pb-4 border-b border-gray-100">
