@@ -14,6 +14,7 @@ interface TerapeutaRow {
 interface EmpresaBlock {
   empresaId: string
   empresaNombre: string
+  empresaLogoUrl: string | null
   nivel: 'N1' | 'N2' | 'N3'
   terapeutas: TerapeutaRow[]
 }
@@ -69,7 +70,7 @@ export default async function InstitucionalDashboardPage() {
   // .maybeSingle() falla cuando hay más de una fila; usamos array.
   const { data: piRecords } = await admin
     .from('convenio_personas_institucionales')
-    .select('nivel, opera_como_terapeuta, empresa_id, convenio_empresas(nombre)')
+    .select('nivel, opera_como_terapeuta, empresa_id, convenio_empresas(nombre, logo_url)')
     .eq('therapist_id', user.id)
     .eq('is_active', true)
 
@@ -86,7 +87,9 @@ export default async function InstitucionalDashboardPage() {
   const empresaBlocks: EmpresaBlock[] = await Promise.all(
     piRecords.map(async (pi) => {
       const empresaId = pi.empresa_id as string
-      const empresaNombre = (pi.convenio_empresas as { nombre?: string } | null)?.nombre ?? 'Empresa'
+      const empresaData = pi.convenio_empresas as { nombre?: string; logo_url?: string | null } | null
+      const empresaNombre  = empresaData?.nombre   ?? 'Empresa'
+      const empresaLogoUrl = empresaData?.logo_url ?? null
       const nivel = pi.nivel as 'N1' | 'N2' | 'N3'
 
       // Fuente 1: terapeutas registrados en therapist_empresa para esta empresa
@@ -134,7 +137,7 @@ export default async function InstitucionalDashboardPage() {
         })
       )
 
-      return { empresaId, empresaNombre, nivel, terapeutas }
+      return { empresaId, empresaNombre, empresaLogoUrl, nivel, terapeutas }
     })
   )
 
@@ -144,13 +147,27 @@ export default async function InstitucionalDashboardPage() {
     <div className="space-y-8">
 
       {/* Encabezado */}
-      <div>
-        <h1 className="text-xl font-bold text-primary-700">AVI - Panel Institucional</h1>
-        {piRecords.length > 1 && (
-          <p className="text-sm text-gray-500 mt-1">
-            Tienes acceso a {piRecords.length} empresas en convenio
-          </p>
-        )}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-bold text-primary-700">AVI - Panel Institucional</h1>
+          {piRecords.length > 1 && (
+            <p className="text-sm text-gray-500 mt-1">
+              Tienes acceso a {piRecords.length} empresas en convenio
+            </p>
+          )}
+        </div>
+        {/* Logos de empresa(s) — arriba a la derecha */}
+        <div className="flex items-center gap-3 shrink-0">
+          {empresaBlocks.map(b => b.empresaLogoUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              key={b.empresaId}
+              src={b.empresaLogoUrl}
+              alt={b.empresaNombre}
+              className="h-10 max-w-[120px] object-contain"
+            />
+          ))}
+        </div>
       </div>
 
       {/* ── Bloque por empresa ─────────────────────────────────────────────── */}
@@ -173,7 +190,7 @@ export default async function InstitucionalDashboardPage() {
             )}
 
             {/* Tarjetas de resumen */}
-            <div className="flex gap-3">
+            <div className="flex gap-3 md:w-2/3 md:mx-auto">
               {/* Verde — Terapeutas */}
               <div className="flex-1 bg-green-50 border border-green-200 rounded-2xl px-4 py-3 flex flex-col items-center justify-center gap-0.5">
                 <span className="text-3xl font-bold text-green-700 leading-none">
