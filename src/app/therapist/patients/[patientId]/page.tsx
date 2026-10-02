@@ -608,7 +608,7 @@ export default function PatientDetailPage() {
       onClick={() => { if (!dim) { setActiveTab(id); onSelect?.() } }}
       title={dim ? 'No disponible para este tipo de caso' : undefined}
       className={[
-        'w-full flex items-center gap-2 px-3 py-2 text-left transition-colors',
+        'w-full flex items-center gap-2 px-2 py-2 text-left transition-colors',
         dim
           ? 'text-gray-300 cursor-not-allowed'
           : activeTab === id
@@ -850,20 +850,20 @@ export default function PatientDetailPage() {
         <aside className="hidden md:block w-48 shrink-0 border-r border-gray-100 self-start sticky top-4 pb-8">
 
           {/* AVI-Esencial */}
-          <p className="text-[15px] font-semibold text-primary-600 uppercase tracking-widest px-3 pt-1 pb-1.5">AVI-Esencial</p>
+          <p className="text-[15px] font-semibold text-primary-600 uppercase tracking-widest px-2 pt-1 pb-1.5">AVI-Esencial</p>
           {esencialItems.map(item => navItem(item))}
 
           {/* Separador */}
-          <div className="border-t border-gray-100 mx-3 my-2.5" />
+          <div className="border-t border-gray-100 mx-2 my-2.5" />
 
           {/* AVI-Clínico */}
-          <div className="flex items-center gap-1.5 px-3 pb-1.5">
+          <div className="flex items-center gap-1.5 px-2 pb-1.5">
             <p className={`text-[15px] font-semibold uppercase tracking-widest ${!isClinico ? 'text-gray-300' : 'text-primary-600'}`}>AVI-Clínico</p>
             {!isClinico && <Lock size={10} className="text-gray-300" />}
           </div>
           {clinicoItems.map(item => navItem({ ...item, dim: item.dim || !isClinico }))}
           {!isClinico && (
-            <p className="text-[10px] text-gray-300 px-3 pt-1 leading-relaxed">
+            <p className="text-[10px] text-gray-300 px-2 pt-1 leading-relaxed">
               Disponible en plan Clínico
             </p>
           )}
