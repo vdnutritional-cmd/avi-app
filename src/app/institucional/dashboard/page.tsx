@@ -144,7 +144,7 @@ export default async function InstitucionalDashboardPage() {
 
       {/* Encabezado */}
       <div>
-        <h1 className="text-xl font-bold text-gray-800">Panel Institucional</h1>
+        <h1 className="text-xl font-bold text-primary-700">AVI - Panel Institucional</h1>
         {piRecords.length > 1 && (
           <p className="text-sm text-gray-500 mt-1">
             Tienes acceso a {piRecords.length} empresas en convenio
