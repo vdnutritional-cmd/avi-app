@@ -360,7 +360,7 @@ export default function ReportesPageClient({ tier, terapeutaNombre }: Props) {
       </div>
 
       {/* Layout desktop */}
-      <div className="hidden md:flex gap-0 h-full -m-8">
+      <div className="hidden md:flex gap-0 h-full -mt-8 -mb-8 -mr-8 ml-2">
 
         {/* ── Sidebar izquierdo ── */}
         <aside className="w-64 shrink-0 border-r border-gray-200 bg-white flex flex-col h-screen sticky top-0 overflow-y-auto">
