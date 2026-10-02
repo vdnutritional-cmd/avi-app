@@ -708,13 +708,13 @@ export default function PatientDetailPage() {
             </button>
           </div>
           {/* AVI-Esencial */}
-          <p className="text-[10px] font-semibold text-primary-600 uppercase tracking-widest px-3 pt-3 pb-1.5">AVI-Esencial</p>
+          <p className="text-[16px] font-semibold text-primary-600 uppercase tracking-widest px-3 pt-3 pb-1.5">AVI-Esencial</p>
           {esencialItems.map(item => navItem(item, () => setSheetOpen(false)))}
           {/* Separador */}
           <div className="border-t border-gray-100 mx-3 my-2.5" />
           {/* AVI-Clínico */}
           <div className="flex items-center gap-1.5 px-3 pb-1.5">
-            <p className={`text-[10px] font-semibold uppercase tracking-widest ${!isClinico ? 'text-gray-300' : 'text-primary-600'}`}>AVI-Clínico</p>
+            <p className={`text-[16px] font-semibold uppercase tracking-widest ${!isClinico ? 'text-gray-300' : 'text-primary-600'}`}>AVI-Clínico</p>
             {!isClinico && <Lock size={10} className="text-gray-300" />}
           </div>
           {clinicoItems.map(item => navItem({ ...item, dim: item.dim || !isClinico }, () => setSheetOpen(false)))}
