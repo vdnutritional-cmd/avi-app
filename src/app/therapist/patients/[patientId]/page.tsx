@@ -726,7 +726,7 @@ export default function PatientDetailPage() {
         </div>
       </div>
 
-    <div className="max-w-5xl mx-auto px-4 pt-10 pb-6 md:pt-8 md:pb-8">
+    <div className="max-w-5xl mx-auto px-4 pt-10 pb-6 md:pt-6 md:pb-8">
 
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -850,7 +850,7 @@ export default function PatientDetailPage() {
         <aside className="hidden md:block w-48 shrink-0 border-r border-gray-100 self-start sticky top-4 pb-8">
 
           {/* AVI-Esencial */}
-          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest px-3 pt-1 pb-1.5">AVI-Esencial</p>
+          <p className="text-sm font-semibold text-gray-500 uppercase tracking-widest px-3 pt-1 pb-1.5">AVI-Esencial</p>
           {esencialItems.map(item => navItem(item))}
 
           {/* Separador */}
@@ -858,7 +858,7 @@ export default function PatientDetailPage() {
 
           {/* AVI-Clínico */}
           <div className="flex items-center gap-1.5 px-3 pb-1.5">
-            <p className={`text-[10px] font-semibold uppercase tracking-widest ${!isClinico ? 'text-gray-300' : 'text-gray-400'}`}>AVI-Clínico</p>
+            <p className={`text-sm font-semibold uppercase tracking-widest ${!isClinico ? 'text-gray-300' : 'text-gray-500'}`}>AVI-Clínico</p>
             {!isClinico && <Lock size={10} className="text-gray-300" />}
           </div>
           {clinicoItems.map(item => navItem({ ...item, dim: item.dim || !isClinico }))}
