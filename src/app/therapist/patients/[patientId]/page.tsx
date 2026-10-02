@@ -617,7 +617,7 @@ export default function PatientDetailPage() {
       ].join(' ')}
     >
       <Icon size={14} className="shrink-0 flex-none" />
-      <span className="flex-1 truncate text-xs leading-tight">{label}</span>
+      <span className="flex-1 truncate text-[13px] leading-tight">{label}</span>
       {badge !== undefined && badge !== 0 && badge !== '' && (
         <span className="shrink-0 text-[10px] bg-primary-100 text-primary-700 px-1.5 py-0.5 rounded-full font-semibold leading-none">{badge}</span>
       )}
@@ -708,13 +708,13 @@ export default function PatientDetailPage() {
             </button>
           </div>
           {/* AVI-Esencial */}
-          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest px-3 pt-3 pb-1.5">AVI-Esencial</p>
+          <p className="text-[10px] font-semibold text-primary-600 uppercase tracking-widest px-3 pt-3 pb-1.5">AVI-Esencial</p>
           {esencialItems.map(item => navItem(item, () => setSheetOpen(false)))}
           {/* Separador */}
           <div className="border-t border-gray-100 mx-3 my-2.5" />
           {/* AVI-Clínico */}
           <div className="flex items-center gap-1.5 px-3 pb-1.5">
-            <p className={`text-[10px] font-semibold uppercase tracking-widest ${!isClinico ? 'text-gray-300' : 'text-gray-400'}`}>AVI-Clínico</p>
+            <p className={`text-[10px] font-semibold uppercase tracking-widest ${!isClinico ? 'text-gray-300' : 'text-primary-600'}`}>AVI-Clínico</p>
             {!isClinico && <Lock size={10} className="text-gray-300" />}
           </div>
           {clinicoItems.map(item => navItem({ ...item, dim: item.dim || !isClinico }, () => setSheetOpen(false)))}
@@ -726,7 +726,7 @@ export default function PatientDetailPage() {
         </div>
       </div>
 
-    <div className="max-w-5xl mx-auto px-4 pt-14 pb-6 md:pt-8 md:pb-8">
+    <div className="max-w-5xl mx-auto px-4 pt-10 pb-6 md:pt-8 md:pb-8">
 
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
