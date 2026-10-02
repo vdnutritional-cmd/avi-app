@@ -110,6 +110,15 @@ export default async function ReporteGeneralPage({
     )
   }
 
+  // ── Perfiles de terapeutas (para tabla Tipo de asesoría) ──────────────────
+  const { data: terapeutaProfiles } = await admin
+    .from('profiles')
+    .select('id, full_name, email')
+    .in('id', therapistIds)
+  const therapistNombres: Record<string, string> = {}
+  for (const p of terapeutaProfiles ?? [])
+    therapistNombres[p.id as string] = (p.full_name ?? p.email ?? p.id) as string
+
   // ── 1. Pacientes en scope ──────────────────────────────────────────────────
   let relacionesQuery = admin
     .from('therapist_patients')
@@ -174,12 +183,12 @@ export default async function ReporteGeneralPage({
   // ── 2. Sesiones del periodo ────────────────────────────────────────────────
   // pacienteIds ya excluye archivados para todos los tipos (activos/inactivos/total)
   if (pacienteIds.length === 0) {
-    return renderPage({ year, month, mesKey, isCurrentMonth, tipo, pid, piNombre, empresas, empresaId, empresaActual, todasLasSesiones: [], pacientesEnPeriodoIds: [], relaciones: [], derivacionesRows: [], expedientesRows: [], todosActivosRows: [], derivActivosRows: [], empresaByPatient, nombreByPatient, sinConvenioSesiones, sinConvenioPersonas })
+    return renderPage({ year, month, mesKey, isCurrentMonth, tipo, pid, piNombre, empresas, empresaId, empresaActual, todasLasSesiones: [], pacientesEnPeriodoIds: [], relaciones: [], derivacionesRows: [], expedientesRows: [], todosActivosRows: [], derivActivosRows: [], empresaByPatient, nombreByPatient, sinConvenioSesiones, sinConvenioPersonas, tipoAsesoriaRows: [] })
   }
 
   const sesionesQuery = admin
     .from('therapist_session_notes')
-    .select('patient_id, session_date, is_pro_bono')
+    .select('patient_id, session_date, is_pro_bono, is_virtual, therapist_id')
     .in('therapist_id', therapistIds)
     .in('patient_id', pacienteIds)
     .gte('session_date', mesInicio)
@@ -187,7 +196,7 @@ export default async function ReporteGeneralPage({
 
   const notasIniQuery = admin
     .from('therapist_patients')
-    .select('patient_id, initial_note_date, initial_note_pro_bono, initial_note')
+    .select('patient_id, initial_note_date, initial_note_pro_bono, initial_note, therapist_id, initial_note_virtual')
     .in('therapist_id', therapistIds)
     .eq('empresa_id', empresaId)
     .neq('status', 'archived')
@@ -207,6 +216,28 @@ export default async function ReporteGeneralPage({
 
   const pacientesEnPeriodoSet = new Set(todasLasSesiones.map(s => s.patient_id))
   const pacientesEnPeriodoIds = [...pacientesEnPeriodoSet]
+
+  // ── 6. Tipo de asesoría por terapeuta ─────────────────────────────────────
+  const tipoAsesoriaMap: Record<string, { nombre: string; total: number; virtuales: number; presenciales: number; proBono: number; facturables: number }> = {}
+  for (const id of therapistIds) {
+    tipoAsesoriaMap[id] = { nombre: therapistNombres[id] ?? id, total: 0, virtuales: 0, presenciales: 0, proBono: 0, facturables: 0 }
+  }
+  for (const s of sesionesRows ?? []) {
+    const row = tipoAsesoriaMap[s.therapist_id as string]
+    if (!row) continue
+    row.total++
+    if (s.is_virtual) row.virtuales++; else row.presenciales++
+    if (s.is_pro_bono) row.proBono++; else row.facturables++
+  }
+  for (const n of notasRows ?? []) {
+    const row = tipoAsesoriaMap[n.therapist_id as string]
+    if (!row) continue
+    row.total++
+    const isVirtual = (n as Record<string, unknown>).initial_note_virtual as boolean ?? false
+    if (isVirtual) row.virtuales++; else row.presenciales++
+    if (n.initial_note_pro_bono) row.proBono++; else row.facturables++
+  }
+  const tipoAsesoriaRows = Object.values(tipoAsesoriaMap).sort((a, b) => a.nombre.localeCompare(b.nombre))
 
   const [{ data: derivacionesRows }, { data: expedientesRows }] = await Promise.all([
     pacientesEnPeriodoIds.length > 0
@@ -247,6 +278,7 @@ export default async function ReporteGeneralPage({
     derivActivosRows: derivActivosRows ?? [],
     empresaByPatient, nombreByPatient,
     sinConvenioSesiones, sinConvenioPersonas,
+    tipoAsesoriaRows,
   })
 }
 
@@ -270,6 +302,7 @@ interface RenderProps {
   nombreByPatient: Record<string, string>
   sinConvenioSesiones: number
   sinConvenioPersonas: number
+  tipoAsesoriaRows: { nombre: string; total: number; virtuales: number; presenciales: number; proBono: number; facturables: number }[]
 }
 
 function renderPage({
@@ -280,6 +313,7 @@ function renderPage({
   todosActivosRows, derivActivosRows,
   empresaByPatient, nombreByPatient,
   sinConvenioSesiones, sinConvenioPersonas,
+  tipoAsesoriaRows,
 }: RenderProps) {
   const archivedSet = new Set(relaciones.filter(r => r.status === 'archived').map(r => r.patient_id as string))
   const pacientesParaDropdown = pacientesEnPeriodoIds
@@ -482,6 +516,51 @@ function renderPage({
                         <td className="px-5 py-3 text-center"><ScoreBadge value={c.final} /></td>
                       </tr>
                     ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
+          {tipoAsesoriaRows.length > 0 && (
+            <section className="space-y-3">
+              <SectionTitle>Tipo de asesoría por terapeuta</SectionTitle>
+              <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50">
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Terapeuta</th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Total</th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Virtuales</th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Presenciales</th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wide border-l border-gray-100">Pro-Bono</th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Facturables</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {tipoAsesoriaRows.map((r, i) => (
+                      <tr key={i} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 text-gray-700 font-medium">{r.nombre}</td>
+                        <td className="px-4 py-3 text-right font-semibold text-primary-600">{r.total}</td>
+                        <td className="px-4 py-3 text-right text-blue-600">{r.virtuales}</td>
+                        <td className="px-4 py-3 text-right text-gray-700">{r.presenciales}</td>
+                        <td className="px-4 py-3 text-right text-amber-600 border-l border-gray-100">{r.proBono}</td>
+                        <td className="px-4 py-3 text-right text-green-600">{r.facturables}</td>
+                      </tr>
+                    ))}
+                    {tipoAsesoriaRows.length > 1 && (() => {
+                      const tot = tipoAsesoriaRows.reduce((a, r) => ({ total: a.total + r.total, virtuales: a.virtuales + r.virtuales, presenciales: a.presenciales + r.presenciales, proBono: a.proBono + r.proBono, facturables: a.facturables + r.facturables }), { total: 0, virtuales: 0, presenciales: 0, proBono: 0, facturables: 0 })
+                      return (
+                        <tr className="bg-gray-50 border-t-2 border-gray-200">
+                          <td className="px-4 py-3 font-semibold text-gray-700">Total</td>
+                          <td className="px-4 py-3 text-right font-bold text-primary-600">{tot.total}</td>
+                          <td className="px-4 py-3 text-right font-semibold text-blue-600">{tot.virtuales}</td>
+                          <td className="px-4 py-3 text-right font-semibold text-gray-700">{tot.presenciales}</td>
+                          <td className="px-4 py-3 text-right font-semibold text-amber-600 border-l border-gray-100">{tot.proBono}</td>
+                          <td className="px-4 py-3 text-right font-semibold text-green-600">{tot.facturables}</td>
+                        </tr>
+                      )
+                    })()}
                   </tbody>
                 </table>
               </div>
