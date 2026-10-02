@@ -548,7 +548,7 @@ function renderPage({
                         <td className="px-4 py-3 text-right text-green-600">{r.facturables}</td>
                       </tr>
                     ))}
-                    {tipoAsesoriaRows.length > 1 && (() => {
+                    {tipoAsesoriaRows.length > 0 && (() => {
                       const tot = tipoAsesoriaRows.reduce((a, r) => ({ total: a.total + r.total, virtuales: a.virtuales + r.virtuales, presenciales: a.presenciales + r.presenciales, proBono: a.proBono + r.proBono, facturables: a.facturables + r.facturables }), { total: 0, virtuales: 0, presenciales: 0, proBono: 0, facturables: 0 })
                       return (
                         <tr className="bg-gray-50 border-t-2 border-gray-200">
