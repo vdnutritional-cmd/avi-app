@@ -2427,12 +2427,12 @@ export async function imprimirDatosGeneralesDesdeReportes(
   <title>Datos Generales — ${patientName}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    @page { size: letter; margin: 1.4cm 2cm 1.6cm; }
+    @page { size: letter; margin: 1cm 1.8cm 1.2cm; }
     body {
       font-family: Arial, Helvetica, sans-serif;
-      font-size: 9.5pt;
+      font-size: 9pt;
       color: #1a1a1a;
-      line-height: 1.35;
+      line-height: 1.3;
     }
 
     /* ─── Encabezado ─── */
@@ -2440,83 +2440,83 @@ export async function imprimirDatosGeneralesDesdeReportes(
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      border-bottom: 2pt solid #7c3aed;
-      padding-bottom: 7pt;
-      margin-bottom: 5pt;
+      border-bottom: 1.5pt solid #7c3aed;
+      padding-bottom: 4pt;
+      margin-bottom: 3pt;
     }
-    .brand { display: flex; align-items: center; gap: 7pt; }
+    .brand { display: flex; align-items: center; gap: 5pt; }
     .brand-mark {
-      width: 26pt; height: 26pt; border-radius: 5pt;
+      width: 22pt; height: 22pt; border-radius: 4pt;
       background: #7c3aed; color: #fff;
-      font-size: 14pt; font-weight: bold;
+      font-size: 12pt; font-weight: bold;
       display: flex; align-items: center; justify-content: center;
     }
-    .brand-name { font-size: 13pt; font-weight: bold; color: #7c3aed; }
-    .brand-sub  { font-size: 8pt; color: #666; margin-top: 1pt; }
-    .header-meta { text-align: right; font-size: 8pt; color: #555; line-height: 1.6; }
+    .brand-name { font-size: 11pt; font-weight: bold; color: #7c3aed; }
+    .brand-sub  { font-size: 7.5pt; color: #666; margin-top: 0.5pt; }
+    .header-meta { text-align: right; font-size: 7.5pt; color: #555; line-height: 1.5; }
     .report-title {
       text-align: center;
-      font-size: 11pt;
+      font-size: 10pt;
       font-weight: bold;
       color: #7c3aed;
       text-transform: uppercase;
-      letter-spacing: 0.4pt;
-      margin: 5pt 0 7pt;
+      letter-spacing: 0.3pt;
+      margin: 3pt 0 5pt;
     }
 
     /* ─── Secciones ─── */
-    .section { margin-bottom: 7pt; }
+    .section { margin-bottom: 5pt; }
     .sec-header {
       background: #7c3aed;
       color: #fff;
-      font-size: 8pt;
+      font-size: 7.5pt;
       font-weight: bold;
       text-transform: uppercase;
-      letter-spacing: 0.4pt;
-      padding: 2.5pt 7pt;
+      letter-spacing: 0.3pt;
+      padding: 2pt 6pt;
     }
     .sec-body {
       border: 0.5pt solid #c4b5fd;
       border-top: none;
-      padding: 5pt 7pt;
+      padding: 4pt 6pt;
     }
-    .grid2  { display: grid; grid-template-columns: 1fr 1fr; gap: 4pt 14pt; }
-    .grid3  { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4pt 10pt; }
-    .field  { margin-bottom: 3pt; }
+    .grid2  { display: grid; grid-template-columns: 1fr 1fr; gap: 3pt 12pt; }
+    .grid3  { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 3pt 8pt; }
+    .field  { margin-bottom: 2pt; }
     .flabel {
-      font-size: 7pt; font-weight: bold; color: #7c3aed;
+      font-size: 6.5pt; font-weight: bold; color: #7c3aed;
       text-transform: uppercase; letter-spacing: 0.3pt;
-      margin-bottom: 1pt;
+      margin-bottom: 0.5pt;
     }
     .fvalue {
-      font-size: 9pt; color: #1a1a1a;
+      font-size: 8.5pt; color: #1a1a1a;
       border-bottom: 0.5pt solid #e9d5ff;
-      padding-bottom: 1pt; min-height: 11pt;
+      padding-bottom: 1pt; min-height: 10pt;
     }
     .empty { color: #bbb; font-style: italic; }
 
     /* ─── Tabla hijos ─── */
-    .hijo-table { width: 100%; border-collapse: collapse; font-size: 8.5pt; }
+    .hijo-table { width: 100%; border-collapse: collapse; font-size: 8pt; }
     .hijo-table th {
-      font-size: 7pt; font-weight: bold; color: #7c3aed;
+      font-size: 6.5pt; font-weight: bold; color: #7c3aed;
       text-transform: uppercase; letter-spacing: 0.3pt;
-      padding: 2pt 4pt; border-bottom: 0.5pt solid #c4b5fd;
+      padding: 1.5pt 3pt; border-bottom: 0.5pt solid #c4b5fd;
       text-align: left;
     }
-    .hijo-table td { padding: 2.5pt 4pt; border-bottom: 0.5pt solid #f3e8ff; }
+    .hijo-table td { padding: 2pt 3pt; border-bottom: 0.5pt solid #f3e8ff; }
     .hijo-table tr:last-child td { border-bottom: none; }
-    .num { color: #aaa; font-size: 8pt; }
+    .num { color: #aaa; font-size: 7.5pt; }
 
     /* ─── Genograma ─── */
     .genograma-box {
       border: 1pt solid #7c3aed;
-      height: 145pt;
+      height: 130pt;
       position: relative;
-      margin-top: 7pt;
+      margin-top: 5pt;
     }
     .genograma-label {
-      position: absolute; top: 5pt; right: 8pt;
-      font-size: 8pt; font-weight: bold;
+      position: absolute; top: 4pt; right: 7pt;
+      font-size: 7.5pt; font-weight: bold;
       color: #7c3aed; text-transform: uppercase; letter-spacing: 0.8pt;
     }
 
@@ -2525,18 +2525,18 @@ export async function imprimirDatosGeneralesDesdeReportes(
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 40pt;
-      margin-top: 10pt;
+      margin-top: 7pt;
     }
     .firma-item { text-align: center; }
-    .firma-line { border-top: 0.75pt solid #555; padding-top: 4pt; font-size: 8pt; color: #555; }
+    .firma-line { border-top: 0.75pt solid #555; padding-top: 3pt; font-size: 7.5pt; color: #555; }
 
     /* ─── Pie ─── */
     .footer {
       border-top: 0.5pt solid #e9d5ff;
-      margin-top: 8pt;
-      padding-top: 4pt;
+      margin-top: 5pt;
+      padding-top: 3pt;
       text-align: center;
-      font-size: 7pt;
+      font-size: 6.5pt;
       color: #aaa;
     }
 
