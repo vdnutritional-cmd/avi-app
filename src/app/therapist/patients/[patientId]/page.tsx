@@ -726,7 +726,7 @@ export default function PatientDetailPage() {
         </div>
       </div>
 
-    <div className="max-w-5xl mx-auto px-4 pt-10 pb-6 md:pt-2 md:pb-8">
+    <div className="max-w-5xl mx-auto px-4 pt-10 pb-6 md:pt-1 md:pb-8">
 
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
