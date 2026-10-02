@@ -675,11 +675,13 @@ export default function PatientDetailPage() {
       {/* ── Hamburger de secciones — fixed top-right, solo móvil ── */}
       <button
         onClick={() => setSheetOpen(true)}
-        className="md:hidden fixed top-4 right-4 z-30 bg-white border border-gray-200
-                   rounded-xl p-2.5 shadow-sm hover:bg-gray-50 transition-colors"
+        className="md:hidden fixed top-4 right-4 z-30 bg-white border border-primary-200
+                   rounded-xl px-3 py-2.5 shadow-sm hover:bg-primary-50 transition-colors
+                   flex items-center gap-1.5"
         aria-label="Abrir navegación de secciones"
       >
-        <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <span className="text-xs font-semibold text-primary-600">Nav</span>
+        <svg className="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
         </svg>
       </button>
