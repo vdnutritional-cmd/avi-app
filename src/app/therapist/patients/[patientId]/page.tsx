@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import {
   User, FolderOpen, MessageSquare, FileText, Calendar, Search,
   ArrowRightCircle, Users, Heart, ClipboardList, Activity,
-  CheckSquare, Printer, AlertTriangle, Lock,
+  CheckSquare, Printer, AlertTriangle, Lock, Menu,
 } from 'lucide-react'
 import ExpedienteTab from './ExpedienteTab'
 import DatosGeneralesTab from './DatosGeneralesTab'
@@ -148,6 +148,7 @@ export default function PatientDetailPage() {
   const [activeTab, setActiveTab] = useState<PatientTab>('datos-generales')
   const [therapistId, setTherapistId] = useState<string | null>(null)
   const [tier, setTier] = useState<'esencial' | 'clinico'>('esencial')
+  const [sheetOpen, setSheetOpen] = useState(false)
   const streamRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -648,6 +649,26 @@ export default function PatientDetailPage() {
   ]
 
   const clinicoTabIds: PatientTab[] = ['individual','familiar','pareja','prediagnostico','analisis-clinicos','cuestionarios','impresiones']
+  const esencialTabIds: PatientTab[] = ['datos-generales','tipo-caso','sesiones','nota','presenciales','analisis','derivaciones-cierres']
+
+  const TAB_LABELS: Record<PatientTab, string> = {
+    'datos-generales':      'Datos generales',
+    'tipo-caso':            'Tipo de caso',
+    'sesiones':             'Sesiones AVI',
+    'nota':                 'Nota inicial',
+    'presenciales':         'Ses. presenciales',
+    'analisis':             'Análisis',
+    'derivaciones-cierres': 'Derivaciones',
+    'individual':           'Individual',
+    'familiar':             'Familiar',
+    'pareja':               'Pareja',
+    'prediagnostico':       'Prediagnóstico',
+    'analisis-clinicos':    'Análisis clínicos',
+    'cuestionarios':        'Cuestionarios',
+    'impresiones':          'Impresiones clínicas',
+  }
+
+  const activeGroup = esencialTabIds.includes(activeTab) ? 'AVI-Esencial' : 'AVI-Clínico'
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
@@ -760,11 +781,27 @@ export default function PatientDetailPage() {
         </button>
       </div>
 
-      {/* ── Layout dos columnas: Sidebar + Contenido ── */}
-      <div className="flex mt-6">
+      {/* ── Barra de navegación móvil (M3 Bottom Sheet trigger) ── */}
+      <div className="md:hidden mt-4 flex items-center justify-between bg-white border border-gray-100 rounded-xl px-4 py-2.5 shadow-sm">
+        <p className="text-xs text-gray-500 truncate">
+          <span className="font-semibold text-gray-700">{activeGroup}</span>
+          {' / '}
+          <span>{TAB_LABELS[activeTab]}</span>
+        </p>
+        <button
+          onClick={() => setSheetOpen(true)}
+          className="ml-3 flex items-center gap-1.5 text-xs font-medium text-primary-600 border border-primary-200 rounded-lg px-2.5 py-1.5 hover:bg-primary-50 transition-colors shrink-0"
+        >
+          <Menu size={13} />
+          Nav
+        </button>
+      </div>
 
-        {/* ── Sidebar EHR ── */}
-        <aside className="w-48 shrink-0 border-r border-gray-100 self-start sticky top-4 pb-8">
+      {/* ── Layout dos columnas: Sidebar + Contenido ── */}
+      <div className="flex mt-4 md:mt-6">
+
+        {/* ── Sidebar EHR (solo desktop) ── */}
+        <aside className="hidden md:block w-48 shrink-0 border-r border-gray-100 self-start sticky top-4 pb-8">
 
           {/* AVI-Esencial */}
           <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest px-3 pt-1 pb-1.5">AVI-Esencial</p>
@@ -787,7 +824,7 @@ export default function PatientDetailPage() {
         </aside>
 
         {/* ── Área de contenido ── */}
-        <main className="flex-1 min-w-0 pl-6 space-y-4">
+        <main className="flex-1 min-w-0 pl-0 md:pl-6 space-y-4">
 
       {/* ── TAB: Datos Generales ── */}
       {activeTab === 'datos-generales' && therapistId && (
@@ -2212,6 +2249,87 @@ export default function PatientDetailPage() {
 
         </main>
       </div>
+
+      {/* ── M3 Bottom Sheet (solo móvil) ── */}
+      {sheetOpen && (
+        <div className="fixed inset-0 z-50 md:hidden">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setSheetOpen(false)}
+          />
+          {/* Sheet */}
+          <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl max-h-[85vh] overflow-y-auto shadow-xl">
+            {/* Handle */}
+            <div className="flex justify-center pt-3 pb-2">
+              <div className="w-10 h-1 bg-gray-300 rounded-full" />
+            </div>
+
+            {/* AVI-Esencial */}
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest px-5 pb-2 pt-1">AVI-Esencial</p>
+            <div className="grid grid-cols-2 gap-2 px-4 pb-4">
+              {esencialItems.map(item => (
+                <button
+                  key={item.id}
+                  onClick={() => { setActiveTab(item.id); setSheetOpen(false) }}
+                  className={[
+                    'flex items-center gap-2.5 p-3 rounded-xl border text-left transition-colors',
+                    activeTab === item.id
+                      ? 'bg-primary-50 border-primary-200 text-primary-700'
+                      : 'border-gray-100 text-gray-600 active:bg-gray-50',
+                  ].join(' ')}
+                >
+                  <item.Icon size={16} className="shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium leading-tight">{item.label}</p>
+                    {item.badge !== undefined && item.badge !== 0 && item.badge !== '' && (
+                      <p className="text-[10px] text-primary-600 font-semibold mt-0.5">{item.badge}</p>
+                    )}
+                  </div>
+                  {item.alert && <AlertTriangle size={11} className="shrink-0 text-amber-500" />}
+                </button>
+              ))}
+            </div>
+
+            {/* Separador */}
+            <div className="border-t border-gray-100 mx-4 mb-3" />
+
+            {/* AVI-Clínico */}
+            <div className="flex items-center gap-1.5 px-5 pb-2">
+              <p className={`text-[10px] font-semibold uppercase tracking-widest ${!isClinico ? 'text-gray-300' : 'text-gray-400'}`}>AVI-Clínico</p>
+              {!isClinico && <Lock size={10} className="text-gray-300" />}
+            </div>
+            {!isClinico && (
+              <p className="text-[10px] text-gray-300 px-5 pb-2 leading-relaxed">Disponible en plan Clínico</p>
+            )}
+            <div className="grid grid-cols-2 gap-2 px-4 pb-10">
+              {clinicoItems.map(item => {
+                const dim = item.dim || !isClinico
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => { if (!dim) { setActiveTab(item.id); setSheetOpen(false) } }}
+                    disabled={dim}
+                    className={[
+                      'flex items-center gap-2.5 p-3 rounded-xl border text-left transition-colors',
+                      dim
+                        ? 'border-gray-50 bg-gray-50 text-gray-300 cursor-not-allowed'
+                        : activeTab === item.id
+                          ? 'bg-primary-50 border-primary-200 text-primary-700'
+                          : 'border-gray-100 text-gray-600 active:bg-gray-50',
+                    ].join(' ')}
+                  >
+                    <item.Icon size={16} className="shrink-0" />
+                    <p className="text-xs font-medium leading-tight flex-1 min-w-0">{item.label}</p>
+                    {dim && <Lock size={10} className="shrink-0 text-gray-300" />}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }
