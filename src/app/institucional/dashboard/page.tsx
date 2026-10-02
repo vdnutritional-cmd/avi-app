@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import TerapeutasAcordeon from './TerapeutasAcordeon'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 interface TerapeutaRow {
@@ -171,45 +172,30 @@ export default async function InstitucionalDashboardPage() {
               </div>
             )}
 
-            {/* Resumen */}
-            <p className="text-sm text-gray-500">
-              {bloque.terapeutas.length} terapeuta{bloque.terapeutas.length !== 1 ? 's' : ''} · {total} paciente{total !== 1 ? 's' : ''} activo{total !== 1 ? 's' : ''}
-            </p>
-
-            {/* Tabla de terapeutas */}
-            <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
-              <div className="px-5 py-4 border-b border-gray-50">
-                <h3 className="font-semibold text-gray-700 text-sm">Terapeutas de la empresa</h3>
+            {/* Tarjetas de resumen */}
+            <div className="flex gap-3">
+              {/* Verde — Terapeutas */}
+              <div className="flex-1 bg-green-50 border border-green-200 rounded-2xl px-4 py-3 flex flex-col items-center justify-center gap-0.5">
+                <span className="text-3xl font-bold text-green-700 leading-none">
+                  {bloque.terapeutas.length}
+                </span>
+                <span className="text-xs font-semibold text-green-700 uppercase tracking-wide mt-1">
+                  Terapeutas
+                </span>
               </div>
-              {bloque.terapeutas.length === 0 ? (
-                <p className="px-5 py-6 text-sm text-gray-400 text-center">
-                  No hay terapeutas registrados en esta empresa todavía.
-                </p>
-              ) : (
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Terapeuta</th>
-                      <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide hidden sm:table-cell">Correo</th>
-                      <th className="text-right px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Pac. activos</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    {bloque.terapeutas.map((t, i) => (
-                      <tr key={i} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-5 py-3.5 font-medium text-gray-800">{t.nombre}</td>
-                        <td className="px-5 py-3.5 text-gray-500 hidden sm:table-cell">{t.email}</td>
-                        <td className="px-5 py-3.5 text-right">
-                          <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary-50 text-primary-700 font-bold text-sm">
-                            {t.pacientesActivos}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
+              {/* Morado — Pacientes activos */}
+              <div className="flex-1 bg-primary-50 border border-primary-200 rounded-2xl px-4 py-3 flex flex-col items-center justify-center gap-0.5">
+                <span className="text-3xl font-bold text-primary-700 leading-none">
+                  {total}
+                </span>
+                <span className="text-xs font-semibold text-primary-700 uppercase tracking-wide mt-1">
+                  Pacientes activos
+                </span>
+              </div>
             </div>
+
+            {/* Acordeón de terapeutas */}
+            <TerapeutasAcordeon terapeutas={bloque.terapeutas} />
           </section>
         )
       })}
