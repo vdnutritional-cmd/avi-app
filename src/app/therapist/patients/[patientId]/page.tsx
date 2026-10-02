@@ -602,10 +602,10 @@ export default function PatientDetailPage() {
     dim?: boolean
   }
 
-  const navItem = ({ id, Icon, label, badge, alert, dim }: SidebarItem) => (
+  const navItem = ({ id, Icon, label, badge, alert, dim }: SidebarItem, onSelect?: () => void) => (
     <button
       key={id}
-      onClick={() => { if (!dim) setActiveTab(id) }}
+      onClick={() => { if (!dim) { setActiveTab(id); onSelect?.() } }}
       title={dim ? 'No disponible para este tipo de caso' : undefined}
       className={[
         'w-full flex items-center gap-2 px-3 py-2 text-left transition-colors',
@@ -671,53 +671,66 @@ export default function PatientDetailPage() {
   const activeGroup = esencialTabIds.includes(activeTab) ? 'AVI-Esencial' : 'AVI-Clínico'
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-6 md:py-8">
+    <>
+      {/* ── Hamburger de secciones — fixed top-right, solo móvil ── */}
+      <button
+        onClick={() => setSheetOpen(true)}
+        className="md:hidden fixed top-4 right-4 z-30 bg-white border border-gray-200
+                   rounded-xl p-2.5 shadow-sm hover:bg-gray-50 transition-colors"
+        aria-label="Abrir navegación de secciones"
+      >
+        <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
 
-      {/* ── Móvil: fila superior (← Mis pacientes + ☰ Nav) ── */}
-      <div className="md:hidden flex items-center justify-between mb-1">
-        <button
-          onClick={() => router.push('/therapist/patients')}
-          className="text-sm text-gray-400 hover:text-gray-600 flex items-center gap-1"
-        >
-          ← Mis pacientes
-        </button>
-        <button
-          onClick={() => setSheetOpen(true)}
-          className="flex items-center gap-1 text-xs font-medium text-primary-600 border border-primary-200 rounded-lg px-2 py-1 hover:bg-primary-50 transition-colors"
-        >
-          <Menu size={12} />
-          Nav
-        </button>
+      {/* ── Panel deslizante de secciones — desde la derecha, solo móvil ── */}
+      <div className={`fixed inset-0 z-40 md:hidden transition-opacity duration-200
+                       ${sheetOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+        {/* Backdrop */}
+        <div className="absolute inset-0 bg-black/40" onClick={() => setSheetOpen(false)} />
+        {/* Panel */}
+        <div className={`absolute top-0 right-0 h-full w-64 bg-white shadow-xl overflow-y-auto
+                         transition-transform duration-200
+                         ${sheetOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+          {/* Cabecera del panel */}
+          <div className="flex items-center justify-between px-4 pt-5 pb-3 border-b border-gray-100">
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">Secciones</p>
+            <button
+              onClick={() => setSheetOpen(false)}
+              className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          {/* AVI-Esencial */}
+          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest px-3 pt-3 pb-1.5">AVI-Esencial</p>
+          {esencialItems.map(item => navItem(item, () => setSheetOpen(false)))}
+          {/* Separador */}
+          <div className="border-t border-gray-100 mx-3 my-2.5" />
+          {/* AVI-Clínico */}
+          <div className="flex items-center gap-1.5 px-3 pb-1.5">
+            <p className={`text-[10px] font-semibold uppercase tracking-widest ${!isClinico ? 'text-gray-300' : 'text-gray-400'}`}>AVI-Clínico</p>
+            {!isClinico && <Lock size={10} className="text-gray-300" />}
+          </div>
+          {clinicoItems.map(item => navItem({ ...item, dim: item.dim || !isClinico }, () => setSheetOpen(false)))}
+          {!isClinico && (
+            <p className="text-[10px] text-gray-300 px-3 pt-1 pb-6 leading-relaxed">
+              Disponible en plan Clínico
+            </p>
+          )}
+        </div>
       </div>
 
-      {/* ── Móvil: breadcrumb sección activa ── */}
-      <p className="md:hidden text-[11px] text-gray-400 mb-3">
-        <span className="font-semibold text-gray-600">{activeGroup}</span>
-        {' / '}
-        {TAB_LABELS[activeTab]}
-      </p>
-
-      {/* ── Móvil: Analizar caso (antes del nombre) ── */}
-      <div className="md:hidden mb-4">
-        <button
-          onClick={requestAnalysis}
-          disabled={analyzing || !savedNote.trim()}
-          title={!savedNote.trim() ? 'Primero agrega una nota inicial' : ''}
-          className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-xl
-                     font-semibold text-sm hover:bg-primary-700 transition-colors
-                     disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          {analyzing
-            ? <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Analizando...</>
-            : '🔍 Analizar caso'}
-        </button>
-      </div>
+    <div className="max-w-5xl mx-auto px-4 pt-14 pb-6 md:pt-8 md:pb-8">
 
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <button onClick={() => router.push('/therapist/patients')}
-            className="hidden md:flex text-sm text-gray-400 hover:text-gray-600 mb-2 items-center gap-1">
+            className="text-sm text-gray-400 hover:text-gray-600 mb-2 flex items-center gap-1">
             ← Mis pacientes
           </button>
 
@@ -811,7 +824,7 @@ export default function PatientDetailPage() {
           onClick={requestAnalysis}
           disabled={analyzing || !savedNote.trim()}
           title={!savedNote.trim() ? 'Primero agrega una nota inicial' : ''}
-          className="hidden md:flex items-center gap-2 px-5 py-3 bg-primary-600 text-white rounded-xl
+          className="flex items-center gap-2 px-4 py-2 md:px-5 md:py-3 bg-primary-600 text-white rounded-xl
                      font-semibold text-sm hover:bg-primary-700 transition-colors
                      disabled:opacity-40 disabled:cursor-not-allowed"
         >
@@ -821,8 +834,15 @@ export default function PatientDetailPage() {
         </button>
       </div>
 
+      {/* ── Breadcrumb sección activa — solo móvil ── */}
+      <p className="md:hidden text-[11px] text-gray-400 mt-2 mb-1">
+        <span className="font-semibold text-gray-600">{activeGroup}</span>
+        {' / '}
+        {TAB_LABELS[activeTab]}
+      </p>
+
       {/* ── Layout dos columnas: Sidebar + Contenido ── */}
-      <div className="flex mt-4 md:mt-6">
+      <div className="flex mt-3 md:mt-6">
 
         {/* ── Sidebar EHR (solo desktop) ── */}
         <aside className="hidden md:block w-48 shrink-0 border-r border-gray-100 self-start sticky top-4 pb-8">
@@ -2274,86 +2294,7 @@ export default function PatientDetailPage() {
         </main>
       </div>
 
-      {/* ── M3 Bottom Sheet (solo móvil) ── */}
-      {sheetOpen && (
-        <div className="fixed inset-0 z-50 md:hidden">
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0 bg-black/40"
-            onClick={() => setSheetOpen(false)}
-          />
-          {/* Sheet */}
-          <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl max-h-[85vh] overflow-y-auto shadow-xl">
-            {/* Handle */}
-            <div className="flex justify-center pt-3 pb-2">
-              <div className="w-10 h-1 bg-gray-300 rounded-full" />
-            </div>
-
-            {/* AVI-Esencial */}
-            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest px-5 pb-2 pt-1">AVI-Esencial</p>
-            <div className="grid grid-cols-2 gap-2 px-4 pb-4">
-              {esencialItems.map(item => (
-                <button
-                  key={item.id}
-                  onClick={() => { setActiveTab(item.id); setSheetOpen(false) }}
-                  className={[
-                    'flex items-center gap-2.5 p-3 rounded-xl border text-left transition-colors',
-                    activeTab === item.id
-                      ? 'bg-primary-50 border-primary-200 text-primary-700'
-                      : 'border-gray-100 text-gray-600 active:bg-gray-50',
-                  ].join(' ')}
-                >
-                  <item.Icon size={16} className="shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-medium leading-tight">{item.label}</p>
-                    {item.badge !== undefined && item.badge !== 0 && item.badge !== '' && (
-                      <p className="text-[10px] text-primary-600 font-semibold mt-0.5">{item.badge}</p>
-                    )}
-                  </div>
-                  {item.alert && <AlertTriangle size={11} className="shrink-0 text-amber-500" />}
-                </button>
-              ))}
-            </div>
-
-            {/* Separador */}
-            <div className="border-t border-gray-100 mx-4 mb-3" />
-
-            {/* AVI-Clínico */}
-            <div className="flex items-center gap-1.5 px-5 pb-2">
-              <p className={`text-[10px] font-semibold uppercase tracking-widest ${!isClinico ? 'text-gray-300' : 'text-gray-400'}`}>AVI-Clínico</p>
-              {!isClinico && <Lock size={10} className="text-gray-300" />}
-            </div>
-            {!isClinico && (
-              <p className="text-[10px] text-gray-300 px-5 pb-2 leading-relaxed">Disponible en plan Clínico</p>
-            )}
-            <div className="grid grid-cols-2 gap-2 px-4 pb-10">
-              {clinicoItems.map(item => {
-                const dim = item.dim || !isClinico
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => { if (!dim) { setActiveTab(item.id); setSheetOpen(false) } }}
-                    disabled={dim}
-                    className={[
-                      'flex items-center gap-2.5 p-3 rounded-xl border text-left transition-colors',
-                      dim
-                        ? 'border-gray-50 bg-gray-50 text-gray-300 cursor-not-allowed'
-                        : activeTab === item.id
-                          ? 'bg-primary-50 border-primary-200 text-primary-700'
-                          : 'border-gray-100 text-gray-600 active:bg-gray-50',
-                    ].join(' ')}
-                  >
-                    <item.Icon size={16} className="shrink-0" />
-                    <p className="text-xs font-medium leading-tight flex-1 min-w-0">{item.label}</p>
-                    {dim && <Lock size={10} className="shrink-0 text-gray-300" />}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
     </div>
+    </>
   )
 }
