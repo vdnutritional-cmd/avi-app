@@ -630,11 +630,11 @@ export default function PatientDetailPage() {
   const esencialItems: SidebarItem[] = [
     { id: 'datos-generales',      Icon: User,             label: 'Datos generales' },
     { id: 'tipo-caso',            Icon: FolderOpen,        label: 'Tipo de caso' },
-    { id: 'sesiones',             Icon: MessageSquare,     label: 'Sesiones AVI', badge: patterns.length || undefined },
     { id: 'nota',                 Icon: FileText,          label: 'Nota inicial', alert: !savedNote },
-    { id: 'presenciales',         Icon: Calendar,          label: 'Ses. presenciales', badge: sessionNotes.length > 0 ? `${sessionNotes.length}/${MAX_SESIONES_PRESENCIALES}` : undefined },
+    { id: 'presenciales',         Icon: Calendar,          label: 'Sesiones presenciales', badge: sessionNotes.length > 0 ? `${sessionNotes.length}/${MAX_SESIONES_PRESENCIALES}` : undefined },
+    { id: 'sesiones',             Icon: MessageSquare,     label: 'Sesiones AVI', badge: patterns.length || undefined },
     { id: 'analisis',             Icon: Search,            label: 'Análisis', badge: analyses.length || undefined },
-    { id: 'derivaciones-cierres', Icon: ArrowRightCircle,  label: 'Derivaciones' },
+    { id: 'derivaciones-cierres', Icon: ArrowRightCircle,  label: 'Derivaciones / Cierres' },
   ]
 
   const clinicoItems: SidebarItem[] = [
@@ -649,16 +649,16 @@ export default function PatientDetailPage() {
   ]
 
   const clinicoTabIds: PatientTab[] = ['individual','familiar','pareja','prediagnostico','analisis-clinicos','cuestionarios','impresiones']
-  const esencialTabIds: PatientTab[] = ['datos-generales','tipo-caso','sesiones','nota','presenciales','analisis','derivaciones-cierres']
+  const esencialTabIds: PatientTab[] = ['datos-generales','tipo-caso','nota','presenciales','sesiones','analisis','derivaciones-cierres']
 
   const TAB_LABELS: Record<PatientTab, string> = {
     'datos-generales':      'Datos generales',
     'tipo-caso':            'Tipo de caso',
     'sesiones':             'Sesiones AVI',
     'nota':                 'Nota inicial',
-    'presenciales':         'Ses. presenciales',
+    'presenciales':         'Sesiones presenciales',
     'analisis':             'Análisis',
-    'derivaciones-cierres': 'Derivaciones',
+    'derivaciones-cierres': 'Derivaciones / Cierres',
     'individual':           'Individual',
     'familiar':             'Familiar',
     'pareja':               'Pareja',
