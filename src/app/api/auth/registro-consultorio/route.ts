@@ -116,6 +116,11 @@ export async function POST(req: NextRequest) {
     salud_ayuda_tiempo:         datosGenerales.salud_ayuda_tiempo        ?? '',
     salud_medicamentos:         datosGenerales.salud_medicamentos        ?? '',
     salud_medicamentos_cual:    datosGenerales.salud_medicamentos_cual   ?? '',
+    // Información General
+    info_asesoria_anterior:     datosGenerales.info_asesoria_anterior    ?? '',
+    info_asesoria_con_quien:    datosGenerales.info_asesoria_con_quien   ?? '',
+    info_razon_eleccion:        datosGenerales.info_razon_eleccion       ?? '',
+    info_expectativas:          datosGenerales.info_expectativas         ?? '',
   }, { onConflict: 'therapist_id,patient_id' })
 
   if (expedienteErr) {

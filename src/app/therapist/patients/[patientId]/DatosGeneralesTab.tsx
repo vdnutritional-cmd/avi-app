@@ -41,6 +41,11 @@ interface DatosGeneralesData {
   salud_ayuda_tiempo: string
   salud_medicamentos: string
   salud_medicamentos_cual: string
+  // Información General
+  info_asesoria_anterior: string
+  info_asesoria_con_quien: string
+  info_razon_eleccion: string
+  info_expectativas: string
 }
 
 const hijoVacio = (): Hijo => ({ nombre: '', edad: '', ocupacion: '', vive_en_casa: '' })
@@ -68,6 +73,10 @@ const datosVacios = (): DatosGeneralesData => ({
   salud_ayuda_tiempo: '',
   salud_medicamentos: '',
   salud_medicamentos_cual: '',
+  info_asesoria_anterior: '',
+  info_asesoria_con_quien: '',
+  info_razon_eleccion: '',
+  info_expectativas: '',
 })
 
 // ──────────────────────────────────────────────
@@ -198,6 +207,10 @@ function parseRow(row: Record<string, any>): DatosGeneralesData {
     salud_ayuda_tiempo: row.salud_ayuda_tiempo ?? '',
     salud_medicamentos: row.salud_medicamentos ?? '',
     salud_medicamentos_cual: row.salud_medicamentos_cual ?? '',
+    info_asesoria_anterior: row.info_asesoria_anterior ?? '',
+    info_asesoria_con_quien: row.info_asesoria_con_quien ?? '',
+    info_razon_eleccion: row.info_razon_eleccion ?? '',
+    info_expectativas: row.info_expectativas ?? '',
   }
 }
 
@@ -318,6 +331,10 @@ export default function DatosGeneralesTab({ patientId, therapistId, patientEmail
         salud_ayuda_tiempo: data.salud_ayuda_tiempo || null,
         salud_medicamentos: data.salud_medicamentos || null,
         salud_medicamentos_cual: data.salud_medicamentos_cual || null,
+        info_asesoria_anterior: data.info_asesoria_anterior || null,
+        info_asesoria_con_quien: data.info_asesoria_con_quien || null,
+        info_razon_eleccion: data.info_razon_eleccion || null,
+        info_expectativas: data.info_expectativas || null,
         updated_at: new Date().toISOString(),
       }
 
@@ -640,6 +657,75 @@ export default function DatosGeneralesTab({ patientId, therapistId, patientEmail
                 />
               </div>
             )}
+          </div>
+
+        </div>
+      </SectionCard>
+
+      {/* Información General */}
+      <SectionCard title="Información General">
+        <div className="space-y-5">
+
+          {/* ¿Ha recibido asesoría anteriormente? */}
+          <div>
+            <Label>¿Ha recibido asesoría de esta Institución anteriormente?</Label>
+            <div className="flex gap-6 mt-2">
+              {['Sí', 'No'].map(op => (
+                <label key={op} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="info_asesoria_anterior"
+                    value={op}
+                    checked={data.info_asesoria_anterior === op}
+                    onChange={() => {
+                      set('info_asesoria_anterior', op)
+                      if (op === 'No') set('info_asesoria_con_quien', '')
+                    }}
+                    className="accent-primary-600 w-4 h-4"
+                  />
+                  <span className="text-sm text-gray-700">{op}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+          {data.info_asesoria_anterior === 'Sí' && (
+            <div>
+              <Label>¿Con quién?</Label>
+              <TextInput
+                value={data.info_asesoria_con_quien}
+                onChange={v => set('info_asesoria_con_quien', v)}
+                maxLength={80}
+                placeholder="Nombre del terapeuta o asesor"
+              />
+            </div>
+          )}
+
+          {/* ¿Por qué eligió esta Institución? */}
+          <div>
+            <Label>¿Por qué eligió esta Institución para su acompañamiento terapéutico/emocional?</Label>
+            <textarea
+              value={data.info_razon_eleccion}
+              onChange={e => set('info_razon_eleccion', e.target.value)}
+              maxLength={500}
+              placeholder="Escribe la respuesta aquí…"
+              rows={3}
+              className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-700
+                         focus:outline-none focus:ring-2 focus:ring-primary-300 transition resize-none"
+            />
+          </div>
+
+          {/* ¿Qué espera del acompañamiento? */}
+          <div>
+            <Label>¿Qué espera de este acompañamiento a través de esta Institución?</Label>
+            <textarea
+              value={data.info_expectativas}
+              onChange={e => set('info_expectativas', e.target.value)}
+              maxLength={500}
+              placeholder="Escribe la respuesta aquí…"
+              rows={3}
+              className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-700
+                         focus:outline-none focus:ring-2 focus:ring-primary-300 transition resize-none"
+            />
           </div>
 
         </div>

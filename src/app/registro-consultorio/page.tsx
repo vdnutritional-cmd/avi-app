@@ -18,6 +18,9 @@ interface DatosGenerales {
   hijos: Hijo[]
   salud_padece_enfermedad: string; salud_ayuda_psicologica: string
   salud_ayuda_tiempo: string; salud_medicamentos: string; salud_medicamentos_cual: string
+  // Información General
+  info_asesoria_anterior: string; info_asesoria_con_quien: string
+  info_razon_eleccion: string; info_expectativas: string
 }
 
 const hijoVacio = (): Hijo => ({ nombre: '', edad: '', ocupacion: '', vive_en_casa: '' })
@@ -32,6 +35,8 @@ const datosBlancos = (): DatosGenerales => ({
   hijos: [hijoVacio()],
   salud_padece_enfermedad: '', salud_ayuda_psicologica: '',
   salud_ayuda_tiempo: '', salud_medicamentos: '', salud_medicamentos_cual: '',
+  info_asesoria_anterior: '', info_asesoria_con_quien: '',
+  info_razon_eleccion: '', info_expectativas: '',
 })
 
 const ESTADOS_MEXICO = [
@@ -45,12 +50,13 @@ const ESTADOS_MEXICO = [
 ]
 
 const BASE_STEPS = [
-  { id: 'cuenta',    label: 'Cuenta'    },
-  { id: 'asesorado', label: 'Asesorado' },
-  { id: 'contacto',  label: 'Contacto'  },
-  { id: 'pareja',    label: 'Pareja'    },
-  { id: 'hijos',     label: 'Hijos'     },
-  { id: 'salud',     label: 'Salud'     },
+  { id: 'cuenta',      label: 'Cuenta'      },
+  { id: 'asesorado',   label: 'Asesorado'   },
+  { id: 'contacto',    label: 'Contacto'    },
+  { id: 'pareja',      label: 'Pareja'      },
+  { id: 'hijos',       label: 'Hijos'       },
+  { id: 'salud',       label: 'Salud'       },
+  { id: 'institucion', label: 'Institución' },
 ]
 
 // ── Componentes de campo ─────────────────────────────────────────────────────
@@ -101,13 +107,14 @@ function RegistroConsultorioForm() {
   // Steps dinámicos: insertar 'Empresa' entre 'Cuenta' y 'Asesorado' si hay ≥2 empresas
   const steps = empresas.length >= 2
     ? [
-        { id: 'cuenta',    label: 'Cuenta'    },
-        { id: 'empresa',   label: 'Empresa'   },
-        { id: 'asesorado', label: 'Asesorado' },
-        { id: 'contacto',  label: 'Contacto'  },
-        { id: 'pareja',    label: 'Pareja'    },
-        { id: 'hijos',     label: 'Hijos'     },
-        { id: 'salud',     label: 'Salud'     },
+        { id: 'cuenta',      label: 'Cuenta'      },
+        { id: 'empresa',     label: 'Empresa'     },
+        { id: 'asesorado',   label: 'Asesorado'   },
+        { id: 'contacto',    label: 'Contacto'    },
+        { id: 'pareja',      label: 'Pareja'      },
+        { id: 'hijos',       label: 'Hijos'       },
+        { id: 'salud',       label: 'Salud'       },
+        { id: 'institucion', label: 'Institución' },
       ]
     : BASE_STEPS
 
@@ -521,6 +528,69 @@ function RegistroConsultorioForm() {
                   placeholder="Metformina, Losartán…" className={inputCls} />
               </Field>
             )}
+          </>}
+
+          {/* ── Paso: Institución ── */}
+          {steps[step]?.id === 'institucion' && <>
+            <h2 className="text-base font-semibold text-gray-800">Información General</h2>
+            <p className="text-xs text-gray-400 leading-relaxed">
+              Estas preguntas nos ayudan a brindarte un mejor acompañamiento.
+            </p>
+
+            {/* Pregunta 1: asesoria anterior */}
+            <Field label="¿Ha recibido asesoría de esta Institución anteriormente?">
+              <div className="flex gap-4 pt-1">
+                {['Sí', 'No'].map(op => (
+                  <label key={op} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="info_asesoria_anterior"
+                      value={op}
+                      checked={dg.info_asesoria_anterior === op}
+                      onChange={() => {
+                        setField('info_asesoria_anterior', op)
+                        if (op === 'No') setField('info_asesoria_con_quien', '')
+                      }}
+                      className="accent-primary-600 w-4 h-4"
+                    />
+                    <span className="text-sm text-gray-700">{op}</span>
+                  </label>
+                ))}
+              </div>
+            </Field>
+            {dg.info_asesoria_anterior === 'Sí' && (
+              <Field label="¿Con quién?">
+                <input
+                  type="text"
+                  value={dg.info_asesoria_con_quien}
+                  onChange={e => setField('info_asesoria_con_quien', e.target.value)}
+                  placeholder="Nombre del terapeuta o asesor"
+                  className={inputCls}
+                />
+              </Field>
+            )}
+
+            {/* Pregunta 2: razón de elección */}
+            <Field label="¿Por qué elegiste esta Institución para tu acompañamiento terapéutico/emocional?" optional>
+              <textarea
+                value={dg.info_razon_eleccion}
+                onChange={e => setField('info_razon_eleccion', e.target.value)}
+                placeholder="Escribe tu respuesta aquí…"
+                rows={3}
+                className={inputCls + ' resize-none'}
+              />
+            </Field>
+
+            {/* Pregunta 3: expectativas */}
+            <Field label="¿Qué esperas de este acompañamiento a través de esta Institución?" optional>
+              <textarea
+                value={dg.info_expectativas}
+                onChange={e => setField('info_expectativas', e.target.value)}
+                placeholder="Escribe tu respuesta aquí…"
+                rows={3}
+                className={inputCls + ' resize-none'}
+              />
+            </Field>
           </>}
 
           {/* Error */}

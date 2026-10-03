@@ -2420,6 +2420,11 @@ export async function imprimirDatosGeneralesDesdeReportes(
     ? `Sí — ${v(dg?.salud_medicamentos_cual)}`
     : v(dg?.salud_medicamentos)
 
+  // Información General
+  const infoAsesoriaAnterior = dg?.info_asesoria_anterior === 'Sí' && dg?.info_asesoria_con_quien
+    ? `Sí — ${dg.info_asesoria_con_quien}`
+    : v(dg?.info_asesoria_anterior)
+
   const html = `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -2672,6 +2677,25 @@ export async function imprimirDatosGeneralesDesdeReportes(
         <div class="field"><div class="flabel">¿Padece alguna enfermedad?</div><div class="fvalue">${v(dg?.salud_padece_enfermedad)}</div></div>
         <div class="field"><div class="flabel">¿Ha recibido ayuda psicológica o psiquiátrica?</div><div class="fvalue">${saludAyuda}</div></div>
         <div class="field"><div class="flabel">¿Toma medicamentos actualmente?</div><div class="fvalue">${saludMeds}</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. Información General -->
+  <div class="section" style="margin-top:5pt;">
+    <div class="sec-header">Información General</div>
+    <div class="sec-body">
+      <div class="field" style="margin-bottom:4pt;">
+        <div class="flabel">¿Ha recibido asesoría de esta Institución anteriormente?</div>
+        <div class="fvalue">${infoAsesoriaAnterior}</div>
+      </div>
+      <div class="field" style="margin-bottom:4pt;">
+        <div class="flabel">¿Por qué eligió esta Institución para su acompañamiento terapéutico/emocional?</div>
+        <div class="fvalue" style="min-height:16pt;white-space:pre-wrap;">${v(dg?.info_razon_eleccion)}</div>
+      </div>
+      <div class="field">
+        <div class="flabel">¿Qué espera de este acompañamiento a través de esta Institución?</div>
+        <div class="fvalue" style="min-height:16pt;white-space:pre-wrap;">${v(dg?.info_expectativas)}</div>
       </div>
     </div>
   </div>
