@@ -2041,12 +2041,12 @@ export function buildReportHeader(opts: ReportHeaderOptions): string {
       : `<span style="font-size:10pt;font-weight:600;color:#444;">${terapeutaNombre}</span>`
 
   return `
-    <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:3px;">
-      <span style="font-size:9pt;color:#777;">${date}</span>
+    <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1.5px solid #ddd;padding-bottom:4px;margin-bottom:7px;">
+      <div>
+        <div style="font-size:9pt;color:#777;">${date}</div>
+        <div style="font-size:8.5pt;color:#888;">Reporte impreso por: <strong>${terapeutaNombre}</strong></div>
+      </div>
       <div style="display:flex;align-items:center;">${rightContent}</div>
-    </div>
-    <div style="font-size:8.5pt;color:#888;border-bottom:1.5px solid #ddd;padding-bottom:4px;margin-bottom:7px;">
-      Reporte impreso por: <strong>${terapeutaNombre}</strong>
     </div>
   `
 }
@@ -2462,6 +2462,10 @@ export async function imprimirDatosGeneralesDesdeReportes(
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     @page { size: letter; margin: 1cm 1.8cm 1.2cm; }
+    html, body {
+      margin: 0 !important;
+      padding: 0 !important;
+    }
     body {
       font-family: Arial, Helvetica, sans-serif;
       font-size: 9pt;
@@ -2544,7 +2548,7 @@ export async function imprimirDatosGeneralesDesdeReportes(
     /* ─── Genograma ─── */
     .genograma-box {
       border: 1pt solid #2d3a8c;
-      height: 130pt;
+      height: 118pt;
       position: relative;
       margin-top: 5pt;
     }
