@@ -8,6 +8,8 @@ import TerapeutasAcordeon from './TerapeutasAcordeon'
 interface TerapeutaRow {
   nombre: string
   email: string
+  telefono: string
+  empresa: string
   pacientesActivos: number
 }
 
@@ -83,6 +85,14 @@ export default async function InstitucionalDashboardPage() {
     piRecords[0].nivel
   ) as 'N1' | 'N2' | 'N3'
 
+  // ── Teléfonos desde user_metadata ─────────────────────────────────────────
+  const { data: authUsersData } = await admin.auth.admin.listUsers({ perPage: 1000 })
+  const whatsappMap = new Map<string, string>()
+  for (const u of authUsersData?.users ?? []) {
+    const phone = u.user_metadata?.whatsapp_phone
+    if (phone) whatsappMap.set(u.id, String(phone))
+  }
+
   // ── Cargar terapeutas y pacientes por empresa ──────────────────────────────
   const empresaBlocks: EmpresaBlock[] = await Promise.all(
     piRecords.map(async (pi) => {
@@ -130,8 +140,10 @@ export default async function InstitucionalDashboardPage() {
             .eq('empresa_id', empresaId)
             .eq('is_active', true)
           return {
-            nombre: p?.full_name ?? 'Sin nombre',
-            email:  p?.email    ?? '',
+            nombre:           p?.full_name ?? 'Sin nombre',
+            email:            p?.email     ?? '',
+            telefono:         whatsappMap.get(t.therapist_id) ?? '',
+            empresa:          empresaNombre,
             pacientesActivos: count ?? 0,
           }
         })
@@ -211,11 +223,17 @@ export default async function InstitucionalDashboardPage() {
               </div>
             </div>
 
-            {/* Acordeón de terapeutas */}
-            <TerapeutasAcordeon terapeutas={bloque.terapeutas} />
           </section>
         )
       })}
+
+      {/* ── Acordeón unificado de terapeutas (todas las empresas) ─────────────── */}
+      {(() => {
+        const allTerapeutas = empresaBlocks.flatMap(b => b.terapeutas)
+        return allTerapeutas.length > 0
+          ? <TerapeutasAcordeon terapeutas={allTerapeutas} />
+          : null
+      })()}
 
       {/* ── Reportes (N1/N2) ──────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
