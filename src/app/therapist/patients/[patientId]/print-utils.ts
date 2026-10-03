@@ -2041,11 +2041,11 @@ export function buildReportHeader(opts: ReportHeaderOptions): string {
       : `<span style="font-size:10pt;font-weight:600;color:#444;">${terapeutaNombre}</span>`
 
   return `
-    <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:8px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:3px;">
       <span style="font-size:9pt;color:#777;">${date}</span>
       <div style="display:flex;align-items:center;">${rightContent}</div>
     </div>
-    <div style="font-size:8.5pt;color:#888;border-bottom:1.5px solid #ddd;padding-bottom:10px;margin-bottom:16px;">
+    <div style="font-size:8.5pt;color:#888;border-bottom:1.5px solid #ddd;padding-bottom:4px;margin-bottom:7px;">
       Reporte impreso por: <strong>${terapeutaNombre}</strong>
     </div>
   `
@@ -2685,17 +2685,17 @@ export async function imprimirDatosGeneralesDesdeReportes(
   <div class="section" style="margin-top:5pt;">
     <div class="sec-header">Información General</div>
     <div class="sec-body">
-      <div class="field" style="margin-bottom:4pt;">
+      <div class="field" style="margin-bottom:3pt;">
         <div class="flabel">¿Ha recibido asesoría de esta Institución anteriormente?</div>
-        <div class="fvalue">${infoAsesoriaAnterior}</div>
+        <div class="fvalue" style="font-size:10px;">${infoAsesoriaAnterior}</div>
       </div>
-      <div class="field" style="margin-bottom:4pt;">
+      <div class="field" style="margin-bottom:3pt;">
         <div class="flabel">¿Por qué eligió esta Institución para su acompañamiento terapéutico/emocional?</div>
-        <div class="fvalue" style="min-height:16pt;white-space:pre-wrap;">${v(dg?.info_razon_eleccion)}</div>
+        <div class="fvalue" style="font-size:10px;min-height:14pt;white-space:pre-wrap;">${v(dg?.info_razon_eleccion)}</div>
       </div>
       <div class="field">
         <div class="flabel">¿Qué espera de este acompañamiento a través de esta Institución?</div>
-        <div class="fvalue" style="min-height:16pt;white-space:pre-wrap;">${v(dg?.info_expectativas)}</div>
+        <div class="fvalue" style="font-size:10px;min-height:14pt;white-space:pre-wrap;">${v(dg?.info_expectativas)}</div>
       </div>
     </div>
   </div>
