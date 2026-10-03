@@ -92,36 +92,37 @@ export function imprimirReporteAtencion(data: ReporteAtencionData) {
   <title>Reporte de la Atención — ${paciente_nombre}</title>
   <style>
     * { box-sizing:border-box; margin:0; padding:0; }
-    @page { margin:2.2cm 2.5cm; }
-    body { font-family:'Georgia','Times New Roman',serif; font-size:10.5pt; color:#1a1a1a; line-height:1.6; }
+    @page { size: letter; margin: 1cm 1.8cm 1.2cm; }
+    html, body { margin: 0 !important; padding: 0 !important; }
+    body { font-family:Arial, Helvetica, sans-serif; font-size:9pt; color:#1a1a1a; line-height:1.3; }
     .doc-title { text-align:center; border-bottom:2pt solid #2d3a8c; border-top:0.5pt solid #2d3a8c;
-                 padding:10pt 0; margin-bottom:14pt; }
-    .doc-title h1 { font-size:14pt; letter-spacing:0.5pt; color:#2d3a8c; text-transform:uppercase; }
-    .doc-title .sub { font-size:10pt; color:#5060a4; font-style:italic; margin-top:2pt; }
-    .meta { display:flex; justify-content:space-between; margin-bottom:18pt; font-size:9.5pt;
-            color:#444; background:#f4f6fb; padding:6pt 10pt; border-radius:4pt; }
+                 padding:6pt 0; margin-bottom:10pt; }
+    .doc-title h1 { font-size:12pt; letter-spacing:0.5pt; color:#2d3a8c; text-transform:uppercase; }
+    .doc-title .sub { font-size:9pt; color:#5060a4; font-style:italic; margin-top:2pt; }
+    .meta { display:flex; justify-content:space-between; margin-bottom:10pt; font-size:9pt;
+            color:#444; background:#f4f6fb; padding:4pt 8pt; border-radius:3pt; }
     .meta strong { color:#1a1a1a; }
-    .section { margin-bottom:16pt; }
-    .section-title { font-size:10.5pt; font-weight:bold; color:#2d3a8c; text-transform:uppercase;
-                     letter-spacing:0.4pt; border-bottom:1pt solid #b0bbd4;
-                     padding-bottom:4pt; margin-bottom:10pt; }
-    .section-title .num { font-size:9pt; font-weight:normal; margin-right:4pt; opacity:0.7; }
-    .section-body { font-size:10pt; line-height:1.65; color:#1a1a1a; white-space:pre-wrap; }
-    .empty { color:#999; font-style:italic; font-size:9.5pt; }
-    .fecha-item { margin-bottom:10pt; padding-left:8pt; border-left:2pt solid #c8d0e8; }
-    .fecha-label { font-size:9pt; font-weight:bold; color:#2d3a8c; margin-bottom:2pt; }
-    .fecha-texto { font-size:10pt; color:#1a1a1a; line-height:1.6; }
-    .factor-schema { font-size:9.5pt; font-weight:bold; color:#2d3a8c; margin:6pt 0 3pt; }
-    .factor-list   { list-style:disc; padding-left:18pt; font-size:10pt; margin-bottom:6pt; }
-    .deriv-row { display:flex; gap:12pt; margin-bottom:6pt; }
-    .deriv-label { font-weight:bold; color:#333; min-width:140pt; font-size:10pt; }
-    .deriv-val { font-size:10pt; color:#1a1a1a; }
-    .firma-section { margin-top:28pt; border-top:1pt solid #ccc; padding-top:14pt;
+    .section { margin-bottom:10pt; }
+    .section-title { font-size:9.5pt; font-weight:bold; color:#2d3a8c; text-transform:uppercase;
+                     letter-spacing:0.3pt; border-bottom:1pt solid #b0bbd4;
+                     padding-bottom:3pt; margin-bottom:6pt; }
+    .section-title .num { font-size:8pt; font-weight:normal; margin-right:4pt; opacity:0.7; }
+    .section-body { font-size:9pt; line-height:1.5; color:#1a1a1a; white-space:pre-wrap; }
+    .empty { color:#999; font-style:italic; font-size:9pt; }
+    .fecha-item { margin-bottom:7pt; padding-left:8pt; border-left:2pt solid #c8d0e8; }
+    .fecha-label { font-size:8.5pt; font-weight:bold; color:#2d3a8c; margin-bottom:2pt; }
+    .fecha-texto { font-size:9pt; color:#1a1a1a; line-height:1.5; }
+    .factor-schema { font-size:9pt; font-weight:bold; color:#2d3a8c; margin:5pt 0 3pt; }
+    .factor-list   { list-style:disc; padding-left:16pt; font-size:9pt; margin-bottom:5pt; }
+    .deriv-row { display:flex; gap:10pt; margin-bottom:5pt; }
+    .deriv-label { font-weight:bold; color:#333; min-width:130pt; font-size:9pt; }
+    .deriv-val { font-size:9pt; color:#1a1a1a; }
+    .firma-section { margin-top:20pt; border-top:1pt solid #ccc; padding-top:12pt;
                      display:grid; grid-template-columns:1fr 1fr; gap:30pt; }
     .firma-item { text-align:center; }
-    .firma-linea { border-top:1pt solid #333; padding-top:5pt; font-size:9.5pt; color:#444; }
-    .firma-name { margin-top:4pt; font-size:9.5pt; font-weight:bold; color:#1a1a1a; }
-    .firma-label { font-size:10pt; font-weight:bold; color:#333; margin-bottom:20pt; }
+    .firma-linea { border-top:1pt solid #333; padding-top:5pt; font-size:9pt; color:#444; }
+    .firma-name { margin-top:4pt; font-size:9pt; font-weight:bold; color:#1a1a1a; }
+    .firma-label { font-size:9pt; font-weight:bold; color:#333; margin-bottom:18pt; }
     @media print {
       body { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
       .no-print { display:none !important; }

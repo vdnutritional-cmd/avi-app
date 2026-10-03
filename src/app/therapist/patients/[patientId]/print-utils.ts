@@ -508,12 +508,13 @@ export async function imprimirHistoriaClinica(
 function sharedCSS() {
   return `
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    @page { margin: 1.4cm 2cm; }
+    @page { size: letter; margin: 1cm 1.8cm 1.2cm; }
+    html, body { margin: 0 !important; padding: 0 !important; }
     body {
-      font-family: 'Georgia', 'Times New Roman', serif;
-      font-size: 10pt;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 9pt;
       color: #1a1a1a;
-      line-height: 1.45;
+      line-height: 1.3;
     }
 
     /* ─── Pre-header ─── */
@@ -577,7 +578,7 @@ function sharedCSS() {
     .section { margin-bottom: 10pt; }
     .section-break-before { page-break-before: always; margin-bottom: 10pt; }
     .section-title {
-      font-size: 10pt;
+      font-size: 9.5pt;
       font-weight: bold;
       color: #2d3a8c;
       text-transform: uppercase;
@@ -586,8 +587,8 @@ function sharedCSS() {
       padding-bottom: 3pt;
       margin-bottom: 6pt;
     }
-    .section-title .num { font-size: 8.5pt; font-weight: normal; margin-right: 4pt; opacity: 0.7; }
-    .section-body { font-size: 9.5pt; line-height: 1.5; color: #1a1a1a; white-space: pre-wrap; }
+    .section-title .num { font-size: 8pt; font-weight: normal; margin-right: 4pt; opacity: 0.7; }
+    .section-body { font-size: 9pt; line-height: 1.5; color: #1a1a1a; white-space: pre-wrap; }
     .empty { color: #999; font-style: italic; font-size: 9pt; }
 
     /* ─── Sesiones ─── */
@@ -622,7 +623,7 @@ function sharedCSS() {
       letter-spacing: 0.3pt;
       margin-bottom: 3pt;
     }
-    .session-field-text { font-size: 10pt; line-height: 1.6; color: #1a1a1a; white-space: pre-wrap; }
+    .session-field-text { font-size: 9pt; line-height: 1.5; color: #1a1a1a; white-space: pre-wrap; }
 
     /* ─── Firma ─── */
     .firma-section {
@@ -2234,27 +2235,24 @@ export async function imprimirAnalisisDesdeReportes(
   <title>Análisis Clínico y Propuesta Técnica — ${pacienteNombre}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    @page { margin: 1.4cm 2cm; }
-    body { font-family: 'Georgia','Times New Roman',serif; font-size: 10pt; color: #1a1a1a; line-height: 1.55; }
-    .report-header { display: flex; justify-content: space-between; align-items: flex-start;
-                     border-bottom: 2pt solid #2d3a8c; padding-bottom: 6pt; margin-bottom: 6pt; }
-    .report-header-left { font-size: 9pt; color: #444; }
-    .report-header-right { text-align: right; font-size: 9pt; color: #444; }
-    .report-by { font-size: 8.5pt; color: #888; margin-bottom: 12pt; }
+    @page { size: letter; margin: 1cm 1.8cm 1.2cm; }
+    html, body { margin: 0 !important; padding: 0 !important; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 9pt; color: #1a1a1a; line-height: 1.3; }
     .doc-title { text-align: center; padding: 5pt 0; margin-bottom: 8pt;
                  border-bottom: 1pt solid #b0bbd4; border-top: 0.5pt solid #b0bbd4; }
-    .doc-title h1 { font-size: 13pt; color: #2d3a8c; text-transform: uppercase; letter-spacing: 0.4pt; }
-    .doc-title .sub { font-size: 9.5pt; color: #5060a4; font-style: italic; }
+    .doc-title h1 { font-size: 12pt; color: #2d3a8c; text-transform: uppercase; letter-spacing: 0.4pt; }
+    .doc-title .sub { font-size: 9pt; color: #5060a4; font-style: italic; }
     .meta { display: flex; justify-content: space-between; font-size: 9pt; color: #444;
             background: #f4f6fb; padding: 4pt 8pt; border-radius: 3pt; margin-bottom: 10pt; }
-    .content { font-size: 10pt; line-height: 1.6; }
-    .content h1.titulo { font-size: 12pt; color: #2d3a8c; margin: 12pt 0 4pt; }
-    .content h2 { font-size: 10.5pt; font-weight: bold; color: #2d3a8c;
+    .content { font-size: 9pt; line-height: 1.5; }
+    .content h1.titulo { font-size: 11pt; color: #2d3a8c; margin: 10pt 0 4pt; }
+    .content h2 { font-size: 9.5pt; font-weight: bold; color: #2d3a8c;
                   text-transform: uppercase; letter-spacing: 0.3pt;
-                  border-bottom: 1pt solid #b0bbd4; padding-bottom: 3pt; margin: 12pt 0 5pt; }
+                  border-bottom: 1pt solid #b0bbd4; padding-bottom: 3pt; margin: 10pt 0 5pt; }
     .content p { margin-bottom: 6pt; }
     .content strong { color: #1a1a1a; }
-    @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+    @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                   .no-print { display: none !important; } }
   </style>
 </head>
 <body>
