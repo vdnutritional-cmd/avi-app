@@ -99,6 +99,7 @@ function RegistroConsultorioForm() {
   const [error,      setError]      = useState<string | null>(null)
   const [loading,    setLoading]    = useState(false)
   const [registrado, setRegistrado] = useState(false)
+  const [cerrando,   setCerrando]   = useState(false)
 
   // Empresa (convenio)
   const [empresas,  setEmpresas]  = useState<{ id: string; nombre: string }[]>([])
@@ -117,6 +118,12 @@ function RegistroConsultorioForm() {
         { id: 'institucion', label: 'Institución' },
       ]
     : BASE_STEPS
+
+  // Cerrar sesión del paciente recién registrado en cuanto se muestra la pantalla de éxito
+  useEffect(() => {
+    if (!registrado) return
+    fetch('/api/auth/logout', { method: 'POST' }).catch(() => { /* silencioso */ })
+  }, [registrado])
 
   // Validar token
   useEffect(() => {
@@ -249,9 +256,18 @@ function RegistroConsultorioForm() {
           <p className="text-primary-700">Contraseña: la que definiste</p>
         </div>
         <button
-          onClick={() => { try { window.close() } catch { /* noop */ } }}
-          className="w-full py-3 bg-primary-600 text-white font-semibold rounded-2xl text-sm hover:bg-primary-700 transition-colors">
-          Cerrar esta ventana
+          disabled={cerrando}
+          onClick={async () => {
+            setCerrando(true)
+            // Asegurar logout aunque el useEffect no haya terminado aún
+            try { await fetch('/api/auth/logout', { method: 'POST' }) } catch { /* silencioso */ }
+            // Intentar cerrar la pestaña (solo funciona si fue abierta via window.open)
+            try { window.close() } catch { /* noop */ }
+            // Fallback: redirigir a la landing page para que la sesión no quede activa
+            setTimeout(() => { window.location.href = '/' }, 300)
+          }}
+          className="w-full py-3 bg-primary-600 text-white font-semibold rounded-2xl text-sm hover:bg-primary-700 transition-colors disabled:opacity-60">
+          {cerrando ? 'Cerrando sesión…' : 'Cerrar esta ventana'}
         </button>
       </div>
     </div>
