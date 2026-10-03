@@ -192,11 +192,11 @@ export default function ReportesPageClient({ tier, terapeutaNombre }: Props) {
     setPrintingId(id)
     try {
       switch (id) {
-        case 'hc-original':    await imprimirHCOriginalDesdeReportes(pid);    break
-        case 'hc-actualizada': await imprimirHCActualizadaDesdeReportes(pid); break
-        case 'valorativo':     await imprimirReporteValorativoDesdeReportes(pid); break
-        case 'integracion':    await imprimirIntegracionPlanDesdeReportes(pid);   break
-        case 'proceso':        await imprimirReporteProcesoDesdeReportes(pid);    break
+        case 'hc-original':    await imprimirHCOriginalDesdeReportes(pid, headerOpts);    break
+        case 'hc-actualizada': await imprimirHCActualizadaDesdeReportes(pid, headerOpts); break
+        case 'valorativo':     await imprimirReporteValorativoDesdeReportes(pid, headerOpts); break
+        case 'integracion':    await imprimirIntegracionPlanDesdeReportes(pid, headerOpts);   break
+        case 'proceso':        await imprimirReporteProcesoDesdeReportes(pid, headerOpts);    break
       }
     } finally { setPrintingId(null) }
   }

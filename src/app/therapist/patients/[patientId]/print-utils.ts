@@ -2310,7 +2310,7 @@ export async function imprimirAnalisisDesdeReportes(
 // ──────────────────────────────────────────────────────────
 
 /** Historia Clínica Original (inamovible). Alerta si no fue generada. */
-export async function imprimirHCOriginalDesdeReportes(patientId: string) {
+export async function imprimirHCOriginalDesdeReportes(patientId: string, headerOpts?: Partial<ReportHeaderOptions>) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return
@@ -2329,11 +2329,11 @@ export async function imprimirHCOriginalDesdeReportes(patientId: string) {
     alert('La Historia Clínica Original aún no ha sido generada. Ve a Impresiones en AVI-CLÍNICO para generarla.')
     return
   }
-  await imprimirHistoriaClinicaV2(patientId, user.id, profile?.full_name ?? null, hcData, true)
+  await imprimirHistoriaClinicaV2(patientId, user.id, profile?.full_name ?? null, hcData, true, headerOpts)
 }
 
 /** Historia Clínica Actualizada. Alerta si no fue generada. */
-export async function imprimirHCActualizadaDesdeReportes(patientId: string) {
+export async function imprimirHCActualizadaDesdeReportes(patientId: string, headerOpts?: Partial<ReportHeaderOptions>) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return
@@ -2352,34 +2352,34 @@ export async function imprimirHCActualizadaDesdeReportes(patientId: string) {
     alert('La Historia Clínica Actualizada aún no ha sido generada. Ve a Impresiones en AVI-CLÍNICO para generarla.')
     return
   }
-  await imprimirHistoriaClinicaV2(patientId, user.id, profile?.full_name ?? null, hcData, false)
+  await imprimirHistoriaClinicaV2(patientId, user.id, profile?.full_name ?? null, hcData, false, headerOpts)
 }
 
 /** Reporte Valorativo — carga datos internamente. */
-export async function imprimirReporteValorativoDesdeReportes(patientId: string) {
+export async function imprimirReporteValorativoDesdeReportes(patientId: string, headerOpts?: Partial<ReportHeaderOptions>) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return
   const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', patientId).single()
-  await imprimirReporteValorativo(patientId, user.id, profile?.full_name ?? null)
+  await imprimirReporteValorativo(patientId, user.id, profile?.full_name ?? null, headerOpts)
 }
 
 /** Integración y Plan de Intervención — carga datos internamente. */
-export async function imprimirIntegracionPlanDesdeReportes(patientId: string) {
+export async function imprimirIntegracionPlanDesdeReportes(patientId: string, headerOpts?: Partial<ReportHeaderOptions>) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return
   const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', patientId).single()
-  await imprimirIntegracionPlan(patientId, user.id, profile?.full_name ?? null)
+  await imprimirIntegracionPlan(patientId, user.id, profile?.full_name ?? null, headerOpts)
 }
 
 /** Reporte de Proceso — carga datos internamente. */
-export async function imprimirReporteProcesoDesdeReportes(patientId: string) {
+export async function imprimirReporteProcesoDesdeReportes(patientId: string, headerOpts?: Partial<ReportHeaderOptions>) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return
   const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', patientId).single()
-  await imprimirReporteProceso(patientId, user.id, profile?.full_name ?? null)
+  await imprimirReporteProceso(patientId, user.id, profile?.full_name ?? null, headerOpts)
 }
 
 // ──────────────────────────────────────────────────────────
