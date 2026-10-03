@@ -50,6 +50,7 @@ export function imprimirReporteAtencion(data: ReporteAtencionData) {
     terapeutaNombre,
     logoUrl,
     side: logoUrl ? 'logo' : 'name',
+    subtitle: 'Reporte de la Atención',
   })
 
   const listaFechas = (items: ItemFecha[]) =>

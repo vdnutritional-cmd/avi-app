@@ -697,7 +697,7 @@ export async function imprimirNotaInicial(
     </button>
   </div>
 
-  ${buildReportHeader({ terapeutaNombre, logoUrl: headerOpts?.logoUrl ?? null, side: headerOpts?.side ?? 'name' })}
+  ${buildReportHeader({ terapeutaNombre, logoUrl: headerOpts?.logoUrl ?? null, side: headerOpts?.side ?? 'name', subtitle: 'Registro de Entrevista Inicial (Nota Inicial)' })}
 
   <!-- Asesorado -->
   <div class="pre-header">
@@ -869,7 +869,7 @@ export async function imprimirBitacoraSesiones(
     </button>
   </div>
 
-  ${buildReportHeader({ terapeutaNombre, logoUrl: headerOpts?.logoUrl ?? null, side: headerOpts?.side ?? 'name' })}
+  ${buildReportHeader({ terapeutaNombre, logoUrl: headerOpts?.logoUrl ?? null, side: headerOpts?.side ?? 'name', subtitle: 'Bitácora de Sesiones Presenciales' })}
 
   <!-- Asesorado y período -->
   <div class="pre-header">
@@ -1223,7 +1223,7 @@ export async function imprimirReporteValorativo(
     </button>
   </div>
 
-  ${headerOpts ? buildReportHeader({ terapeutaNombre, logoUrl: headerOpts.logoUrl ?? null, side: headerOpts.side ?? 'name' }) : ''}
+  ${buildReportHeader({ terapeutaNombre, logoUrl: headerOpts?.logoUrl ?? null, side: headerOpts?.side ?? 'name', subtitle: 'Reporte Valorativo' })}
 
   <!-- Pre-header -->
   <div class="pre-header">
@@ -1434,7 +1434,7 @@ export async function imprimirHistoriaClinicaV2(
     </button>
   </div>
 
-  ${headerOpts ? buildReportHeader({ terapeutaNombre, logoUrl: headerOpts.logoUrl ?? null, side: headerOpts.side ?? 'name' }) : ''}
+  ${buildReportHeader({ terapeutaNombre, logoUrl: headerOpts?.logoUrl ?? null, side: headerOpts?.side ?? 'name', subtitle: 'Historia Clínica' })}
 
   <div class="pre-header">
     <div class="pre-header-row">
@@ -1681,7 +1681,7 @@ export async function imprimirReporteProceso(
     </button>
   </div>
 
-  ${headerOpts ? buildReportHeader({ terapeutaNombre, logoUrl: headerOpts.logoUrl ?? null, side: headerOpts.side ?? 'name' }) : ''}
+  ${buildReportHeader({ terapeutaNombre, logoUrl: headerOpts?.logoUrl ?? null, side: headerOpts?.side ?? 'name', subtitle: 'Reporte de Proceso' })}
 
   <div class="pre-header">
     <div class="pre-header-row">
@@ -1909,7 +1909,7 @@ export async function imprimirIntegracionPlan(
     </button>
   </div>
 
-  ${headerOpts ? buildReportHeader({ terapeutaNombre, logoUrl: headerOpts.logoUrl ?? null, side: headerOpts.side ?? 'name' }) : ''}
+  ${buildReportHeader({ terapeutaNombre, logoUrl: headerOpts?.logoUrl ?? null, side: headerOpts?.side ?? 'name', subtitle: 'Integración y Plan de Intervención' })}
 
   <div class="pre-header">
     <div class="pre-header-row">
@@ -2021,16 +2021,17 @@ export interface ReportHeaderOptions {
   logoUrl?: string | null
   /** Qué mostrar a la derecha: logo de empresa o nombre del terapeuta */
   side?: 'logo' | 'name'
+  /** Subtítulo del reporte (aparece bajo "AVI Therapy Companion") */
+  subtitle?: string
 }
 
 /**
- * Genera el HTML del encabezado compartido:
- * - Izquierda: fecha de impresión
- * - Derecha: logo OR nombre del terapeuta
- * - Debajo: "Reporte impreso por: <nombre>"
+ * Genera el HTML del encabezado compartido de todos los reportes:
+ * 1. Línea meta fina: fecha + "Reporte impreso por" (izq) / nombre o logo empresa (der)
+ * 2. Bloque AVI: cuadro "AVI" + "AVI Therapy Companion" + subtítulo (izq) / Terapeuta (der)
  */
 export function buildReportHeader(opts: ReportHeaderOptions): string {
-  const { terapeutaNombre, logoUrl, side = 'name' } = opts
+  const { terapeutaNombre, logoUrl, side = 'name', subtitle } = opts
 
   const date = new Date().toLocaleDateString('es-MX', {
     day: 'numeric', month: 'long', year: 'numeric',
@@ -2042,12 +2043,26 @@ export function buildReportHeader(opts: ReportHeaderOptions): string {
       : `<span style="font-size:10pt;font-weight:600;color:#444;">${terapeutaNombre}</span>`
 
   return `
-    <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1.5px solid #ddd;padding-bottom:4px;margin-bottom:7px;">
+    <!-- línea meta fina -->
+    <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #ddd;padding-bottom:3px;margin-bottom:4px;">
       <div>
         <div style="font-size:9pt;color:#777;">${date}</div>
         <div style="font-size:8.5pt;color:#888;">Reporte impreso por: <strong>${terapeutaNombre}</strong></div>
       </div>
       <div style="display:flex;align-items:center;">${rightContent}</div>
+    </div>
+    <!-- bloque AVI brand -->
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1.5pt solid #2d3a8c;padding-bottom:4pt;margin-bottom:5pt;">
+      <div style="display:flex;align-items:center;gap:5pt;">
+        <div style="width:22pt;height:22pt;border-radius:4pt;background:#c026d3;color:#fff;font-size:7pt;font-weight:bold;letter-spacing:0.5pt;display:flex;align-items:center;justify-content:center;">AVI</div>
+        <div>
+          <div style="font-size:11pt;font-weight:bold;color:#c026d3;">AVI Therapy Companion</div>
+          ${subtitle ? `<div style="font-size:7.5pt;color:#666;margin-top:0.5pt;">${subtitle}</div>` : ''}
+        </div>
+      </div>
+      <div style="text-align:right;font-size:7.5pt;color:#555;line-height:1.6;">
+        <div><strong>Terapeuta:</strong> ${terapeutaNombre}</div>
+      </div>
     </div>
   `
 }
@@ -2256,7 +2271,7 @@ export async function imprimirAnalisisDesdeReportes(
   </style>
 </head>
 <body>
-  ${buildReportHeader({ terapeutaNombre, logoUrl: headerOpts?.logoUrl ?? null, side: headerOpts?.side ?? 'name' })}
+  ${buildReportHeader({ terapeutaNombre, logoUrl: headerOpts?.logoUrl ?? null, side: headerOpts?.side ?? 'name', subtitle: 'Análisis Clínico y Propuesta Técnica' })}
 
   <!-- Asesorado y fecha de análisis -->
   <div class="meta" style="margin-bottom:8pt;">
@@ -2471,35 +2486,6 @@ export async function imprimirDatosGeneralesDesdeReportes(
       line-height: 1.3;
     }
 
-    /* ─── Encabezado ─── */
-    .top-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      border-bottom: 1.5pt solid #2d3a8c;
-      padding-bottom: 4pt;
-      margin-bottom: 3pt;
-    }
-    .brand { display: flex; align-items: center; gap: 5pt; }
-    .brand-mark {
-      width: 22pt; height: 22pt; border-radius: 4pt;
-      background: #c026d3; color: #fff;
-      font-size: 7pt; font-weight: bold; letter-spacing: 0.5pt;
-      display: flex; align-items: center; justify-content: center;
-    }
-    .brand-name { font-size: 11pt; font-weight: bold; color: #c026d3; }
-    .brand-sub  { font-size: 7.5pt; color: #666; margin-top: 0.5pt; }
-    .header-meta { text-align: right; font-size: 7.5pt; color: #555; line-height: 1.5; }
-    .report-title {
-      text-align: center;
-      font-size: 10pt;
-      font-weight: bold;
-      color: #2d3a8c;
-      text-transform: uppercase;
-      letter-spacing: 0.3pt;
-      margin: 3pt 0 5pt;
-    }
-
     /* ─── Secciones ─── */
     .section { margin-bottom: 5pt; }
     .sec-header {
@@ -2590,24 +2576,7 @@ export async function imprimirDatosGeneralesDesdeReportes(
     </button>
   </div>
 
-  ${buildReportHeader({ terapeutaNombre, logoUrl: headerOpts?.logoUrl ?? null, side: headerOpts?.side ?? 'name' })}
-
-  <!-- Encabezado de hoja -->
-  <div class="top-header">
-    <div class="brand">
-      <div class="brand-mark">AVI</div>
-      <div>
-        <div class="brand-name">AVI Therapy Companion</div>
-        <div class="brand-sub">Registro clínico — Datos generales del asesorado</div>
-      </div>
-    </div>
-    <div class="header-meta">
-      <div><strong>Terapeuta:</strong> ${terapeutaNombre}</div>
-      <div><strong>Fecha:</strong> ${fechaHoy}</div>
-    </div>
-  </div>
-
-  <div class="report-title">Datos Generales del Asesorado</div>
+  ${buildReportHeader({ terapeutaNombre, logoUrl: headerOpts?.logoUrl ?? null, side: headerOpts?.side ?? 'name', subtitle: 'Registro clínico — Datos generales del asesorado' })}
 
   <!-- 1. Datos del asesorado -->
   <div class="section">
