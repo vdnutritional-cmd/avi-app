@@ -2052,7 +2052,7 @@ export function buildReportHeader(opts: ReportHeaderOptions): string {
       <div style="display:flex;align-items:center;">${rightContent}</div>
     </div>
     <!-- bloque AVI brand -->
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1.5pt solid #2d3a8c;padding-bottom:4pt;margin-bottom:10px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1.5pt solid #2d3a8c;padding-bottom:4pt;margin-bottom:0;">
       <div style="display:flex;align-items:center;gap:5pt;">
         <div style="width:22pt;height:22pt;border-radius:4pt;background:#c026d3;color:#fff;font-size:7pt;font-weight:bold;letter-spacing:0.5pt;display:flex;align-items:center;justify-content:center;">AVI</div>
         <div>
@@ -2064,6 +2064,8 @@ export function buildReportHeader(opts: ReportHeaderOptions): string {
         <div><strong>Terapeuta:</strong> ${terapeutaNombre}</div>
       </div>
     </div>
+    <!-- separador post-header -->
+    <div style="height:10px;"></div>
   `
 }
 
