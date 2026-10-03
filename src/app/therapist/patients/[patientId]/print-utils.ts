@@ -2482,7 +2482,7 @@ export async function imprimirDatosGeneralesDesdeReportes(
     .brand-mark {
       width: 22pt; height: 22pt; border-radius: 4pt;
       background: #c026d3; color: #fff;
-      font-size: 12pt; font-weight: bold;
+      font-size: 7pt; font-weight: bold; letter-spacing: 0.5pt;
       display: flex; align-items: center; justify-content: center;
     }
     .brand-name { font-size: 11pt; font-weight: bold; color: #c026d3; }
@@ -2593,7 +2593,7 @@ export async function imprimirDatosGeneralesDesdeReportes(
   <!-- Encabezado de hoja -->
   <div class="top-header">
     <div class="brand">
-      <div class="brand-mark">A</div>
+      <div class="brand-mark">AVI</div>
       <div>
         <div class="brand-name">AVI Therapy Companion</div>
         <div class="brand-sub">Registro clínico — Datos generales del asesorado</div>
