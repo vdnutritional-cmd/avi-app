@@ -108,8 +108,8 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
             onToggle={() => toggleGroup('registro')}
           >
             <NavLink href="/therapist/mi-qr"                    icon="📲" label="Mi QR de registro"                    onClose={closeSidebar} />
-            <NavLink href="/therapist/transferir-paciente"      icon="🔄" label="Transferir paciente a otro terapeuta" onClose={closeSidebar} />
             <NavLink href="/therapist/fusionar-paciente"        icon="⚡" label="Fusionar cuentas de un paciente"         onClose={closeSidebar} />
+            <NavLink href="/therapist/transferir-paciente"      icon="🔄" label="Transferir paciente a otro terapeuta" onClose={closeSidebar} />
             <NavLink href="/therapist/codes"                    icon="🔑" label="Códigos de acceso"                    onClose={closeSidebar} />
           </NavGroup>
 
