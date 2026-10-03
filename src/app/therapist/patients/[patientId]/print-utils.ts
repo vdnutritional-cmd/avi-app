@@ -2371,24 +2371,53 @@ export async function imprimirReporteProcesoDesdeReportes(patientId: string) {
 // Reporte: Datos Generales del Asesorado (una sola hoja + Genograma)
 // ──────────────────────────────────────────────────────────
 
+/**
+ * Datos pre-cargados opcionales para imprimirDatosGeneralesDesdeReportes.
+ * Cuando se proveen, la función omite las 3 queries a Supabase.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export interface DGPreloaded {
+  expediente:       Record<string, any> | null
+  patientName:      string
+  patientEmail:     string
+  terapeutaNombre?: string
+}
+
 export async function imprimirDatosGeneralesDesdeReportes(
-  patientId: string,
+  patientId:   string,
   headerOpts?: Partial<ReportHeaderOptions>,
+  preloaded?:  DGPreloaded,
 ) {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let dg:              Record<string, any> | null
+  let terapeutaNombre: string
+  let patientName:     string
+  let patientEmail:    string
 
-  const [expedienteRes, terapeutaRes, pacienteRes] = await Promise.all([
-    supabase.from('patient_expediente').select('*').eq('therapist_id', user.id).eq('patient_id', patientId).maybeSingle(),
-    supabase.from('profiles').select('full_name').eq('id', user.id).single(),
-    supabase.from('profiles').select('full_name, email').eq('id', patientId).single(),
-  ])
+  if (preloaded) {
+    // Datos ya cargados — sin round-trip a Supabase
+    dg              = preloaded.expediente
+    terapeutaNombre = preloaded.terapeutaNombre ?? headerOpts?.terapeutaNombre ?? '—'
+    patientName     = preloaded.patientName
+    patientEmail    = preloaded.patientEmail
+  } else {
+    // Fallback: cargar desde Supabase
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
 
-  const dg              = expedienteRes.data
-  const terapeutaNombre = terapeutaRes.data?.full_name ?? '—'
-  const patientName     = pacienteRes.data?.full_name ?? pacienteRes.data?.email ?? '—'
-  const patientEmail    = pacienteRes.data?.email ?? ''
+    const [expedienteRes, terapeutaRes, pacienteRes] = await Promise.all([
+      supabase.from('patient_expediente').select('*').eq('therapist_id', user.id).eq('patient_id', patientId).maybeSingle(),
+      supabase.from('profiles').select('full_name').eq('id', user.id).single(),
+      supabase.from('profiles').select('full_name, email').eq('id', patientId).single(),
+    ])
+
+    dg              = expedienteRes.data
+    terapeutaNombre = terapeutaRes.data?.full_name ?? '—'
+    patientName     = pacienteRes.data?.full_name ?? pacienteRes.data?.email ?? '—'
+    patientEmail    = pacienteRes.data?.email ?? ''
+  }
+
   const fechaHoy        = new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })
 
   const v = (val: string | null | undefined) => val?.trim() || '—'

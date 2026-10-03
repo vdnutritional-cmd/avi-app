@@ -18,8 +18,10 @@ import {
   imprimirIntegracionPlanDesdeReportes,
   imprimirReporteProcesoDesdeReportes,
   imprimirDatosGeneralesDesdeReportes,
+  type DGPreloaded,
 } from '../patients/[patientId]/print-utils'
 import { imprimirReporteAtencion, type ReporteAtencionData } from './reporte-atencion-print'
+import { createClient } from '@/lib/supabase/client'
 
 // ── Tipos ─────────────────────────────────────────────────────
 type ReportId =
@@ -77,6 +79,9 @@ export default function ReportesPageClient({ tier, terapeutaNombre }: Props) {
   // Impresión clínico
   const [printingId, setPrintingId] = useState<string | null>(null)
 
+  // Cache de datos pre-cargados para el reporte Datos Generales
+  const [dgCache, setDgCache] = useState<DGPreloaded | null>(null)
+
   // ── Cargar datos iniciales ─────────────────────────────────
   useEffect(() => {
     if (loaded) return
@@ -96,6 +101,7 @@ export default function ReportesPageClient({ tier, terapeutaNombre }: Props) {
   // ── Cambio de paciente ─────────────────────────────────────
   async function handlePacienteChange(p: string) {
     setPid(p)
+    setDgCache(null)
     setSessionOpt('all')
     setAnalisisOpt('')
     setRaOpt('all')
@@ -103,6 +109,25 @@ export default function ReportesPageClient({ tier, terapeutaNombre }: Props) {
     setAnalisisFechas([])
     setErrorRA('')
     if (!p) return
+
+    // Pre-cargar expediente + nombre del paciente (fire-and-forget)
+    ;(async () => {
+      try {
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+        const [expRes, patRes] = await Promise.all([
+          supabase.from('patient_expediente').select('*').eq('therapist_id', user.id).eq('patient_id', p).maybeSingle(),
+          supabase.from('profiles').select('full_name, email').eq('id', p).single(),
+        ])
+        setDgCache({
+          expediente:      expRes.data ?? null,
+          patientName:     patRes.data?.full_name ?? patRes.data?.email ?? '—',
+          patientEmail:    patRes.data?.email ?? '',
+          terapeutaNombre: terapeutaNombre,
+        })
+      } catch { /* silently fail */ }
+    })()
 
     setLoadingSes(true)
     try {
@@ -135,7 +160,7 @@ export default function ReportesPageClient({ tier, terapeutaNombre }: Props) {
     if (!pid || !selected) return
     switch (selected) {
       case 'datos-generales':
-        await imprimirDatosGeneralesDesdeReportes(pid, headerOpts); break
+        await imprimirDatosGeneralesDesdeReportes(pid, headerOpts, dgCache ?? undefined); break
       case 'nota-inicial':
         await imprimirNotaInicialDesdeReportes(pid, headerOpts); break
       case 'sesiones':
