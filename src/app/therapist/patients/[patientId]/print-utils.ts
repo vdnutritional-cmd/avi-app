@@ -2474,25 +2474,25 @@ export async function imprimirDatosGeneralesDesdeReportes(
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      border-bottom: 1.5pt solid #7c3aed;
+      border-bottom: 1.5pt solid #2d3a8c;
       padding-bottom: 4pt;
       margin-bottom: 3pt;
     }
     .brand { display: flex; align-items: center; gap: 5pt; }
     .brand-mark {
       width: 22pt; height: 22pt; border-radius: 4pt;
-      background: #7c3aed; color: #fff;
+      background: #c026d3; color: #fff;
       font-size: 12pt; font-weight: bold;
       display: flex; align-items: center; justify-content: center;
     }
-    .brand-name { font-size: 11pt; font-weight: bold; color: #7c3aed; }
+    .brand-name { font-size: 11pt; font-weight: bold; color: #c026d3; }
     .brand-sub  { font-size: 7.5pt; color: #666; margin-top: 0.5pt; }
     .header-meta { text-align: right; font-size: 7.5pt; color: #555; line-height: 1.5; }
     .report-title {
       text-align: center;
       font-size: 10pt;
       font-weight: bold;
-      color: #7c3aed;
+      color: #2d3a8c;
       text-transform: uppercase;
       letter-spacing: 0.3pt;
       margin: 3pt 0 5pt;
@@ -2501,7 +2501,7 @@ export async function imprimirDatosGeneralesDesdeReportes(
     /* ─── Secciones ─── */
     .section { margin-bottom: 5pt; }
     .sec-header {
-      background: #7c3aed;
+      background: #2d3a8c;
       color: #fff;
       font-size: 7.5pt;
       font-weight: bold;
@@ -2510,7 +2510,7 @@ export async function imprimirDatosGeneralesDesdeReportes(
       padding: 2pt 6pt;
     }
     .sec-body {
-      border: 0.5pt solid #c4b5fd;
+      border: 0.5pt solid #b0bbd4;
       border-top: none;
       padding: 4pt 6pt;
     }
@@ -2518,13 +2518,13 @@ export async function imprimirDatosGeneralesDesdeReportes(
     .grid3  { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 3pt 8pt; }
     .field  { margin-bottom: 2pt; }
     .flabel {
-      font-size: 6.5pt; font-weight: bold; color: #7c3aed;
+      font-size: 6.5pt; font-weight: bold; color: #2d3a8c;
       text-transform: uppercase; letter-spacing: 0.3pt;
       margin-bottom: 0.5pt;
     }
     .fvalue {
       font-size: 8.5pt; color: #1a1a1a;
-      border-bottom: 0.5pt solid #e9d5ff;
+      border-bottom: 0.5pt solid #dde3ee;
       padding-bottom: 1pt; min-height: 10pt;
     }
     .empty { color: #bbb; font-style: italic; }
@@ -2532,18 +2532,18 @@ export async function imprimirDatosGeneralesDesdeReportes(
     /* ─── Tabla hijos ─── */
     .hijo-table { width: 100%; border-collapse: collapse; font-size: 8pt; }
     .hijo-table th {
-      font-size: 6.5pt; font-weight: bold; color: #7c3aed;
+      font-size: 6.5pt; font-weight: bold; color: #2d3a8c;
       text-transform: uppercase; letter-spacing: 0.3pt;
-      padding: 1.5pt 3pt; border-bottom: 0.5pt solid #c4b5fd;
+      padding: 1.5pt 3pt; border-bottom: 0.5pt solid #b0bbd4;
       text-align: left;
     }
-    .hijo-table td { padding: 2pt 3pt; border-bottom: 0.5pt solid #f3e8ff; font-size: 10px; }
+    .hijo-table td { padding: 2pt 3pt; border-bottom: 0.5pt solid #eef1f9; font-size: 10px; }
     .hijo-table tr:last-child td { border-bottom: none; }
     .num { color: #aaa; font-size: 7.5pt; }
 
     /* ─── Genograma ─── */
     .genograma-box {
-      border: 1pt solid #7c3aed;
+      border: 1pt solid #2d3a8c;
       height: 130pt;
       position: relative;
       margin-top: 5pt;
@@ -2551,7 +2551,7 @@ export async function imprimirDatosGeneralesDesdeReportes(
     .genograma-label {
       position: absolute; top: 4pt; right: 7pt;
       font-size: 7.5pt; font-weight: bold;
-      color: #7c3aed; text-transform: uppercase; letter-spacing: 0.8pt;
+      color: #2d3a8c; text-transform: uppercase; letter-spacing: 0.8pt;
     }
 
     /* ─── Firmas ─── */
@@ -2566,7 +2566,7 @@ export async function imprimirDatosGeneralesDesdeReportes(
 
     /* ─── Pie ─── */
     .footer {
-      border-top: 0.5pt solid #e9d5ff;
+      border-top: 0.5pt solid #dde3ee;
       margin-top: 5pt;
       padding-top: 3pt;
       text-align: center;
@@ -2583,7 +2583,7 @@ export async function imprimirDatosGeneralesDesdeReportes(
 <body>
 
   <div class="no-print" style="text-align:right;padding:8pt 0 12pt;">
-    <button onclick="window.print()" style="padding:7pt 16pt;background:#7c3aed;color:white;border:none;border-radius:6pt;font-size:9.5pt;cursor:pointer;">
+    <button onclick="window.print()" style="padding:7pt 16pt;background:#2d3a8c;color:white;border:none;border-radius:6pt;font-size:9.5pt;cursor:pointer;">
       🖨 Imprimir / Guardar PDF
     </button>
   </div>
