@@ -171,7 +171,17 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
         <div className="p-4 space-y-3">
           <PlanBadge status={subscriptionStatus} patientSlots={patientSlots} tier={tier} />
           {isInstitucional && !hideInstitucionalLink && (
-            <NavLink href="/institucional/dashboard" icon="🏢" label="Administración Institucional" onClose={closeSidebar} />
+            <NavGroup
+              name="institucional"
+              label="Administración Institucional"
+              icon="🏢"
+              isOpen={openGroup === 'institucional'}
+              onToggle={() => toggleGroup('institucional')}
+            >
+              <NavLink href="/institucional/dashboard"        icon="🏠" label="Panel institucional"             onClose={closeSidebar} />
+              <NavLink href="/institucional/reporte-general"  icon="📊" label="Reporte Institucional General"   onClose={closeSidebar} />
+              <NavLink href="/institucional/reporte-terapeuta" icon="👤" label="Reporte por Terapeuta"           onClose={closeSidebar} />
+            </NavGroup>
           )}
           {email === 'pepe.vargas.papa@gmail.com' && (
             <NavLink href="/admin/terapeutas" icon="⚙️" label="Administración" onClose={closeSidebar} />
