@@ -468,6 +468,8 @@ function renderPage({
                                       totalActivos + countInactivos
               }
               sub={tipo === 'total' ? 'Activos + inactivos' : undefined}
+              color={tipo !== 'total' ? 'green' : undefined}
+              accent={tipo === 'total'}
             />
           </div>
         </section>
@@ -663,13 +665,23 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   return <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wide">{children}</h2>
 }
 
-function KpiCard({ label, value, sub, accent }: {
-  label: string; value: number; sub?: string; accent?: boolean
+function KpiCard({ label, value, sub, accent, color }: {
+  label: string; value: number; sub?: string; accent?: boolean; color?: 'green'
 }) {
+  const bg = color === 'green'
+    ? 'bg-green-50 border border-green-100'
+    : accent
+      ? 'bg-primary-50 border border-primary-100'
+      : 'bg-white border border-gray-100'
+  const valueColor = color === 'green'
+    ? 'text-green-700'
+    : accent
+      ? 'text-primary-600'
+      : 'text-gray-800'
   return (
-    <div className={`rounded-2xl p-5 ${accent ? 'bg-primary-50 border border-primary-100' : 'bg-white border border-gray-100'}`}>
-      <p className="text-xs text-gray-500 mb-1">{label}</p>
-      <p className={`text-3xl font-bold ${accent ? 'text-primary-600' : 'text-gray-800'}`}>{value}</p>
+    <div className={`rounded-2xl p-5 text-center ${bg}`}>
+      <p className="text-sm font-semibold text-primary-600 mb-1">{label}</p>
+      <p className={`text-3xl font-bold ${valueColor}`}>{value}</p>
       {sub && <p className="text-xs text-gray-400 mt-1">{sub}</p>}
     </div>
   )
