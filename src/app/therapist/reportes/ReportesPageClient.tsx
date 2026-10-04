@@ -29,7 +29,7 @@ type ReportId =
   | 'hc-original' | 'hc-actualizada' | 'valorativo' | 'integracion' | 'proceso'
 
 interface Empresa  { id: string; nombre: string; logo_url: string | null }
-interface Paciente { id: string; nombre: string }
+interface Paciente { id: string; nombre: string; empresa_id: string | null }
 interface Props    { tier: string | null; terapeutaNombre: string }
 
 // ── Catálogos ─────────────────────────────────────────────────
@@ -54,12 +54,12 @@ export default function ReportesPageClient({ tier, terapeutaNombre }: Props) {
   const isClinico = tier === 'clinico'
 
   // Estado general
-  const [loaded,    setLoaded]    = useState(false)
-  const [empresas,  setEmpresas]  = useState<Empresa[]>([])
-  const [pacientes, setPacientes] = useState<Paciente[]>([])
-  const [logoUrl,   setLogoUrl]   = useState<string | null>(null)
-  const [pid,       setPid]       = useState('')
-  const [selected,  setSelected]  = useState<ReportId | null>(null)
+  const [loaded,            setLoaded]            = useState(false)
+  const [empresas,          setEmpresas]          = useState<Empresa[]>([])
+  const [pacientes,         setPacientes]         = useState<Paciente[]>([])
+  const [selectedEmpresaId, setSelectedEmpresaId] = useState('')   // '' = sin selección
+  const [pid,               setPid]               = useState('')
+  const [selected,          setSelected]          = useState<ReportId | null>(null)
 
   // Sesiones
   const [sesiones,   setSesiones]   = useState<{ id: string; label: string; date: string }[]>([])
@@ -91,8 +91,8 @@ export default function ReportesPageClient({ tier, terapeutaNombre }: Props) {
         const emp: Empresa[] = data.empresas ?? []
         setEmpresas(emp)
         setPacientes(data.pacientesActivos ?? [])
-        const conLogo = emp.filter(e => e.logo_url)
-        setLogoUrl(conLogo[0]?.logo_url ?? null)
+        // Auto-seleccionar primera empresa si solo hay una
+        if (emp.length === 1) setSelectedEmpresaId(emp[0].id)
         setLoaded(true)
       })
       .catch(() => setLoaded(true))
@@ -152,8 +152,34 @@ export default function ReportesPageClient({ tier, terapeutaNombre }: Props) {
     setLoadingAnal(false)
   }
 
+  // ── Derivaciones desde empresa seleccionada ───────────────
+  const selectedEmpresa = empresas.find(e => e.id === selectedEmpresaId) ?? null
+  const logoUrl = selectedEmpresa?.logo_url ?? null
   const headerOpts = { terapeutaNombre, logoUrl, side: logoUrl ? 'logo' : 'name' } as const
-  const empresasConLogo = empresas.filter(e => e.logo_url)
+
+  // Filtrar pacientes según empresa elegida
+  const pacientesFiltrados: Paciente[] =
+    selectedEmpresaId === ''
+      ? []                                                          // sin selección: lista vacía
+      : selectedEmpresaId === '__sin__'
+        ? pacientes.filter(p => !p.empresa_id)                      // sin empresa
+        : pacientes.filter(p => p.empresa_id === selectedEmpresaId) // empresa concreta
+
+  // Si no hay empresas registradas, mostrar todos los pacientes directamente
+  const pacientesVisibles = empresas.length === 0 ? pacientes : pacientesFiltrados
+
+  function handleEmpresaChange(val: string) {
+    setSelectedEmpresaId(val)
+    // Resetear selección de paciente al cambiar contexto
+    setPid('')
+    setDgCache(null)
+    setSessionOpt('all')
+    setAnalisisOpt('')
+    setRaOpt('all')
+    setSesiones([])
+    setAnalisisFechas([])
+    setErrorRA('')
+  }
 
   // ── Acciones de impresión ──────────────────────────────────
   async function handlePrint() {
@@ -401,35 +427,42 @@ export default function ReportesPageClient({ tier, terapeutaNombre }: Props) {
 
           {/* Selectores */}
           <div className="px-3 pt-4 space-y-4">
-            {/* Paciente */}
+
+            {/* 1. Empresa / contexto — solo si el terapeuta tiene empresas */}
+            {empresas.length > 0 && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-1">Empresa / Contexto</label>
+                <select
+                  value={selectedEmpresaId}
+                  onChange={e => handleEmpresaChange(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-2.5 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-300"
+                >
+                  <option value="">— Selecciona —</option>
+                  {empresas.map(e => (
+                    <option key={e.id} value={e.id}>{e.nombre}{e.logo_url ? ' (logo)' : ''}</option>
+                  ))}
+                  <option value="__sin__">{terapeutaNombre} (sin empresa)</option>
+                </select>
+              </div>
+            )}
+
+            {/* 2. Paciente — filtrado según empresa elegida */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-1">Paciente</label>
               <select
                 value={pid}
                 onChange={e => handlePacienteChange(e.target.value)}
-                className="w-full border border-gray-200 rounded-xl px-2.5 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-300"
+                disabled={empresas.length > 0 && selectedEmpresaId === ''}
+                className="w-full border border-gray-200 rounded-xl px-2.5 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-300 disabled:opacity-40"
               >
                 <option value="">— Elige un paciente —</option>
-                {pacientes.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+                {pacientesVisibles.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
               </select>
+              {empresas.length > 0 && selectedEmpresaId !== '' && pacientesVisibles.length === 0 && (
+                <p className="text-xs text-gray-400 px-1">Sin pacientes en este contexto.</p>
+              )}
             </div>
 
-            {/* Logo/encabezado — solo si hay empresas con logo */}
-            {empresasConLogo.length >= 1 && (
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-1">Encabezado</label>
-                <select
-                  value={logoUrl ?? '__nombre__'}
-                  onChange={e => setLogoUrl(e.target.value === '__nombre__' ? null : e.target.value)}
-                  className="w-full border border-gray-200 rounded-xl px-2.5 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-300"
-                >
-                  {empresasConLogo.map(e => (
-                    <option key={e.id} value={e.logo_url!}>{e.nombre} (logo)</option>
-                  ))}
-                  <option value="__nombre__">{terapeutaNombre} (nombre)</option>
-                </select>
-              </div>
-            )}
           </div>
 
           {/* Separador */}

@@ -30,18 +30,28 @@ export async function GET() {
   // ── Solo pacientes ACTIVOS (no archivados) ───────────────────
   const { data: relaciones } = await admin
     .from('therapist_patients')
-    .select('patient_id')
+    .select('patient_id, empresa_id')
     .eq('therapist_id', therapistId)
     .eq('is_active', true)
     .neq('status', 'archived')
 
-  const pacienteIds = (relaciones ?? []).map(r => r.patient_id as string)
+  // Mapa patient_id → empresa_id para filtrado en el cliente
+  const empresaMap: Record<string, string | null> = {}
+  const pacienteIds = (relaciones ?? []).map(r => {
+    empresaMap[r.patient_id as string] = (r.empresa_id as string | null) ?? null
+    return r.patient_id as string
+  })
+
   const { data: profiles } = pacienteIds.length > 0
     ? await admin.from('profiles').select('id, full_name, email').in('id', pacienteIds)
     : { data: [] }
 
   const pacientesActivos = (profiles ?? [])
-    .map(p => ({ id: p.id, nombre: p.full_name ?? p.email ?? p.id }))
+    .map(p => ({
+      id:        p.id,
+      nombre:    p.full_name ?? p.email ?? p.id,
+      empresa_id: empresaMap[p.id] ?? null,
+    }))
     .sort((a, b) => a.nombre.localeCompare(b.nombre))
 
   return NextResponse.json({ empresas, pacientesActivos })
