@@ -188,7 +188,7 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
             </NavGroup>
           )}
           {email === 'pepe.vargas.papa@gmail.com' && (
-            <NavLink href="/admin/terapeutas" icon="⚙️" label="Administración" onClose={closeSidebar} />
+            <NavLink href="/admin/terapeutas" icon="⚙️" label="Administración AVI" onClose={closeSidebar} />
           )}
           <LogoutButton />
         </div>
