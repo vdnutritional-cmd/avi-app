@@ -12,11 +12,12 @@ interface SidebarProps {
   tier: string | null
   isInstitucional?: boolean
   hasEmpresas?: boolean
-  disabled?: boolean             // nav en gris — opera_como_terapeuta=false
+  disabled?: boolean              // nav en gris — opera_como_terapeuta=false
   hideInstitucionalLink?: boolean // ocultar link "Administración Institucional" (ya estás ahí)
+  canGestionarBajas?: boolean     // true si el PI tiene nivel N1 o N2
 }
 
-export default function Sidebar({ fullName, email, subscriptionStatus, patientSlots, tier, isInstitucional, hasEmpresas, disabled, hideInstitucionalLink }: SidebarProps) {
+export default function Sidebar({ fullName, email, subscriptionStatus, patientSlots, tier, isInstitucional, hasEmpresas, disabled, hideInstitucionalLink, canGestionarBajas }: SidebarProps) {
   const [open, setOpen] = useState(false)
   const [openGroup, setOpenGroup] = useState<string | null>(null)
 
@@ -178,9 +179,12 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
               isOpen={openGroup === 'institucional'}
               onToggle={() => toggleGroup('institucional')}
             >
-              <NavLink href="/institucional/dashboard"        icon="🏠" label="Panel institucional"             onClose={closeSidebar} />
-              <NavLink href="/institucional/reporte-general"  icon="📊" label="Reporte Institucional General"   onClose={closeSidebar} />
-              <NavLink href="/institucional/reporte-terapeuta" icon="👤" label="Reporte por Terapeuta"           onClose={closeSidebar} />
+              <NavLink href="/institucional/dashboard"         icon="🏠" label="Panel institucional"           onClose={closeSidebar} />
+              <NavLink href="/institucional/reporte-general"   icon="📊" label="Reporte Institucional General" onClose={closeSidebar} />
+              <NavLink href="/institucional/reporte-terapeuta" icon="👤" label="Reporte por Terapeuta"         onClose={closeSidebar} />
+              {canGestionarBajas && (
+                <NavLink href="/institucional/baja-terapeutas" icon="🚫" label="Baja de Terapeutas"           onClose={closeSidebar} />
+              )}
             </NavGroup>
           )}
           {email === 'pepe.vargas.papa@gmail.com' && (
