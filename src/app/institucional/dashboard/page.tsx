@@ -5,11 +5,17 @@ import Link from 'next/link'
 import TerapeutasAcordeon from './TerapeutasAcordeon'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
+interface PacienteItem { id: string; nombre: string }
+
 interface TerapeutaRow {
+  therapistId: string
   nombre: string
   email: string
   telefono: string
   empresa: string
+  /** true si ya NO está en therapist_empresa pero aún tiene pacientes activos */
+  isHuerfano: boolean
+  pacientes: PacienteItem[]
   pacientesActivos: number
 }
 
@@ -117,6 +123,9 @@ export default async function InstitucionalDashboardPage() {
         .eq('opera_como_terapeuta', true)
         .eq('is_active', true)
 
+      // Ids que vienen de therapist_empresa (Fuente 1) — para detectar huérfanos
+      const empresaRelIds = new Set((empresaRels ?? []).map(r => r.therapist_id as string))
+
       // Unión deduplicada por therapist_id
       type TerapeutaEntry = { therapist_id: string; profiles: { full_name?: string; email?: string } | null }
       const therapistMap = new Map<string, TerapeutaEntry>()
@@ -129,22 +138,36 @@ export default async function InstitucionalDashboardPage() {
         }
       }
 
-      // Contar pacientes activos por terapeuta filtrando por empresa_id
+      // Fetch pacientes activos (con nombre) por terapeuta + empresa
       const terapeutas: TerapeutaRow[] = await Promise.all(
         Array.from(therapistMap.values()).map(async (t) => {
           const p = t.profiles
-          const { count } = await admin
+          const { data: tpRows } = await admin
             .from('therapist_patients')
-            .select('*', { count: 'exact', head: true })
+            .select('patient_id, profiles!therapist_patients_patient_id_fkey(full_name, email)')
             .eq('therapist_id', t.therapist_id)
             .eq('empresa_id', empresaId)
             .eq('is_active', true)
+
+          const pacientes: PacienteItem[] = (tpRows ?? []).map((row: any) => {
+            const pp = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles
+            return {
+              id:     row.patient_id as string,
+              nombre: pp?.full_name ?? pp?.email ?? row.patient_id,
+            }
+          })
+
+          const isHuerfano = !empresaRelIds.has(t.therapist_id) && pacientes.length > 0
+
           return {
+            therapistId:      t.therapist_id,
             nombre:           p?.full_name ?? 'Sin nombre',
             email:            p?.email     ?? '',
             telefono:         whatsappMap.get(t.therapist_id) ?? '',
             empresa:          empresaNombre,
-            pacientesActivos: count ?? 0,
+            isHuerfano,
+            pacientes,
+            pacientesActivos: pacientes.length,
           }
         })
       )
