@@ -468,7 +468,7 @@ function renderPage({
                                       totalActivos + countInactivos
               }
               sub={tipo === 'total' ? 'Activos + inactivos' : undefined}
-              color={tipo !== 'total' ? 'green' : undefined}
+              color={tipo === 'activos' ? 'green' : tipo === 'inactivos' ? 'blue' : undefined}
               accent={tipo === 'total'}
             />
           </div>
@@ -666,18 +666,22 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 }
 
 function KpiCard({ label, value, sub, accent, color }: {
-  label: string; value: number; sub?: string; accent?: boolean; color?: 'green'
+  label: string; value: number; sub?: string; accent?: boolean; color?: 'green' | 'blue'
 }) {
   const bg = color === 'green'
     ? 'bg-green-50 border border-green-100'
-    : accent
-      ? 'bg-primary-50 border border-primary-100'
-      : 'bg-white border border-gray-100'
+    : color === 'blue'
+      ? 'bg-blue-50 border border-blue-100'
+      : accent
+        ? 'bg-primary-50 border border-primary-100'
+        : 'bg-white border border-gray-100'
   const valueColor = color === 'green'
     ? 'text-green-700'
-    : accent
-      ? 'text-primary-600'
-      : 'text-gray-800'
+    : color === 'blue'
+      ? 'text-blue-700'
+      : accent
+        ? 'text-primary-600'
+        : 'text-gray-800'
   return (
     <div className={`rounded-2xl p-5 text-center ${bg}`}>
       <p className="text-sm font-semibold text-primary-600 mb-1">{label}</p>
