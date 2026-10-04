@@ -456,23 +456,19 @@ function renderPage({
             <KpiCard label="Cantidad de sesiones" value={totalSesiones} accent />
             <KpiCard label="Personas atendidas" value={personasAtendidas}
               sub="Pacientes únicos con al menos 1 sesión" />
-            <div className="bg-white border border-gray-100 rounded-2xl p-4">
-              <p className="text-xs text-gray-500 mb-2 leading-tight">Pacientes en total</p>
-              <div className="space-y-1.5">
-                <div className="flex items-baseline justify-between gap-1">
-                  <span className="text-xs text-green-600 leading-tight">Activos</span>
-                  <span className="text-xl font-bold text-gray-800">{totalActivos}</span>
-                </div>
-                <div className="flex items-baseline justify-between gap-1">
-                  <span className="text-xs text-gray-400 leading-tight">Inactivos</span>
-                  <span className="text-xl font-bold text-gray-600">{countInactivos}</span>
-                </div>
-                <div className="border-t border-gray-100 pt-1.5 flex items-baseline justify-between gap-1">
-                  <span className="text-xs text-gray-500 font-medium leading-tight">Total</span>
-                  <span className="text-xl font-bold text-primary-600">{totalActivos + countInactivos}</span>
-                </div>
-              </div>
-            </div>
+            <KpiCard
+              label={
+                tipo === 'activos'   ? 'Total pacientes activos' :
+                tipo === 'inactivos' ? 'Total pacientes inactivos' :
+                                      'Total pacientes'
+              }
+              value={
+                tipo === 'activos'   ? totalActivos :
+                tipo === 'inactivos' ? countInactivos :
+                                      totalActivos + countInactivos
+              }
+              sub={tipo === 'total' ? 'Activos + inactivos' : undefined}
+            />
           </div>
         </section>
       )}
