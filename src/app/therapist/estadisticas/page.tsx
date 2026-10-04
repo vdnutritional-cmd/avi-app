@@ -157,6 +157,7 @@ export default async function EstadisticasPage({
         relaciones: [],
         derivacionesRows: [], expedientesRows: [],
         todosActivosRows: [], derivActivosRows: [],
+        countInactivos: 0,
         empresaByPatient, nombreByPatient,
       })
     }
@@ -208,12 +209,20 @@ export default async function EstadisticasPage({
   ])
 
   // ── 4. Todos los activos para Satisfacción (sin filtro de mes) ─────────────
-  const { data: todosActivosRows } = await admin
-    .from('therapist_patients')
-    .select('patient_id, sensacion_paciente_inicial')
-    .eq('therapist_id', therapistId)
-    .eq('is_active', true)
-    .neq('status', 'archived')
+  const [{ data: todosActivosRows }, { count: countInactivos }] = await Promise.all([
+    admin
+      .from('therapist_patients')
+      .select('patient_id, sensacion_paciente_inicial')
+      .eq('therapist_id', therapistId)
+      .eq('is_active', true)
+      .neq('status', 'archived'),
+    admin
+      .from('therapist_patients')
+      .select('*', { count: 'exact', head: true })
+      .eq('therapist_id', therapistId)
+      .eq('is_active', false)
+      .neq('status', 'archived'),
+  ])
 
   const todosActivosIds = (todosActivosRows ?? []).map(r => r.patient_id as string)
 
@@ -234,6 +243,7 @@ export default async function EstadisticasPage({
     expedientesRows:  expedientesRows  ?? [],
     todosActivosRows: todosActivosRows ?? [],
     derivActivosRows: derivActivosRows ?? [],
+    countInactivos: countInactivos ?? 0,
     empresaByPatient,
     nombreByPatient,
   })
@@ -257,6 +267,7 @@ interface RenderProps {
   expedientesRows: Record<string, unknown>[]
   todosActivosRows: Record<string, unknown>[]
   derivActivosRows: Record<string, unknown>[]
+  countInactivos: number
   empresaByPatient: Record<string, string>
   nombreByPatient: Record<string, string>
 }
@@ -267,6 +278,7 @@ function renderPage({
   todasLasSesiones, pacientesEnPeriodoIds,
   relaciones, derivacionesRows, expedientesRows,
   todosActivosRows, derivActivosRows,
+  countInactivos,
   empresaByPatient, nombreByPatient,
 }: RenderProps) {
 
@@ -440,10 +452,27 @@ function renderPage({
       {totalSesiones > 0 && (
         <section className="space-y-3">
           <SectionTitle>Resumen del periodo</SectionTitle>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <KpiCard label="Cantidad de sesiones" value={totalSesiones} accent />
             <KpiCard label="Personas atendidas" value={personasAtendidas}
               sub="Pacientes únicos con al menos 1 sesión" />
+            <div className="bg-white border border-gray-100 rounded-2xl p-4">
+              <p className="text-xs text-gray-500 mb-2 leading-tight">Pacientes en total</p>
+              <div className="space-y-1.5">
+                <div className="flex items-baseline justify-between gap-1">
+                  <span className="text-xs text-green-600 leading-tight">Activos</span>
+                  <span className="text-xl font-bold text-gray-800">{totalActivos}</span>
+                </div>
+                <div className="flex items-baseline justify-between gap-1">
+                  <span className="text-xs text-gray-400 leading-tight">Inactivos</span>
+                  <span className="text-xl font-bold text-gray-600">{countInactivos}</span>
+                </div>
+                <div className="border-t border-gray-100 pt-1.5 flex items-baseline justify-between gap-1">
+                  <span className="text-xs text-gray-500 font-medium leading-tight">Total</span>
+                  <span className="text-xl font-bold text-primary-600">{totalActivos + countInactivos}</span>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
       )}
