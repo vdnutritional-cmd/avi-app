@@ -439,9 +439,9 @@ export default function ReportesPageClient({ tier, terapeutaNombre }: Props) {
                 >
                   <option value="">— Selecciona —</option>
                   {empresas.map(e => (
-                    <option key={e.id} value={e.id}>{e.nombre}{e.logo_url ? ' (logo)' : ''}</option>
+                    <option key={e.id} value={e.id}>{e.nombre}</option>
                   ))}
-                  <option value="__sin__">{terapeutaNombre} (sin empresa)</option>
+                  <option value="__sin__">{terapeutaNombre}</option>
                 </select>
               </div>
             )}
