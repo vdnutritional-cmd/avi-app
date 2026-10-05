@@ -28,6 +28,8 @@ const PLAN_OPTIONS = [
   { value: 'esencial_valora20', label: 'CONVENIO Esencial 20' },
   { value: 'clinico_valora10',  label: 'CONVENIO Clínico 10' },
   { value: 'clinico_valora20',  label: 'CONVENIO Clínico 20' },
+  { value: 'companion_5',       label: 'AVI Therapy Companion 5 (gratis)' },
+  { value: 'companion_10',      label: 'AVI Therapy Companion 10 (gratis)' },
 ]
 
 export default function ConvenioPage() {

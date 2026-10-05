@@ -5,7 +5,7 @@
 // Patrocinios: Semilla, Esperanza, Comunidad, Transforma
 // ─────────────────────────────────────────────────────────────
 
-export type PlanType = 'unit' | 'paid' | 'valora' | 'free' | 'patrocinio'
+export type PlanType = 'unit' | 'paid' | 'valora' | 'free' | 'patrocinio' | 'companion'
 export type PlanTier = 'esencial' | 'clinico'
 
 export interface Plan {
@@ -254,6 +254,36 @@ export const CLINICO_VALORA_PLANS: Plan[] = [
   },
 ]
 
+// ── Paquetes AVI Therapy Companion (CONVENIO gratuitos) ──────
+// Sin costo mensual — acceso completo (Esencial + Clínico)
+// Se activan mediante un código de un solo uso con fecha de vigencia.
+// No pasan por Stripe; la suscripción se activa directamente en Supabase.
+export const COMPANION_PLANS: Plan[] = [
+  {
+    id: 'companion_5',
+    type: 'companion',
+    tier: 'clinico',
+    name: 'AVI Therapy Companion 5',
+    description: '5 pacientes — AVI-Esencial + AVI-Clínico incluidos. Sin costo mensual. Requiere código de activación con fecha de vigencia.',
+    patientSlots: 5,
+    priceUSD: 0,
+    unitPriceUSD: 0,
+    stripePriceId: '',
+  },
+  {
+    id: 'companion_10',
+    type: 'companion',
+    tier: 'clinico',
+    name: 'AVI Therapy Companion 10',
+    description: '10 pacientes — AVI-Esencial + AVI-Clínico incluidos. Sin costo mensual. Requiere código de activación con fecha de vigencia.',
+    patientSlots: 10,
+    priceUSD: 0,
+    unitPriceUSD: 0,
+    stripePriceId: '',
+    highlight: true,
+  },
+]
+
 // ── Patrocinios ───────────────────────────────────────────────
 export const PATROCINIO_PLANS: PatrocinioPlan[] = [
   {
@@ -337,6 +367,7 @@ export function getSlotsForPlan(planId: string, customSlots?: number): number {
     ...ESENCIAL_VALORA_PLANS,
     ...CLINICO_PLANS,
     ...CLINICO_VALORA_PLANS,
+    ...COMPANION_PLANS,
   ]
   const plan = all.find(p => p.id === planId)
   return typeof plan?.patientSlots === 'number' ? plan.patientSlots : 1

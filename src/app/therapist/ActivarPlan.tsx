@@ -8,6 +8,7 @@ import {
   CLINICO_PLANS,
   ESENCIAL_VALORA_PLANS,
   CLINICO_VALORA_PLANS,
+  COMPANION_PLANS,
   UNIT_PRICE_ESENCIAL,
   UNIT_PRICE_CLINICO,
   calcUnitPrice,
@@ -470,6 +471,39 @@ export default function ActivarPlan({ therapistName }: { therapistName: string }
               </div>
             ))}
           </div>
+          {/* ── Paquetes AVI Therapy Companion (gratuitos) ── */}
+          <div className="border-t border-white/20 pt-4 mb-4">
+            <h3 className="text-sm font-bold text-white mb-1">Paquetes AVI Therapy Companion</h3>
+            <p className="text-xs text-purple-200 mb-3">
+              Sin costo mensual · AVI-Esencial + AVI-Clínico · Requiere código de activación con fecha de vigencia
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {COMPANION_PLANS.map(plan => (
+                <div
+                  key={plan.id}
+                  className={`bg-emerald-700/30 backdrop-blur rounded-xl p-4 border ${
+                    plan.highlight ? 'border-emerald-300/50' : 'border-emerald-300/20'
+                  }`}
+                >
+                  {plan.highlight && (
+                    <span className="inline-block mb-1 text-[10px] font-bold uppercase tracking-wide bg-emerald-500/40 text-emerald-200 px-2 py-0.5 rounded-full">
+                      Recomendado
+                    </span>
+                  )}
+                  <p className="text-xs font-semibold text-emerald-200 mb-1">{plan.name}</p>
+                  <div className="mb-0.5">
+                    <span className="text-2xl font-bold text-white">Gratis</span>
+                  </div>
+                  <p className="text-[10px] text-emerald-300 mb-0.5">{plan.patientSlots} pacientes · Acceso completo</p>
+                  <span className="text-[10px] text-emerald-200 font-medium block mb-3">
+                    AVI-Esencial + AVI-Clínico incluidos
+                  </span>
+                  <CheckoutButton label="Activar con código" planId={plan.id} variant="white" requiresCode />
+                </div>
+              ))}
+            </div>
+          </div>
+
           <div className="border-t border-white/20 pt-4">
             <p className="text-xs text-purple-200 mb-3">
               ¿Eres Asesor o Terapeuta activo en una institución en CONVENIO? Solicita por WhatsApp obtener precio en descuento o acceso gratuito.

@@ -11,6 +11,7 @@ import {
   ESENCIAL_VALORA_PLANS,
   CLINICO_PLANS,
   CLINICO_VALORA_PLANS,
+  COMPANION_PLANS,
   PATROCINIO_PLANS,
 } from '@/lib/stripe/plans'
 
@@ -27,13 +28,20 @@ const ALL_THERAPY_PLANS = [
 interface ResolvedPlan {
   priceId: string
   quantity: number
-  planType: 'paid' | 'valora' | 'unit'
+  planType: 'paid' | 'valora' | 'unit' | 'companion'
   patientSlots: number
 }
 
 function resolvePlan(planId: string, requestedSlots?: number): ResolvedPlan | null {
   // Normalizar 'unit' (legacy) → 'esencial_unit'
   const id = planId === 'unit' ? 'esencial_unit' : planId
+
+  // Companion plans (gratuitos, sin Stripe)
+  const companionPlan = COMPANION_PLANS.find(p => p.id === id)
+  if (companionPlan) {
+    const slots = typeof companionPlan.patientSlots === 'number' ? companionPlan.patientSlots : 1
+    return { priceId: '', quantity: 1, planType: 'companion', patientSlots: slots }
+  }
 
   // Planes unitarios: quantity = número de pacientes solicitados
   if (id.endsWith('_unit')) {
@@ -88,21 +96,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `Plan "${planId}" no encontrado` }, { status: 400 })
     }
 
-    // 3b. Validar código CONVENIO si el plan lo requiere
-    const isConvenioPlan = resolved.planType === 'valora'
-    if (isConvenioPlan) {
+    // 3b. Validar código CONVENIO si el plan lo requiere (valora o companion)
+    const requiresCode = resolved.planType === 'valora' || resolved.planType === 'companion'
+
+    if (requiresCode) {
       if (!convenioCode) {
         return NextResponse.json({ error: 'Este plan requiere un código CONVENIO autorizado.' }, { status: 403 })
       }
-      const serviceClient = createServiceClient(
+      const codeClient = createServiceClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.SUPABASE_SERVICE_ROLE_KEY!
       )
-      const { data: codeRow } = await serviceClient
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: codeRow } = await (codeClient as any)
         .from('convenio_codes')
         .select('id, plan_id, used_by, expires_at, is_active')
         .eq('code', convenioCode.toUpperCase())
-        .maybeSingle()
+        .maybeSingle() as { data: { id: string; plan_id: string | null; used_by: string | null; expires_at: string | null; is_active: boolean } | null }
 
       if (!codeRow || !codeRow.is_active) {
         return NextResponse.json({ error: 'Código CONVENIO inválido o inactivo.' }, { status: 403 })
@@ -117,20 +127,65 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Este código no es válido para el plan seleccionado.' }, { status: 403 })
       }
       // Marcar código como usado
-      await serviceClient
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (codeClient as any)
         .from('convenio_codes')
         .update({ used_by: user.id, used_at: new Date().toISOString() })
         .eq('id', codeRow.id)
 
-      // Guardar asociaciones terapeuta <-> empresas seleccionadas
-      if (empresaIds && empresaIds.length > 0) {
-        const rows = empresaIds.map(empresa_id => ({
+      // Guardar asociaciones terapeuta <-> empresas seleccionadas (solo para valora)
+      if (resolved.planType === 'valora' && empresaIds && empresaIds.length > 0) {
+        const rows = empresaIds.map((empresa_id: string) => ({
           therapist_id: user.id,
           empresa_id,
         }))
-        await serviceClient
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (codeClient as any)
           .from('therapist_empresa')
           .upsert(rows, { onConflict: 'therapist_id,empresa_id', ignoreDuplicates: true })
+      }
+
+      // 3c. Companion plans — activar suscripción directamente sin Stripe
+      if (resolved.planType === 'companion') {
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://go.avi-app.com.mx'
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error: subError } = await (codeClient as any)
+          .from('subscriptions')
+          .upsert(
+            {
+              therapist_id:           user.id,
+              plan:                   'companion',
+              tier:                   'clinico',        // acceso completo Esencial + Clínico
+              status:                 'active',
+              patient_slots:          resolved.patientSlots,
+              stripe_customer_id:     null,
+              stripe_subscription_id: null,
+              stripe_price_id:        null,
+              billing_cycle_start:    new Date().toISOString(),
+            },
+            { onConflict: 'therapist_id' }
+          )
+
+        if (subError) {
+          console.error('[checkout/companion] Error al activar suscripción:', subError)
+          return NextResponse.json({ error: 'Error al activar el plan.' }, { status: 500 })
+        }
+
+        // Crear bloque de cupo
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (codeClient as any).from('therapist_slot_bundles').insert({
+          therapist_id:  user.id,
+          source_type:   'convenio',
+          empresa_id:    null,
+          patient_slots: resolved.patientSlots,
+          discount_pct:  100,
+          status:        'active',
+          stripe_sub_id: null,
+        })
+
+        console.log(`[checkout/companion] ✅ Plan ${planId} activado — terapeuta: ${user.id}, slots: ${resolved.patientSlots}`)
+        return NextResponse.json({ url: `${appUrl}/therapist/dashboard?checkout=success` })
       }
     }
 
