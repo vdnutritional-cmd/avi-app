@@ -111,14 +111,14 @@ export default async function InstitucionalDashboardPage() {
       // Fuente 1: terapeutas registrados en therapist_empresa para esta empresa
       const { data: empresaRels } = await admin
         .from('therapist_empresa')
-        .select('therapist_id, profiles!therapist_id(full_name, email)')
+        .select('therapist_id, profiles!therapist_id(full_name, email, is_active)')
         .eq('empresa_id', empresaId)
 
       // Fuente 2: PIs con opera_como_terapeuta=true (pueden ser terapeutas activos
       // de la empresa que aún no están en therapist_empresa)
       const { data: piTerapeutas } = await admin
         .from('convenio_personas_institucionales')
-        .select('therapist_id, profiles!therapist_id(full_name, email)')
+        .select('therapist_id, profiles!therapist_id(full_name, email, is_active)')
         .eq('empresa_id', empresaId)
         .eq('opera_como_terapeuta', true)
         .eq('is_active', true)
@@ -126,14 +126,16 @@ export default async function InstitucionalDashboardPage() {
       // Ids que vienen de therapist_empresa (Fuente 1) — para detectar huérfanos
       const empresaRelIds = new Set((empresaRels ?? []).map(r => r.therapist_id as string))
 
-      // Unión deduplicada por therapist_id
-      type TerapeutaEntry = { therapist_id: string; profiles: { full_name?: string; email?: string } | null }
+      // Unión deduplicada por therapist_id — excluir perfiles desactivados (is_active=false)
+      type TerapeutaEntry = { therapist_id: string; profiles: { full_name?: string; email?: string; is_active?: boolean } | null }
       const therapistMap = new Map<string, TerapeutaEntry>()
       for (const r of [...(empresaRels ?? []), ...(piTerapeutas ?? [])]) {
+        const prof = r.profiles as { full_name?: string; email?: string; is_active?: boolean } | null
+        if (prof?.is_active === false) continue  // terapeuta desactivado por admin
         if (!therapistMap.has(r.therapist_id as string)) {
           therapistMap.set(r.therapist_id as string, {
             therapist_id: r.therapist_id as string,
-            profiles: r.profiles as { full_name?: string; email?: string } | null,
+            profiles: prof,
           })
         }
       }
@@ -141,7 +143,7 @@ export default async function InstitucionalDashboardPage() {
       // Fetch pacientes activos (con nombre) por terapeuta + empresa
       const terapeutas: TerapeutaRow[] = await Promise.all(
         Array.from(therapistMap.values()).map(async (t) => {
-          const p = t.profiles
+          const p = t.profiles as { full_name?: string; email?: string } | null
           const { data: tpRows } = await admin
             .from('therapist_patients')
             .select('patient_id, profiles!therapist_patients_patient_id_fkey(full_name, email)')

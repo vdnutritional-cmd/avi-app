@@ -1,8 +1,9 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import RejectTherapistButton from '@/app/admin/RejectTherapistButton'
-import DeleteTherapistButton from '@/app/admin/DeleteTherapistButton'
+import DesactivarTherapistButton from '@/app/admin/DesactivarTherapistButton'
 
 function esFindeSemana(dateStr: string) {
   const [y, m, d] = dateStr.split('-').map(Number)
@@ -90,12 +91,40 @@ async function rechazarTerapeuta(formData: FormData) {
   revalidatePath('/admin/terapeutas')
 }
 
-async function eliminarTerapeuta(formData: FormData) {
+async function desactivarTerapeuta(formData: FormData) {
   'use server'
   const therapistId = formData.get('therapistId') as string
   const supabase = createAdminClient()
-  // Elimina el usuario de auth (cascada borra perfil y todos sus datos)
-  await supabase.auth.admin.deleteUser(therapistId)
+
+  // Verificar si tiene pacientes activos — no se puede desactivar con pacientes sin transferir
+  const { count } = await supabase
+    .from('therapist_patients')
+    .select('*', { count: 'exact', head: true })
+    .eq('therapist_id', therapistId)
+    .eq('is_active', true)
+    .neq('status', 'archived')
+
+  if (count && count > 0) {
+    redirect(`/admin/terapeutas?error=tiene-pacientes&count=${count}`)
+  }
+
+  // Sin pacientes activos → desactivar perfil (NOM-024: no se borra nada)
+  await supabase
+    .from('profiles')
+    .update({ is_active: false })
+    .eq('id', therapistId)
+
+  revalidatePath('/admin/terapeutas')
+}
+
+async function reactivarPerfil(formData: FormData) {
+  'use server'
+  const therapistId = formData.get('therapistId') as string
+  const supabase = createAdminClient()
+  await supabase
+    .from('profiles')
+    .update({ is_active: true })
+    .eq('id', therapistId)
   revalidatePath('/admin/terapeutas')
 }
 
@@ -104,9 +133,9 @@ async function eliminarTerapeuta(formData: FormData) {
 export default async function AdminTerapeutasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ mes?: string }>
+  searchParams: Promise<{ mes?: string; error?: string; count?: string }>
 }) {
-  const { mes } = await searchParams
+  const { mes, error: errorParam, count: countParam } = await searchParams
   const supabase = createAdminClient()
 
   const now = new Date()
@@ -119,10 +148,10 @@ export default async function AdminTerapeutasPage({
   const prevMonth = month === 1  ? `${year - 1}-12` : `${year}-${String(month - 1).padStart(2, '0')}`
   const nextMonth = month === 12 ? `${year + 1}-01` : `${year}-${String(month + 1).padStart(2, '0')}`
 
-  // Todos los terapeutas
+  // Todos los terapeutas (incluyendo desactivados)
   const { data: terapeutas, error: errT } = await supabase
     .from('profiles')
-    .select('id, full_name, email, created_at')
+    .select('id, full_name, email, created_at, is_active')
     .eq('role', 'therapist')
     .order('created_at', { ascending: false })
 
@@ -236,18 +265,40 @@ export default async function AdminTerapeutasPage({
 
   const subMap = new Map(subs?.map(s => [s.therapist_id, s]) ?? [])
 
-  const pendientes = (terapeutas ?? []).filter(t => !subMap.has(t.id))
+  // Desactivados primero (is_active = false) — siempre en su propia sección
+  const desactivados = (terapeutas ?? []).filter(t => t.is_active === false)
+  const activosIds   = new Set(desactivados.map(t => t.id))
+
+  const pendientes = (terapeutas ?? []).filter(t => !subMap.has(t.id) && !activosIds.has(t.id))
   const aprobados  = (terapeutas ?? []).filter(t => {
+    if (activosIds.has(t.id)) return false
     const s = subMap.get(t.id)
     return s && ['free_approved', 'active', 'trialing'].includes(s.status)
   })
   const revocados  = (terapeutas ?? []).filter(t => {
+    if (activosIds.has(t.id)) return false
     const s = subMap.get(t.id)
     return s && ['cancelled', 'past_due'].includes(s.status)
   })
 
   return (
     <div className="space-y-10">
+      {/* ── Alerta: terapeuta con pacientes activos ── */}
+      {errorParam === 'tiene-pacientes' && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
+          <span className="text-xl shrink-0">⚠️</span>
+          <div>
+            <p className="font-semibold text-amber-800 text-sm">No se puede desactivar: tiene pacientes activos</p>
+            <p className="text-amber-700 text-xs mt-0.5">
+              Este terapeuta tiene {countParam} {Number(countParam) === 1 ? 'paciente activo' : 'pacientes activos'}.
+              Transfiérelos a otro terapeuta desde{' '}
+              <a href="/therapist/transferir-paciente" className="underline font-medium">Transferir paciente</a>{' '}
+              antes de desactivarlo.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* ── DEBUG temporal ── */}
       {(errT || errS) && (
         <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-xs text-red-700 font-mono whitespace-pre-wrap">
@@ -467,10 +518,10 @@ export default async function AdminTerapeutasPage({
                         Revocar acceso
                       </button>
                     </form>
-                    <DeleteTherapistButton
+                    <DesactivarTherapistButton
                       therapistId={t.id}
                       displayName={t.full_name ?? t.email ?? 'este terapeuta'}
-                      action={eliminarTerapeuta}
+                      action={desactivarTerapeuta}
                     />
                   </div>
                 </div>
@@ -512,12 +563,41 @@ export default async function AdminTerapeutasPage({
                       Reactivar
                     </button>
                   </form>
-                  <DeleteTherapistButton
+                  <DesactivarTherapistButton
                     therapistId={t.id}
                     displayName={t.full_name ?? t.email ?? 'este terapeuta'}
-                    action={eliminarTerapeuta}
+                    action={desactivarTerapeuta}
                   />
                 </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ── Desactivados ── */}
+      {desactivados.length > 0 && (
+        <section>
+          <h2 className="text-base font-semibold text-gray-500 mb-3">
+            🔒 Desactivados ({desactivados.length})
+          </h2>
+          <div className="space-y-3">
+            {desactivados.map(t => (
+              <div key={t.id} className="bg-gray-50 border border-gray-200 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center gap-4 opacity-75">
+                <div className="flex-1">
+                  <p className="font-medium text-gray-600">{t.full_name ?? '—'}</p>
+                  <p className="text-sm text-gray-400">{t.email}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    Desactivado · datos conservados (NOM-024)
+                  </p>
+                </div>
+                <form action={reactivarPerfil}>
+                  <input type="hidden" name="therapistId" value={t.id} />
+                  <button type="submit"
+                    className="bg-primary-600 hover:bg-primary-700 text-white text-xs font-semibold px-4 py-2 rounded-xl transition-colors">
+                    ✓ Reactivar
+                  </button>
+                </form>
               </div>
             ))}
           </div>
