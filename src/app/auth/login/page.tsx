@@ -28,8 +28,9 @@ function LoginForm() {
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get('redirect')
   const reason = searchParams.get('reason')
+  const emailParam = searchParams.get('email') ?? ''
 
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState(emailParam)
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)

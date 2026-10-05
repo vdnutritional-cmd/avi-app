@@ -99,7 +99,7 @@ function RegistroConsultorioForm() {
   const [error,      setError]      = useState<string | null>(null)
   const [loading,    setLoading]    = useState(false)
   const [registrado, setRegistrado] = useState(false)
-  const [cerrando,   setCerrando]   = useState(false)
+  const [cerrando,   setCerrando]   = useState<false | 'salir' | 'avi'>(false)
 
   // Empresa (convenio)
   const [empresas,  setEmpresas]  = useState<{ id: string; nombre: string }[]>([])
@@ -255,20 +255,38 @@ function RegistroConsultorioForm() {
           <p className="text-primary-700">Correo: <strong>{email.trim().toLowerCase()}</strong></p>
           <p className="text-primary-700">Contraseña: la que definiste</p>
         </div>
-        <button
-          disabled={cerrando}
-          onClick={async () => {
-            setCerrando(true)
-            // Asegurar logout aunque el useEffect no haya terminado aún
-            try { await fetch('/api/auth/logout', { method: 'POST' }) } catch { /* silencioso */ }
-            // Intentar cerrar la pestaña (solo funciona si fue abierta via window.open)
-            try { window.close() } catch { /* noop */ }
-            // Fallback: redirigir a la landing page para que la sesión no quede activa
-            setTimeout(() => { window.location.href = '/' }, 300)
-          }}
-          className="w-full py-3 bg-primary-600 text-white font-semibold rounded-2xl text-sm hover:bg-primary-700 transition-colors disabled:opacity-60">
-          {cerrando ? 'Cerrando sesión…' : 'Cerrar esta ventana'}
-        </button>
+
+        <div className="space-y-3 pt-1">
+          {/* Botón primario: Ingresar a AVI */}
+          <button
+            disabled={cerrando !== false}
+            onClick={async () => {
+              setCerrando('avi')
+              // Asegurar logout (el useEffect puede no haber terminado)
+              try { await fetch('/api/auth/logout', { method: 'POST' }) } catch { /* silencioso */ }
+              // Ir al login con el email pre-cargado para que no tenga que escribirlo
+              window.location.href = `/auth/login?email=${encodeURIComponent(email.trim().toLowerCase())}`
+            }}
+            className="w-full py-3 bg-primary-600 text-white font-semibold rounded-2xl text-sm hover:bg-primary-700 transition-colors disabled:opacity-60">
+            {cerrando === 'avi' ? 'Un momento…' : '🚀 Ingresar a AVI'}
+          </button>
+
+          {/* Botón secundario: Concluir el Registro y Salir */}
+          <button
+            disabled={cerrando !== false}
+            onClick={async () => {
+              setCerrando('salir')
+              // Asegurar logout
+              try { await fetch('/api/auth/logout', { method: 'POST' }) } catch { /* silencioso */ }
+              // Intentar cerrar la pestaña (solo funciona si fue abierta via window.open)
+              try { window.close() } catch { /* noop */ }
+              // Fallback: redirigir a la landing page
+              setTimeout(() => { window.location.href = '/' }, 300)
+            }}
+            className="w-full py-3 bg-white border border-gray-200 text-gray-500 font-medium rounded-2xl text-sm hover:bg-gray-50 transition-colors disabled:opacity-60">
+            {cerrando === 'salir' ? 'Cerrando sesión…' : 'Concluir el Registro y Salir'}
+          </button>
+        </div>
       </div>
     </div>
   )
