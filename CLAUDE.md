@@ -1,6 +1,6 @@
 # AVI Therapy Companion App — Contexto para Claude Code
 
-> **Versión:** 1.0 (cerrada) · **Fecha:** 02 octubre 2026  
+> **Versión:** 1.0 (cerrada) · **Fecha:** 05 octubre 2026  
 > Este archivo es el punto de entrada para cualquier sesión de Claude Code en este proyecto.  
 > Léelo completo antes de modificar cualquier archivo.
 
@@ -98,6 +98,9 @@ src/app/
     ├── chat/route.ts               IA chat paciente (Claude + RAG)
     ├── analysis/route.ts           Análisis clínico IA (Claude + RAG)
     ├── analisis-clinicos/route.ts  Expediente: McMaster + diagnóstico
+    ├── cron/
+    │   ├── bloquear-inactivos/     Cron diario 09:00 UTC — bloqueo pacientes inactivos
+    │   └── desactivar-companion-expirados/  Cron diario 10:00 UTC — expira bundles companion
     ├── historia-clinica/route.ts   HC Original / HC Actualizada
     ├── expediente-analysis/route.ts
     ├── therapist/
@@ -226,10 +229,10 @@ Los 6 reportes que usan `sharedCSS()` ya lo tienen. Los demás lo tienen inline.
 | `therapist_session_notes` | Sesiones presenciales (objetivo, desarrollo, acuerdo, seguimiento) |
 | `patient_expediente` | Expediente clínico completo (Individual, Familiar, Pareja, Análisis Clínicos, HC, info_*) |
 | `patient_questionnaires` | Cuestionarios asignados (McMaster FAD) |
-| `convenio_codes` | Códigos de descuento CONVENIO |
+| `convenio_codes` | Códigos de descuento CONVENIO (`code`, `plan_id`, `used_by`, `expires_at`, `is_active`) |
 | `convenio_empresas` | Empresas convenio (nombre, logo_url) |
 | `therapist_empresa` | Relación terapeuta ↔ empresa |
-| `therapist_slot_bundles` | Paquetes de slots por empresa |
+| `therapist_slot_bundles` | Paquetes de slots (`source_type`: convenio/regular/free_approved · `empresa_id`: null=independientes · `patient_slots` · `status`) |
 | `convenio_personas_institucionales` | Personas institucionales (rol especial en empresa) |
 | `document_chunks` | Chunks RAG con embeddings pgvector (therapy_profile filter) |
 | `audit_log` | Log NOM-024: accesos a datos clínicos |
@@ -300,9 +303,29 @@ free_approved  → tier: null    → AVI-Esencial únicamente
 esencial       → tier: null    → AVI-Esencial únicamente
 clinico        → tier: clinico → AVI-Esencial + AVI-Clínico
 convenio       → tier: clinico → AVI-Esencial + AVI-Clínico (vía código empresa)
+companion      → tier: clinico → AVI-Esencial + AVI-Clínico (sin Stripe, vía código + fecha expiración)
 ```
 
 La columna `tier` en `subscriptions` controla el acceso a tabs clínicos en el perfil del paciente y a reportes AVI-Clínico.
+
+### AVI Therapy Companion Plans (gratis, sin Stripe)
+
+`COMPANION_PLANS` en `src/lib/stripe/plans.ts`: `companion_5` (5 pacientes) y `companion_10` (10 pacientes).
+
+- Se activan en `POST /api/stripe/checkout` con `convenioCode` — el checkout detecta `planType='companion'`, salta Stripe, crea la suscripción directamente en Supabase y devuelve `{ url: dashboardUrl }`.
+- **Opción B:** Si el terapeuta ya tiene un plan activo distinto de `companion` (ej. `valora`), el checkout **no sobreescribe** la suscripción — solo crea un bundle en `therapist_slot_bundles`. La suscripción CONVENIO queda intacta.
+- El cron `GET /api/cron/desactivar-companion-expirados` (10:00 UTC diario) desactiva bundles expirados y cancela la suscripción **solo si** `plan='companion'`.
+
+### Regla de slots: pacientes independientes vs. CONVENIO (Opción B)
+
+| Tipo de paciente | `empresa_id` | Límite |
+|---|---|---|
+| CONVENIO (empresa paga por sesión) | `!= null` | **Ilimitados** |
+| Independiente (sin empresa) | `null` | Limitados al `patient_slots` del bundle Companion |
+
+En `therapist/codes/page.tsx`: si existe un bundle activo con `empresa_id=null`, el contador usa `indepCount` (pacientes independientes) vs `bundle.patient_slots`. Sin bundle: comportamiento original.
+
+En `therapist/patients/[patientId]/page.tsx`: state `hasCompanionBundle` — si es `true`, el paciente independiente no queda bloqueado aunque la suscripción no sea `active`/`trialing`.
 
 ---
 
@@ -362,6 +385,7 @@ npm run build
 - Convención de commits: `feat:`, `fix:`, `style:`, `chore:`, `refactor:`
 - Siempre `tsc --noEmit` antes de push
 - **Último commit V1.0:** `9ddb2e1`
+- **Último commit Sprint 12 Companion:** `dd614c6`
 
 ---
 
