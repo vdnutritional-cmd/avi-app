@@ -14,6 +14,7 @@ interface SlotInfo {
   used: number
   total: number | null   // null = sin suscripción (acceso beta libre)
   hasAccess: boolean
+  isCompanion: boolean   // true = límite viene de bundle companion (pacientes independientes)
 }
 
 export default function CodesPage() {
@@ -34,27 +35,64 @@ export default function CodesPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
-    // Pacientes activos
-    const { count: usedCount } = await supabase
-      .from('therapist_patients')
-      .select('*', { count: 'exact', head: true })
-      .eq('therapist_id', user.id)
-      .eq('is_active', true)
+    // Consultas en paralelo
+    const [subRes, bundleRes, allPatientsRes, indepPatientsRes] = await Promise.all([
+      // Suscripción activa
+      supabase
+        .from('subscriptions')
+        .select('patient_slots, status, plan')
+        .eq('therapist_id', user.id)
+        .maybeSingle(),
 
-    // Suscripción
-    const { data: sub } = await supabase
-      .from('subscriptions')
-      .select('patient_slots, status')
-      .eq('therapist_id', user.id)
-      .single()
+      // Bundle companion activo para pacientes independientes (empresa_id=null)
+      supabase
+        .from('therapist_slot_bundles')
+        .select('patient_slots')
+        .eq('therapist_id', user.id)
+        .eq('status', 'active')
+        .is('empresa_id', null)
+        .limit(1),
 
-    const hasAccess = !sub || ['active', 'free_approved', 'trialing'].includes(sub?.status ?? '')
+      // Total pacientes activos (para plan regular)
+      supabase
+        .from('therapist_patients')
+        .select('*', { count: 'exact', head: true })
+        .eq('therapist_id', user.id)
+        .eq('is_active', true),
 
-    setSlots({
-      used: usedCount ?? 0,
-      total: sub?.patient_slots ?? null,
-      hasAccess,
-    })
+      // Pacientes independientes activos (empresa_id=null, para plan companion)
+      supabase
+        .from('therapist_patients')
+        .select('*', { count: 'exact', head: true })
+        .eq('therapist_id', user.id)
+        .eq('is_active', true)
+        .is('empresa_id', null),
+    ])
+
+    const sub = subRes.data
+    const companionBundle = bundleRes.data?.[0] ?? null
+    const allCount = allPatientsRes.count ?? 0
+    const indepCount = indepPatientsRes.count ?? 0
+
+    if (companionBundle) {
+      // Opción B: el límite aplica SOLO a pacientes independientes (sin empresa/CONVENIO)
+      // Los pacientes CONVENIO (empresa_id != null) son ilimitados para el terapeuta.
+      setSlots({
+        used: indepCount,
+        total: companionBundle.patient_slots,
+        hasAccess: true,
+        isCompanion: true,
+      })
+    } else {
+      // Plan regular (paid, valora, free_approved) o beta sin suscripción
+      const hasAccess = !sub || ['active', 'free_approved', 'trialing'].includes(sub?.status ?? '')
+      setSlots({
+        used: allCount,
+        total: sub?.patient_slots ?? null,
+        hasAccess,
+        isCompanion: false,
+      })
+    }
   }
 
   async function loadCodes() {
@@ -80,7 +118,14 @@ export default function CodesPage() {
 
     // Verificar límite de pacientes
     if (slots?.total !== null && slots !== null && slots.used >= (slots.total ?? 0)) {
-      setError(`Has alcanzado tu límite de ${slots.total} pacientes. Actualiza tu plan para agregar más.`)
+      if (slots.isCompanion) {
+        setError(
+          `Has alcanzado el límite de ${slots.total} pacientes independientes en tu plan AVI Therapy Companion. ` +
+          `Adquiere un plan pagado o solicita un nuevo código Companion para agregar más.`
+        )
+      } else {
+        setError(`Has alcanzado tu límite de ${slots.total} pacientes. Actualiza tu plan para agregar más.`)
+      }
       return
     }
 
@@ -99,6 +144,8 @@ export default function CodesPage() {
     if (!insertError) {
       setCodes(prev => [{ code: newCode, used: false, created_at: new Date().toISOString() }, ...prev])
       if (!loaded) setLoaded(true)
+      // Actualizar contador de slots
+      setSlots(prev => prev ? { ...prev, used: prev.used + 1 } : prev)
     }
     setGenerating(false)
   }
@@ -122,15 +169,29 @@ export default function CodesPage() {
 
       {/* Indicador de slots */}
       {slots && slots.total !== null && (
-        <div className="bg-purple-50 rounded-xl px-4 py-3 flex items-center justify-between">
+        <div className={`rounded-xl px-4 py-3 flex items-center justify-between ${
+          slots.isCompanion ? 'bg-emerald-50' : 'bg-purple-50'
+        }`}>
           <div>
-            <p className="text-sm font-medium text-purple-800">
-              Pacientes activos: {slots.used} / {slots.total}
+            <p className={`text-sm font-medium ${
+              slots.isCompanion ? 'text-emerald-800' : 'text-purple-800'
+            }`}>
+              {slots.isCompanion
+                ? `Pacientes independientes: ${slots.used} / ${slots.total}`
+                : `Pacientes activos: ${slots.used} / ${slots.total}`
+              }
             </p>
-            <div className="mt-1.5 h-1.5 bg-purple-100 rounded-full w-48">
+            {slots.isCompanion && (
+              <p className="text-xs text-emerald-600 mt-0.5">Plan AVI Therapy Companion</p>
+            )}
+            <div className={`mt-1.5 h-1.5 rounded-full w-48 ${
+              slots.isCompanion ? 'bg-emerald-100' : 'bg-purple-100'
+            }`}>
               <div
                 className={`h-1.5 rounded-full transition-all ${
-                  slotsExhausted ? 'bg-red-400' : 'bg-purple-500'
+                  slotsExhausted
+                    ? 'bg-red-400'
+                    : slots.isCompanion ? 'bg-emerald-500' : 'bg-purple-500'
                 }`}
                 style={{ width: `${Math.min(100, (slots.used / slots.total!) * 100)}%` }}
               />
@@ -139,9 +200,13 @@ export default function CodesPage() {
           {slotsExhausted && (
             <Link
               href="/pricing"
-              className="text-xs bg-purple-700 text-white px-3 py-1.5 rounded-lg hover:bg-purple-800 transition-colors"
+              className={`text-xs text-white px-3 py-1.5 rounded-lg transition-colors ${
+                slots.isCompanion
+                  ? 'bg-emerald-700 hover:bg-emerald-800'
+                  : 'bg-purple-700 hover:bg-purple-800'
+              }`}
             >
-              Ampliar plan
+              {slots.isCompanion ? 'Ver planes' : 'Ampliar plan'}
             </Link>
           )}
         </div>
