@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/bloquear-inactivos",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/desactivar-companion-expirados",
+      "schedule": "0 10 * * *"
     }
   ]
 }
