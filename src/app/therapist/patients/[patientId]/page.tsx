@@ -148,6 +148,7 @@ export default function PatientDetailPage() {
   const [activeTab, setActiveTab] = useState<PatientTab>('datos-generales')
   const [therapistId, setTherapistId] = useState<string | null>(null)
   const [tier, setTier] = useState<'esencial' | 'clinico'>('esencial')
+  const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
   const streamRef = useRef<HTMLDivElement>(null)
 
@@ -164,10 +165,11 @@ export default function PatientDetailPage() {
     if (user?.id) {
       const { data: sub } = await supabase
         .from('subscriptions')
-        .select('tier')
+        .select('tier, status')
         .eq('therapist_id', user.id)
         .maybeSingle()
       if (sub?.tier === 'clinico') setTier('clinico')
+      setSubscriptionStatus(sub?.status ?? null)
     }
 
     const [profileRes, patternsRes, analysesRes, relationRes, sessionNotesRes, expedienteRes, therapistProfileRes] = await Promise.all([
@@ -590,6 +592,15 @@ export default function PatientDetailPage() {
   const tipoFamActive = !tipoCasoActivo || tipoCasoActivo === 'Familiar'
   const tipoParActive = !tipoCasoActivo || tipoCasoActivo === 'Pareja'
 
+  // ── Bloqueo de paciente sin convenio + sin plan pagado ────────────────────
+  // Un paciente está bloqueado cuando no tiene empresa CONVENIO (empresa_id=null)
+  // y el terapeuta NO tiene plan Stripe activo (solo free_approved o caído).
+  const PAID_STATUSES_PATIENT = ['active', 'trialing']
+  const pacienteBlockeado =
+    empresaId === null &&
+    subscriptionStatus !== null &&
+    !PAID_STATUSES_PATIENT.includes(subscriptionStatus)
+
   // ── Helpers para sidebar ───────────────────────────────────────────────────
   const isClinico = tier === 'clinico'
   type SidebarItem = {
@@ -600,13 +611,14 @@ export default function PatientDetailPage() {
     badge?: string | number
     alert?: boolean
     dim?: boolean
+    dimMsg?: string
   }
 
-  const navItem = ({ id, Icon, label, badge, alert, dim }: SidebarItem, onSelect?: () => void) => (
+  const navItem = ({ id, Icon, label, badge, alert, dim, dimMsg }: SidebarItem, onSelect?: () => void) => (
     <button
       key={id}
       onClick={() => { if (!dim) { setActiveTab(id); onSelect?.() } }}
-      title={dim ? 'No disponible para este tipo de caso' : undefined}
+      title={dim ? (dimMsg ?? 'No disponible para este tipo de caso') : undefined}
       className={[
         'w-full flex items-center gap-2 px-2 py-2 text-left transition-colors',
         dim
@@ -627,25 +639,27 @@ export default function PatientDetailPage() {
     </button>
   )
 
+  const BLOQUEO_MSG = 'Paciente sin cobertura activa — contrata un plan para acceder'
+
   const esencialItems: SidebarItem[] = [
     { id: 'datos-generales',      Icon: User,             label: 'Datos generales' },
-    { id: 'tipo-caso',            Icon: FolderOpen,        label: 'Tipo de caso' },
-    { id: 'nota',                 Icon: FileText,          label: 'Nota inicial', alert: !savedNote },
-    { id: 'presenciales',         Icon: Calendar,          label: 'Sesiones presenciales', badge: sessionNotes.length > 0 ? `${sessionNotes.length}/${MAX_SESIONES_PRESENCIALES}` : undefined },
-    { id: 'sesiones',             Icon: MessageSquare,     label: 'Sesiones AVI', badge: patterns.length || undefined },
-    { id: 'analisis',             Icon: Search,            label: 'Análisis', badge: analyses.length || undefined },
-    { id: 'derivaciones-cierres', Icon: ArrowRightCircle,  label: 'Derivaciones / Cierres' },
+    { id: 'tipo-caso',            Icon: FolderOpen,        label: 'Tipo de caso',           dim: pacienteBlockeado, dimMsg: BLOQUEO_MSG },
+    { id: 'nota',                 Icon: FileText,          label: 'Nota inicial',           alert: !savedNote && !pacienteBlockeado, dim: pacienteBlockeado, dimMsg: BLOQUEO_MSG },
+    { id: 'presenciales',         Icon: Calendar,          label: 'Sesiones presenciales',  badge: !pacienteBlockeado && sessionNotes.length > 0 ? `${sessionNotes.length}/${MAX_SESIONES_PRESENCIALES}` : undefined, dim: pacienteBlockeado, dimMsg: BLOQUEO_MSG },
+    { id: 'sesiones',             Icon: MessageSquare,     label: 'Sesiones AVI',           badge: !pacienteBlockeado ? (patterns.length || undefined) : undefined, dim: pacienteBlockeado, dimMsg: BLOQUEO_MSG },
+    { id: 'analisis',             Icon: Search,            label: 'Análisis',               badge: !pacienteBlockeado ? (analyses.length || undefined) : undefined, dim: pacienteBlockeado, dimMsg: BLOQUEO_MSG },
+    { id: 'derivaciones-cierres', Icon: ArrowRightCircle,  label: 'Derivaciones / Cierres', dim: pacienteBlockeado, dimMsg: BLOQUEO_MSG },
   ]
 
   const clinicoItems: SidebarItem[] = [
-    { id: 'tipo-caso',        Icon: FolderOpen,     label: 'Tipo de caso' },
-    { id: 'individual',       Icon: User,           label: 'Individual',  dim: !isClinico || (!!tipoCasoActivo && tipoCasoActivo !== 'Individual') },
-    { id: 'familiar',         Icon: Users,          label: 'Familiar',    dim: !isClinico || (!!tipoCasoActivo && tipoCasoActivo !== 'Familiar') },
-    { id: 'pareja',           Icon: Heart,          label: 'Pareja',      dim: !isClinico || (!!tipoCasoActivo && tipoCasoActivo !== 'Pareja') },
-    { id: 'prediagnostico',   Icon: ClipboardList,  label: 'Prediagnóstico',    dim: !isClinico },
-    { id: 'analisis-clinicos',Icon: Activity,       label: 'Análisis clínicos', dim: !isClinico },
-    { id: 'cuestionarios',    Icon: CheckSquare,    label: 'Cuestionarios',     dim: !isClinico },
-    { id: 'impresiones',      Icon: Printer,        label: 'Impresiones clínicas', dim: !isClinico },
+    { id: 'tipo-caso',        Icon: FolderOpen,     label: 'Tipo de caso',          dim: pacienteBlockeado, dimMsg: BLOQUEO_MSG },
+    { id: 'individual',       Icon: User,           label: 'Individual',            dim: pacienteBlockeado || !isClinico || (!!tipoCasoActivo && tipoCasoActivo !== 'Individual'), dimMsg: pacienteBlockeado ? BLOQUEO_MSG : undefined },
+    { id: 'familiar',         Icon: Users,          label: 'Familiar',              dim: pacienteBlockeado || !isClinico || (!!tipoCasoActivo && tipoCasoActivo !== 'Familiar'),   dimMsg: pacienteBlockeado ? BLOQUEO_MSG : undefined },
+    { id: 'pareja',           Icon: Heart,          label: 'Pareja',                dim: pacienteBlockeado || !isClinico || (!!tipoCasoActivo && tipoCasoActivo !== 'Pareja'),     dimMsg: pacienteBlockeado ? BLOQUEO_MSG : undefined },
+    { id: 'prediagnostico',   Icon: ClipboardList,  label: 'Prediagnóstico',        dim: pacienteBlockeado || !isClinico, dimMsg: pacienteBlockeado ? BLOQUEO_MSG : undefined },
+    { id: 'analisis-clinicos',Icon: Activity,       label: 'Análisis clínicos',     dim: pacienteBlockeado || !isClinico, dimMsg: pacienteBlockeado ? BLOQUEO_MSG : undefined },
+    { id: 'cuestionarios',    Icon: CheckSquare,    label: 'Cuestionarios',         dim: pacienteBlockeado || !isClinico, dimMsg: pacienteBlockeado ? BLOQUEO_MSG : undefined },
+    { id: 'impresiones',      Icon: Printer,        label: 'Impresiones clínicas',  dim: pacienteBlockeado || !isClinico, dimMsg: pacienteBlockeado ? BLOQUEO_MSG : undefined },
   ]
 
   const clinicoTabIds: PatientTab[] = ['individual','familiar','pareja','prediagnostico','analisis-clinicos','cuestionarios','impresiones']
@@ -872,6 +886,31 @@ export default function PatientDetailPage() {
         {/* ── Área de contenido ── */}
         <main className="flex-1 min-w-0 pl-0 md:pl-6 space-y-4">
 
+      {/* ── Banner de bloqueo: paciente sin cobertura ── */}
+      {pacienteBlockeado && activeTab !== 'datos-generales' && (
+        <div className="flex flex-col items-center justify-center py-16 px-8 text-center">
+          <div className="w-16 h-16 bg-amber-100 rounded-2xl flex items-center justify-center mb-4">
+            <Lock size={28} className="text-amber-600" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-800 mb-2">Paciente sin cobertura activa</h3>
+          <p className="text-gray-500 text-sm max-w-sm mb-1">
+            Este asesorado <strong>no está asociado a ningún convenio institucional</strong> y tu plan actual no cubre pacientes fuera de convenio.
+          </p>
+          <p className="text-gray-400 text-sm max-w-sm mb-6">
+            Para acceder a todos sus módulos AVI, contrata un plan Esencial o Clínico que cubra pacientes sin convenio, o asigna este asesorado a una empresa en convenio.
+          </p>
+          <a
+            href="/pricing"
+            className="px-5 py-2.5 bg-primary-600 text-white text-sm rounded-xl font-semibold hover:bg-primary-700 transition-colors"
+          >
+            Ver planes →
+          </a>
+          <p className="mt-3 text-xs text-gray-400">
+            Solo están disponibles los Datos generales del asesorado (lectura).
+          </p>
+        </div>
+      )}
+
       {/* ── TAB: Datos Generales ── */}
       {activeTab === 'datos-generales' && therapistId && (
         <DatosGeneralesTab
@@ -879,6 +918,7 @@ export default function PatientDetailPage() {
           therapistId={therapistId}
           patientEmail={profile?.email ?? null}
           initialData={expedienteRow}
+          readOnly={pacienteBlockeado}
         />
       )}
 

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { Lock } from 'lucide-react'
 
 // ──────────────────────────────────────────────
 // Types
@@ -170,6 +171,8 @@ interface Props {
    *  undefined = aún cargando; null = sin fila en BD; object = datos listos. */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   initialData?: Record<string, any> | null
+  /** Si true, todos los campos quedan deshabilitados y el botón Guardar se oculta. */
+  readOnly?: boolean
 }
 
 // ──────────────────────────────────────────────
@@ -217,7 +220,7 @@ function parseRow(row: Record<string, any>): DatosGeneralesData {
 // ──────────────────────────────────────────────
 // Main component
 // ──────────────────────────────────────────────
-export default function DatosGeneralesTab({ patientId, therapistId, patientEmail, initialData }: Props) {
+export default function DatosGeneralesTab({ patientId, therapistId, patientEmail, initialData, readOnly = false }: Props) {
   const [data, setData] = useState<DatosGeneralesData>(datosVacios())
   const [saved, setSaved] = useState<DatosGeneralesData>(datosVacios())
   const [loading, setLoading] = useState(true)
@@ -366,7 +369,13 @@ export default function DatosGeneralesTab({ patientId, therapistId, patientEmail
   }
 
   return (
-    <div className="space-y-5">
+    <fieldset disabled={readOnly} className="space-y-5">
+      {readOnly && (
+        <div className="flex items-center gap-2 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-700">
+          <Lock size={14} className="shrink-0" />
+          <span>Solo lectura — activa un plan para editar los datos de este asesorado.</span>
+        </div>
+      )}
 
       {/* Datos del Asesorado */}
       <SectionCard title="Datos del Asesorado">
@@ -731,18 +740,20 @@ export default function DatosGeneralesTab({ patientId, therapistId, patientEmail
         </div>
       </SectionCard>
 
-      {/* Botón guardar */}
-      <div className="flex justify-end pt-1 pb-4">
-        <button
-          onClick={save}
-          disabled={saving || !changed}
-          className="px-6 py-3 bg-primary-600 text-white rounded-xl text-sm font-semibold
-                     hover:bg-primary-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          {saving ? 'Guardando…' : saveOk ? '✓ Guardado' : 'Guardar datos generales'}
-        </button>
-      </div>
+      {/* Botón guardar — oculto en modo lectura */}
+      {!readOnly && (
+        <div className="flex justify-end pt-1 pb-4">
+          <button
+            onClick={save}
+            disabled={saving || !changed}
+            className="px-6 py-3 bg-primary-600 text-white rounded-xl text-sm font-semibold
+                       hover:bg-primary-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {saving ? 'Guardando…' : saveOk ? '✓ Guardado' : 'Guardar datos generales'}
+          </button>
+        </div>
+      )}
 
-    </div>
+    </fieldset>
   )
 }
