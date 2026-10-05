@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 
 interface Empresa { id: string; nombre: string }
 
@@ -21,13 +21,17 @@ export default function FiltrosReporteGeneral({
   const router = useRouter()
   const [, startTransition] = useTransition()
 
+  // Estado local para feedback inmediato — se sincroniza cuando el servidor responde
+  const [localSelected, setLocalSelected] = useState<string[]>(empresaIdsSelected)
+  useEffect(() => { setLocalSelected(empresaIdsSelected) }, [empresaIdsSelected])
+
   const now = new Date()
   const defaultMes = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
   const mesSafe = /^\d{4}-\d{2}$/.test(mes) ? mes : defaultMes
 
   function nav(params: Record<string, string>) {
     const sp = new URLSearchParams({
-      empresaIds: empresaIdsSelected.join(','),
+      empresaIds: localSelected.join(','),
       tipo, pid, mes: mesSafe,
       ...params,
     })
@@ -35,26 +39,30 @@ export default function FiltrosReporteGeneral({
   }
 
   function toggleEmpresa(id: string) {
-    const set = new Set(empresaIdsSelected)
+    const set = new Set(localSelected)
     set.has(id) ? set.delete(id) : set.add(id)
+    const newIds = [...set]
+    setLocalSelected(newIds)                          // ← feedback visual inmediato
     const sp = new URLSearchParams({
-      empresaIds: [...set].join(','),
+      empresaIds: newIds.join(','),
       tipo, pid: 'all', mes: mesSafe,
     })
     startTransition(() => router.push(`${basePath}?${sp.toString()}`))
   }
 
   function toggleAll() {
-    const allSelected = empresas.every(e => empresaIdsSelected.includes(e.id))
+    const allSel = empresas.every(e => localSelected.includes(e.id))
+    const newIds = allSel ? [] : empresas.map(e => e.id)
+    setLocalSelected(newIds)                          // ← feedback visual inmediato
     const sp = new URLSearchParams({
-      empresaIds: allSelected ? '' : empresas.map(e => e.id).join(','),
+      empresaIds: newIds.join(','),
       tipo, pid: 'all', mes: mesSafe,
     })
     startTransition(() => router.push(`${basePath}?${sp.toString()}`))
   }
 
-  const hasSelection = empresaIdsSelected.length > 0
-  const allSelected  = empresas.length > 0 && empresas.every(e => empresaIdsSelected.includes(e.id))
+  const hasSelection = localSelected.length > 0
+  const allSelected  = empresas.length > 0 && empresas.every(e => localSelected.includes(e.id))
 
   const selectClass = "text-sm border border-gray-200 rounded-xl px-3 py-2 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-300 min-w-[180px]"
 
@@ -83,7 +91,7 @@ export default function FiltrosReporteGeneral({
         {/* Grid 2 cols en móvil, 3 en desktop */}
         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
           {empresas.map(e => {
-            const selected = empresaIdsSelected.includes(e.id)
+            const selected = localSelected.includes(e.id)
             return (
               <label
                 key={e.id}
