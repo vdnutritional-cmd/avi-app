@@ -160,10 +160,11 @@ export default async function AdminTerapeutasPage({
     .from('subscriptions')
     .select('therapist_id, status, patient_slots, plan, tier')
 
-  // Todas las empresas en convenio (para el selector del admin)
+  // Todas las empresas en convenio ACTIVAS (para el selector del admin)
   const { data: todasEmpresas } = await supabase
     .from('convenio_empresas')
     .select('id, nombre')
+    .eq('is_active', true)
     .order('nombre', { ascending: true })
 
   // Empresas asignadas por terapeuta
