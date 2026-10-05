@@ -441,11 +441,11 @@ export default async function AdminTerapeutasPage({
                           👥 0 pacientes
                         </span>
                       ) : (
-                        <details className="inline-block">
+                        <details className="relative inline-block">
                           <summary className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-100 font-medium cursor-pointer select-none list-none">
                             👥 {pacientes} {pacientes === 1 ? 'paciente' : 'pacientes'} ▾
                           </summary>
-                          <div className="mt-1.5 ml-0.5 bg-white border border-blue-100 rounded-xl px-3 py-2 shadow-sm min-w-[180px]">
+                          <div className="absolute z-20 left-0 mt-1 bg-white border border-blue-100 rounded-xl px-3 py-2 shadow-md min-w-[180px]">
                             <ul className="space-y-0.5">
                               {pacientesNombres.map(p => (
                                 <li key={p.id} className="text-xs text-gray-700 py-0.5 border-b border-gray-50 last:border-0">
