@@ -100,20 +100,6 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
             <NavLink href="/therapist/patients" icon="👥" label="Mis pacientes" onClose={closeSidebar} />
           )}
 
-          {/* Bloque: Registro de pacientes */}
-          <NavGroup
-            name="registro"
-            label="Registro de pacientes"
-            icon="📋"
-            isOpen={openGroup === 'registro'}
-            onToggle={() => toggleGroup('registro')}
-          >
-            <NavLink href="/therapist/mi-qr"                    icon="📲" label="Mi QR de registro"                    onClose={closeSidebar} />
-            <NavLink href="/therapist/fusionar-paciente"        icon="⚡" label="Fusionar cuentas de un paciente"         onClose={closeSidebar} />
-            <NavLink href="/therapist/transferir-paciente"      icon="🔄" label="Transferir paciente a otro terapeuta" onClose={closeSidebar} />
-            <NavLink href="/therapist/codes"                    icon="🔑" label="Códigos de acceso"                    onClose={closeSidebar} />
-          </NavGroup>
-
           {/* Bloque: Información */}
           <NavGroup
             name="informacion"
@@ -150,6 +136,20 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
             <NavLink href="/therapist/auditoria"   icon="🔍" label="Auditorías información pacientes"  onClose={closeSidebar} />
             <NavLink href="/therapist/tutoriales"   icon="🎬" label="Consejos prácticos y Tutoriales"       onClose={closeSidebar} />
             <PlanInfo status={subscriptionStatus} patientSlots={patientSlots} tier={tier} />
+          </NavGroup>
+
+          {/* Bloque: Registro de pacientes */}
+          <NavGroup
+            name="registro"
+            label="Registro de pacientes"
+            icon="📋"
+            isOpen={openGroup === 'registro'}
+            onToggle={() => toggleGroup('registro')}
+          >
+            <NavLink href="/therapist/mi-qr"                    icon="📲" label="Mi QR de registro"                    onClose={closeSidebar} />
+            <NavLink href="/therapist/fusionar-paciente"        icon="⚡" label="Fusionar cuentas de un paciente"         onClose={closeSidebar} />
+            <NavLink href="/therapist/transferir-paciente"      icon="🔄" label="Transferir paciente a otro terapeuta" onClose={closeSidebar} />
+            <NavLink href="/therapist/codes"                    icon="🔑" label="Códigos de acceso"                    onClose={closeSidebar} />
           </NavGroup>
 
           {/* Bloque: Configuración */}
