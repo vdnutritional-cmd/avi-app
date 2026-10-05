@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import FiltrosReporte from '../reporte-terapeuta/FiltrosReporte'
+import FiltrosReporteGeneral from './FiltrosReporteGeneral'
 import PrintEstadisticasButton from '@/app/therapist/estadisticas/PrintEstadisticasButton'
 
 export const dynamic = 'force-dynamic'
@@ -24,9 +24,9 @@ function mesSiguienteStr(year: number, month: number) {
 export default async function ReporteGeneralPage({
   searchParams,
 }: {
-  searchParams: Promise<{ empresaId?: string; mes?: string; tipo?: string; pid?: string }>
+  searchParams: Promise<{ empresaIds?: string; mes?: string; tipo?: string; pid?: string }>
 }) {
-  const { empresaId: empParam, mes, tipo: tipoParam, pid: pidParam } = await searchParams
+  const { empresaIds: empIdsParam, mes, tipo: tipoParam, pid: pidParam } = await searchParams
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -54,23 +54,23 @@ export default async function ReporteGeneralPage({
     return { id: r.empresa_id as string, nombre: e?.nombre ?? 'Empresa', logo_url: e?.logo_url ?? null }
   })
 
-  const empresaId = empParam ?? ''
-  const empresaActual = empresas.find(e => e.id === empresaId)
+  const selectedIds = empIdsParam ? empIdsParam.split(',').filter(Boolean) : []
+  const empresasActuales = empresas.filter(e => selectedIds.includes(e.id))
 
   // ── Validar mes antes de cualquier early return ────────────────────────────
   const now = new Date()
   const defaultMes = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
   const validMes = (mes && /^\d{4}-\d{2}$/.test(mes)) ? mes : defaultMes
 
-  if (!empresaId) {
+  if (selectedIds.length === 0) {
     return (
       <div className="max-w-3xl space-y-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Reporte Institucional General</h1>
-          <p className="text-gray-500 mt-1 text-sm">Selecciona empresa para generar el reporte.</p>
+          <p className="text-gray-500 mt-1 text-sm">Selecciona una o más empresas para generar el reporte.</p>
         </div>
-        <FiltrosReporte basePath="/institucional/reporte-general" showTerapeutaFilter={false}
-          empresas={empresas} terapeutas={[]} empresaId="" terapeutaId="all"
+        <FiltrosReporteGeneral basePath="/institucional/reporte-general"
+          empresas={empresas} empresaIdsSelected={[]}
           tipo="activos" pid="all" mes={validMes} pacientes={[]} />
       </div>
     )
@@ -78,9 +78,9 @@ export default async function ReporteGeneralPage({
 
   // ── Todos los terapeutas de la empresa ────────────────────────────────────
   const [{ data: teRels }, { data: piTer }] = await Promise.all([
-    admin.from('therapist_empresa').select('therapist_id').eq('empresa_id', empresaId),
+    admin.from('therapist_empresa').select('therapist_id').in('empresa_id', selectedIds),
     admin.from('convenio_personas_institucionales').select('therapist_id')
-      .eq('empresa_id', empresaId).eq('opera_como_terapeuta', true).eq('is_active', true),
+      .in('empresa_id', selectedIds).eq('opera_como_terapeuta', true).eq('is_active', true),
   ])
   const therapistIds = [...new Set([
     ...(teRels ?? []).map(r => r.therapist_id as string),
@@ -102,10 +102,10 @@ export default async function ReporteGeneralPage({
     return (
       <div className="max-w-3xl space-y-8">
         <div><h1 className="text-2xl font-bold text-gray-900">Reporte Institucional General</h1></div>
-        <FiltrosReporte basePath="/institucional/reporte-general" showTerapeutaFilter={false}
-          empresas={empresas} terapeutas={[]} empresaId={empresaId} terapeutaId="all"
+        <FiltrosReporteGeneral basePath="/institucional/reporte-general"
+          empresas={empresas} empresaIdsSelected={selectedIds}
           tipo={tipo} pid={pid} mes={mesKey} pacientes={[]} />
-        <p className="text-sm text-gray-400 text-center py-8">No hay terapeutas registrados en esta empresa.</p>
+        <p className="text-sm text-gray-400 text-center py-8">No hay terapeutas registrados en las empresas seleccionadas.</p>
       </div>
     )
   }
@@ -123,7 +123,7 @@ export default async function ReporteGeneralPage({
   let relacionesQuery = admin
     .from('therapist_patients')
     .select('patient_id, is_active, empresa_id, sensacion_paciente_inicial, initial_note_date, initial_note_pro_bono, initial_note, status, convenio_empresas(nombre)')
-    .eq('empresa_id', empresaId)
+    .in('empresa_id', selectedIds)
     .in('therapist_id', therapistIds)
 
   if (tipo === 'activos') relacionesQuery = relacionesQuery.eq('is_active', true).neq('status', 'archived')
@@ -183,7 +183,7 @@ export default async function ReporteGeneralPage({
   // ── 2. Sesiones del periodo ────────────────────────────────────────────────
   // pacienteIds ya excluye archivados para todos los tipos (activos/inactivos/total)
   if (pacienteIds.length === 0) {
-    return renderPage({ year, month, mesKey, isCurrentMonth, tipo, pid, piNombre, empresas, empresaId, empresaActual, todasLasSesiones: [], pacientesEnPeriodoIds: [], relaciones: [], derivacionesRows: [], expedientesRows: [], todosActivosRows: [], derivActivosRows: [], empresaByPatient, nombreByPatient, sinConvenioSesiones, sinConvenioPersonas, tipoAsesoriaRows: [] })
+    return renderPage({ year, month, mesKey, isCurrentMonth, tipo, pid, piNombre, empresas, selectedIds, empresasActuales, todasLasSesiones: [], pacientesEnPeriodoIds: [], relaciones: [], derivacionesRows: [], expedientesRows: [], todosActivosRows: [], derivActivosRows: [], empresaByPatient, nombreByPatient, sinConvenioSesiones, sinConvenioPersonas, tipoAsesoriaRows: [] })
   }
 
   const sesionesQuery = admin
@@ -198,7 +198,7 @@ export default async function ReporteGeneralPage({
     .from('therapist_patients')
     .select('patient_id, initial_note_date, initial_note_pro_bono, initial_note, therapist_id, initial_note_virtual')
     .in('therapist_id', therapistIds)
-    .eq('empresa_id', empresaId)
+    .in('empresa_id', selectedIds)
     .neq('status', 'archived')
     .not('initial_note', 'is', null)
     .not('initial_note_date', 'is', null)
@@ -256,7 +256,7 @@ export default async function ReporteGeneralPage({
     .from('therapist_patients')
     .select('patient_id, sensacion_paciente_inicial')
     .in('therapist_id', therapistIds)
-    .eq('empresa_id', empresaId)
+    .in('empresa_id', selectedIds)
     .eq('is_active', true)
     .neq('status', 'archived')
 
@@ -269,7 +269,7 @@ export default async function ReporteGeneralPage({
 
   return renderPage({
     year, month, mesKey, isCurrentMonth, tipo, pid,
-    piNombre, empresas, empresaId, empresaActual,
+    piNombre, empresas, selectedIds, empresasActuales,
     todasLasSesiones, pacientesEnPeriodoIds,
     relaciones: relaciones ?? [],
     derivacionesRows: derivacionesRows ?? [],
@@ -289,8 +289,8 @@ interface RenderProps {
   tipo: 'activos' | 'inactivos' | 'total'; pid: string
   piNombre: string
   empresas: { id: string; nombre: string; logo_url: string | null }[]
-  empresaId: string
-  empresaActual: { id: string; nombre: string; logo_url: string | null } | undefined
+  selectedIds: string[]
+  empresasActuales: { id: string; nombre: string; logo_url: string | null }[]
   todasLasSesiones: { patient_id: string; session_date: string; is_pro_bono: boolean }[]
   pacientesEnPeriodoIds: string[]
   relaciones: Record<string, unknown>[]
@@ -307,7 +307,7 @@ interface RenderProps {
 
 function renderPage({
   year, month, mesKey, isCurrentMonth, tipo, pid,
-  piNombre, empresas, empresaId, empresaActual,
+  piNombre, empresas, selectedIds, empresasActuales,
   todasLasSesiones, pacientesEnPeriodoIds,
   relaciones, derivacionesRows, expedientesRows,
   todosActivosRows, derivActivosRows,
@@ -386,7 +386,7 @@ function renderPage({
   const tipoLabel = tipo === 'activos' ? 'activos' : tipo === 'inactivos' ? 'inactivos' : 'activos + inactivos'
 
   const baseNavParams = (m: string) => {
-    const sp = new URLSearchParams({ empresaId, tipo, pid, mes: m })
+    const sp = new URLSearchParams({ empresaIds: selectedIds.join(','), tipo, pid, mes: m })
     return `/institucional/reporte-general?${sp.toString()}`
   }
 
@@ -394,17 +394,17 @@ function renderPage({
     .map(([nombre, total]) => ({ nombre, total, pct: totalSesiones > 0 ? Math.round((total / totalSesiones) * 100) : 0 }))
     .sort((a, b) => b.total - a.total)
 
-  const empresasParaLogo = empresaActual ? [{ id: empresaActual.id, nombre: empresaActual.nombre, logo_url: empresaActual.logo_url }] : []
+  const empresasParaLogo = empresasActuales
 
   return (
     <div className="max-w-3xl space-y-8">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Reporte Institucional General</h1>
-        <p className="text-gray-500 mt-1 text-sm">{empresaActual?.nombre ?? '—'} · Todos los terapeutas · pacientes {tipoLabel}</p>
+        <p className="text-gray-500 mt-1 text-sm">{empresasActuales.map(e => e.nombre).join(' + ') || '—'} · Todos los terapeutas · pacientes {tipoLabel}</p>
       </div>
 
-      <FiltrosReporte basePath="/institucional/reporte-general" showTerapeutaFilter={false}
-        empresas={empresas} terapeutas={[]} empresaId={empresaId} terapeutaId="all"
+      <FiltrosReporteGeneral basePath="/institucional/reporte-general"
+        empresas={empresas} empresaIdsSelected={selectedIds}
         tipo={tipo} pid={pid} mes={mesKey} pacientes={pacientesParaDropdown} />
 
       <div className="flex items-center gap-2">
