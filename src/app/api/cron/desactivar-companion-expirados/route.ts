@@ -44,16 +44,15 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, evaluados: 0, cancelados: 0, fecha: ahora })
   }
 
-  // 2. Filtrar los que tienen suscripción companion activa
+  // 2. Obtener suscripciones de esos terapeutas (para saber si son companion o de otro tipo)
   const therapistIds = codigosExpirados
     .map(c => c.used_by as string)
     .filter(Boolean)
 
   const { data: subsActivas, error: errSubs } = await admin
     .from('subscriptions')
-    .select('therapist_id')
+    .select('therapist_id, plan, status')
     .in('therapist_id', therapistIds)
-    .eq('plan', 'companion')
     .eq('status', 'active')
 
   if (errSubs) {
@@ -61,44 +60,60 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: errSubs.message }, { status: 500 })
   }
 
-  const aExpirar = subsActivas ?? []
+  // Indexar subscripciones por therapist_id para consulta rápida
+  const subMap = new Map<string, { plan: string; status: string }>()
+  for (const s of (subsActivas ?? [])) {
+    subMap.set(s.therapist_id, { plan: s.plan, status: s.status })
+  }
 
-  if (aExpirar.length === 0) {
+  // También procesar terapeutas sin subscription activa (bundles huérfanos)
+  const todosTherapistIds = [...new Set(therapistIds)]
+
+  if (todosTherapistIds.length === 0) {
     return NextResponse.json({ ok: true, evaluados: codigosExpirados.length, cancelados: 0, fecha: ahora })
   }
 
-  // 3. Cancelar suscripciones y bundles
+  // 3. Desactivar bundles y — solo si el plan es companion — cancelar la suscripción
   let cancelados = 0
 
-  for (const sub of aExpirar) {
-    const tid = sub.therapist_id
-
-    // Cancelar suscripción principal
-    const { error: errSub } = await admin
-      .from('subscriptions')
-      .update({ status: 'cancelled' })
-      .eq('therapist_id', tid)
-      .eq('plan', 'companion')
-
-    if (errSub) {
-      console.error(`[cron/companion] Error cancelando suscripción de ${tid}:`, errSub.message)
-      continue
-    }
-
-    // Desactivar bundles de convenio del mismo terapeuta
+  for (const tid of todosTherapistIds) {
+    // Desactivar bundles de convenio con empresa_id=null (bundles companion)
     const { error: errBundle } = await admin
       .from('therapist_slot_bundles')
       .update({ status: 'inactive' })
       .eq('therapist_id', tid)
       .eq('source_type', 'convenio')
+      .is('empresa_id', null)
       .eq('status', 'active')
 
     if (errBundle) {
       console.error(`[cron/companion] Error desactivando bundle de ${tid}:`, errBundle.message)
+      continue
+    }
+
+    const sub = subMap.get(tid)
+
+    if (sub?.plan === 'companion') {
+      // Solo cancelar la suscripción si es específicamente un plan companion
+      // (Opción B: si tiene otro plan activo, solo se desactiva el bundle)
+      const { error: errSub } = await admin
+        .from('subscriptions')
+        .update({ status: 'cancelled' })
+        .eq('therapist_id', tid)
+        .eq('plan', 'companion')
+
+      if (errSub) {
+        console.error(`[cron/companion] Error cancelando suscripción companion de ${tid}:`, errSub.message)
+        continue
+      }
+      console.log(`[cron/companion] ✅ Companion cancelado (sub+bundle) — terapeuta: ${tid}`)
+    } else if (sub) {
+      console.log(`[cron/companion] ✅ Bundle companion expirado desactivado — terapeuta: ${tid}, plan activo preservado: ${sub.plan}`)
+    } else {
+      console.log(`[cron/companion] ✅ Bundle companion expirado desactivado — terapeuta: ${tid} (sin sub activa)`)
     }
 
     cancelados++
-    console.log(`[cron/companion] ✅ Companion expirado cancelado — terapeuta: ${tid}`)
   }
 
   return NextResponse.json({

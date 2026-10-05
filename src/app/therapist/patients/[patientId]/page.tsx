@@ -149,6 +149,8 @@ export default function PatientDetailPage() {
   const [therapistId, setTherapistId] = useState<string | null>(null)
   const [tier, setTier] = useState<'esencial' | 'clinico'>('esencial')
   const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null)
+  // Opción B: bundle companion activo para pacientes independientes (empresa_id=null)
+  const [hasCompanionBundle, setHasCompanionBundle] = useState(false)
   const [sheetOpen, setSheetOpen] = useState(false)
   const streamRef = useRef<HTMLDivElement>(null)
 
@@ -161,15 +163,29 @@ export default function PatientDetailPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (user?.id) setTherapistId(user.id)
 
-    // Obtener tier de suscripción del terapeuta
+    // Obtener suscripción + bundle companion del terapeuta en paralelo
     if (user?.id) {
-      const { data: sub } = await supabase
-        .from('subscriptions')
-        .select('tier, status')
-        .eq('therapist_id', user.id)
-        .maybeSingle()
-      if (sub?.tier === 'clinico') setTier('clinico')
+      const [subRes, bundleRes] = await Promise.all([
+        supabase
+          .from('subscriptions')
+          .select('tier, status')
+          .eq('therapist_id', user.id)
+          .maybeSingle(),
+        // Bundle con empresa_id=null = cubre pacientes independientes (companion o regular)
+        supabase
+          .from('therapist_slot_bundles')
+          .select('id')
+          .eq('therapist_id', user.id)
+          .eq('status', 'active')
+          .is('empresa_id', null)
+          .limit(1),
+      ])
+      const sub = subRes.data
+      const hasBundle = (bundleRes.data ?? []).length > 0
+      setHasCompanionBundle(hasBundle)
       setSubscriptionStatus(sub?.status ?? null)
+      // Tier: clinico si la suscripción es clinico, O si hay bundle companion (que incluye ambos módulos)
+      if (sub?.tier === 'clinico' || hasBundle) setTier('clinico')
     }
 
     const [profileRes, patternsRes, analysesRes, relationRes, sessionNotesRes, expedienteRes, therapistProfileRes] = await Promise.all([
@@ -594,12 +610,16 @@ export default function PatientDetailPage() {
 
   // ── Bloqueo de paciente sin convenio + sin plan pagado ────────────────────
   // Un paciente está bloqueado cuando no tiene empresa CONVENIO (empresa_id=null)
-  // y el terapeuta NO tiene plan Stripe activo (solo free_approved o caído).
+  // y el terapeuta NO tiene plan Stripe activo NI un bundle companion para independientes.
+  //
+  // Opción B: si el terapeuta tiene un bundle companion activo (empresa_id=null),
+  // sus pacientes independientes quedan cubiertos aunque el plan principal sea CONVENIO.
   const PAID_STATUSES_PATIENT = ['active', 'trialing']
   const pacienteBlockeado =
     empresaId === null &&
     subscriptionStatus !== null &&
-    !PAID_STATUSES_PATIENT.includes(subscriptionStatus)
+    !PAID_STATUSES_PATIENT.includes(subscriptionStatus) &&
+    !hasCompanionBundle
 
   // ── Helpers para sidebar ───────────────────────────────────────────────────
   const isClinico = tier === 'clinico'

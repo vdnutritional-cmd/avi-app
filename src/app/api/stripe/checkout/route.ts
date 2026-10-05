@@ -145,46 +145,66 @@ export async function POST(req: NextRequest) {
           .upsert(rows, { onConflict: 'therapist_id,empresa_id', ignoreDuplicates: true })
       }
 
-      // 3c. Companion plans — activar suscripción directamente sin Stripe
+      // 3c. Companion plans — activar sin Stripe (Opción B: coexiste con otros planes)
       if (resolved.planType === 'companion') {
         const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://go.avi-app.com.mx'
 
+        // Verificar si ya tiene un plan activo distinto de companion
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error: subError } = await (codeClient as any)
+        const { data: subActual } = await (codeClient as any)
           .from('subscriptions')
-          .upsert(
-            {
-              therapist_id:           user.id,
-              plan:                   'companion',
-              tier:                   'clinico',        // acceso completo Esencial + Clínico
-              status:                 'active',
-              patient_slots:          resolved.patientSlots,
-              stripe_customer_id:     null,
-              stripe_subscription_id: null,
-              stripe_price_id:        null,
-              billing_cycle_start:    new Date().toISOString(),
-            },
-            { onConflict: 'therapist_id' }
-          )
+          .select('status, plan')
+          .eq('therapist_id', user.id)
+          .maybeSingle() as { data: { status: string; plan: string } | null }
 
-        if (subError) {
-          console.error('[checkout/companion] Error al activar suscripción:', subError)
-          return NextResponse.json({ error: 'Error al activar el plan.' }, { status: 500 })
+        const tieneOtroPlanActivo =
+          subActual &&
+          ['active', 'trialing', 'free_approved'].includes(subActual.status) &&
+          subActual.plan !== 'companion'
+
+        if (!tieneOtroPlanActivo) {
+          // Sin plan previo (o solo companion): crear/actualizar suscripción companion
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { error: subError } = await (codeClient as any)
+            .from('subscriptions')
+            .upsert(
+              {
+                therapist_id:           user.id,
+                plan:                   'companion',
+                tier:                   'clinico',   // acceso completo Esencial + Clínico
+                status:                 'active',
+                patient_slots:          resolved.patientSlots,
+                stripe_customer_id:     null,
+                stripe_subscription_id: null,
+                stripe_price_id:        null,
+                billing_cycle_start:    new Date().toISOString(),
+              },
+              { onConflict: 'therapist_id' }
+            )
+          if (subError) {
+            console.error('[checkout/companion] Error al activar suscripción:', subError)
+            return NextResponse.json({ error: 'Error al activar el plan.' }, { status: 500 })
+          }
         }
+        // Si tiene otro plan activo (valora, regular…): solo se crea el bundle,
+        // la suscripción principal queda intacta.
 
-        // Crear bloque de cupo
+        // Crear bloque de cupo companion (empresa_id=null → cubre pacientes sin CONVENIO)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await (codeClient as any).from('therapist_slot_bundles').insert({
           therapist_id:  user.id,
-          source_type:   'convenio',
-          empresa_id:    null,
+          source_type:   'convenio',   // activado mediante código CONVENIO
+          empresa_id:    null,         // null = pacientes independientes (sin empresa)
           patient_slots: resolved.patientSlots,
           discount_pct:  100,
           status:        'active',
           stripe_sub_id: null,
         })
 
-        console.log(`[checkout/companion] ✅ Plan ${planId} activado — terapeuta: ${user.id}, slots: ${resolved.patientSlots}`)
+        console.log(
+          `[checkout/companion] ✅ ${planId} — terapeuta: ${user.id}, slots: ${resolved.patientSlots}` +
+          (tieneOtroPlanActivo ? ` (bundle adicional, suscripción ${subActual!.plan} preservada)` : ' (suscripción companion creada)')
+        )
         return NextResponse.json({ url: `${appUrl}/therapist/dashboard?checkout=success` })
       }
     }
