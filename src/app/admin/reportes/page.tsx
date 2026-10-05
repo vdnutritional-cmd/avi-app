@@ -11,6 +11,7 @@ export type TerapeutaData = {
   patient_slots: number
   empresas: { id: string; nombre: string }[]
   pacientes_activos: number
+  is_active: boolean
 }
 
 export type VinculoData = {
@@ -40,7 +41,7 @@ export default async function ReportesPage() {
     { data: vinculosRaw },
     authResult,
   ] = await Promise.all([
-    admin.from('profiles').select('id, full_name, email').eq('role', 'therapist').order('full_name'),
+    admin.from('profiles').select('id, full_name, email, is_active').eq('role', 'therapist').order('full_name'),
     admin.from('profiles').select('id, full_name, email').eq('role', 'patient'),
     admin.from('subscriptions').select('therapist_id, patient_slots, status'),
     admin.from('therapist_empresa').select('therapist_id, empresa_id, convenio_empresas(id, nombre)'),
@@ -96,6 +97,7 @@ export default async function ReportesPage() {
     patient_slots: subMap.get(t.id) ?? 0,
     empresas: therapistEmpresaMap.get(t.id) ?? [],
     pacientes_activos: patientCountMap.get(t.id) ?? 0,
+    is_active: (t as any).is_active !== false,
   }))
 
   // Build vinculos array

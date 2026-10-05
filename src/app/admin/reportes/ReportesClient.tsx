@@ -560,11 +560,18 @@ export default function ReportesClient({ terapeutas, vinculos, empresas }: Props
             </thead>
             <tbody className="divide-y divide-gray-50">
               {terapeutas.map(t => (
-                <tr key={t.id} className="hover:bg-gray-50 transition-colors">
+                <tr key={t.id} className={`hover:bg-gray-50 transition-colors ${!t.is_active ? 'opacity-50' : ''}`}>
                   <Td>{t.full_name}</Td>
                   <Td muted>{t.email}</Td>
                   <Td muted>{t.whatsapp_phone ?? '—'}</Td>
-                  <Td muted>{t.empresas.length > 0 ? t.empresas.map(e => e.nombre).join(', ') : '—'}</Td>
+                  <Td muted>
+                    {!t.is_active
+                      ? <span className="text-orange-500 font-medium">Inactivo</span>
+                      : t.empresas.length > 0
+                        ? t.empresas.map(e => e.nombre).join(', ')
+                        : '—'
+                    }
+                  </Td>
                   <Td right>{t.pacientes_activos}</Td>
                   <Td right>{t.patient_slots || '—'}</Td>
                 </tr>
