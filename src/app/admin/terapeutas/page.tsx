@@ -158,7 +158,9 @@ export default async function AdminTerapeutasPage({
     authUsersResult,
   ] = await Promise.all([
     supabase.from('convenio_codes').select('used_by, plan_id').not('used_by', 'is', null),
-    supabase.from('therapist_patients').select('therapist_id, patient_id').eq('is_active', true).eq('status', 'active'),
+    supabase.from('therapist_patients')
+      .select('therapist_id, patient_id, profiles!therapist_patients_patient_id_fkey(full_name, email)')
+      .eq('is_active', true).eq('status', 'active'),
     supabase.from('sessions').select('patient_id, created_at').order('created_at', { ascending: false }),
     supabase.auth.admin.listUsers({ perPage: 500 }),
   ])
@@ -178,11 +180,18 @@ export default async function AdminTerapeutasPage({
       .filter(u => u.last_sign_in_at)
       .map(u => [u.id, u.last_sign_in_at!])
   )
-  // Pacientes por terapeuta
+  // Pacientes por terapeuta (count + nombres)
   const patientsByTherapist = new Map<string, Set<string>>()
+  const patientNamesByTherapist = new Map<string, { id: string; nombre: string }[]>()
   for (const p of allPatients ?? []) {
     if (!patientsByTherapist.has(p.therapist_id)) patientsByTherapist.set(p.therapist_id, new Set())
     patientsByTherapist.get(p.therapist_id)!.add(p.patient_id)
+    if (!patientNamesByTherapist.has(p.therapist_id)) patientNamesByTherapist.set(p.therapist_id, [])
+    const prof = Array.isArray((p as any).profiles) ? (p as any).profiles[0] : (p as any).profiles
+    patientNamesByTherapist.get(p.therapist_id)!.push({
+      id: p.patient_id,
+      nombre: prof?.full_name ?? prof?.email ?? p.patient_id,
+    })
   }
   // Última sesión de paciente por terapeuta
   const lastPatientSessionMap = new Map<string, string>()
@@ -334,6 +343,8 @@ export default async function AdminTerapeutasPage({
                 e => !empresasAsignadas.some(a => a.empresa_id === e.id)
               )
               const pacientes       = patientsByTherapist.get(t.id)?.size ?? 0
+              const pacientesNombres = (patientNamesByTherapist.get(t.id) ?? [])
+                .sort((a, b) => a.nombre.localeCompare(b.nombre))
               const lastTerapLogin  = lastSignInMap.get(t.id)
               const lastPatientSess = lastPatientSessionMap.get(t.id)
 
@@ -373,10 +384,27 @@ export default async function AdminTerapeutasPage({
                           </form>
                         ))
                       )}
-                      {/* Pacientes */}
-                      <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-100 font-medium">
-                        👥 {pacientes} {pacientes === 1 ? 'paciente' : 'pacientes'}
-                      </span>
+                      {/* Pacientes — acordeón */}
+                      {pacientes === 0 ? (
+                        <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-gray-50 text-gray-400 border border-gray-100 font-medium">
+                          👥 0 pacientes
+                        </span>
+                      ) : (
+                        <details className="inline-block">
+                          <summary className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-100 font-medium cursor-pointer select-none list-none">
+                            👥 {pacientes} {pacientes === 1 ? 'paciente' : 'pacientes'} ▾
+                          </summary>
+                          <div className="mt-1.5 ml-0.5 bg-white border border-blue-100 rounded-xl px-3 py-2 shadow-sm min-w-[180px]">
+                            <ul className="space-y-0.5">
+                              {pacientesNombres.map(p => (
+                                <li key={p.id} className="text-xs text-gray-700 py-0.5 border-b border-gray-50 last:border-0">
+                                  {p.nombre}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        </details>
+                      )}
                       {/* Último acceso del terapeuta */}
                       <span className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border font-medium ${
                         lastTerapLogin
