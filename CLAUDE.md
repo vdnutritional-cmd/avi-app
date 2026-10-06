@@ -1,6 +1,6 @@
 # AVI Therapy Companion App — Contexto para Claude Code
 
-> **Versión:** 1.0 (cerrada) · **Fecha:** 05 octubre 2026  
+> **Versión:** 1.0 (cerrada) · **Fecha:** 06 octubre 2026  
 > Este archivo es el punto de entrada para cualquier sesión de Claude Code en este proyecto.  
 > Léelo completo antes de modificar cualquier archivo.
 
@@ -88,9 +88,11 @@ src/app/
 │   └── reporte-general/page.tsx
 
 ├── admin/                          Panel superadmin
-│   ├── terapeutas/page.tsx
+│   ├── AdminSidebar.tsx            Sidebar admin (Volver a AVI + Cerrar sesión → `/`)
+│   ├── page.tsx                    Panel de Control (stats, aprobaciones, cumplimiento)
+│   ├── terapeutas/page.tsx         Desactivar/Reactivar terapeuta (profiles.is_active, NOM-024)
 │   ├── convenio/page.tsx           Códigos CONVENIO + logos de empresa
-│   ├── convenio-empresas/page.tsx  Personas Institucionales
+│   ├── convenio-empresas/page.tsx  Teléfono + logo + Personas Institucionales por empresa
 │   ├── reportes/page.tsx
 │   └── auditoria/page.tsx
 
@@ -112,9 +114,13 @@ src/app/
     │   ├── fusionar-paciente/
     │   ├── transferir-paciente/
     │   └── paciente-empresa/
+    ├── patient/
+    │   └── contacto/route.ts       Contacto del paciente para la bienvenida (empresa o terapeuta)
+    ├── institucional/
+    │   └── baja-terapeuta/         GET/DELETE therapist_empresa (solo PI N1/N2 de su empresa)
     ├── stripe/
-    │   ├── checkout/route.ts       Crea sesión Stripe
-    │   └── webhook/route.ts        Actualiza subscriptions en Supabase
+    │   ├── checkout/route.ts       Crea sesión Stripe (CONVENIO: solo valida código) / activa Companion
+    │   └── webhook/route.ts        Activa suscripción + liga empresa + marca código (con pago confirmado)
     ├── auth/
     │   ├── login/route.ts          Auth con rate-limit + audit log
     │   ├── logout/route.ts
@@ -222,15 +228,15 @@ Los 6 reportes que usan `sharedCSS()` ya lo tienen. Los demás lo tienen inline.
 
 | Tabla | Descripción |
 |---|---|
-| `profiles` | Usuarios (role: therapist / patient / admin), therapy_profile |
-| `subscriptions` | Plan del terapeuta: status, plan, tier (esencial/clinico), patient_slots |
+| `profiles` | Usuarios (role: therapist / patient / admin), therapy_profile, `is_active` (desactivar terapeuta). El WhatsApp del terapeuta está en **auth `user_metadata.whatsapp_phone`**, no en profiles |
+| `subscriptions` | Plan del terapeuta: status, plan, tier (esencial/clinico), patient_slots. Constraint `subscriptions_plan_check`: `paid, free, valora, unit, companion` — **ampliarlo si se agrega un tipo de plan nuevo** |
 | `therapist_patients` | Relación terapeuta-paciente, status (active/archived/blocked) |
 | `case_notes` | Nota inicial + análisis IA por paciente |
 | `therapist_session_notes` | Sesiones presenciales (objetivo, desarrollo, acuerdo, seguimiento) |
 | `patient_expediente` | Expediente clínico completo (Individual, Familiar, Pareja, Análisis Clínicos, HC, info_*) |
 | `patient_questionnaires` | Cuestionarios asignados (McMaster FAD) |
 | `convenio_codes` | Códigos de descuento CONVENIO (`code`, `plan_id`, `used_by`, `expires_at`, `is_active`) |
-| `convenio_empresas` | Empresas convenio (nombre, logo_url) |
+| `convenio_empresas` | Empresas convenio (nombre, logo_url, `telefono`, is_active) |
 | `therapist_empresa` | Relación terapeuta ↔ empresa |
 | `therapist_slot_bundles` | Paquetes de slots (`source_type`: convenio/regular/free_approved · `empresa_id`: null=independientes · `patient_slots` · `status`) |
 | `convenio_personas_institucionales` | Personas institucionales (rol especial en empresa) |
@@ -327,6 +333,35 @@ En `therapist/codes/page.tsx`: si existe un bundle activo con `empresa_id=null`,
 
 En `therapist/patients/[patientId]/page.tsx`: state `hasCompanionBundle` — si es `true`, el paciente independiente no queda bloqueado aunque la suscripción no sea `active`/`trialing`.
 
+### Códigos CONVENIO — cuándo se marcan como usados
+
+| Plan | Dónde se marca el código | Si algo falla |
+|---|---|---|
+| **CONVENIO con pago** (`planType='valora'`, cualquier empresa) | En el **webhook** `checkout.session.completed` (metadata `convenio_code_id`) | Si el terapeuta no paga, el código queda libre |
+| **Companion** (sin Stripe) | En el checkout, solo si sigue libre (`.is('used_by', null)`) | `releaseCode()` lo libera si falla la suscripción o el bundle |
+
+Reglas del webhook (`handleCheckoutCompleted`):
+- `therapist_empresa` se crea **solo con pago confirmado** (upsert, `ignoreDuplicates`). **Nunca se borra** por pagos fallidos: una renovación fallida conserva la empresa. Solo la quita la Baja de Terapeutas manual (PI N1/N2)
+- Si ya existen bundles con ese `stripe_sub_id` → se omite (Stripe puede reenviar el evento)
+- Los errores al insertar bundles se lanzan → Stripe reintenta
+- "valora" es el **nombre del tipo de plan** CONVENIO, no la empresa: todo funciona por `empresa_id` para cualquier empresa
+
+---
+
+## Contacto del paciente (bienvenida y chat AVI)
+
+**Fuente única:** `src/lib/patient-contacto.ts` → `getPatientContacto(patientId)` (solo servidor, usa service role). Devuelve `destino` ya redactado:
+
+| Paciente | `destino` |
+|---|---|
+| Con empresa CONVENIO | "tu terapeuta o a [empresa] al [convenio_empresas.telefono]" (sin "al ..." si no hay teléfono) |
+| Sin empresa | "tu terapeuta al [WhatsApp del terapeuta]" (o solo "tu terapeuta") |
+
+- **Bienvenida** (`patient/onboarding/page.tsx`): texto con `{{CONTACTO}}`, se completa vía `GET /api/patient/contacto`
+- **Chat AVI** (`api/chat/route.ts`): agrega un bloque de system `## CONTACTO DEL PACIENTE`; el prompt base (`recuperate-system-prompt.ts`) solo dice que se invite a contactar a quien indica esa sección → el prompt base sigue cacheado
+- **Nunca** escribir nombres ni teléfonos de una empresa fijos en el código: se capturan en Admin › Empresas en CONVENIO
+- Cambios al prompt de AVI deben revisarse con el terapeuta supervisor
+
 ---
 
 ## RAG multi-perfil
@@ -386,6 +421,9 @@ npm run build
 - Siempre `tsc --noEmit` antes de push
 - **Último commit V1.0:** `9ddb2e1`
 - **Último commit Sprint 12 Companion:** `dd614c6`
+- **Último commit fixes Stripe CONVENIO + contacto por empresa:** `9f5ee22` (06 oct 2026)
+- Migraciones nuevas: archivo en `supabase/migrations/AAAAMMDD_nombre.sql`; el SQL lo corre José Luis en Supabase SQL Editor **antes** de subir código que dependa de él
+- Al cerrar cada sesión: actualizar `../AVI - Bitácora de Desarrollo.md` (y el índice de `../AVI - SQL Migración Supabase.md` si hubo migración) y este archivo
 
 ---
 
