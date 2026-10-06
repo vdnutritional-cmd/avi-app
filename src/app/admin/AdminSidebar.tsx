@@ -21,7 +21,7 @@ export default function AdminSidebar({ email }: AdminSidebarProps) {
     try {
       await fetch('/api/auth/logout', { method: 'POST' })
     } catch { /* ignorar */ }
-    router.push('/auth/login')
+    router.push('/')
   }
 
   return (
