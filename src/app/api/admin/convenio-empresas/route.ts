@@ -2,7 +2,7 @@
 // /api/admin/convenio-empresas — solo admin
 // GET  → lista todas las empresas
 // POST → crea una empresa
-// PATCH → activa/desactiva y/o actualiza logo_url de una empresa
+// PATCH → activa/desactiva y/o actualiza logo_url / telefono de una empresa
 // ─────────────────────────────────────────────────────────────
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
@@ -57,7 +57,7 @@ export async function PATCH(req: NextRequest) {
   if (!await requireAdmin()) return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
 
   const body = await req.json()
-  const { id, is_active, logo_url } = body
+  const { id, is_active, logo_url, telefono } = body
 
   if (!id) return NextResponse.json({ error: 'id requerido' }, { status: 400 })
 
@@ -65,6 +65,7 @@ export async function PATCH(req: NextRequest) {
   const updates: Record<string, unknown> = {}
   if (is_active !== undefined) updates.is_active = is_active
   if (logo_url !== undefined) updates.logo_url = logo_url   // null clears the logo
+  if (telefono !== undefined) updates.telefono = typeof telefono === 'string' && telefono.trim() ? telefono.trim() : null
 
   const service = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

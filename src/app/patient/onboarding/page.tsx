@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 const pasos = [
@@ -33,7 +33,7 @@ Tus mensajes están protegidos. AVI no comparte tu información con nadie más.`
 
 Si en algún momento sientes que estás en crisis o en peligro, llama a la Línea de la Vida: 800 911 2000 (gratuita, 24 horas).
 
-Para cualquier otro apoyo, contacta a tu terapeuta o a VALORA al 33 1363 0266.`,
+Para cualquier otro apoyo, {{CONTACTO}}.`,
     requiereCheckbox: true,
     textoCheckbox: 'Entiendo que AVI es un acompañamiento, no una terapia, y que debo contactar a mi terapeuta para mi proceso profesional.',
   },
@@ -61,6 +61,21 @@ export default function OnboardingPage() {
   const [aceptadoGeneral, setAceptadoGeneral] = useState(false)
   const [aceptadoConsentimiento, setAceptadoConsentimiento] = useState(false)
   const [guardando, setGuardando] = useState(false)
+  const [contacto, setContacto] = useState('contacta a tu terapeuta')
+
+  // Contacto según la empresa CONVENIO del paciente, o el teléfono del terapeuta si no tiene empresa
+  useEffect(() => {
+    fetch('/api/patient/contacto')
+      .then(r => r.json())
+      .then((d: { empresaNombre: string | null; empresaTelefono: string | null; terapeutaTelefono: string | null }) => {
+        if (d.empresaNombre) {
+          setContacto(`contacta a tu terapeuta o a ${d.empresaNombre}${d.empresaTelefono ? ` al ${d.empresaTelefono}` : ''}`)
+        } else if (d.terapeutaTelefono) {
+          setContacto(`contacta a tu terapeuta al ${d.terapeutaTelefono}`)
+        }
+      })
+      .catch(() => { /* se queda el texto genérico */ })
+  }, [])
 
   const esUltimo = paso === pasos.length - 1
   const actual = pasos[paso]
@@ -126,7 +141,7 @@ export default function OnboardingPage() {
           <p className={`text-gray-600 text-sm leading-relaxed whitespace-pre-line ${
             esPasoConsentimiento ? 'text-justify' : 'text-center'
           }`}>
-            {actual.contenido}
+            {actual.contenido.replace('{{CONTACTO}}', contacto)}
           </p>
 
           {/* Checkbox */}

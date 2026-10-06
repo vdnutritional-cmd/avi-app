@@ -14,6 +14,7 @@ interface Empresa {
   nombre: string
   is_active: boolean
   logo_url: string | null
+  telefono: string | null
   created_at: string
 }
 
@@ -126,6 +127,51 @@ function LogoUploader({ empresa, onUpdated }: { empresa: Empresa; onUpdated: () 
           {uploading ? 'Subiendo…' : empresa.logo_url ? '↑ Cambiar logo' : '↑ Subir logo'}
         </button>
         <span className="text-xs text-gray-400">PNG, JPG o WebP · máx 2 MB · min 300×120 px</span>
+      </div>
+      {err && <p className="text-red-500 text-xs">{err}</p>}
+    </div>
+  )
+}
+
+// ── Teléfono de contacto (se muestra al paciente en la bienvenida) ──
+function TelefonoEditor({ empresa, onUpdated }: { empresa: Empresa; onUpdated: () => void }) {
+  const [valor,  setValor]  = useState(empresa.telefono ?? '')
+  const [saving, setSaving] = useState(false)
+  const [err,    setErr]    = useState('')
+  const cambiado = valor.trim() !== (empresa.telefono ?? '')
+
+  async function guardar() {
+    setSaving(true); setErr('')
+    try {
+      const res  = await fetch('/api/admin/convenio-empresas', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: empresa.id, telefono: valor }),
+      })
+      const json = await res.json()
+      if (json.error) throw new Error(json.error)
+      onUpdated()
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : 'Error al guardar teléfono.')
+    } finally { setSaving(false) }
+  }
+
+  return (
+    <div className="mt-3 border-t border-gray-100 pt-3 space-y-1">
+      <label className="text-xs text-gray-500 block">Teléfono de contacto (lo ve el paciente en la bienvenida)</label>
+      <div className="flex items-center gap-2">
+        <input
+          type="tel" placeholder="Ej. 33 1363 0266" value={valor}
+          onChange={e => { setValor(e.target.value); setErr('') }}
+          onKeyDown={e => e.key === 'Enter' && cambiado && guardar()}
+          className="w-56 border border-gray-200 rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300"
+        />
+        <button
+          onClick={guardar} disabled={saving || !cambiado}
+          className="text-xs bg-gray-100 hover:bg-gray-200 disabled:opacity-50 text-gray-700 px-3 py-1.5 rounded-lg transition-colors"
+        >
+          {saving ? 'Guardando…' : 'Guardar'}
+        </button>
+        {!empresa.telefono && <span className="text-xs text-amber-600">Sin teléfono capturado</span>}
       </div>
       {err && <p className="text-red-500 text-xs">{err}</p>}
     </div>
@@ -449,6 +495,7 @@ export default function ConvenioEmpresasPage() {
                     Desactivar
                   </button>
                 </div>
+                <TelefonoEditor empresa={e} onUpdated={fetchEmpresas} />
                 <LogoUploader empresa={e} onUpdated={fetchEmpresas} />
                 <PersonasInstitucionales empresa={e} />
               </div>
