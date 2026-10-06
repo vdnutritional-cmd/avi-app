@@ -2,6 +2,10 @@ import Link from 'next/link'
 import WhatsAppSupport from '@/components/WhatsAppSupport'
 import InstallBanner from '@/components/InstallBanner'
 
+// Oculto temporalmente (oct 2026): confunde y no se usa por ahora.
+// La ruta /auth/register-with-code sigue activa; cambiar a true para mostrar el enlace.
+const MOSTRAR_CODIGO_ACCESO = false
+
 /**
  * Página de inicio / landing de AVI
  * El middleware redirige automáticamente a usuarios con sesión activa.
@@ -43,13 +47,15 @@ export default function HomePage() {
           >
             Soy terapeuta — Registrarme
           </Link>
-          <Link
-            href="/auth/register-with-code"
-            className="w-full py-3 px-6 text-gray-500 rounded-2xl font-medium
-                       hover:text-gray-700 transition-colors text-center text-sm"
-          >
-            Tengo un código de acceso →
-          </Link>
+          {MOSTRAR_CODIGO_ACCESO && (
+            <Link
+              href="/auth/register-with-code"
+              className="w-full py-3 px-6 text-gray-500 rounded-2xl font-medium
+                         hover:text-gray-700 transition-colors text-center text-sm"
+            >
+              Tengo un código de acceso →
+            </Link>
+          )}
         </div>
 
         {/* Disclaimer */}
