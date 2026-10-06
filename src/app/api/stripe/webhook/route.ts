@@ -154,10 +154,53 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     throw error
   }
 
-  // Crear bloque de cupo (therapist_slot_bundles)
   const sourceType = planType === 'valora' ? 'convenio' : 'regular'
   const empresaIdsRaw = session.metadata?.empresa_ids ?? ''
   const empresaIdsList = empresaIdsRaw ? empresaIdsRaw.split(',').filter(Boolean) : []
+
+  // Ligar terapeuta ↔ empresas CONVENIO (cualquier empresa) — solo con pago confirmado.
+  // Upsert: nunca borra relaciones existentes (renovaciones conservan su empresa).
+  if (sourceType === 'convenio' && empresaIdsList.length > 0) {
+    const { error: empError } = await supabase
+      .from('therapist_empresa')
+      .upsert(
+        empresaIdsList.map((empresa_id: string) => ({ therapist_id: therapistId, empresa_id })),
+        { onConflict: 'therapist_id,empresa_id', ignoreDuplicates: true }
+      )
+    if (empError) {
+      console.error('[webhook] Error al ligar terapeuta con empresas:', empError)
+      throw empError
+    }
+  }
+
+  // Marcar código CONVENIO como usado — solo con pago confirmado
+  const convenioCodeId = session.metadata?.convenio_code_id ?? ''
+  if (convenioCodeId) {
+    const { data: claimed } = await supabase
+      .from('convenio_codes')
+      .update({ used_by: therapistId, used_at: new Date().toISOString() })
+      .eq('id', convenioCodeId)
+      .is('used_by', null)
+      .select('id')
+    if (!claimed || claimed.length === 0) {
+      // Ya estaba marcado (reintento de Stripe) o lo usó otro terapeuta en paralelo.
+      // El pago ya se hizo, así que la suscripción se activa de todos modos.
+      console.warn(`[webhook] Código CONVENIO ${convenioCodeId} ya estaba marcado como usado`)
+    }
+  }
+
+  // Crear bloque de cupo (therapist_slot_bundles) — evitar duplicados si Stripe reenvía el evento
+  if (subscriptionId) {
+    const { data: existingBundles } = await supabase
+      .from('therapist_slot_bundles')
+      .select('id')
+      .eq('stripe_sub_id', subscriptionId)
+      .limit(1)
+    if (existingBundles && existingBundles.length > 0) {
+      console.log(`[webhook] Bundles ya existen para ${subscriptionId} — se omite (evento repetido)`)
+      return
+    }
+  }
 
   if (sourceType === 'convenio' && empresaIdsList.length > 0) {
     // Un bundle por empresa en convenio
@@ -170,9 +213,13 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
       status:        'active',
       stripe_sub_id: subscriptionId,
     }))
-    await supabase.from('therapist_slot_bundles').insert(bundleRows)
+    const { error: bundleError } = await supabase.from('therapist_slot_bundles').insert(bundleRows)
+    if (bundleError) {
+      console.error('[webhook] Error al crear bundles convenio:', bundleError)
+      throw bundleError
+    }
   } else {
-    await supabase.from('therapist_slot_bundles').insert({
+    const { error: bundleError } = await supabase.from('therapist_slot_bundles').insert({
       therapist_id: therapistId,
       source_type:  sourceType,
       empresa_id:   null,
@@ -181,6 +228,10 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
       status:        'active',
       stripe_sub_id: subscriptionId,
     })
+    if (bundleError) {
+      console.error('[webhook] Error al crear bundle:', bundleError)
+      throw bundleError
+    }
   }
 
   console.log(`[webhook] ✅ Suscripción activada — terapeuta: ${therapistId}, plan: ${planId}, tier: ${tier}, slots: ${patientSlots}`)

@@ -98,6 +98,7 @@ export async function POST(req: NextRequest) {
 
     // 3b. Validar código CONVENIO si el plan lo requiere (valora o companion)
     const requiresCode = resolved.planType === 'valora' || resolved.planType === 'companion'
+    let convenioCodeId = ''
 
     if (requiresCode) {
       if (!convenioCode) {
@@ -126,43 +127,37 @@ export async function POST(req: NextRequest) {
       if (codeRow.plan_id && codeRow.plan_id !== planId) {
         return NextResponse.json({ error: 'Este código no es válido para el plan seleccionado.' }, { status: 403 })
       }
-      // Marcar código como usado — solo si sigue libre (evita doble uso simultáneo)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: claimed } = await (codeClient as any)
-        .from('convenio_codes')
-        .update({ used_by: user.id, used_at: new Date().toISOString() })
-        .eq('id', codeRow.id)
-        .is('used_by', null)
-        .select('id') as { data: { id: string }[] | null }
 
-      if (!claimed || claimed.length === 0) {
-        return NextResponse.json({ error: 'Este código ya fue utilizado.' }, { status: 403 })
-      }
-
-      // Libera el código si la activación falla, para que el terapeuta pueda reintentar
-      const releaseCode = async () => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (codeClient as any)
-          .from('convenio_codes')
-          .update({ used_by: null, used_at: null })
-          .eq('id', codeRow.id)
-          .eq('used_by', user.id)
-      }
-
-      // Guardar asociaciones terapeuta <-> empresas seleccionadas (solo para valora)
-      if (resolved.planType === 'valora' && empresaIds && empresaIds.length > 0) {
-        const rows = empresaIds.map((empresa_id: string) => ({
-          therapist_id: user.id,
-          empresa_id,
-        }))
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (codeClient as any)
-          .from('therapist_empresa')
-          .upsert(rows, { onConflict: 'therapist_id,empresa_id', ignoreDuplicates: true })
-      }
+      // Planes CONVENIO con pago (cualquier empresa): el código se marca como usado
+      // y el terapeuta se liga a sus empresas en el webhook, solo cuando Stripe
+      // confirma el pago. Aquí solo se valida y se pasa el id del código en metadata.
+      convenioCodeId = codeRow.id
 
       // 3c. Companion plans — activar sin Stripe (Opción B: coexiste con otros planes)
       if (resolved.planType === 'companion') {
+        // Marcar código como usado — solo si sigue libre (evita doble uso simultáneo)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: claimed } = await (codeClient as any)
+          .from('convenio_codes')
+          .update({ used_by: user.id, used_at: new Date().toISOString() })
+          .eq('id', codeRow.id)
+          .is('used_by', null)
+          .select('id') as { data: { id: string }[] | null }
+
+        if (!claimed || claimed.length === 0) {
+          return NextResponse.json({ error: 'Este código ya fue utilizado.' }, { status: 403 })
+        }
+
+        // Libera el código si la activación falla, para que el terapeuta pueda reintentar
+        const releaseCode = async () => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (codeClient as any)
+            .from('convenio_codes')
+            .update({ used_by: null, used_at: null })
+            .eq('id', codeRow.id)
+            .eq('used_by', user.id)
+        }
+
         const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://go.avi-app.com.mx'
 
         // Verificar si ya tiene un plan activo distinto de companion
@@ -285,6 +280,7 @@ export async function POST(req: NextRequest) {
         plan_type: resolved.planType,
         patient_slots: String(resolved.patientSlots),
         empresa_ids: empresaIds && empresaIds.length > 0 ? empresaIds.join(',') : '',
+        convenio_code_id: convenioCodeId,
       },
     })
 
