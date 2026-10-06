@@ -126,12 +126,28 @@ export async function POST(req: NextRequest) {
       if (codeRow.plan_id && codeRow.plan_id !== planId) {
         return NextResponse.json({ error: 'Este código no es válido para el plan seleccionado.' }, { status: 403 })
       }
-      // Marcar código como usado
+      // Marcar código como usado — solo si sigue libre (evita doble uso simultáneo)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (codeClient as any)
+      const { data: claimed } = await (codeClient as any)
         .from('convenio_codes')
         .update({ used_by: user.id, used_at: new Date().toISOString() })
         .eq('id', codeRow.id)
+        .is('used_by', null)
+        .select('id') as { data: { id: string }[] | null }
+
+      if (!claimed || claimed.length === 0) {
+        return NextResponse.json({ error: 'Este código ya fue utilizado.' }, { status: 403 })
+      }
+
+      // Libera el código si la activación falla, para que el terapeuta pueda reintentar
+      const releaseCode = async () => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (codeClient as any)
+          .from('convenio_codes')
+          .update({ used_by: null, used_at: null })
+          .eq('id', codeRow.id)
+          .eq('used_by', user.id)
+      }
 
       // Guardar asociaciones terapeuta <-> empresas seleccionadas (solo para valora)
       if (resolved.planType === 'valora' && empresaIds && empresaIds.length > 0) {
@@ -183,6 +199,7 @@ export async function POST(req: NextRequest) {
             )
           if (subError) {
             console.error('[checkout/companion] Error al activar suscripción:', subError)
+            await releaseCode()
             return NextResponse.json({ error: 'Error al activar el plan.' }, { status: 500 })
           }
         }
@@ -191,7 +208,7 @@ export async function POST(req: NextRequest) {
 
         // Crear bloque de cupo companion (empresa_id=null → cubre pacientes sin CONVENIO)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (codeClient as any).from('therapist_slot_bundles').insert({
+        const { error: bundleError } = await (codeClient as any).from('therapist_slot_bundles').insert({
           therapist_id:  user.id,
           source_type:   'convenio',   // activado mediante código CONVENIO
           empresa_id:    null,         // null = pacientes independientes (sin empresa)
@@ -200,6 +217,11 @@ export async function POST(req: NextRequest) {
           status:        'active',
           stripe_sub_id: null,
         })
+        if (bundleError) {
+          console.error('[checkout/companion] Error al crear bundle:', bundleError)
+          await releaseCode()
+          return NextResponse.json({ error: 'Error al activar el plan.' }, { status: 500 })
+        }
 
         console.log(
           `[checkout/companion] ✅ ${planId} — terapeuta: ${user.id}, slots: ${resolved.patientSlots}` +
