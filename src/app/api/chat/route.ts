@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
 import { RECUPERATE_SYSTEM_PROMPT } from '@/lib/prompts/recuperate-system-prompt'
+import { getPatientContacto } from '@/lib/patient-contacto'
 import { sendCrisisPush } from '@/lib/push/send-crisis-push'
 import { sendExpoCrisisPush } from '@/lib/push/send-expo-push'
 import { sendCrisisEmail } from '@/lib/email/send-crisis-email'
@@ -78,7 +79,7 @@ export async function POST(request: NextRequest) {
       .insert({ session_id: activeSessionId, role: 'user', content: message })
 
     // Contexto personalizado del paciente: nota inicial + sesiones presenciales
-    const [relacionRes, sesionesRes] = await Promise.all([
+    const [relacionRes, sesionesRes, contacto] = await Promise.all([
       supabase
         .from('therapist_patients')
         .select('initial_note, initial_note_motivo, initial_note_subyacente, initial_note_premisas')
@@ -90,7 +91,11 @@ export async function POST(request: NextRequest) {
         .eq('patient_id', user.id)
         .order('session_number', { ascending: false })
         .limit(5),
+      getPatientContacto(user.id).catch(() => null),
     ])
+
+    // Contacto para la invitación de cierre (empresa CONVENIO o terapeuta) — misma regla que la bienvenida
+    const bloqueContacto = `## CONTACTO DEL PACIENTE\nEn la invitación de cierre, invita a contactar a ${contacto?.destino ?? 'tu terapeuta'}.`
 
     const rel = relacionRes.data
     const sesiones = (sesionesRes.data ?? []).reverse()
@@ -162,6 +167,7 @@ export async function POST(request: NextRequest) {
         system: [
           { type: 'text', text: RECUPERATE_SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } },
           ...(contextoPaciente ? [{ type: 'text', text: contextoPaciente }] : []),
+          { type: 'text', text: bloqueContacto },
         ] as any,
         messages,
       },

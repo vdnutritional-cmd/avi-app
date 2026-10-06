@@ -67,12 +67,8 @@ export default function OnboardingPage() {
   useEffect(() => {
     fetch('/api/patient/contacto')
       .then(r => r.json())
-      .then((d: { empresaNombre: string | null; empresaTelefono: string | null; terapeutaTelefono: string | null }) => {
-        if (d.empresaNombre) {
-          setContacto(`contacta a tu terapeuta o a ${d.empresaNombre}${d.empresaTelefono ? ` al ${d.empresaTelefono}` : ''}`)
-        } else if (d.terapeutaTelefono) {
-          setContacto(`contacta a tu terapeuta al ${d.terapeutaTelefono}`)
-        }
+      .then((d: { destino?: string }) => {
+        if (d.destino) setContacto(`contacta a ${d.destino}`)
       })
       .catch(() => { /* se queda el texto genérico */ })
   }, [])
