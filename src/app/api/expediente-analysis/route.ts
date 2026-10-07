@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
-import { retrieveRelevantChunks, retrieveChunksFromBooks } from '@/lib/rag/retrieve-chunks'
+import { retrieveChunksByProfile, retrieveChunksFromBooks } from '@/lib/rag/retrieve-chunks'
 
 export const maxDuration = 180
 
@@ -101,7 +101,15 @@ function buildSubseccionContexto(
   }
 
   if (tipoCaso === 'Pareja') {
-    return '(Sub-sección Pareja en construcción — sin datos disponibles aún)'
+    const toArr = (v: unknown) => Array.isArray(v) ? (v as string[]).join(', ') : ''
+    return [
+      toArr(exp.par_eros)   ? `Áreas EROS: ${toArr(exp.par_eros)}`         : '',
+      toArr(exp.par_philia) ? `Áreas PHILIA: ${toArr(exp.par_philia)}`     : '',
+      toArr(exp.par_agape)  ? `Áreas ÁGAPE: ${toArr(exp.par_agape)}`       : '',
+      exp.par_tipo_amor     ? `Tipo de amor: ${exp.par_tipo_amor}`         : '',
+      exp.par_estructura    ? `Estructura: ${exp.par_estructura}`          : '',
+      exp.par_conclusion    ? `Conclusión clínica:\n${exp.par_conclusion}` : '',
+    ].filter(Boolean).join('\n') || '(Sin datos registrados en sub-sección Pareja)'
   }
 
   return '(Tipo de caso no reconocido)'
@@ -156,6 +164,17 @@ export async function POST(request: NextRequest) {
 
     const notaInicial = buildNotaInicial(relation)
 
+    // Enfoque terapéutico del terapeuta → RAG por perfil (Sprint 24 Multi-RAG).
+    // Mismo criterio que /api/analysis y /api/analisis-clinicos: sin configurar → 'famsis'.
+    const getTherapyProfile = async (): Promise<string> => {
+      const { data: tp } = await supabase
+        .from('profiles')
+        .select('therapy_profile')
+        .eq('id', user.id)
+        .single()
+      return tp?.therapy_profile ?? 'famsis'
+    }
+
     // ── Sesiones presenciales + últimas 4 AVI (base compartida por varios análisis) ──
     const [inPersonRes, patternsRes, expedienteRes] = await Promise.all([
       supabase
@@ -177,7 +196,8 @@ export async function POST(request: NextRequest) {
           individual_dimensiones, individual_contexto, individual_antecedentes, individual_sintomatologia,
           fam_sintomas, fam_detonadores, fam_riesgo_items, fam_proteccion_items,
           fam_maternaje, fam_paternaje, fam_disfunc_tipo, fam_disfunc_opciones,
-          fam_tipo_disfunc, fam_ciclo_vital, fam_ciclo_vital_analisis, fam_procesos_analisis
+          fam_tipo_disfunc, fam_ciclo_vital, fam_ciclo_vital_analisis, fam_procesos_analisis,
+          par_eros, par_philia, par_agape, par_tipo_amor, par_estructura, par_conclusion
         `)
         .eq('therapist_id', user.id)
         .eq('patient_id', patientId)
@@ -309,12 +329,14 @@ export async function POST(request: NextRequest) {
       // Bloque 5: RAG ConsultoriaFuentes
       const ragQuery = [notaInicial, sesPreTexto, subseccionTexto]
         .filter(Boolean).join('\n\n').slice(0, 6000)
-      const fuentesPrediag = await retrieveRelevantChunks(ragQuery)
+      const therapyProfile = await getTherapyProfile()
+      const fuentesPrediag = await retrieveChunksByProfile(ragQuery, therapyProfile)
+      console.log('[prediagnostico] RAG perfil:', therapyProfile, '|', fuentesPrediag ? `${fuentesPrediag.length} chars` : 'sin resultados')
 
       const prompt = [
         'Eres supervisor clínico con amplia experiencia en consulta.',
         'Elabora un prediagnóstico clínico del caso basándote EXCLUSIVAMENTE en la información proporcionada.',
-        'Devuelve ÚNICAMENTE un objeto JSON con exactamente estas 6 claves.',
+        'Entrega el resultado ÚNICAMENTE con la herramienta guardar_prediagnostico, llenando sus 6 campos.',
         'Máximo 100 palabras por campo. Tu exposición debe ser completa y concluir dentro del límite — no truncues, sintetiza con criterio clínico.',
         'Escribe como lo haría un clínico experimentado: directo, profesional y accesible.',
         'Genera contenido sustantivo en cada campo — si hay poca información explícita, razona a partir del contexto disponible.',
@@ -355,16 +377,6 @@ export async function POST(request: NextRequest) {
         '  Psicoeducativo, Modelo de intervención específico, Desarrollo grupal, etc.',
         '  Justifica brevemente por qué ese enfoque es el más adecuado para este caso.',
         '',
-        'Formato (responde SOLO con este JSON, sin texto antes ni después):',
-        '{',
-        '  "impresion": "...",',
-        '  "diagnostico": "...",',
-        '  "areas_conflicto": "...",',
-        '  "tipo_problema": "...",',
-        '  "detonadores": "...",',
-        '  "guia_accion": "..."',
-        '}',
-        '',
         ...(fuentesPrediag ? ['FUENTES CLÍNICAS (ConsultoriaFuentes):', fuentesPrediag, ''] : []),
         '── BLOQUE 1: NOTA INICIAL ──',
         notaInicial,
@@ -375,43 +387,49 @@ export async function POST(request: NextRequest) {
         subseccionTexto,
       ].join('\n')
 
+      // Respuesta estructurada forzada (tool use): la IA solo puede entregar los 6 campos,
+      // sin texto suelto ni JSON roto. 4000 tokens para no cortar casos con mucha información.
+      const CAMPOS_PREDIAG = ['impresion', 'diagnostico', 'areas_conflicto', 'tipo_problema', 'detonadores', 'guia_accion'] as const
       const response = await anthropic.messages.create({
         model: 'claude-sonnet-5',
-        max_tokens: 2000,
+        max_tokens: 4000,
+        tools: [{
+          name: 'guardar_prediagnostico',
+          description: 'Guarda el prediagnóstico clínico del caso (máximo 100 palabras por campo).',
+          input_schema: {
+            type: 'object',
+            properties: Object.fromEntries(CAMPOS_PREDIAG.map(c => [c, { type: 'string' }])),
+            required: [...CAMPOS_PREDIAG],
+          },
+        }],
+        tool_choice: { type: 'tool', name: 'guardar_prediagnostico' },
         messages: [{ role: 'user', content: prompt }],
       })
 
-      const raw = extractTextFromResponse(response.content)
-      console.log('[prediagnostico] stop_reason:', response.stop_reason, '| raw:', raw.slice(0, 200))
+      console.log('[prediagnostico] stop_reason:', response.stop_reason, '| output_tokens:', response.usage?.output_tokens)
 
-      if (!raw) {
+      if (response.stop_reason === 'max_tokens') {
         return NextResponse.json(
-          { error: 'El modelo no generó contenido. Intenta de nuevo.' },
+          { error: 'El análisis resultó demasiado extenso y se cortó. Intenta de nuevo; si persiste, reduce las sesiones presenciales seleccionadas.' },
           { status: 422 }
         )
       }
 
-      let parsed: Record<string, string> = {}
-      try {
-        const match = raw.match(/\{[\s\S]*\}/)
-        if (match) {
-          parsed = JSON.parse(match[0])
-        } else {
-          console.error('[prediagnostico] No se encontró JSON en:', raw)
-          return NextResponse.json(
-            { error: 'La respuesta no tenía formato JSON válido. Intenta de nuevo.' },
-            { status: 500 }
-          )
-        }
-      } catch (e) {
-        console.error('[prediagnostico] Error al parsear JSON:', e)
+      const toolBlock = response.content.find(b => b.type === 'tool_use')
+      const input = (toolBlock && toolBlock.type === 'tool_use' ? toolBlock.input : null) as Record<string, unknown> | null
+      if (!input) {
+        console.error('[prediagnostico] Sin bloque tool_use. Contenido:', JSON.stringify(response.content).slice(0, 500))
         return NextResponse.json(
-          { error: 'Error al procesar la respuesta. Intenta de nuevo.' },
-          { status: 500 }
+          { error: 'El modelo no generó el prediagnóstico. Intenta de nuevo.' },
+          { status: 422 }
         )
       }
 
-      const tieneContenido = Object.values(parsed).some(v => typeof v === 'string' && v.trim().length > 0)
+      const parsed: Record<string, string> = Object.fromEntries(
+        CAMPOS_PREDIAG.map(c => [c, typeof input[c] === 'string' ? (input[c] as string) : ''])
+      )
+
+      const tieneContenido = Object.values(parsed).some(v => v.trim().length > 0)
       if (!tieneContenido) {
         return NextResponse.json(
           { error: 'El análisis no generó contenido. Verifica que la Nota Inicial tenga información suficiente.' },
@@ -429,7 +447,9 @@ export async function POST(request: NextRequest) {
 
       const ragQuery = [notaInicial, sesPreTexto, subseccionTexto]
         .filter(Boolean).join('\n\n').slice(0, 6000)
-      const fuentes = await retrieveRelevantChunks(ragQuery)
+      const therapyProfile = await getTherapyProfile()
+      const fuentes = await retrieveChunksByProfile(ragQuery, therapyProfile)
+      console.log('[vias-accion] RAG perfil:', therapyProfile, '|', fuentes ? `${fuentes.length} chars` : 'sin resultados')
 
       const prediagBloque = prediagnostico ? [
         '── PREDIAGNÓSTICO DEL CASO ──',
