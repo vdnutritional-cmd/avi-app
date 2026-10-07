@@ -7,6 +7,7 @@ import ReportesPanel from './ReportesPanel'
 import WhatsAppSupport from '@/components/WhatsAppSupport'
 import ActivarPlan from './ActivarPlan'
 import InactivityGuard from '@/components/InactivityGuard'
+import { permisosPI } from '@/lib/niveles-institucionales'
 
 // Statuses que permiten acceso al app
 const ACTIVE_STATUSES = ['active', 'trialing', 'free_approved']
@@ -33,11 +34,12 @@ export default async function TherapistLayout({ children }: { children: React.Re
   // Un terapeuta puede pertenecer a más de una empresa; .maybeSingle() falla en ese caso.
   const { data: piRecords } = await admin
     .from('convenio_personas_institucionales')
-    .select('opera_como_terapeuta')
+    .select('opera_como_terapeuta, nivel')
     .eq('therapist_id', user.id)
     .eq('is_active', true)
 
   const hasPI = (piRecords?.length ?? 0) > 0
+  const permisosPIs = permisosPI((piRecords ?? []).map(r => r.nivel as string))
   // Bloquear acceso al panel de terapeuta solo si TODOS los registros tienen opera=false
   const canActAsTherapist = piRecords?.some(r => r.opera_como_terapeuta) ?? true
 
@@ -84,6 +86,9 @@ export default async function TherapistLayout({ children }: { children: React.Re
           isInstitucional={hasPI}
           hasEmpresas={hasEmpresas}
           accesoConvenio={!hasPlan && hasEmpresaActiva}
+          canGestionarBajas={permisosPIs.bajas}
+          canReporteGeneral={permisosPIs.reporteGeneral}
+          canReporteTerapeuta={permisosPIs.reporteTerapeuta}
         />
 
         {/* Contenido principal — padding-top extra en móvil para el botón hamburger */}

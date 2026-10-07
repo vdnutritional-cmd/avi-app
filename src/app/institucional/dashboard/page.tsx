@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import TerapeutasAcordeon from './TerapeutasAcordeon'
+import { permisosPI } from '@/lib/niveles-institucionales'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 interface PacienteItem { id: string; nombre: string }
@@ -83,13 +84,6 @@ export default async function InstitucionalDashboardPage() {
     .eq('is_active', true)
 
   if (!piRecords || piRecords.length === 0) redirect('/therapist/dashboard')
-
-  // Nivel más alto entre todas las empresas (para gating de secciones globales)
-  const NIVEL_ORDER: Record<string, number> = { N1: 1, N2: 2, N3: 3 }
-  const topNivel = piRecords.reduce((best, r) =>
-    NIVEL_ORDER[r.nivel] < NIVEL_ORDER[best] ? r.nivel : best,
-    piRecords[0].nivel
-  ) as 'N1' | 'N2' | 'N3'
 
   // ── Teléfonos desde user_metadata ─────────────────────────────────────────
   const { data: authUsersData } = await admin.auth.admin.listUsers({ perPage: 1000 })
@@ -178,7 +172,8 @@ export default async function InstitucionalDashboardPage() {
     })
   )
 
-  const canN1N2 = topNivel === 'N1' || topNivel === 'N2'
+  // Permisos por nivel (src/lib/niveles-institucionales.ts): N2+ Reporte General, N1 Reporte por Terapeuta
+  const permisos = permisosPI(piRecords.map(r => r.nivel as string))
 
   return (
     <div className="space-y-8">
@@ -260,10 +255,10 @@ export default async function InstitucionalDashboardPage() {
           : null
       })()}
 
-      {/* ── Reportes (N1/N2) ──────────────────────────────────────────────────── */}
+      {/* ── Reportes (según nivel) ─────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Reporte Institucional General (N1 únicamente) */}
-        {topNivel === 'N1' ? (
+        {/* Reporte Institucional General (N1 y N2) */}
+        {permisos.reporteGeneral ? (
           <SeccionActiva
             titulo="Reporte Institucional General"
             descripcion="Estadística agregada de todos los terapeutas de la empresa: sesiones, derivaciones y satisfacción."
@@ -273,8 +268,8 @@ export default async function InstitucionalDashboardPage() {
           <SeccionBloqueada titulo="Reporte Institucional General" />
         )}
 
-        {/* Reporte por terapeuta */}
-        {canN1N2 ? (
+        {/* Reporte por terapeuta (solo N1) */}
+        {permisos.reporteTerapeuta ? (
           <SeccionActiva
             titulo="Reporte por terapeuta"
             descripcion="Estadística de sesiones, motivos, derivaciones y satisfacción por terapeuta y empresa."

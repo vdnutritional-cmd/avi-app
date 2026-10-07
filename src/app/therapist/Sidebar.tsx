@@ -16,9 +16,11 @@ interface SidebarProps {
   hideInstitucionalLink?: boolean // ocultar link "Administración Institucional" (ya estás ahí)
   canGestionarBajas?: boolean     // true si el PI tiene nivel N1 o N2
   accesoConvenio?: boolean        // sin plan propio, entra por su empresa CONVENIO
+  canReporteGeneral?: boolean     // PI N1 o N2
+  canReporteTerapeuta?: boolean   // PI N1
 }
 
-export default function Sidebar({ fullName, email, subscriptionStatus, patientSlots, tier, isInstitucional, hasEmpresas, disabled, hideInstitucionalLink, canGestionarBajas, accesoConvenio }: SidebarProps) {
+export default function Sidebar({ fullName, email, subscriptionStatus, patientSlots, tier, isInstitucional, hasEmpresas, disabled, hideInstitucionalLink, canGestionarBajas, accesoConvenio, canReporteGeneral, canReporteTerapeuta }: SidebarProps) {
   const [open, setOpen] = useState(false)
   const [openGroup, setOpenGroup] = useState<string | null>(null)
 
@@ -188,8 +190,12 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
               onToggle={() => toggleGroup('institucional')}
             >
               <NavLink href="/institucional/dashboard"         icon="🏠" label="Panel institucional"           onClose={closeSidebar} />
-              <NavLink href="/institucional/reporte-general"   icon="📊" label="Reporte Institucional General" onClose={closeSidebar} />
-              <NavLink href="/institucional/reporte-terapeuta" icon="👤" label="Reporte por Terapeuta"         onClose={closeSidebar} />
+              {canReporteGeneral && (
+                <NavLink href="/institucional/reporte-general"   icon="📊" label="Reporte Institucional General" onClose={closeSidebar} />
+              )}
+              {canReporteTerapeuta && (
+                <NavLink href="/institucional/reporte-terapeuta" icon="👤" label="Reporte por Terapeuta"         onClose={closeSidebar} />
+              )}
               {canGestionarBajas && (
                 <NavLink href="/institucional/baja-terapeutas" icon="🚫" label="Baja de Terapeutas"           onClose={closeSidebar} />
               )}

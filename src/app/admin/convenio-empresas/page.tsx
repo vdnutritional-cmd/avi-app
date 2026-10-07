@@ -8,6 +8,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
+import { NIVEL_LABELS } from '@/lib/niveles-institucionales'
 
 interface Empresa {
   id: string
@@ -36,7 +37,7 @@ interface Terapeuta {
 }
 
 const BUCKET = 'empresa-logos'
-const NIVEL_LABELS: Record<string, string> = { N1: 'N1 — Terapeuta institucional', N2: 'N2 — Estadísticas + reportes', N3: 'N3 — Solo reportes' }
+// Accesos por nivel en Administración Institucional — ver src/lib/niveles-institucionales.ts
 const NIVEL_COLORS: Record<string, string> = {
   N1: 'bg-green-100 text-green-700 border-green-200',
   N2: 'bg-blue-100  text-blue-700  border-blue-200',
@@ -297,7 +298,7 @@ function PersonasInstitucionales({ empresa }: { empresa: Empresa }) {
                           onChange={e => cambiarNivel(p.id, e.target.value)}
                           className="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-300"
                         >
-                          {['N1', 'N2', 'N3'].map(n => <option key={n} value={n}>{n}</option>)}
+                          {Object.entries(NIVEL_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                         </select>
 
                         {/* Toggle opera como terapeuta */}

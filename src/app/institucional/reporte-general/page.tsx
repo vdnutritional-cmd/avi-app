@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import FiltrosReporteGeneral from './FiltrosReporteGeneral'
 import PrintEstadisticasButton from '@/app/therapist/estadisticas/PrintEstadisticasButton'
+import { NIVELES_REPORTE_GENERAL } from '@/lib/niveles-institucionales'
 
 export const dynamic = 'force-dynamic'
 
@@ -39,6 +40,7 @@ export default async function ReporteGeneralPage({
     .select('empresa_id, convenio_empresas(nombre, logo_url)')
     .eq('therapist_id', user.id)
     .eq('is_active', true)
+    .in('nivel', NIVELES_REPORTE_GENERAL)   // solo empresas donde su nivel permite este reporte
 
   if (!piRecords || piRecords.length === 0) redirect('/institucional/dashboard')
 
@@ -54,7 +56,9 @@ export default async function ReporteGeneralPage({
     return { id: r.empresa_id as string, nombre: e?.nombre ?? 'Empresa', logo_url: e?.logo_url ?? null }
   })
 
-  const selectedIds = empIdsParam ? empIdsParam.split(',').filter(Boolean) : []
+  // Solo empresas permitidas para esta PI (nunca confiar en la URL)
+  const selectedIds = (empIdsParam ? empIdsParam.split(',').filter(Boolean) : [])
+    .filter(id => empresas.some(e => e.id === id))
   const empresasActuales = empresas.filter(e => selectedIds.includes(e.id))
 
   // ── Validar mes antes de cualquier early return ────────────────────────────

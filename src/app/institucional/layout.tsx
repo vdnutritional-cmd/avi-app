@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import Sidebar from '@/app/therapist/Sidebar'
 import InactivityGuard from '@/components/InactivityGuard'
 import WhatsAppSupport from '@/components/WhatsAppSupport'
+import { permisosPI } from '@/lib/niveles-institucionales'
 
 export default async function InstitucionalLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -33,7 +34,7 @@ export default async function InstitucionalLayout({ children }: { children: Reac
   if (!piRecords || piRecords.length === 0) redirect('/therapist/dashboard')
 
   const canActAsTherapist  = piRecords.some(r => r.opera_como_terapeuta)
-  const canGestionarBajas = piRecords.some(r => r.nivel === 'N1' || r.nivel === 'N2')
+  const permisos = permisosPI(piRecords.map(r => r.nivel as string))
 
   // Empresas del terapeuta en therapist_empresa (para prop hasEmpresas del Sidebar)
   const { data: empresaRels } = await admin
@@ -63,7 +64,9 @@ export default async function InstitucionalLayout({ children }: { children: Reac
           hasEmpresas={hasEmpresas}
           disabled={!canActAsTherapist}
           hideInstitucionalLink={false}
-          canGestionarBajas={canGestionarBajas}
+          canGestionarBajas={permisos.bajas}
+          canReporteGeneral={permisos.reporteGeneral}
+          canReporteTerapeuta={permisos.reporteTerapeuta}
         />
 
         {/* Contenido principal — padding-top extra en móvil para el botón hamburger */}

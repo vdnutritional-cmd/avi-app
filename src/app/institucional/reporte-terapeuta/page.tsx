@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import FiltrosReporte from './FiltrosReporte'
 import PrintEstadisticasButton from '@/app/therapist/estadisticas/PrintEstadisticasButton'
+import { NIVELES_REPORTE_TERAPEUTA } from '@/lib/niveles-institucionales'
 
 export const dynamic = 'force-dynamic'
 
@@ -41,6 +42,7 @@ export default async function ReporteTerapeutaPage({
     .select('empresa_id, convenio_empresas(nombre, logo_url)')
     .eq('therapist_id', user.id)
     .eq('is_active', true)
+    .in('nivel', NIVELES_REPORTE_TERAPEUTA)   // solo empresas donde su nivel permite este reporte
 
   if (!piRecords || piRecords.length === 0) redirect('/institucional/dashboard')
 
@@ -58,7 +60,8 @@ export default async function ReporteTerapeutaPage({
     return { id: r.empresa_id as string, nombre: e?.nombre ?? 'Empresa', logo_url: e?.logo_url ?? null }
   })
 
-  const empresaId = empParam ?? ''
+  // Solo empresas permitidas para esta PI (nunca confiar en la URL)
+  const empresaId = empParam && empresas.some(e => e.id === empParam) ? empParam : ''
   const empresaActual = empresas.find(e => e.id === empresaId)
 
   // ── Validar mes antes de cualquier early return ────────────────────────────
@@ -127,7 +130,8 @@ export default async function ReporteTerapeutaPage({
   const isCurrentMonth = mesKey === `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
 
   const tipo = (['activos', 'inactivos', 'total'].includes(tipoParam ?? '') ? tipoParam : 'activos') as 'activos' | 'inactivos' | 'total'
-  const terapeutaId = terapParam ?? 'all'
+  // Solo terapeutas de la empresa seleccionada (nunca confiar en la URL)
+  const terapeutaId = terapParam && terapeutas.some(t => t.id === terapParam) ? terapParam : 'all'
   const pid = pidParam ?? 'all'
 
   // ── IDs de terapeutas en scope ─────────────────────────────────────────────
