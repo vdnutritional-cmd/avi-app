@@ -280,7 +280,6 @@ export const COMPANION_PLANS: Plan[] = [
     priceUSD: 0,
     unitPriceUSD: 0,
     stripePriceId: '',
-    highlight: true,
   },
 ]
 
