@@ -64,6 +64,21 @@ export default function RegisterPage() {
     const supabase = createClient()
 
     try {
+      // El correo no debe estar registrado (Supabase signUp no avisa de duplicados)
+      const checkRes = await fetch('/api/auth/check-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: form.email }),
+      })
+      const check = await checkRes.json().catch(() => ({})) as { exists?: boolean; esTerapeuta?: boolean }
+      if (check.exists) {
+        setError(check.esTerapeuta
+          ? 'Ya hay un terapeuta registrado con este correo electrónico. Usa otro correo para tu registro.'
+          : 'Este correo ya está registrado en AVI. Usa otro correo para tu registro.')
+        setLoading(false)
+        return
+      }
+
       const { data, error: authError } = await supabase.auth.signUp({
         email: form.email,
         password: form.password,

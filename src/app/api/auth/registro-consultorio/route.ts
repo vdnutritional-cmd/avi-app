@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getEmpresasDeTerapeuta } from '@/lib/empresas-terapeuta'
+import { mensajeEmailPacienteExistente } from '@/lib/registro-email'
 import { createClient } from '@/lib/supabase/server'
 
 /**
@@ -33,6 +34,10 @@ export async function POST(req: NextRequest) {
       { status: 404 }
     )
   }
+
+  // ── 1b. El correo no debe existir (no se revela con qué terapeuta está un paciente) ──
+  const yaExiste = await mensajeEmailPacienteExistente(admin, email, therapistProfile.id)
+  if (yaExiste) return NextResponse.json({ error: yaExiste }, { status: 409 })
 
   // ── 2. Crear usuario en Supabase Auth ─────────────────────────────────────
   const { data: authData, error: signUpErr } = await admin.auth.admin.createUser({

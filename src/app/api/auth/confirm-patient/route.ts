@@ -1,23 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getEmpresasDeTerapeuta } from '@/lib/empresas-terapeuta'
+import { mensajeEmailPacienteExistente } from '@/lib/registro-email'
 
 /**
  * POST /api/auth/confirm-patient
  * Crea al paciente COMPLETAMENTE server-side via SDK auth.admin.createUser().
- * Si el email ya existe (AuthApiError code 422), busca el usuario existente.
+ * El terapeuta se toma del código de autorización (no del navegador).
+ * Si el correo ya existe NO se toca esa cuenta: se informa y se detiene.
  */
 export async function POST(req: NextRequest) {
   try {
-    const { email, password, fullName, codeId, therapistId, empresaId } = await req.json()
+    const { email, password, fullName, codeId, empresaId } = await req.json()
 
-    if (!email || !password || !fullName) {
+    if (!email || !password || !fullName || !codeId) {
       return NextResponse.json({ error: 'Datos incompletos' }, { status: 400 })
     }
 
     const admin = createAdminClient()
 
-    // 1. Crear usuario con email ya confirmado usando SDK admin
+    // 0. Validar el código de autorización y obtener su terapeuta
+    const { data: codeRow } = await admin
+      .from('authorization_codes')
+      .select('id, therapist_id, is_active, used_by, expires_at')
+      .eq('id', codeId)
+      .maybeSingle()
+    if (!codeRow || !codeRow.is_active || codeRow.used_by ||
+        (codeRow.expires_at && new Date(codeRow.expires_at) < new Date())) {
+      return NextResponse.json({ error: 'El código de acceso no es válido, ya fue usado o expiró.' }, { status: 400 })
+    }
+    const therapistId = codeRow.therapist_id as string
+
+    // 1. El correo no debe existir (no se revela con qué terapeuta está un paciente)
+    const yaExiste = await mensajeEmailPacienteExistente(admin, email, therapistId)
+    if (yaExiste) return NextResponse.json({ error: yaExiste }, { status: 409 })
+
+    // 2. Crear usuario con email ya confirmado usando SDK admin
     const { data: created, error: createError } = await admin.auth.admin.createUser({
       email,
       password,
@@ -25,37 +43,15 @@ export async function POST(req: NextRequest) {
       user_metadata: { full_name: fullName, role: 'patient' },
     })
 
-    let userId: string | undefined
-
     if (createError) {
-      // Código 422 = usuario ya existe → buscar su ID y actualizar contraseña
-      if (createError.status === 422 || createError.message?.toLowerCase().includes('already')) {
-        const { data: existing } = await admin
-          .from('profiles')
-          .select('id')
-          .eq('email', email)
-          .single()
-        userId = existing?.id
-        if (!userId) {
-          return NextResponse.json(
-            { error: `Usuario ya existe pero sin perfil: ${createError.message}` },
-            { status: 500 },
-          )
-        }
-        // Actualizar la contraseña a la nueva que el paciente ingresó
-        const { error: pwError } = await admin.auth.admin.updateUserById(userId, { password })
-        if (pwError) {
-          console.error('[confirm-patient] Error actualizando contraseña:', pwError.message)
-        }
-      } else {
-        return NextResponse.json(
-          { error: `Error al crear cuenta: ${createError.message}` },
-          { status: 500 },
-        )
-      }
-    } else {
-      userId = created?.user?.id
+      const duplicado = createError.status === 422 || createError.message?.toLowerCase().includes('already')
+      return NextResponse.json(
+        { error: duplicado ? 'Este correo ya está registrado en AVI. Usa otro correo para el registro.' : `Error al crear cuenta: ${createError.message}` },
+        { status: duplicado ? 409 : 500 },
+      )
     }
+
+    const userId = created?.user?.id
 
     if (!userId) {
       return NextResponse.json({ error: 'No se obtuvo ID de usuario' }, { status: 500 })
