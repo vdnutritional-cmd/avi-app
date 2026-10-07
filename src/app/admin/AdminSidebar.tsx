@@ -66,7 +66,7 @@ export default function AdminSidebar({ email }: AdminSidebarProps) {
             >
               AVI
             </Link>
-            <p className="text-xs font-semibold text-gray-500 mt-0.5">Panel de Administración</p>
+            <p className="text-xs font-semibold text-gray-500 mt-0.5">Administración AVI</p>
             <p className="text-xs text-gray-400 mt-0.5 truncate max-w-[160px]">{email}</p>
           </div>
           {/* Botón cerrar — solo en móvil */}
