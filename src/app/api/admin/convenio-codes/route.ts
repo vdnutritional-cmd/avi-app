@@ -7,15 +7,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { generarCodigoConvenio } from '@/lib/companion'
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? 'pepe.vargas.papa@gmail.com'
-
-function generateCode(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789' // sin O, I, 0, 1 para evitar confusiones
-  const segment = (len: number) =>
-    Array.from({ length: len }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
-  return `CONV-${segment(4)}-${segment(4)}`
-}
 
 async function getAdminUser() {
   const supabase = await createClient()
@@ -77,7 +71,7 @@ export async function POST(req: NextRequest) {
   let code = ''
   let attempts = 0
   while (attempts < 5) {
-    code = generateCode()
+    code = generarCodigoConvenio()
     const { data: existing } = await service
       .from('convenio_codes')
       .select('id')

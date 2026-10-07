@@ -14,6 +14,7 @@ import {
   COMPANION_PLANS,
   PATROCINIO_PLANS,
 } from '@/lib/stripe/plans'
+import { activarCompanion } from '@/lib/companion'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
@@ -150,92 +151,17 @@ export async function POST(req: NextRequest) {
 
       // 3c. Companion plans — activar sin Stripe (Opción B: coexiste con otros planes)
       if (resolved.planType === 'companion') {
-        // Marcar código como usado — solo si sigue libre (evita doble uso simultáneo)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: claimed } = await (codeClient as any)
-          .from('convenio_codes')
-          .update({ used_by: user.id, used_at: new Date().toISOString() })
-          .eq('id', codeRow.id)
-          .is('used_by', null)
-          .select('id') as { data: { id: string }[] | null }
-
-        if (!claimed || claimed.length === 0) {
-          return NextResponse.json({ error: 'Este código ya fue utilizado.' }, { status: 403 })
-        }
-
-        // Libera el código si la activación falla, para que el terapeuta pueda reintentar
-        const releaseCode = async () => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await (codeClient as any)
-            .from('convenio_codes')
-            .update({ used_by: null, used_at: null })
-            .eq('id', codeRow.id)
-            .eq('used_by', user.id)
-        }
-
         const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://go.avi-app.com.mx'
-
-        // Verificar si ya tiene un plan activo distinto de companion
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: subActual } = await (codeClient as any)
-          .from('subscriptions')
-          .select('status, plan')
-          .eq('therapist_id', user.id)
-          .maybeSingle() as { data: { status: string; plan: string } | null }
-
-        const tieneOtroPlanActivo =
-          subActual &&
-          ['active', 'trialing', 'free_approved'].includes(subActual.status) &&
-          subActual.plan !== 'companion'
-
-        if (!tieneOtroPlanActivo) {
-          // Sin plan previo (o solo companion): crear/actualizar suscripción companion
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const { error: subError } = await (codeClient as any)
-            .from('subscriptions')
-            .upsert(
-              {
-                therapist_id:           user.id,
-                plan:                   'companion',
-                tier:                   'clinico',   // acceso completo Esencial + Clínico
-                status:                 'active',
-                patient_slots:          resolved.patientSlots,
-                stripe_customer_id:     null,
-                stripe_subscription_id: null,
-                stripe_price_id:        null,
-                billing_cycle_start:    new Date().toISOString(),
-              },
-              { onConflict: 'therapist_id' }
-            )
-          if (subError) {
-            console.error('[checkout/companion] Error al activar suscripción:', subError)
-            await releaseCode()
-            return NextResponse.json({ error: 'Error al activar el plan.' }, { status: 500 })
-          }
-        }
-        // Si tiene otro plan activo (valora, regular…): solo se crea el bundle,
-        // la suscripción principal queda intacta.
-
-        // Crear bloque de cupo companion (empresa_id=null → cubre pacientes sin CONVENIO)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error: bundleError } = await (codeClient as any).from('therapist_slot_bundles').insert({
-          therapist_id:  user.id,
-          source_type:   'convenio',   // activado mediante código CONVENIO
-          empresa_id:    null,         // null = pacientes independientes (sin empresa)
-          patient_slots: resolved.patientSlots,
-          discount_pct:  100,
-          status:        'active',
-          stripe_sub_id: null,
+        const r = await activarCompanion(codeClient, {
+          therapistId: user.id,
+          codeId: codeRow.id,
+          patientSlots: resolved.patientSlots,
         })
-        if (bundleError) {
-          console.error('[checkout/companion] Error al crear bundle:', bundleError)
-          await releaseCode()
-          return NextResponse.json({ error: 'Error al activar el plan.' }, { status: 500 })
-        }
+        if (!r.ok) return NextResponse.json({ error: r.error }, { status: r.status })
 
         console.log(
           `[checkout/companion] ✅ ${planId} — terapeuta: ${user.id}, slots: ${resolved.patientSlots}` +
-          (tieneOtroPlanActivo ? ` (bundle adicional, suscripción ${subActual!.plan} preservada)` : ' (suscripción companion creada)')
+          (r.tieneOtroPlanActivo ? ` (bundle adicional, suscripción ${r.planPrevio} preservada)` : ' (suscripción companion creada)')
         )
         return NextResponse.json({ url: `${appUrl}/therapist/dashboard?checkout=success` })
       }

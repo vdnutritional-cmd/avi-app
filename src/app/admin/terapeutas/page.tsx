@@ -4,6 +4,81 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import RejectTherapistButton from '@/app/admin/RejectTherapistButton'
 import DesactivarTherapistButton from '@/app/admin/DesactivarTherapistButton'
+import { createClient } from '@/lib/supabase/server'
+import { COMPANION_PLANS } from '@/lib/stripe/plans'
+import { activarCompanion, generarCodigoConvenio } from '@/lib/companion'
+
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? 'pepe.vargas.papa@gmail.com'
+
+// Asignar AVI Therapy Companion a un terapeuta existente: crea un código CONVENIO
+// del Companion (queda en Códigos CONVENIO → Usados) y lo activa con la misma
+// lógica del checkout (Opción B). El cron desactivar-companion-expirados lo vence.
+async function asignarCompanion(formData: FormData) {
+  'use server'
+  const auth = await createClient()
+  const { data: { user } } = await auth.auth.getUser()
+  if (!user || user.email !== ADMIN_EMAIL) redirect('/admin')
+
+  const therapistId = formData.get('therapistId') as string
+  const planId      = formData.get('planId') as string
+  const expiresAt   = formData.get('expiresAt') as string
+  const plan = COMPANION_PLANS.find(p => p.id === planId)
+  if (!therapistId || !plan || !expiresAt) redirect('/admin/terapeutas?error=companion-datos')
+  if (new Date(`${expiresAt}T23:59:59`) <= new Date()) redirect('/admin/terapeutas?error=companion-fecha')
+
+  const supabase = createAdminClient()
+
+  // Código único para el Companion
+  let code = ''
+  for (let i = 0; i < 5; i++) {
+    code = generarCodigoConvenio()
+    const { data: existing } = await supabase.from('convenio_codes').select('id').eq('code', code).maybeSingle()
+    if (!existing) break
+  }
+  const { data: codeRow, error: codeError } = await supabase
+    .from('convenio_codes')
+    .insert({ code, plan_id: plan!.id, expires_at: expiresAt })
+    .select('id')
+    .single()
+  if (codeError || !codeRow) redirect('/admin/terapeutas?error=companion-fallo')
+
+  const r = await activarCompanion(supabase, {
+    therapistId,
+    codeId: codeRow!.id as string,
+    patientSlots: typeof plan!.patientSlots === 'number' ? plan!.patientSlots : 5,
+  })
+  if (!r.ok) {
+    // No dejar un código libre de un Companion que no se pudo asignar
+    await supabase.from('convenio_codes').update({ is_active: false }).eq('id', codeRow!.id)
+    redirect('/admin/terapeutas?error=companion-fallo')
+  }
+
+  revalidatePath('/admin/terapeutas')
+  revalidatePath('/admin/convenio')
+  redirect(`/admin/terapeutas?ok=companion&plan=${plan!.id}`)
+}
+
+// Formulario para asignar un Companion (5 o 10 + vencimiento)
+function CompanionForm({ therapistId }: { therapistId: string }) {
+  const hoy = new Date().toISOString().split('T')[0]
+  return (
+    <form action={asignarCompanion} className="flex items-center gap-1.5 mt-1 flex-wrap">
+      <input type="hidden" name="therapistId" value={therapistId} />
+      <span className="text-xs text-emerald-700 font-medium">AVI Therapy Companion:</span>
+      <select name="planId" defaultValue="companion_5"
+        className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-300 text-gray-600">
+        {COMPANION_PLANS.map(p => <option key={p.id} value={p.id}>{p.name.replace('AVI Therapy Companion', 'Companion')}</option>)}
+      </select>
+      <label className="text-xs text-gray-500">vence</label>
+      <input type="date" name="expiresAt" required min={hoy}
+        className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-300 text-gray-600" />
+      <button type="submit"
+        className="text-xs text-emerald-700 border border-emerald-200 rounded-lg px-2 py-1 hover:bg-emerald-50 transition-colors">
+        Asignar
+      </button>
+    </form>
+  )
+}
 
 function esFindeSemana(dateStr: string) {
   const [y, m, d] = dateStr.split('-').map(Number)
@@ -133,9 +208,9 @@ async function reactivarPerfil(formData: FormData) {
 export default async function AdminTerapeutasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ mes?: string; error?: string; count?: string }>
+  searchParams: Promise<{ mes?: string; error?: string; count?: string; ok?: string; plan?: string }>
 }) {
-  const { mes, error: errorParam, count: countParam } = await searchParams
+  const { mes, error: errorParam, count: countParam, ok: okParam, plan: planParam } = await searchParams
   const supabase = createAdminClient()
 
   const now = new Date()
@@ -204,6 +279,8 @@ export default async function AdminTerapeutasPage({
     esencial_valora20: 'Esencial 20',
     clinico_valora10:  'Clínico 10',
     clinico_valora20:  'Clínico 20',
+    companion_5:       'Companion 5',
+    companion_10:      'Companion 10',
   }
   const lastSignInMap = new Map<string, string>(
     (authUsersResult.data?.users ?? [])
@@ -284,6 +361,20 @@ export default async function AdminTerapeutasPage({
 
   return (
     <div className="space-y-10">
+      {/* ── Resultado de asignar AVI Therapy Companion ── */}
+      {okParam === 'companion' && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-sm text-emerald-800">
+          ✓ {COMPANION_PLANS.find(p => p.id === planParam)?.name ?? 'AVI Therapy Companion'} asignado. El código quedó registrado en Códigos CONVENIO → Usados.
+        </div>
+      )}
+      {errorParam?.startsWith('companion-') && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-sm text-red-700">
+          {errorParam === 'companion-fecha' ? 'La fecha de vencimiento debe ser posterior a hoy.'
+            : errorParam === 'companion-datos' ? 'Elige el paquete Companion y la fecha de vencimiento.'
+            : 'No se pudo asignar el Companion. Intenta de nuevo.'}
+        </div>
+      )}
+
       {/* ── Alerta: terapeuta con pacientes activos ── */}
       {errorParam === 'tiene-pacientes' && (
         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
@@ -335,6 +426,7 @@ export default async function AdminTerapeutasPage({
                   <p className="text-xs text-gray-400 mt-0.5">
                     Registro: {new Date(t.created_at).toLocaleDateString('es-MX')}
                   </p>
+                  <CompanionForm therapistId={t.id} />
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   {/* Formulario aprobar */}
@@ -497,6 +589,7 @@ export default async function AdminTerapeutasPage({
                         </button>
                       </form>
                     )}
+                    <CompanionForm therapistId={t.id} />
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
                     {/* Cambiar tier */}
@@ -544,6 +637,7 @@ export default async function AdminTerapeutasPage({
                 <div className="flex-1">
                   <p className="font-medium text-gray-800">{t.full_name ?? '—'}</p>
                   <p className="text-sm text-gray-500">{t.email}</p>
+                  <CompanionForm therapistId={t.id} />
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <form action={aprobarTerapeuta} className="flex items-center gap-2 flex-wrap">
