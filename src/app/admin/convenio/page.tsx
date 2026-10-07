@@ -37,6 +37,8 @@ export default function ConvenioPage() {
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [newCodeId, setNewCodeId] = useState<string | null>(null)
+  const [genError, setGenError] = useState('')
 
   // Opciones para nuevo código
   const [selectedPlan, setSelectedPlan] = useState('')
@@ -64,8 +66,11 @@ export default function ConvenioPage() {
     })
     const data = await res.json()
     if (data.code) {
+      setNewCodeId(data.code.id)
+      setGenError('')
       await fetchCodes()
-      await copyToClipboard(data.code.code, data.code.id)
+    } else {
+      setGenError(data.error ?? 'No se pudo generar el código.')
     }
     setGenerating(false)
   }
@@ -85,7 +90,10 @@ export default function ConvenioPage() {
     setTimeout(() => setCopiedId(null), 2000)
   }
 
-  const activeCodes   = codes.filter(c => c.is_active && !c.used_by)
+  // El código recién generado va primero en "Activos — sin usar"
+  const activeCodes   = codes
+    .filter(c => c.is_active && !c.used_by)
+    .sort((a, b) => (a.id === newCodeId ? -1 : b.id === newCodeId ? 1 : 0))
   const usedCodes     = codes.filter(c => c.used_by)
   const inactiveCodes = codes.filter(c => !c.is_active && !c.used_by)
 
@@ -134,9 +142,7 @@ export default function ConvenioPage() {
         >
           {generating ? 'Generando…' : '+ Generar código'}
         </button>
-        <p className="text-xs text-gray-400">
-          El código se copiará automáticamente al portapapeles al generarse.
-        </p>
+        {genError && <p className="text-red-500 text-xs">{genError}</p>}
       </div>
 
       {/* ── Códigos activos (sin usar) ── */}
@@ -154,6 +160,7 @@ export default function ConvenioPage() {
               <CodeRow
                 key={c.id}
                 code={c}
+                isNew={c.id === newCodeId}
                 copied={copiedId === c.id}
                 onCopy={() => copyToClipboard(c.code, c.id)}
                 onDeactivate={() => toggleActive(c.id, false)}
@@ -203,12 +210,14 @@ export default function ConvenioPage() {
 // ── Fila de código ────────────────────────────────────────────
 function CodeRow({
   code,
+  isNew = false,
   copied,
   onCopy,
   onDeactivate,
   onActivate,
 }: {
   code: ConvenioCode
+  isNew?: boolean
   copied: boolean
   onCopy: () => void
   onDeactivate?: () => void
@@ -218,11 +227,15 @@ function CodeRow({
 
   return (
     <div className={`flex flex-col sm:flex-row sm:items-center gap-3 bg-white border rounded-xl px-4 py-3 ${
+      isNew ? 'border-emerald-300 ring-2 ring-emerald-100' :
       code.used_by ? 'border-gray-100 opacity-70' : code.is_active ? 'border-purple-100' : 'border-gray-100 opacity-60'
     }`}>
       {/* Código */}
       <div className="flex items-center gap-3 flex-1 min-w-0">
         <span className="font-mono text-sm font-bold text-purple-700 tracking-widest">{code.code}</span>
+        {isNew && (
+          <span className="text-xs bg-emerald-50 text-emerald-700 rounded-lg px-2 py-0.5 font-semibold">Nuevo</span>
+        )}
         <button
           onClick={onCopy}
           className="text-xs text-gray-400 hover:text-purple-600 transition-colors whitespace-nowrap"

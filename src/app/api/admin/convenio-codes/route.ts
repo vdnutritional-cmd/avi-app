@@ -35,15 +35,19 @@ export async function GET() {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
+  // used_by apunta a auth.users → no se puede embeber; el nombre se busca aparte en profiles
   const { data, error } = await service
     .from('convenio_codes')
-    .select('*, used_profile:used_by(email:id)')
+    .select('*')
     .order('created_at', { ascending: false })
 
-  // Enriquecer con email del terapeuta que usó el código
-  const { data: profiles } = await service
-    .from('profiles')
-    .select('id, full_name, email')
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Enriquecer con nombre/email del terapeuta que usó el código
+  const usedIds = [...new Set((data ?? []).map(r => r.used_by).filter(Boolean))] as string[]
+  const { data: profiles } = usedIds.length > 0
+    ? await service.from('profiles').select('id, full_name, email').in('id', usedIds)
+    : { data: [] as { id: string; full_name: string | null; email: string | null }[] }
 
   const enriched = (data ?? []).map(row => ({
     ...row,
@@ -51,7 +55,6 @@ export async function GET() {
     used_by_email: profiles?.find(p => p.id === row.used_by)?.email ?? null,
   }))
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ codes: enriched })
 }
 
