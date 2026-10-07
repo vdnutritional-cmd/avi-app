@@ -25,6 +25,11 @@ const ALL_THERAPY_PLANS = [
   ...CLINICO_VALORA_PLANS,
 ]
 
+// Nombre visible por plan id (para mensajes de código CONVENIO)
+const PLAN_NAMES: Record<string, string> = Object.fromEntries(
+  [...ALL_THERAPY_PLANS, ...COMPANION_PLANS].map(p => [p.id, p.name])
+)
+
 interface ResolvedPlan {
   priceId: string
   quantity: number
@@ -125,7 +130,17 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Este código ha expirado.' }, { status: 403 })
       }
       if (codeRow.plan_id && codeRow.plan_id !== planId) {
-        return NextResponse.json({ error: 'Este código no es válido para el plan seleccionado.' }, { status: 403 })
+        const planDelCodigo = PLAN_NAMES[codeRow.plan_id] ?? codeRow.plan_id
+        return NextResponse.json({
+          error: `Este código no es válido para el plan seleccionado. Tu código es para "${planDelCodigo}".`,
+        }, { status: 403 })
+      }
+      // Los Companion (gratis) solo se activan con un código hecho específicamente para ese Companion;
+      // los códigos "cualquier plan CONVENIO" (plan_id null) sirven solo para los planes CONVENIO de pago.
+      if (resolved.planType === 'companion' && !codeRow.plan_id) {
+        return NextResponse.json({
+          error: `Este código no es válido para "${PLAN_NAMES[planId] ?? planId}". Los paquetes AVI Therapy Companion requieren un código generado específicamente para ese paquete.`,
+        }, { status: 403 })
       }
 
       // Planes CONVENIO con pago (cualquier empresa): el código se marca como usado

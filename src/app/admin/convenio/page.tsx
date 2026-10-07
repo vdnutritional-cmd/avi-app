@@ -23,7 +23,7 @@ interface ConvenioCode {
 }
 
 const PLAN_OPTIONS = [
-  { value: '', label: 'Cualquier plan CONVENIO' },
+  { value: '', label: 'Cualquier plan CONVENIO de pago (no Companion)' },
   { value: 'esencial_valora10', label: 'CONVENIO Esencial 10' },
   { value: 'esencial_valora20', label: 'CONVENIO Esencial 20' },
   { value: 'clinico_valora10',  label: 'CONVENIO Clínico 10' },
@@ -223,7 +223,7 @@ function CodeRow({
   onDeactivate?: () => void
   onActivate?: () => void
 }) {
-  const planLabel = PLAN_OPTIONS.find(o => o.value === (code.plan_id ?? ''))?.label ?? 'Cualquier plan CONVENIO'
+  const planLabel = PLAN_OPTIONS.find(o => o.value === (code.plan_id ?? ''))?.label ?? 'Cualquier plan CONVENIO de pago'
 
   return (
     <div className={`flex flex-col sm:flex-row sm:items-center gap-3 bg-white border rounded-xl px-4 py-3 ${
