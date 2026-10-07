@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, createContext, useContext } from 'react'
 import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
 import {
   ESENCIAL_PLANS,
   ESENCIAL_VALORA_PLANS,
@@ -15,6 +16,12 @@ import {
 } from '@/lib/stripe/plans'
 import SponsorsSection from '@/components/SponsorsSection'
 
+// Sesión de quien compra: la compra o el código se asignan SIEMPRE a la cuenta con sesión.
+// undefined = cargando · null = sin sesión
+type Sesion = { nombre: string; email: string; role: string | null } | null | undefined
+const SesionContext = createContext<Sesion>(undefined)
+const LOGIN_PRICING = '/auth/login?redirect=/pricing'
+
 
 export default function PricingPage() {
   const [tier, setTier] = useState<PlanTier>('esencial')
@@ -27,6 +34,23 @@ export default function PricingPage() {
   const empresasSeleccionadas = [empresa1, empresa2, empresa3]
     .filter(Boolean)
     .filter((v, i, arr) => arr.indexOf(v) === i)
+
+  const [sesion, setSesion] = useState<Sesion>(undefined)
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) { setSesion(null); return }
+      const { data: perfil } = await supabase
+        .from('profiles').select('full_name, role').eq('id', user.id).maybeSingle()
+      setSesion({ nombre: perfil?.full_name ?? '', email: user.email ?? '', role: perfil?.role ?? null })
+    })
+  }, [])
+
+  async function cerrarSesion() {
+    try { await fetch('/api/auth/logout', { method: 'POST' }) } catch { /* ignorar */ }
+    window.location.reload()
+  }
 
   useEffect(() => {
     fetch('/api/convenio-empresas')
@@ -57,6 +81,7 @@ export default function PricingPage() {
   const unitPlanId  = isEsencial ? 'esencial_unit' : 'clinico_unit'
 
   return (
+    <SesionContext.Provider value={sesion}>
     <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white">
       {/* Header */}
       <header className="py-8 px-6 text-center">
@@ -66,6 +91,36 @@ export default function PricingPage() {
           Solo los terapeutas pagan. Los pacientes siempre acceden gratis.
           Cancela o cambia de plan en cualquier momento.
         </p>
+
+        {/* ¿A quién se asigna la compra? → a la cuenta con sesión */}
+        {sesion === null && (
+          <div className="mt-6 max-w-xl mx-auto bg-white border border-purple-200 rounded-2xl px-5 py-4 text-sm text-gray-700">
+            <p>
+              Para contratar un plan o activar un código, <strong>inicia sesión con tu cuenta de terapeuta</strong>.
+              Así la compra queda asignada a tu cuenta.
+            </p>
+            <div className="mt-3 flex justify-center gap-3">
+              <Link href={LOGIN_PRICING} className="bg-purple-700 hover:bg-purple-800 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors">
+                Iniciar sesión
+              </Link>
+              <Link href="/auth/register" className="border border-purple-200 text-purple-700 hover:bg-purple-50 text-sm font-semibold px-4 py-2 rounded-xl transition-colors">
+                ¿No tienes cuenta? Regístrate
+              </Link>
+            </div>
+          </div>
+        )}
+        {sesion && sesion.role === 'therapist' && (
+          <p className="mt-6 text-sm text-gray-600">
+            Comprando como: <strong>{sesion.nombre || sesion.email}</strong> ({sesion.email}) ·{' '}
+            <button onClick={cerrarSesion} className="text-purple-700 underline hover:text-purple-900">¿No eres tú? Cerrar sesión</button>
+          </p>
+        )}
+        {sesion && sesion.role !== 'therapist' && (
+          <p className="mt-6 max-w-xl mx-auto text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-2xl px-5 py-3">
+            Los planes son para terapeutas. Tu acceso a AVI como paciente es gratuito.{' '}
+            <button onClick={cerrarSesion} className="underline">Cerrar sesión</button>
+          </p>
+        )}
       </header>
 
       <main className="max-w-6xl mx-auto px-6 pb-20 space-y-14">
@@ -460,6 +515,7 @@ export default function PricingPage() {
 
       </main>
     </div>
+    </SesionContext.Provider>
   )
 }
 
@@ -478,8 +534,13 @@ function CheckoutButton({
   const [code, setCode] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const sesion = useContext(SesionContext)
+  const sinSesion = sesion === null
+  const noEsTerapeuta = !!sesion && sesion.role !== 'therapist'
 
   async function handleClick() {
+    // La compra se asigna a la cuenta con sesión → primero iniciar sesión
+    if (sinSesion) { window.location.href = LOGIN_PRICING; return }
     if (requiresCode && !showCodeInput) {
       setShowCodeInput(true)
       return
@@ -496,6 +557,7 @@ function CheckoutButton({
         empresaIds: requiresCode ? empresaIds : undefined,
       }),
     })
+    if (res.status === 401) { window.location.href = LOGIN_PRICING; return }
     const data = await res.json()
     setLoading(false)
     if (data.url) {
@@ -529,11 +591,14 @@ function CheckoutButton({
       )}
       <button
         onClick={handleClick}
-        disabled={loading || (showCodeInput && code.trim().length < 3)}
+        disabled={loading || noEsTerapeuta || (showCodeInput && code.trim().length < 3)}
         className={styles}
       >
-        {loading ? 'Verificando…' : showCodeInput ? 'Confirmar y suscribirse' : label}
+        {loading ? 'Verificando…' : sinSesion ? 'Inicia sesión para continuar' : showCodeInput ? 'Confirmar y suscribirse' : label}
       </button>
+      {error && !showCodeInput && (
+        <p className={`text-xs ${variant === 'white' ? 'text-red-200' : 'text-red-600'}`}>{error}</p>
+      )}
     </div>
   )
 }

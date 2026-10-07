@@ -83,6 +83,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
     }
 
+    // La compra/código se asigna a la cuenta con sesión → debe ser terapeuta
+    const { data: perfil } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
+    if (perfil?.role !== 'therapist') {
+      return NextResponse.json({ error: 'Los planes son solo para cuentas de terapeuta.' }, { status: 403 })
+    }
+
     // 2. Parsear body
     const body = await req.json()
     const { planId, slots, convenioCode, empresaIds } = body as {
