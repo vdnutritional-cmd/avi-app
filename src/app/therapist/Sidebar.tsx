@@ -176,6 +176,7 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
               name="institucional"
               label="Administración Institucional"
               icon="🏢"
+              accent
               isOpen={openGroup === 'institucional'}
               onToggle={() => toggleGroup('institucional')}
             >
@@ -215,17 +216,19 @@ function NavLink({ href, icon, label, onClose }: {
   )
 }
 
-function NavGroup({ name, label, icon, isOpen, onToggle, children }: {
+function NavGroup({ name, label, icon, isOpen, onToggle, children, accent = false }: {
   name: string; label: string; icon: string
   isOpen: boolean; onToggle: () => void
   children: React.ReactNode
+  accent?: boolean   // título siempre en color AVI (ej. Administración Institucional)
 }) {
   return (
     <div>
       <button
         onClick={onToggle}
-        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-gray-600
-                   hover:bg-primary-50 hover:text-primary-700 transition-colors text-sm"
+        className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl
+                   hover:bg-primary-50 hover:text-primary-700 transition-colors text-sm
+                   ${accent ? 'text-primary-600 font-semibold' : 'text-gray-600'}`}
         aria-expanded={isOpen}
       >
         <span>{icon}</span>
