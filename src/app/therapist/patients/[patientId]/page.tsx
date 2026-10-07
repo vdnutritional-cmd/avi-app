@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { getAccesoTerapeuta, accesoDePaciente, type AccesoTerapeuta } from '@/lib/acceso-paciente'
 import {
   User, FolderOpen, MessageSquare, FileText, Calendar, Search,
   ArrowRightCircle, Users, Heart, ClipboardList, Activity,
@@ -147,10 +148,8 @@ export default function PatientDetailPage() {
   type PatientTab = 'datos-generales' | 'tipo-caso' | 'sesiones' | 'presenciales' | 'analisis' | 'nota' | 'derivaciones-cierres' | 'individual' | 'familiar' | 'pareja' | 'prediagnostico' | 'analisis-clinicos' | 'cuestionarios' | 'impresiones'
   const [activeTab, setActiveTab] = useState<PatientTab>('datos-generales')
   const [therapistId, setTherapistId] = useState<string | null>(null)
-  const [tier, setTier] = useState<'esencial' | 'clinico'>('esencial')
-  const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null)
-  // Opción B: bundle companion activo para pacientes independientes (empresa_id=null)
-  const [hasCompanionBundle, setHasCompanionBundle] = useState(false)
+  // Acceso del terapeuta (regla "la empresa paga") — nivel y bloqueo se calculan por paciente
+  const [acceso, setAcceso] = useState<AccesoTerapeuta | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
   const streamRef = useRef<HTMLDivElement>(null)
 
@@ -163,30 +162,8 @@ export default function PatientDetailPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (user?.id) setTherapistId(user.id)
 
-    // Obtener suscripción + bundle companion del terapeuta en paralelo
-    if (user?.id) {
-      const [subRes, bundleRes] = await Promise.all([
-        supabase
-          .from('subscriptions')
-          .select('tier, status')
-          .eq('therapist_id', user.id)
-          .maybeSingle(),
-        // Bundle con empresa_id=null = cubre pacientes independientes (companion o regular)
-        supabase
-          .from('therapist_slot_bundles')
-          .select('id')
-          .eq('therapist_id', user.id)
-          .eq('status', 'active')
-          .is('empresa_id', null)
-          .limit(1),
-      ])
-      const sub = subRes.data
-      const hasBundle = (bundleRes.data ?? []).length > 0
-      setHasCompanionBundle(hasBundle)
-      setSubscriptionStatus(sub?.status ?? null)
-      // Tier: clinico si la suscripción es clinico, O si hay bundle companion (que incluye ambos módulos)
-      if (sub?.tier === 'clinico' || hasBundle) setTier('clinico')
-    }
+    // Plan, empresas y cupo de independientes del terapeuta
+    if (user?.id) setAcceso(await getAccesoTerapeuta(supabase, user.id))
 
     const [profileRes, patternsRes, analysesRes, relationRes, sessionNotesRes, expedienteRes, therapistProfileRes] = await Promise.all([
       supabase.from('profiles').select('full_name, email').eq('id', patientId).single(),
@@ -216,14 +193,18 @@ export default function PatientDetailPage() {
     setEmpresaId(idEmpresa)
     setSelectedEmpresaId(idEmpresa ?? '')
 
-    // Cargar lista de empresas para el editor
-    try {
-      const empRes = await fetch('/api/convenio-empresas')
-      if (empRes.ok) {
-        const empData = await empRes.json()
-        setEmpresasList(empData.empresas ?? [])
-      }
-    } catch { /* sin empresas disponibles */ }
+    // Lista de empresas para el editor: solo las empresas CONVENIO activas del terapeuta
+    if (user?.id) {
+      const { data: empRels } = await supabase
+        .from('therapist_empresa')
+        .select('empresa_id, convenio_empresas(nombre, is_active)')
+        .eq('therapist_id', user.id)
+      setEmpresasList((empRels ?? []).flatMap(r => {
+        const raw = r.convenio_empresas as { nombre?: string; is_active?: boolean } | { nombre?: string; is_active?: boolean }[] | null
+        const e = Array.isArray(raw) ? raw[0] : raw
+        return e?.is_active ? [{ id: r.empresa_id as string, nombre: e.nombre ?? '' }] : []
+      }))
+    }
 
     if (relationRes.data?.initial_note) {
       setInitialNote(relationRes.data.initial_note)
@@ -330,6 +311,8 @@ export default function PatientDetailPage() {
     setEmpresaNombre(empresasList.find(e => e.id === nuevoId)?.nombre ?? null)
     setEditingEmpresa(false)
     setSavingEmpresa(false)
+    // Cambiar la empresa cambia el conteo de independientes → recalcular acceso
+    setAcceso(await getAccesoTerapeuta(supabase, user.id))
   }
 
   async function saveName() {
@@ -608,21 +591,14 @@ export default function PatientDetailPage() {
   const tipoFamActive = !tipoCasoActivo || tipoCasoActivo === 'Familiar'
   const tipoParActive = !tipoCasoActivo || tipoCasoActivo === 'Pareja'
 
-  // ── Bloqueo de paciente sin convenio + sin plan pagado ────────────────────
-  // Un paciente está bloqueado cuando no tiene empresa CONVENIO (empresa_id=null)
-  // y el terapeuta NO tiene plan Stripe activo NI un bundle companion para independientes.
-  //
-  // Opción B: si el terapeuta tiene un bundle companion activo (empresa_id=null),
-  // sus pacientes independientes quedan cubiertos aunque el plan principal sea CONVENIO.
-  const PAID_STATUSES_PATIENT = ['active', 'trialing']
-  const pacienteBlockeado =
-    empresaId === null &&
-    subscriptionStatus !== null &&
-    !PAID_STATUSES_PATIENT.includes(subscriptionStatus) &&
-    !hasCompanionBundle
+  // ── Nivel y bloqueo del paciente (regla "la empresa paga", src/lib/acceso-paciente.ts) ──
+  // Empresa CONVENIO → Clínico, nunca bloqueado. Independiente → nivel del plan del
+  // terapeuta; bloqueado si no hay plan o si quedó fuera del cupo (los más recientes).
+  const accesoPac = acceso ? accesoDePaciente(acceso, patientId, empresaId) : null
+  const pacienteBlockeado = accesoPac?.bloqueado ?? false
 
   // ── Helpers para sidebar ───────────────────────────────────────────────────
-  const isClinico = tier === 'clinico'
+  const isClinico = accesoPac?.tier === 'clinico'
   type SidebarItem = {
     id: PatientTab
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -914,7 +890,11 @@ export default function PatientDetailPage() {
           </div>
           <h3 className="text-lg font-semibold text-gray-800 mb-2">Paciente sin cobertura activa</h3>
           <p className="text-gray-500 text-sm max-w-sm mb-1">
-            Este asesorado <strong>no está asociado a ningún convenio institucional</strong> y tu plan actual no cubre pacientes fuera de convenio.
+            {acceso?.tienePlan ? (
+              <>Este asesorado <strong>no está asociado a ningún convenio institucional</strong> y ya alcanzaste el cupo de {acceso.indepSlots} pacientes independientes de tu plan ({acceso.indepCount} registrados).</>
+            ) : (
+              <>Este asesorado <strong>no está asociado a ningún convenio institucional</strong> y no tienes un plan que cubra pacientes fuera de convenio.</>
+            )}
           </p>
           <p className="text-gray-400 text-sm max-w-sm mb-6">
             Para acceder a todos sus módulos AVI, contrata un plan Esencial o Clínico que cubra pacientes sin convenio, o asigna este asesorado a una empresa en convenio.

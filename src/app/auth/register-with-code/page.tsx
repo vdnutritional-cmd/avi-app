@@ -67,10 +67,11 @@ export default function RegisterWithCodePage() {
 
     setTherapistId(data.therapist_id)
     setCodeId(data.id)
+    const codeRowId = data.id
 
-    // Cargar empresas en CONVENIO para el dropdown
+    // Cargar solo las empresas en CONVENIO de su terapeuta para el dropdown
     try {
-      const res = await fetch('/api/convenio-empresas')
+      const res = await fetch(`/api/convenio-empresas?codeId=${encodeURIComponent(codeRowId)}`)
       if (res.ok) {
         const data = await res.json()
         setEmpresas(data.empresas ?? [])

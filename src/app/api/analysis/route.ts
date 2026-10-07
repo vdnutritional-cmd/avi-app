@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { buildConsultamePrompt } from '@/lib/prompts/consultame-prompt'
 import { retrieveChunksByProfile, buildRagQuery } from '@/lib/rag/retrieve-chunks'
 import { logApiAccess } from '@/lib/audit/log-access'
+import { getAccesoTerapeuta, accesoDePaciente } from '@/lib/acceso-paciente'
 
 export const maxDuration = 300 // 5 minutos — el análisis clínico completo puede tardar
 
@@ -24,7 +25,7 @@ export async function POST(request: NextRequest) {
     // Verificar que el paciente pertenece al terapeuta
     const { data: relation } = await supabase
       .from('therapist_patients')
-      .select('patient_id, initial_note, initial_note_motivo, initial_note_subyacente, initial_note_premisas')
+      .select('patient_id, empresa_id, initial_note, initial_note_motivo, initial_note_subyacente, initial_note_premisas')
       .eq('therapist_id', user.id)
       .eq('patient_id', patientId)
       .eq('is_active', true)
@@ -52,17 +53,12 @@ export async function POST(request: NextRequest) {
       }, { status: 429 })
     }
 
-    // ── Obtener tier del terapeuta ────────────────────────────────────────────
-    const { data: subData } = await supabase
-      .from('subscriptions')
-      .select('tier')
-      .eq('therapist_id', user.id)
-      .in('status', ['active', 'trialing'])
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-
-    const tier: 'esencial' | 'clinico' = subData?.tier === 'clinico' ? 'clinico' : 'esencial'
+    // ── Nivel del paciente (regla "la empresa paga") ─────────────────────────
+    const acceso = await getAccesoTerapeuta(supabase, user.id)
+    const { tier, bloqueado } = accesoDePaciente(acceso, patientId, relation.empresa_id ?? null)
+    if (bloqueado) {
+      return NextResponse.json({ error: 'Paciente sin cobertura activa — contrata un plan para acceder' }, { status: 403 })
+    }
 
     // ── Perfil del paciente ───────────────────────────────────────────────────
     const { data: profile } = await supabase

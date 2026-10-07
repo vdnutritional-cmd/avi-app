@@ -15,9 +15,10 @@ interface SidebarProps {
   disabled?: boolean              // nav en gris — opera_como_terapeuta=false
   hideInstitucionalLink?: boolean // ocultar link "Administración Institucional" (ya estás ahí)
   canGestionarBajas?: boolean     // true si el PI tiene nivel N1 o N2
+  accesoConvenio?: boolean        // sin plan propio, entra por su empresa CONVENIO
 }
 
-export default function Sidebar({ fullName, email, subscriptionStatus, patientSlots, tier, isInstitucional, hasEmpresas, disabled, hideInstitucionalLink, canGestionarBajas }: SidebarProps) {
+export default function Sidebar({ fullName, email, subscriptionStatus, patientSlots, tier, isInstitucional, hasEmpresas, disabled, hideInstitucionalLink, canGestionarBajas, accesoConvenio }: SidebarProps) {
   const [open, setOpen] = useState(false)
   const [openGroup, setOpenGroup] = useState<string | null>(null)
 
@@ -170,7 +171,13 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
         {/* Separador + Plan + Logout — justo bajo el nav */}
         <div className="mx-4 border-t border-gray-100" />
         <div className="p-4 space-y-3">
-          <PlanBadge status={subscriptionStatus} patientSlots={patientSlots} tier={tier} />
+          {accesoConvenio ? (
+            <span className="text-xs text-primary-700 bg-primary-50 px-3 py-1 rounded-full">
+              🏢 Acceso por CONVENIO
+            </span>
+          ) : (
+            <PlanBadge status={subscriptionStatus} patientSlots={patientSlots} tier={tier} />
+          )}
           {isInstitucional && !hideInstitucionalLink && (
             <NavGroup
               name="institucional"

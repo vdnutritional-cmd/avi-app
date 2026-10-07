@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
+import { getAccesoTerapeuta } from '@/lib/acceso-paciente'
 
 interface Code {
   code: string
@@ -35,64 +36,16 @@ export default function CodesPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
-    // Consultas en paralelo
-    const [subRes, bundleRes, allPatientsRes, indepPatientsRes] = await Promise.all([
-      // Suscripción activa
-      supabase
-        .from('subscriptions')
-        .select('patient_slots, status, plan')
-        .eq('therapist_id', user.id)
-        .maybeSingle(),
-
-      // Bundle companion activo para pacientes independientes (empresa_id=null)
-      supabase
-        .from('therapist_slot_bundles')
-        .select('patient_slots')
-        .eq('therapist_id', user.id)
-        .eq('status', 'active')
-        .is('empresa_id', null)
-        .limit(1),
-
-      // Total pacientes activos (para plan regular)
-      supabase
-        .from('therapist_patients')
-        .select('*', { count: 'exact', head: true })
-        .eq('therapist_id', user.id)
-        .eq('is_active', true),
-
-      // Pacientes independientes activos (empresa_id=null, para plan companion)
-      supabase
-        .from('therapist_patients')
-        .select('*', { count: 'exact', head: true })
-        .eq('therapist_id', user.id)
-        .eq('is_active', true)
-        .is('empresa_id', null),
-    ])
-
-    const sub = subRes.data
-    const companionBundle = bundleRes.data?.[0] ?? null
-    const allCount = allPatientsRes.count ?? 0
-    const indepCount = indepPatientsRes.count ?? 0
-
-    if (companionBundle) {
-      // Opción B: el límite aplica SOLO a pacientes independientes (sin empresa/CONVENIO)
-      // Los pacientes CONVENIO (empresa_id != null) son ilimitados para el terapeuta.
-      setSlots({
-        used: indepCount,
-        total: companionBundle.patient_slots,
-        hasAccess: true,
-        isCompanion: true,
-      })
-    } else {
-      // Plan regular (paid, valora, free_approved) o beta sin suscripción
-      const hasAccess = !sub || ['active', 'free_approved', 'trialing'].includes(sub?.status ?? '')
-      setSlots({
-        used: allCount,
-        total: sub?.patient_slots ?? null,
-        hasAccess,
-        isCompanion: false,
-      })
-    }
+    // Regla "la empresa paga": solo los pacientes independientes cuentan contra el cupo.
+    // El contador es informativo — generar códigos y registrar pacientes nunca se bloquea;
+    // los independientes fuera de cupo quedan bloqueados después, en su expediente.
+    const acceso = await getAccesoTerapeuta(supabase, user.id)
+    setSlots({
+      used: acceso.indepCount,
+      total: acceso.tienePlan ? acceso.indepSlots : 0,
+      hasAccess: acceso.tienePlan || acceso.tieneEmpresa,
+      isCompanion: false,
+    })
   }
 
   async function loadCodes() {
@@ -115,20 +68,7 @@ export default function CodesPage() {
 
   async function generateCode() {
     setError(null)
-
-    // Verificar límite de pacientes
-    if (slots?.total !== null && slots !== null && slots.used >= (slots.total ?? 0)) {
-      if (slots.isCompanion) {
-        setError(
-          `Has alcanzado el límite de ${slots.total} pacientes independientes en tu plan AVI Therapy Companion. ` +
-          `Adquiere un plan pagado o solicita un nuevo código Companion para agregar más.`
-        )
-      } else {
-        setError(`Has alcanzado tu límite de ${slots.total} pacientes. Actualiza tu plan para agregar más.`)
-      }
-      return
-    }
-
+    // Sin bloqueo por cupo: todo paciente debe poder registrarse (el límite se aplica después)
     setGenerating(true)
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -144,8 +84,6 @@ export default function CodesPage() {
     if (!insertError) {
       setCodes(prev => [{ code: newCode, used: false, created_at: new Date().toISOString() }, ...prev])
       if (!loaded) setLoaded(true)
-      // Actualizar contador de slots
-      setSlots(prev => prev ? { ...prev, used: prev.used + 1 } : prev)
     }
     setGenerating(false)
   }
@@ -176,14 +114,11 @@ export default function CodesPage() {
             <p className={`text-sm font-medium ${
               slots.isCompanion ? 'text-emerald-800' : 'text-purple-800'
             }`}>
-              {slots.isCompanion
-                ? `Pacientes independientes: ${slots.used} / ${slots.total}`
-                : `Pacientes activos: ${slots.used} / ${slots.total}`
-              }
+              {`Pacientes independientes: ${slots.used} / ${slots.total}`}
             </p>
-            {slots.isCompanion && (
-              <p className="text-xs text-emerald-600 mt-0.5">Plan AVI Therapy Companion</p>
-            )}
+            <p className="text-xs text-purple-600 mt-0.5">
+              Los pacientes de empresas en CONVENIO no cuentan en este límite.
+            </p>
             <div className={`mt-1.5 h-1.5 rounded-full w-48 ${
               slots.isCompanion ? 'bg-emerald-100' : 'bg-purple-100'
             }`}>
@@ -224,7 +159,7 @@ export default function CodesPage() {
       <div className="flex gap-3">
         <button
           onClick={generateCode}
-          disabled={generating || !!slotsExhausted}
+          disabled={generating}
           className="flex-1 bg-purple-700 hover:bg-purple-800 text-white rounded-xl py-3 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {generating ? 'Generando...' : '+ Generar código nuevo'}

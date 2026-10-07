@@ -29,7 +29,7 @@ type ReportId =
   | 'hc-original' | 'hc-actualizada' | 'valorativo' | 'integracion' | 'proceso'
 
 interface Empresa  { id: string; nombre: string; logo_url: string | null }
-interface Paciente { id: string; nombre: string; empresa_id: string | null }
+interface Paciente { id: string; nombre: string; empresa_id: string | null; tier?: 'esencial' | 'clinico'; bloqueado?: boolean }
 interface Props    { tier: string | null; terapeutaNombre: string }
 
 // ── Catálogos ─────────────────────────────────────────────────
@@ -51,7 +51,6 @@ const CLINICO_ITEMS: { id: ReportId; label: string }[] = [
 
 // ── Componente principal ──────────────────────────────────────
 export default function ReportesPageClient({ tier, terapeutaNombre }: Props) {
-  const isClinico = tier === 'clinico'
 
   // Estado general
   const [loaded,            setLoaded]            = useState(false)
@@ -60,6 +59,12 @@ export default function ReportesPageClient({ tier, terapeutaNombre }: Props) {
   const [selectedEmpresaId, setSelectedEmpresaId] = useState('')   // '' = sin selección
   const [pid,               setPid]               = useState('')
   const [selected,          setSelected]          = useState<ReportId | null>(null)
+
+  // Nivel por paciente: empresa CONVENIO → Clínico; independiente → plan del terapeuta
+  const pacienteSel = pacientes.find(p => p.id === pid)
+  const isClinico = pacienteSel?.tier ? pacienteSel.tier === 'clinico' : tier === 'clinico'
+  // Paciente bloqueado (sin plan o fuera de cupo): solo Datos Generales
+  const pacienteBloqueado = pacienteSel?.bloqueado ?? false
 
   // Sesiones
   const [sesiones,   setSesiones]   = useState<{ id: string; label: string; date: string }[]>([])
@@ -255,6 +260,7 @@ export default function ReportesPageClient({ tier, terapeutaNombre }: Props) {
   // ── Util: ¿el reporte seleccionado puede imprimirse ya? ───
   function canPrint(): boolean {
     if (!pid || !selected) return false
+    if (pacienteBloqueado && selected !== 'datos-generales') return false
     if (selected === 'analisis' && !analisisOpt) return false
     if (selected === 'reporte-atencion' && sesiones.length === 0) return false
     if (CLINICO_ITEMS.some(i => i.id === selected) && !isClinico) return false

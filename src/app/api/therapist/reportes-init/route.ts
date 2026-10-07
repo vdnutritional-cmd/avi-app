@@ -5,6 +5,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getAccesoTerapeuta, accesoDePaciente } from '@/lib/acceso-paciente'
 
 export const dynamic = 'force-dynamic'
 
@@ -46,12 +47,21 @@ export async function GET() {
     ? await admin.from('profiles').select('id, full_name, email').in('id', pacienteIds)
     : { data: [] }
 
+  // Nivel y bloqueo por paciente (regla "la empresa paga")
+  const acceso = await getAccesoTerapeuta(admin, therapistId)
+
   const pacientesActivos = (profiles ?? [])
-    .map(p => ({
-      id:        p.id,
-      nombre:    p.full_name ?? p.email ?? p.id,
-      empresa_id: empresaMap[p.id] ?? null,
-    }))
+    .map(p => {
+      const empresa_id = empresaMap[p.id] ?? null
+      const { tier, bloqueado } = accesoDePaciente(acceso, p.id, empresa_id)
+      return {
+        id:        p.id,
+        nombre:    p.full_name ?? p.email ?? p.id,
+        empresa_id,
+        tier,
+        bloqueado,
+      }
+    })
     .sort((a, b) => a.nombre.localeCompare(b.nombre))
 
   return NextResponse.json({ empresas, pacientesActivos })

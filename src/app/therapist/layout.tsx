@@ -50,11 +50,15 @@ export default async function TherapistLayout({ children }: { children: React.Re
   // independientemente de si son Persona Institucional.
   const { data: empresaRels } = await admin
     .from('therapist_empresa')
-    .select('empresa_id')
+    .select('empresa_id, convenio_empresas(is_active)')
     .eq('therapist_id', user.id)
-    .limit(1)
 
   const hasEmpresas = (empresaRels?.length ?? 0) > 0
+  // Regla "la empresa paga": con al menos una empresa CONVENIO activa entra aunque no tenga plan propio
+  const hasEmpresaActiva = (empresaRels ?? []).some(r => {
+    const e = r.convenio_empresas as { is_active?: boolean } | { is_active?: boolean }[] | null
+    return (Array.isArray(e) ? e[0] : e)?.is_active === true
+  })
 
   const { data: subscription } = await supabase
     .from('subscriptions')
@@ -62,9 +66,9 @@ export default async function TherapistLayout({ children }: { children: React.Re
     .eq('therapist_id', user.id)
     .single()
 
-  // ── Gate: sin plan activo → pantalla de activación ──
-  const hasAccess = subscription && ACTIVE_STATUSES.includes(subscription.status)
-  if (!hasAccess) {
+  // ── Gate: sin plan activo NI empresa CONVENIO activa → pantalla de activación ──
+  const hasPlan = !!subscription && ACTIVE_STATUSES.includes(subscription.status)
+  if (!hasPlan && !hasEmpresaActiva) {
     return <ActivarPlan therapistName={profile?.full_name ?? ''} />
   }
 
@@ -79,6 +83,7 @@ export default async function TherapistLayout({ children }: { children: React.Re
           tier={subscription?.tier ?? null}
           isInstitucional={hasPI}
           hasEmpresas={hasEmpresas}
+          accesoConvenio={!hasPlan && hasEmpresaActiva}
         />
 
         {/* Contenido principal — padding-top extra en móvil para el botón hamburger */}

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getEmpresasDeTerapeuta } from '@/lib/empresas-terapeuta'
 
 /**
  * POST /api/auth/confirm-patient
@@ -71,13 +72,17 @@ export async function POST(req: NextRequest) {
 
     // 3. Vincular paciente con terapeuta (incluye empresa si el paciente seleccionó una)
     if (therapistId) {
+      // La empresa solo se acepta si es una empresa CONVENIO activa del propio terapeuta
+      const empresasTerapeuta = empresaId ? await getEmpresasDeTerapeuta(admin, therapistId) : []
+      const empresaValida = empresaId && empresasTerapeuta.some(e => e.id === empresaId) ? empresaId : null
+
       const { error: linkError } = await admin
         .from('therapist_patients')
         .insert({
           therapist_id: therapistId,
           patient_id: userId,
           authorization_code_id: codeId ?? null,
-          empresa_id: empresaId ?? null,
+          empresa_id: empresaValida,
         })
 
       if (linkError) {

@@ -30,7 +30,7 @@ type ReportId =
   | 'hc-original' | 'hc-actualizada' | 'valorativo' | 'integracion' | 'proceso'
 
 interface Empresa  { id: string; nombre: string; logo_url: string | null }
-interface Paciente { id: string; nombre: string }
+interface Paciente { id: string; nombre: string; tier?: 'esencial' | 'clinico'; bloqueado?: boolean }
 
 interface Props {
   tier:            string | null
@@ -85,7 +85,11 @@ export default function ReportesPanel({ tier, terapeutaNombre }: Props) {
   // Cache de datos pre-cargados para el reporte Datos Generales
   const [dgCache, setDgCache] = useState<DGPreloaded | null>(null)
 
-  const isClinico = tier === 'clinico'
+  // Nivel por paciente: empresa CONVENIO → Clínico; independiente → plan del terapeuta
+  const pacienteSel = pacientes.find(p => p.id === pid)
+  const isClinico = pacienteSel?.tier ? pacienteSel.tier === 'clinico' : tier === 'clinico'
+  // Paciente bloqueado (sin plan o fuera de cupo): solo Datos Generales
+  const pacienteBloqueado = pacienteSel?.bloqueado ?? false
 
   // ── Escuchar evento ───────────────────────────────────────────
   useEffect(() => {
@@ -168,6 +172,7 @@ export default function ReportesPanel({ tier, terapeutaNombre }: Props) {
 
   function canPrint(): boolean {
     if (!pid || !selected) return false
+    if (pacienteBloqueado && selected !== 'datos-generales') return false
     if (selected === 'analisis' && !analisisOpt) return false
     if (selected === 'reporte-atencion' && sesiones.length === 0) return false
     if (CLINICO_ITEMS.some(i => i.id === selected) && !isClinico) return false
