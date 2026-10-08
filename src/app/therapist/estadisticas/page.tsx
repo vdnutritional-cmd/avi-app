@@ -538,9 +538,9 @@ function renderPage({
         )}
       </section>
 
-      {/* ── D. Derivaciones y Cierres ──────────────────────────────────────── */}
+      {/* ── D. Derivaciones ───────────────────────────────────────────────── */}
       <section className="space-y-3">
-        <SectionTitle destacado>Derivaciones y Cierres</SectionTitle>
+        <SectionTitle destacado>Derivaciones</SectionTitle>
 
         <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-3">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Derivaciones</p>
@@ -561,10 +561,17 @@ function renderPage({
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           <MetricCard label="Casos de riesgo"           value={casosRiesgo}       sub="con respuesta SI" color="red"   />
           <MetricCard label="Asistencia de seguimiento" value={asistSeguimiento}  sub="con respuesta SI"              />
-          <MetricCard label="Percepción de alivio"      value={percepcionAlivio}  sub="con respuesta SI" color="green"/>
-          <MetricCard label="Cambios en funcionamiento" value={cambioFunc}        sub="con respuesta SI"              />
-          <MetricCard label="Abandono"                  value={abandono}          sub="marcados como abandono" color="amber"/>
           <MetricCard label="Atención especializada"    value={atenEspecializada} sub="con respuesta SI" color="blue" />
+        </div>
+      </section>
+
+      {/* ── Cierres ────────────────────────────────────────────────────────── */}
+      <section className="space-y-3">
+        <SectionTitle destacado>Cierres</SectionTitle>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <MetricCard label="Cambios en funcionamiento" value={cambioFunc}        sub="con respuesta SI"              />
+          <MetricCard label="Percepción de alivio"      value={percepcionAlivio}  sub="con respuesta SI" color="green"/>
+          <MetricCard label="Abandono"                  value={abandono}          sub="marcados como abandono" color="amber"/>
         </div>
       </section>
 
