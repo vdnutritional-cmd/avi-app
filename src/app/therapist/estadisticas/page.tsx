@@ -478,7 +478,7 @@ function renderPage({
       {/* ── B. Sesiones por institución ────────────────────────────────────── */}
       {totalSesiones > 0 && (
         <section className="space-y-3">
-          <SectionTitle>Sesiones por institución</SectionTitle>
+          <SectionTitle destacado>Sesiones por institución</SectionTitle>
           <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
             <table className="w-full text-sm">
               <thead>
@@ -540,7 +540,7 @@ function renderPage({
 
       {/* ── D. Derivaciones y Cierres ──────────────────────────────────────── */}
       <section className="space-y-3">
-        <SectionTitle>Derivaciones y Cierres</SectionTitle>
+        <SectionTitle destacado>Derivaciones y Cierres</SectionTitle>
 
         <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-3">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Derivaciones</p>
@@ -661,8 +661,11 @@ function renderPage({
 
 // ── Componentes auxiliares ────────────────────────────────────────────────────
 
-function SectionTitle({ children }: { children: React.ReactNode }) {
-  return <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wide">{children}</h2>
+function SectionTitle({ children, destacado }: { children: React.ReactNode; destacado?: boolean }) {
+  const cls = destacado
+    ? 'text-sm font-bold text-primary-600 uppercase tracking-wide'
+    : 'text-xs font-semibold text-gray-400 uppercase tracking-wide'
+  return <h2 className={cls}>{children}</h2>
 }
 
 function KpiCard({ label, value, sub, accent, color }: {
