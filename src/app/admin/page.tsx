@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import Link from 'next/link'
+import { getAccesoTerapeuta, type AccesoTerapeuta } from '@/lib/acceso-paciente'
 
 // ── Server Actions ────────────────────────────────────────────────────────────
 
@@ -42,6 +43,72 @@ function StatCard({ label, value, sub, color = 'gray' }: {
   )
 }
 
+// Acordeón de un terapeuta con sus pacientes sin convenio y sesiones del mes
+function CumplimientoTerapeuta({ t, tier, cupo, pacientes, alerta, badge }: {
+  t: { id: string; full_name: string | null; email: string | null }
+  status: string | undefined
+  tier: string | null | undefined
+  cupo: string
+  pacientes: { id: string; nombre: string; sesionesMes: number; cubierto: boolean }[]
+  alerta: boolean
+  badge: React.ReactNode
+}) {
+  const bloqueados = pacientes.filter(p => !p.cubierto).length
+  const totalSesiones = pacientes.reduce((n, p) => n + p.sesionesMes, 0)
+  return (
+    <details className={`bg-white border rounded-2xl overflow-hidden group ${alerta ? 'border-red-200' : 'border-green-200'}`}>
+      <summary className="flex flex-wrap items-center gap-3 justify-between px-5 py-3.5 cursor-pointer list-none">
+        <div>
+          <p className="font-medium text-gray-800 text-sm">{t.full_name ?? '—'}</p>
+          <p className="text-xs text-gray-400">
+            {t.email} · {badge} · {tier ?? 'sin plan'} · {cupo}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs font-semibold text-gray-600 bg-gray-50 px-2 py-1 rounded-full">
+            {pacientes.length} {pacientes.length === 1 ? 'paciente' : 'pacientes'} · {totalSesiones} ses. este mes
+          </span>
+          {bloqueados > 0 && (
+            <span className="text-xs font-semibold text-red-600 bg-red-50 px-2 py-1 rounded-full">
+              {bloqueados} {bloqueados === 1 ? 'bloqueado' : 'bloqueados'}
+            </span>
+          )}
+          <svg className="w-4 h-4 text-gray-400 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
+      </summary>
+      <div className={`border-t px-5 py-3 ${alerta ? 'border-red-100 bg-red-50/40' : 'border-green-100 bg-green-50/40'}`}>
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="text-gray-500">
+              <th className="text-left font-medium pb-1">Paciente sin convenio</th>
+              <th className="text-right font-medium pb-1">Sesiones del mes</th>
+              <th className="text-right font-medium pb-1">Acceso</th>
+            </tr>
+          </thead>
+          <tbody>
+            {pacientes.map(p => (
+              <tr key={p.id} className="border-t border-white/70">
+                <td className="py-1 text-gray-700">{p.nombre}</td>
+                <td className="py-1 text-right text-gray-700">{p.sesionesMes || ''}</td>
+                <td className={`py-1 text-right font-medium ${p.cubierto ? 'text-green-700' : 'text-red-600'}`}>
+                  {p.cubierto ? 'Cubierto' : 'Bloqueado'}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div className="mt-3 pt-3 border-t border-gray-200 flex gap-3">
+          <Link href="/admin/terapeutas" className="text-xs text-primary-600 hover:underline">
+            Gestionar terapeuta →
+          </Link>
+        </div>
+      </div>
+    </details>
+  )
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default async function AdminPanelPage() {
@@ -65,7 +132,7 @@ export default async function AdminPanelPage() {
     // Pacientes activos con empresa_id (para saber cuáles son CONVENIO)
     supabase
       .from('therapist_patients')
-      .select('therapist_id, patient_id, empresa_id, profiles!therapist_patients_patient_id_fkey(full_name, email)')
+      .select('therapist_id, patient_id, empresa_id, initial_note_date, profiles!therapist_patients_patient_id_fkey(full_name, email)')
       .eq('is_active', true)
       .neq('status', 'archived'),
     supabase
@@ -79,7 +146,6 @@ export default async function AdminPanelPage() {
 
   // Terapeutas activos (con plan vigente)
   const ACTIVE_STATUSES = ['active', 'trialing', 'free_approved']
-  const PAID_STATUSES   = ['active', 'trialing']
 
   const activos   = terapeutasList.filter(t => t.is_active !== false && ACTIVE_STATUSES.includes(subMap.get(t.id)?.status ?? ''))
   const pendientes = terapeutasList.filter(t => t.is_active !== false && !subMap.has(t.id))
@@ -91,6 +157,7 @@ export default async function AdminPanelPage() {
     therapist_id: string
     patient_id: string
     empresa_id: string | null
+    initial_note_date: string | null
     profiles: { full_name: string | null; email: string | null } | null
   }
 
@@ -115,28 +182,65 @@ export default async function AdminPanelPage() {
   })
 
   // ── 3. Bloque de cumplimiento ──────────────────────────────────────────────
-  // Todos los terapeutas (activos + cualquier estado) que tienen pacientes sin convenio
-  // Separar: los que tienen plan pagado (OK) y los que NO (bloqueados)
+  // Misma regla que el resto de AVI (src/lib/acceso-paciente.ts): cubren a los
+  // independientes el plan pagado, el aprobado por admin (free_approved) y el
+  // Companion, dentro de su cupo; los más recientes fuera de cupo quedan bloqueados.
   const todosConSinConvenio = terapeutasList.filter(t => {
     if (t.is_active === false) return false
     const pacs = pacientesPorTerapeuta.get(t.id) ?? []
     return pacs.some(p => p.empresa_id === null)
   })
 
-  const cumplimientoOK = todosConSinConvenio.filter(t => PAID_STATUSES.includes(subMap.get(t.id)?.status ?? ''))
-  const cumplimientoAlert = todosConSinConvenio.filter(t => !PAID_STATUSES.includes(subMap.get(t.id)?.status ?? ''))
+  const accesoPorTerapeuta = new Map<string, AccesoTerapeuta>(
+    await Promise.all(todosConSinConvenio.map(async t => [t.id, await getAccesoTerapeuta(supabase, t.id)] as const))
+  )
 
-  // Para cada terapeuta en alerta: lista de pacientes sin convenio (bloqueados)
+  // Sesiones del mes en curso por paciente (presenciales + nota inicial del mes)
+  const ahora = new Date()
+  const mesInicio = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}-01`
+  const mesSiguiente = new Date(ahora.getFullYear(), ahora.getMonth() + 1, 1).toISOString().split('T')[0]
+  const nombreMesActual = ahora.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' })
+  const indepIds = (pacientesList as unknown as PacienteRow[]).filter(p => p.empresa_id === null).map(p => p.patient_id)
+  const { data: sesionesMes } = indepIds.length > 0
+    ? await supabase.from('therapist_session_notes')
+        .select('therapist_id, patient_id')
+        .in('patient_id', indepIds)
+        .gte('session_date', mesInicio)
+        .lt('session_date', mesSiguiente)
+    : { data: [] as { therapist_id: string; patient_id: string }[] }
+  const sesionesKey = new Map<string, number>()
+  for (const s of sesionesMes ?? []) {
+    const k = `${s.therapist_id}:${s.patient_id}`
+    sesionesKey.set(k, (sesionesKey.get(k) ?? 0) + 1)
+  }
+
+  // Pacientes sin convenio de un terapeuta, con sesiones del mes y cobertura
   function getSinConvenioPacientes(therapistId: string) {
+    const acceso = accesoPorTerapeuta.get(therapistId)
     return (pacientesPorTerapeuta.get(therapistId) ?? [])
       .filter(p => p.empresa_id === null)
       .map(p => {
         const prof = Array.isArray(p.profiles) ? (p.profiles as unknown[])[0] as { full_name: string | null; email: string | null } : p.profiles
+        const notaMes = p.initial_note_date != null && p.initial_note_date >= mesInicio && p.initial_note_date < mesSiguiente ? 1 : 0
         return {
           id: p.patient_id,
           nombre: prof?.full_name ?? prof?.email ?? p.patient_id,
+          sesionesMes: (sesionesKey.get(`${therapistId}:${p.patient_id}`) ?? 0) + notaMes,
+          cubierto: acceso ? acceso.indepPermitidos.has(p.patient_id) : false,
         }
       })
+      .sort((a, b) => Number(a.cubierto) - Number(b.cubierto) || a.nombre.localeCompare(b.nombre))
+  }
+
+  const tieneBloqueados = (therapistId: string) => getSinConvenioPacientes(therapistId).some(p => !p.cubierto)
+  const cumplimientoOK    = todosConSinConvenio.filter(t => !tieneBloqueados(t.id))
+  const cumplimientoAlert = todosConSinConvenio.filter(t =>  tieneBloqueados(t.id))
+
+  // Texto del cupo de independientes: "3 / 10" o "3 / sin límite"
+  function cupoTexto(therapistId: string) {
+    const a = accesoPorTerapeuta.get(therapistId)
+    if (!a || !a.tienePlan) return 'sin plan para independientes'
+    return `independientes ${a.indepCount} / ${a.indepSlots ?? 'sin límite'}`
   }
 
   function fmtDate(iso: string) {
@@ -252,8 +356,9 @@ export default async function AdminPanelPage() {
       <section>
         <h2 className="text-base font-semibold text-gray-700 mb-1">Cumplimiento — Pacientes sin convenio</h2>
         <p className="text-xs text-gray-400 mb-4">
-          Terapeutas que tienen pacientes fuera de convenio institucional.
-          Para atender esos pacientes deben contar con un plan Stripe activo (Esencial o Clínico).
+          Terapeutas con pacientes fuera de convenio institucional. Los cubre un plan pagado, un plan aprobado
+          por Administración AVI o un AVI Therapy Companion, dentro de su cupo de pacientes independientes.
+          Sesiones de {nombreMesActual}: presenciales + nota inicial del mes.
         </p>
 
         {todosConSinConvenio.length === 0 && (
@@ -262,77 +367,28 @@ export default async function AdminPanelPage() {
           </div>
         )}
 
-        {/* Con plan pagado ✅ */}
+        {/* Con cobertura ✅ */}
         {cumplimientoOK.length > 0 && (
           <div className="mb-6">
-            <p className="text-sm font-medium text-green-700 mb-2">✅ Con plan pagado ({cumplimientoOK.length})</p>
+            <p className="text-sm font-medium text-green-700 mb-2">✅ Con cobertura ({cumplimientoOK.length})</p>
             <div className="space-y-2">
-              {cumplimientoOK.map(t => {
-                const sub = subMap.get(t.id)
-                const sinConv = getSinConvenioPacientes(t.id)
-                return (
-                  <div key={t.id} className="bg-white border border-green-200 rounded-2xl px-5 py-3.5 flex flex-wrap items-center gap-3 justify-between">
-                    <div>
-                      <p className="font-medium text-gray-800 text-sm">{t.full_name ?? '—'}</p>
-                      <p className="text-xs text-gray-400">
-                        {t.email} · {statusBadge(sub?.status)} · {sub?.tier ?? '—'} · {sinConv.length} pac. sin convenio
-                      </p>
-                    </div>
-                  </div>
-                )
-              })}
+              {cumplimientoOK.map(t => (
+                <CumplimientoTerapeuta key={t.id} t={t} status={subMap.get(t.id)?.status} tier={subMap.get(t.id)?.tier}
+                  cupo={cupoTexto(t.id)} pacientes={getSinConvenioPacientes(t.id)} alerta={false} badge={statusBadge(subMap.get(t.id)?.status)} />
+              ))}
             </div>
           </div>
         )}
 
-        {/* Sin plan o caído ⚠️ */}
+        {/* Con pacientes bloqueados ⚠️ */}
         {cumplimientoAlert.length > 0 && (
           <div>
-            <p className="text-sm font-medium text-red-700 mb-2">⚠️ Sin plan o pago caído — pacientes bloqueados ({cumplimientoAlert.length})</p>
+            <p className="text-sm font-medium text-red-700 mb-2">⚠️ Con pacientes bloqueados — sin plan o fuera de cupo ({cumplimientoAlert.length})</p>
             <div className="space-y-3">
-              {cumplimientoAlert.map(t => {
-                const sub = subMap.get(t.id)
-                const sinConv = getSinConvenioPacientes(t.id)
-                return (
-                  <details key={t.id} className="bg-white border border-red-200 rounded-2xl overflow-hidden group">
-                    <summary className="flex flex-wrap items-center gap-3 justify-between px-5 py-3.5 cursor-pointer list-none">
-                      <div>
-                        <p className="font-medium text-gray-800 text-sm">{t.full_name ?? '—'}</p>
-                        <p className="text-xs text-gray-400">
-                          {t.email} · {statusBadge(sub?.status)} · {sub?.tier ?? 'sin plan'}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs font-semibold text-red-600 bg-red-50 px-2 py-1 rounded-full">
-                          {sinConv.length} {sinConv.length === 1 ? 'paciente bloqueado' : 'pacientes bloqueados'}
-                        </span>
-                        <svg className="w-4 h-4 text-gray-400 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </div>
-                    </summary>
-                    <div className="border-t border-red-100 px-5 py-3 bg-red-50">
-                      <p className="text-xs text-red-700 mb-2 font-medium">Pacientes sin convenio (acceso bloqueado a módulos AVI):</p>
-                      <ul className="space-y-1">
-                        {sinConv.map(p => (
-                          <li key={p.id} className="text-xs text-red-700 flex items-center gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" />
-                            {p.nombre}
-                          </li>
-                        ))}
-                      </ul>
-                      <div className="mt-3 pt-3 border-t border-red-200 flex gap-3">
-                        <Link
-                          href={`/admin/terapeutas`}
-                          className="text-xs text-primary-600 hover:underline"
-                        >
-                          Gestionar terapeuta →
-                        </Link>
-                      </div>
-                    </div>
-                  </details>
-                )
-              })}
+              {cumplimientoAlert.map(t => (
+                <CumplimientoTerapeuta key={t.id} t={t} status={subMap.get(t.id)?.status} tier={subMap.get(t.id)?.tier}
+                  cupo={cupoTexto(t.id)} pacientes={getSinConvenioPacientes(t.id)} alerta={true} badge={statusBadge(subMap.get(t.id)?.status)} />
+              ))}
             </div>
           </div>
         )}
