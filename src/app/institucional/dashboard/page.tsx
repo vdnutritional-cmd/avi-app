@@ -61,7 +61,9 @@ function SeccionActiva({ titulo, descripcion, href }: { titulo: string; descripc
       </div>
       <div className="mt-3 pt-3 border-t border-gray-50 flex items-center justify-between">
         <span className="text-xs bg-primary-50 text-primary-600 px-2 py-0.5 rounded-full font-medium">Disponible</span>
-        <span className="text-xs text-primary-500 font-medium group-hover:underline">Ver reporte</span>
+        <span className="inline-flex items-center gap-1 text-sm font-bold text-white bg-primary-600 px-4 py-1.5 rounded-lg shadow-sm transition-colors group-hover:bg-primary-700">
+          Ver reporte <span aria-hidden="true">→</span>
+        </span>
       </div>
     </Link>
   )
