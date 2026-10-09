@@ -29,7 +29,7 @@ const PLAN_COLORS = {
 }
 
 function AcordeonPacientes({ pacientes, color }: { pacientes: ControlPaciente[]; color: 'primary' | 'green' | 'red' }) {
-  if (pacientes.length === 0) return <span className="text-gray-300">0</span>
+  if (pacientes.length === 0) return <span className="text-sm font-semibold text-primary-600">0</span>
   const badge = {
     primary: 'bg-primary-50 text-primary-700',
     green:   'bg-green-50 text-green-700',
@@ -78,7 +78,7 @@ export default function ControlPlanesTabla({ filas, nombreMes }: { filas: Contro
             <tr className="bg-gray-50 text-xs text-gray-500 align-bottom">
               <th className="text-left font-semibold px-4 py-3">Terapeuta</th>
               <th className="text-center font-semibold px-3 py-3">Pacientes en Convenio</th>
-              <th className="text-left font-semibold px-3 py-3">Plan contratado</th>
+              <th className="text-left font-semibold px-3 py-3 min-w-[190px]">Plan contratado</th>
               <th className="text-center font-semibold px-3 py-3">Pacientes sin Convenio registrados (activos)</th>
               <th className="text-center font-semibold px-3 py-3">Pacientes Bloqueados (al registrarse y no activos)</th>
             </tr>
@@ -99,10 +99,10 @@ export default function ControlPlanesTabla({ filas, nombreMes }: { filas: Contro
                   <AcordeonPacientes pacientes={f.convenio} color="primary" />
                 </td>
                 <td className="px-3 py-3">
-                  <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full ${PLAN_COLORS[f.plan.color]}`}>
+                  <span className={`inline-block text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${PLAN_COLORS[f.plan.color]}`}>
                     {f.plan.texto}
                   </span>
-                  {f.plan.sub && <p className="text-xs text-gray-400 mt-1">{f.plan.sub}</p>}
+                  {f.plan.sub && <p className="text-[11px] text-gray-400 mt-1 whitespace-nowrap">{f.plan.sub}</p>}
                 </td>
                 <td className="px-3 py-3 text-center">
                   <AcordeonPacientes pacientes={f.sinConvenio} color="green" />
@@ -114,7 +114,7 @@ export default function ControlPlanesTabla({ filas, nombreMes }: { filas: Contro
             ))}
           </tbody>
           <tfoot>
-            <tr className="border-t-2 border-gray-200 bg-gray-50 font-semibold text-gray-700">
+            <tr className="border-t-2 border-gray-200 bg-gray-50 font-semibold text-primary-700">
               <td className="px-4 py-3">Total ({filas.length} terapeutas)</td>
               <td className="px-3 py-3 text-center">{totConvenio}</td>
               <td className="px-3 py-3" />
