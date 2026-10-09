@@ -8,6 +8,8 @@ interface Patient {
   full_name: string | null
   email: string | null
   is_active: boolean
+  /** 'inactive' = bloqueado por inactividad · 'blocked' = bloqueado manualmente */
+  status: string
   is_virtual:  boolean
   is_pro_bono: boolean
 }
@@ -134,6 +136,9 @@ export default function PatientsClient({ activos, bloqueados, toggleAction }: Pr
                   <ClasificacionBadges virtual={p.is_virtual} proBono={p.is_pro_bono} />
                 </p>
                 <p className="text-xs text-gray-400 mt-0.5 truncate">{p.email}</p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {p.status === 'inactive' ? 'Bloqueado por inactividad' : 'Bloqueado manualmente'}
+                </p>
               </Link>
               <form action={toggleAction}>
                 <input type="hidden" name="patientId"   value={p.id} />

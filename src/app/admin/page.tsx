@@ -1,7 +1,8 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import Link from 'next/link'
-import { getAccesoTerapeuta, type AccesoTerapeuta } from '@/lib/acceso-paciente'
+import { getAccesoTerapeuta, ACCESS_STATUSES, type AccesoTerapeuta } from '@/lib/acceso-paciente'
+import ControlPlanesTabla, { type ControlFila } from './ControlPlanesTabla'
 
 // ── Server Actions ────────────────────────────────────────────────────────────
 
@@ -120,6 +121,8 @@ export default async function AdminPanelPage() {
     { data: subs },
     { data: allPatients },
     { data: therapistEmpresas },
+    { data: companionBundles },
+    { data: empresas },
   ] = await Promise.all([
     supabase
       .from('profiles')
@@ -128,16 +131,25 @@ export default async function AdminPanelPage() {
       .order('created_at', { ascending: false }),
     supabase
       .from('subscriptions')
-      .select('therapist_id, status, patient_slots, tier'),
+      .select('therapist_id, status, patient_slots, tier, plan'),
     // Pacientes activos con empresa_id (para saber cuáles son CONVENIO)
     supabase
       .from('therapist_patients')
-      .select('therapist_id, patient_id, empresa_id, initial_note_date, profiles!therapist_patients_patient_id_fkey(full_name, email)')
+      .select('therapist_id, patient_id, empresa_id, initial_note_date, created_at, profiles!therapist_patients_patient_id_fkey(full_name, email)')
       .eq('is_active', true)
       .neq('status', 'archived'),
     supabase
       .from('therapist_empresa')
       .select('therapist_id, empresa_id'),
+    // Bundle Companion activo (empresa_id=null): cubre a los independientes
+    supabase
+      .from('therapist_slot_bundles')
+      .select('therapist_id, patient_slots')
+      .eq('status', 'active')
+      .is('empresa_id', null),
+    supabase
+      .from('convenio_empresas')
+      .select('id, nombre'),
   ])
 
   const subMap = new Map((subs ?? []).map(s => [s.therapist_id, s]))
@@ -158,6 +170,7 @@ export default async function AdminPanelPage() {
     patient_id: string
     empresa_id: string | null
     initial_note_date: string | null
+    created_at: string
     profiles: { full_name: string | null; email: string | null } | null
   }
 
@@ -191,8 +204,12 @@ export default async function AdminPanelPage() {
     return pacs.some(p => p.empresa_id === null)
   })
 
+  // Acceso de todos los terapeutas con independientes (también los desactivados,
+  // para la tabla de Control de Planes)
+  const terapeutasConIndep = terapeutasList.filter(t =>
+    (pacientesPorTerapeuta.get(t.id) ?? []).some(p => p.empresa_id === null))
   const accesoPorTerapeuta = new Map<string, AccesoTerapeuta>(
-    await Promise.all(todosConSinConvenio.map(async t => [t.id, await getAccesoTerapeuta(supabase, t.id)] as const))
+    await Promise.all(terapeutasConIndep.map(async t => [t.id, await getAccesoTerapeuta(supabase, t.id)] as const))
   )
 
   // Sesiones del mes en curso por paciente (presenciales + nota inicial del mes)
@@ -242,6 +259,89 @@ export default async function AdminPanelPage() {
     if (!a || !a.tienePlan) return 'sin plan para independientes'
     return `independientes ${a.indepCount} / ${a.indepSlots ?? 'sin límite'}`
   }
+
+  // ── 4. Control de Planes y Contrataciones ─────────────────────────────────
+  // Plan que cubre a los pacientes sin convenio (misma regla que acceso-paciente.ts):
+  // bundle Companion primero; si no, la suscripción con estado de acceso.
+  const bundleMap = new Map((companionBundles ?? []).map(b => [b.therapist_id as string, b.patient_slots as number]))
+  const empresaNombre = new Map((empresas ?? []).map(e => [e.id as string, e.nombre as string]))
+
+  function planDe(therapistId: string): ControlFila['plan'] {
+    const bundleSlots = bundleMap.get(therapistId)
+    if (bundleSlots != null) {
+      return { texto: 'AVI Therapy Companion', sub: `Gratis · Clínico · ${bundleSlots} pacientes`, color: 'purple' }
+    }
+    const sub = subMap.get(therapistId)
+    if (!sub) return { texto: 'Sin plan', sub: 'Pendiente de aprobación', color: 'red' }
+    const nivel = sub.tier === 'clinico' ? 'Clínico' : 'Esencial'
+    const cupo  = sub.patient_slots != null ? `${sub.patient_slots} pacientes` : 'sin límite'
+    if (!ACCESS_STATUSES.includes(sub.status)) {
+      return { texto: 'Sin plan vigente', sub: `Estado: ${sub.status}`, color: 'red' }
+    }
+    if (sub.status === 'free_approved' || sub.plan === 'free') {
+      return { texto: 'Gratis — aprobado por AVI', sub: `${nivel} · ${cupo}`, color: 'blue' }
+    }
+    const nombrePlan: Record<string, string> = {
+      paid:  'Pagado',
+      unit:  'Pagado por paciente',
+      valora: 'CONVENIO (pagado)',
+    }
+    return {
+      texto: nombrePlan[sub.plan ?? ''] ?? (sub.plan ?? 'Pagado'),
+      sub: `${nivel} · ${cupo}${sub.status === 'trialing' ? ' · en prueba' : ''}`,
+      color: 'green',
+    }
+  }
+
+  function nombreDe(p: PacienteRow) {
+    const prof = Array.isArray(p.profiles) ? (p.profiles as unknown[])[0] as { full_name: string | null; email: string | null } : p.profiles
+    return prof?.full_name ?? prof?.email ?? p.patient_id
+  }
+  const porNombre = (a: { nombre: string }, b: { nombre: string }) => a.nombre.localeCompare(b.nombre)
+
+  const filasControl: ControlFila[] = terapeutasList
+    .map(t => {
+      const pacs = pacientesPorTerapeuta.get(t.id) ?? []
+      const acceso = accesoPorTerapeuta.get(t.id)
+
+      const convenio = pacs
+        .filter(p => p.empresa_id !== null)
+        .map(p => ({ id: p.patient_id, nombre: nombreDe(p), detalle: empresaNombre.get(p.empresa_id!) }))
+        .sort(porNombre)
+
+      // Independientes con acceso (incluye a los que se registraron bloqueados y
+      // el terapeuta ya activó: plan nuevo o cupo ampliado)
+      const indep = pacs.filter(p => p.empresa_id === null)
+      const activosIndep = indep.filter(p => acceso?.indepPermitidos.has(p.patient_id))
+      // Registrados este mes y que hoy siguen sin acceso
+      const bloqueados = indep
+        .filter(p => !acceso?.indepPermitidos.has(p.patient_id) && p.created_at >= mesInicio && p.created_at < mesSiguiente)
+        .map(p => ({
+          id: p.patient_id,
+          nombre: nombreDe(p),
+          detalle: `registrado ${new Date(p.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}`,
+          bloqueado: true,
+        }))
+        .sort(porNombre)
+
+      const sinConvenio = [
+        ...activosIndep.map(p => ({ id: p.patient_id, nombre: nombreDe(p) })),
+        ...bloqueados.map(b => ({ ...b, detalle: 'Bloqueado' })),
+      ].sort(porNombre)
+
+      return {
+        therapistId: t.id,
+        nombre: t.full_name ?? '—',
+        email: t.email ?? '',
+        desactivado: t.is_active === false,
+        plan: planDe(t.id),
+        convenio,
+        sinConvenio,
+        bloqueados,
+      }
+    })
+    // Activos primero, luego por nombre
+    .sort((a, b) => Number(a.desactivado) - Number(b.desactivado) || a.nombre.localeCompare(b.nombre))
 
   function fmtDate(iso: string) {
     return new Date(iso).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -318,6 +418,9 @@ export default async function AdminPanelPage() {
           </div>
         </section>
       )}
+
+      {/* ── Control de Planes y Contrataciones ── */}
+      <ControlPlanesTabla filas={filasControl} nombreMes={nombreMesActual} />
 
       {/* ── Bloque 3: Pago caído (past_due) ── */}
       {pastDue.length > 0 && (

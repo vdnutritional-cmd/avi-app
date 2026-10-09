@@ -19,7 +19,8 @@ async function togglePaciente(formData: FormData) {
 
   await supabase
     .from('therapist_patients')
-    .update({ is_active: nuevoEstado })
+    // Bloqueo manual → 'blocked'; al reactivar (también tras inactividad) → 'active'
+    .update({ is_active: nuevoEstado, status: nuevoEstado ? 'active' : 'blocked' })
     .eq('therapist_id', user.id)
     .eq('patient_id', patientId)
 
@@ -80,6 +81,7 @@ export default async function TherapistPatientsPage() {
       full_name: profile?.full_name ?? null,
       email: profile?.email ?? null,
       is_active: r.is_active,
+      status: r.status as string,
       is_virtual:  r.initial_note_virtual  ?? false,
       is_pro_bono: r.initial_note_pro_bono ?? false,
     }
