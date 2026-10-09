@@ -467,7 +467,7 @@ function renderPage({
 
       {totalSesiones === 0 && sinConvenioSesiones > 0 && (
         <section className="space-y-3">
-          <SectionTitle>Sesiones por institución</SectionTitle>
+          <SectionTitle destacado>Sesiones por institución</SectionTitle>
           <div className="flex items-center justify-between px-5 py-3 bg-gray-50 border border-dashed border-gray-200 rounded-xl text-sm">
             <div>
               <span className="text-gray-600 font-medium">Pacientes sin Convenio</span>
@@ -493,7 +493,7 @@ function renderPage({
           </section>
 
           <section className="space-y-3">
-            <SectionTitle>Sesiones por institución</SectionTitle>
+            <SectionTitle destacado>Sesiones por institución</SectionTitle>
             <TableSimple rows={institucionRows.map(r => [r.nombre, String(r.total), `${r.pct}%`])} headers={['Institución', 'Sesiones', '%']} />
             {sinConvenioSesiones > 0 && (
               <div className="flex items-center justify-between px-5 py-3 bg-gray-50 border border-dashed border-gray-200 rounded-xl text-sm">
@@ -518,7 +518,7 @@ function renderPage({
           )}
 
           <section className="space-y-3">
-            <SectionTitle>Derivaciones y Cierres</SectionTitle>
+            <SectionTitle destacado>Derivaciones</SectionTitle>
             <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-3">
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Derivaciones</p>
               {TIPOS_DERIVACION.map(t => (
@@ -535,10 +535,16 @@ function renderPage({
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               <MetricCard label="Casos de riesgo"            value={casosRiesgo}       color="red"   />
               <MetricCard label="Asistencia de seguimiento"  value={asistSeguimiento}               />
-              <MetricCard label="Percepción de alivio"       value={percepcionAlivio}  color="green" />
-              <MetricCard label="Cambios en funcionamiento"  value={cambioFunc}                     />
-              <MetricCard label="Abandono"                   value={abandono}          color="amber" />
               <MetricCard label="Atención especializada"     value={atenEspecializada} color="blue"  />
+            </div>
+          </section>
+
+          <section className="space-y-3">
+            <SectionTitle destacado>Cierres</SectionTitle>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <MetricCard label="Cambios en funcionamiento"  value={cambioFunc}                     />
+              <MetricCard label="Percepción de alivio"       value={percepcionAlivio}  color="green" />
+              <MetricCard label="Abandono"                   value={abandono}          color="amber" />
             </div>
           </section>
 
@@ -601,8 +607,11 @@ function renderPage({
 
 // ── Componentes auxiliares ────────────────────────────────────────────────────
 
-function SectionTitle({ children }: { children: React.ReactNode }) {
-  return <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wide">{children}</h2>
+function SectionTitle({ children, destacado }: { children: React.ReactNode; destacado?: boolean }) {
+  const cls = destacado
+    ? 'text-sm font-bold text-primary-600 uppercase tracking-wide'
+    : 'text-xs font-semibold text-gray-400 uppercase tracking-wide'
+  return <h2 className={cls}>{children}</h2>
 }
 
 function KpiCard({ label, value, sub, accent }: { label: string; value: number; sub?: string; accent?: boolean }) {
