@@ -26,9 +26,9 @@ function mesSiguienteStr(year: number, month: number) {
 export default async function ReporteTerapeutaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ empresaId?: string; terapeutaId?: string; mes?: string; tipo?: string; pid?: string }>
+  searchParams: Promise<{ empresaIds?: string; empresaId?: string; terapeutaId?: string; mes?: string; tipo?: string; pid?: string }>
 }) {
-  const { empresaId: empParam, terapeutaId: terapParam, mes, tipo: tipoParam, pid: pidParam } = await searchParams
+  const { empresaIds: empIdsParam, empresaId: empParam, terapeutaId: terapParam, mes, tipo: tipoParam, pid: pidParam } = await searchParams
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -61,25 +61,27 @@ export default async function ReporteTerapeutaPage({
   })
 
   // Solo empresas permitidas para esta PI (nunca confiar en la URL)
-  const empresaId = empParam && empresas.some(e => e.id === empParam) ? empParam : ''
-  const empresaActual = empresas.find(e => e.id === empresaId)
+  // (empresaId = enlace anterior con una sola empresa)
+  const selectedIds = (empIdsParam ? empIdsParam.split(',').filter(Boolean) : empParam ? [empParam] : [])
+    .filter(id => empresas.some(e => e.id === id))
+  const empresasActuales = empresas.filter(e => selectedIds.includes(e.id))
 
   // ── Validar mes antes de cualquier early return ────────────────────────────
   const now = new Date()
   const defaultMes = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
   const validMes = (mes && /^\d{4}-\d{2}$/.test(mes)) ? mes : defaultMes
 
-  // Terapeutas de la empresa seleccionada
+  // Terapeutas de las empresas seleccionadas
   type TerapeutaRow = { id: string; nombre: string; email: string }
   let terapeutas: TerapeutaRow[] = []
-  if (empresaId) {
+  if (selectedIds.length > 0) {
     const [{ data: teRels }, { data: piTer }] = await Promise.all([
       admin.from('therapist_empresa')
         .select('therapist_id, profiles!therapist_id(full_name, email)')
-        .eq('empresa_id', empresaId),
+        .in('empresa_id', selectedIds),
       admin.from('convenio_personas_institucionales')
         .select('therapist_id, profiles!therapist_id(full_name, email)')
-        .eq('empresa_id', empresaId)
+        .in('empresa_id', selectedIds)
         .eq('opera_como_terapeuta', true)
         .eq('is_active', true),
     ])
@@ -98,19 +100,18 @@ export default async function ReporteTerapeutaPage({
   }
 
   // Si no hay empresa seleccionada, mostrar solo los filtros
-  if (!empresaId) {
+  if (selectedIds.length === 0) {
     return (
       <div className="max-w-3xl space-y-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Reporte por Terapeuta</h1>
-          <p className="text-gray-500 mt-1 text-sm">Selecciona empresa y terapeuta para generar el reporte.</p>
+          <p className="text-gray-500 mt-1 text-sm">Selecciona una o más empresas y el terapeuta para generar el reporte.</p>
         </div>
         <FiltrosReporte
           basePath="/institucional/reporte-terapeuta"
-          showTerapeutaFilter={true}
           empresas={empresas}
           terapeutas={[]}
-          empresaId=""
+          empresaIdsSelected={[]}
           terapeutaId="all"
           tipo="activos"
           pid="all"
@@ -130,7 +131,7 @@ export default async function ReporteTerapeutaPage({
   const isCurrentMonth = mesKey === `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
 
   const tipo = (['activos', 'inactivos', 'total'].includes(tipoParam ?? '') ? tipoParam : 'activos') as 'activos' | 'inactivos' | 'total'
-  // Solo terapeutas de la empresa seleccionada (nunca confiar en la URL)
+  // Solo terapeutas de las empresas seleccionadas (nunca confiar en la URL)
   const terapeutaId = terapParam && terapeutas.some(t => t.id === terapParam) ? terapParam : 'all'
   const pid = pidParam ?? 'all'
 
@@ -143,10 +144,10 @@ export default async function ReporteTerapeutaPage({
     return (
       <div className="max-w-3xl space-y-8">
         <div><h1 className="text-2xl font-bold text-gray-900">Reporte por Terapeuta</h1></div>
-        <FiltrosReporte basePath="/institucional/reporte-terapeuta" showTerapeutaFilter={true}
-          empresas={empresas} terapeutas={terapeutas} empresaId={empresaId} terapeutaId={terapeutaId}
+        <FiltrosReporte basePath="/institucional/reporte-terapeuta"
+          empresas={empresas} terapeutas={terapeutas} empresaIdsSelected={selectedIds} terapeutaId={terapeutaId}
           tipo={tipo} pid={pid} mes={mesKey} pacientes={[]} />
-        <p className="text-sm text-gray-400 text-center py-8">No hay terapeutas registrados en esta empresa.</p>
+        <p className="text-sm text-gray-400 text-center py-8">No hay terapeutas registrados en las empresas seleccionadas.</p>
       </div>
     )
   }
@@ -155,7 +156,7 @@ export default async function ReporteTerapeutaPage({
   let relacionesQuery = admin
     .from('therapist_patients')
     .select('patient_id, is_active, empresa_id, sensacion_paciente_inicial, initial_note_date, initial_note_pro_bono, initial_note, status, convenio_empresas(nombre)')
-    .eq('empresa_id', empresaId)
+    .in('empresa_id', selectedIds)
     .in('therapist_id', therapistIds)
 
   if (tipo === 'activos') relacionesQuery = relacionesQuery.eq('is_active', true).neq('status', 'archived')
@@ -217,7 +218,7 @@ export default async function ReporteTerapeutaPage({
   if (pacienteIds.length === 0) {
     return renderPage({
       year, month, mesKey, isCurrentMonth, tipo, pid, terapeutaId,
-      piNombre, empresas, terapeutas, empresaId, empresaActual,
+      piNombre, empresas, terapeutas, selectedIds, empresasActuales,
       todasLasSesiones: [], pacientesEnPeriodoIds: [],
       relaciones: [], derivacionesRows: [], expedientesRows: [],
       todosActivosRows: [], derivActivosRows: [],
@@ -238,7 +239,7 @@ export default async function ReporteTerapeutaPage({
     .from('therapist_patients')
     .select('patient_id, initial_note_date, initial_note_pro_bono, initial_note')
     .in('therapist_id', therapistIds)
-    .eq('empresa_id', empresaId)
+    .in('empresa_id', selectedIds)
     .neq('status', 'archived')
     .not('initial_note', 'is', null)
     .not('initial_note_date', 'is', null)
@@ -278,7 +279,7 @@ export default async function ReporteTerapeutaPage({
     .from('therapist_patients')
     .select('patient_id, sensacion_paciente_inicial')
     .in('therapist_id', therapistIds)
-    .eq('empresa_id', empresaId)
+    .in('empresa_id', selectedIds)
     .eq('is_active', true)
     .neq('status', 'archived')
 
@@ -292,7 +293,7 @@ export default async function ReporteTerapeutaPage({
 
   return renderPage({
     year, month, mesKey, isCurrentMonth, tipo, pid, terapeutaId,
-    piNombre, empresas, terapeutas, empresaId, empresaActual,
+    piNombre, empresas, terapeutas, selectedIds, empresasActuales,
     todasLasSesiones, pacientesEnPeriodoIds,
     relaciones: relaciones ?? [],
     derivacionesRows: derivacionesRows ?? [],
@@ -312,8 +313,8 @@ interface RenderProps {
   piNombre: string
   empresas: { id: string; nombre: string; logo_url: string | null }[]
   terapeutas: { id: string; nombre: string; email: string }[]
-  empresaId: string
-  empresaActual: { id: string; nombre: string; logo_url: string | null } | undefined
+  selectedIds: string[]
+  empresasActuales: { id: string; nombre: string; logo_url: string | null }[]
   todasLasSesiones: { patient_id: string; session_date: string; is_pro_bono: boolean }[]
   pacientesEnPeriodoIds: string[]
   relaciones: Record<string, unknown>[]
@@ -329,7 +330,7 @@ interface RenderProps {
 
 function renderPage({
   year, month, mesKey, isCurrentMonth, tipo, pid, terapeutaId,
-  piNombre, empresas, terapeutas, empresaId, empresaActual,
+  piNombre, empresas, terapeutas, selectedIds, empresasActuales,
   todasLasSesiones, pacientesEnPeriodoIds,
   relaciones, derivacionesRows, expedientesRows,
   todosActivosRows, derivActivosRows,
@@ -415,7 +416,7 @@ function renderPage({
   const tipoLabel = tipo === 'activos' ? 'activos' : tipo === 'inactivos' ? 'inactivos' : 'activos + inactivos'
 
   const baseNavParams = (m: string) => {
-    const sp = new URLSearchParams({ empresaId, terapeutaId, tipo, pid, mes: m })
+    const sp = new URLSearchParams({ empresaIds: selectedIds.join(','), terapeutaId, tipo, pid, mes: m })
     return `/institucional/reporte-terapeuta?${sp.toString()}`
   }
 
@@ -423,9 +424,7 @@ function renderPage({
     .map(([nombre, total]) => ({ nombre, total, pct: totalSesiones > 0 ? Math.round((total / totalSesiones) * 100) : 0 }))
     .sort((a, b) => b.total - a.total)
 
-  const empresasParaLogo = empresaActual
-    ? [{ id: empresaActual.id, nombre: empresaActual.nombre, logo_url: empresaActual.logo_url }]
-    : []
+  const empresasParaLogo = empresasActuales
 
   const terapeutaLabel = terapeutaId === 'all'
     ? 'Total terapeutas'
@@ -436,17 +435,16 @@ function renderPage({
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Reporte por Terapeuta</h1>
         <p className="text-gray-500 mt-1 text-sm">
-          {empresaActual?.nombre ?? '—'} · {terapeutaLabel} · pacientes {tipoLabel}
+          {empresasActuales.map(e => e.nombre).join(' + ') || '—'} · {terapeutaLabel} · pacientes {tipoLabel}
         </p>
       </div>
 
       {/* Filtros */}
       <FiltrosReporte
         basePath="/institucional/reporte-terapeuta"
-        showTerapeutaFilter={true}
         empresas={empresas}
         terapeutas={terapeutas}
-        empresaId={empresaId}
+        empresaIdsSelected={selectedIds}
         terapeutaId={terapeutaId}
         tipo={tipo}
         pid={pid}
