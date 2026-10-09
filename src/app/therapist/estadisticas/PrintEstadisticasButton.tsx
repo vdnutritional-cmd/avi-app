@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
+import { buildReportHeader, printHtmlViaIframe } from '@/app/therapist/patients/[patientId]/print-utils'
 
-// ── PrintEstadisticasButton — abre ventana de impresión con estadísticas (E3)
+// ── PrintEstadisticasButton — imprime estadísticas vía iframe (sin ventana emergente) (E3)
 // Si el terapeuta pertenece a múltiples empresas con logo, muestra un modal
 // para elegir con qué logo imprimir (Opción A).
 
@@ -32,6 +33,8 @@ interface PrintEstadisticasProps {
   abandono: number
   atenEspecializada: number
   calificaciones: { nombre: string; inicial: string; final: string }[]
+  // Solo Reporte Institucional General
+  tipoAsesoriaRows?: { nombre: string; total: number; virtuales: number; presenciales: number; proBono: number; facturables: number }[]
 }
 
 export default function PrintEstadisticasButton(props: PrintEstadisticasProps) {
@@ -57,14 +60,19 @@ export default function PrintEstadisticasButton(props: PrintEstadisticasProps) {
       totalDerivaciones, derivacionesPorTipo,
       casosRiesgo, asistSeguimiento, percepcionAlivio, cambioFunc, abandono, atenEspecializada,
       calificaciones,
+      tipoAsesoriaRows = [],
       reportTitle = 'Mi Estadística',
       impresoPor,
     } = props
 
     const nombreImpresion = impresoPor ?? terapeutaNombre
 
-    const date = new Date().toLocaleDateString('es-MX', {
-      day: 'numeric', month: 'long', year: 'numeric',
+    const header = buildReportHeader({
+      terapeutaNombre,
+      impresoPor: nombreImpresion,
+      logoUrl,
+      side: logoUrl ? 'logo' : 'name',
+      subtitle: `${reportTitle} · Pacientes ${tipoLabel} · ${mes}`,
     })
 
     const inst = institucionRows.map(r =>
@@ -83,6 +91,15 @@ export default function PrintEstadisticasButton(props: PrintEstadisticasProps) {
       `<tr><td style="padding:4px 10px;">${c.nombre}</td><td style="padding:4px 10px;text-align:center;">${c.inicial}</td><td style="padding:4px 10px;text-align:center;">${c.final}</td></tr>`
     ).join('')
 
+    const celda = (n: number) => n || ''
+    const tipoRows = tipoAsesoriaRows.map(r =>
+      `<tr><td style="padding:5px 10px;">${r.nombre}</td><td style="padding:5px 10px;text-align:right;">${celda(r.total)}</td><td style="padding:5px 10px;text-align:right;">${celda(r.virtuales)}</td><td style="padding:5px 10px;text-align:right;">${celda(r.presenciales)}</td><td style="padding:5px 10px;text-align:right;">${celda(r.proBono)}</td><td style="padding:5px 10px;text-align:right;">${celda(r.facturables)}</td></tr>`
+    ).join('')
+    const tipoTot = tipoAsesoriaRows.reduce((a, r) => ({
+      total: a.total + r.total, virtuales: a.virtuales + r.virtuales, presenciales: a.presenciales + r.presenciales,
+      proBono: a.proBono + r.proBono, facturables: a.facturables + r.facturables,
+    }), { total: 0, virtuales: 0, presenciales: 0, proBono: 0, facturables: 0 })
+
     const html = `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -90,46 +107,40 @@ export default function PrintEstadisticasButton(props: PrintEstadisticasProps) {
   <title>${reportTitle} — ${mes}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 10.5pt; color: #222; padding: 32px 40px; line-height: 1.5; }
-    h1 { font-size: 15pt; font-weight: 700; margin-bottom: 4px; }
-    h2 { font-size: 11pt; font-weight: 600; color: #5b21b6; margin: 20px 0 8px; border-bottom: 1.5px solid #ede9fe; padding-bottom: 4px; }
-    .header-bar { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 1.5px solid #ddd; padding-bottom: 10px; margin-bottom: 16px; }
-    .header-right { font-size: 9pt; color: #777; text-align: right; }
+    @page { size: letter; margin: 1cm 1.8cm 1.2cm; }
+    html, body { margin: 0 !important; padding: 0 !important; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 9pt; color: #1a1a1a; line-height: 1.3; }
+    h2 { font-size: 10.5pt; font-weight: 700; color: #2d3a8c; margin: 14px 0 6px; border-bottom: 1.5px solid #dde3ee; padding-bottom: 3px; }
     table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 9.5pt; }
     th { background: #f5f5f5; padding: 5px 10px; text-align: left; font-weight: 600; color: #555; font-size: 8.5pt; text-transform: uppercase; letter-spacing: 0.04em; }
     td { border-bottom: 1px solid #f0f0f0; }
     .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 8px; }
-    .kpi { background: #f8f5ff; border: 1px solid #ede9fe; border-radius: 8px; padding: 12px 16px; }
-    .kpi-label { font-size: 8.5pt; color: #777; margin-bottom: 2px; }
-    .kpi-value { font-size: 20pt; font-weight: 700; color: #5b21b6; }
+    .kpi { background: #eef1f9; border: 1px solid #dde3ee; border-radius: 6px; padding: 10px 14px; }
+    .kpi-label { font-size: 8.5pt; color: #5060a4; margin-bottom: 2px; }
+    .kpi-value { font-size: 18pt; font-weight: 700; color: #2d3a8c; }
     .metric-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #f3f3f3; font-size: 9.5pt; }
     ul { margin-left: 16px; font-size: 9.5pt; }
     li { margin-bottom: 2px; }
-    @media print { body { padding: 16px; } }
   </style>
 </head>
 <body>
 
-  <div class="header-bar">
-    <div class="header-left">
-      <h1>${reportTitle}</h1>
-      <div style="font-size:9pt;color:#666;">Pacientes ${tipoLabel} · ${mes}</div>
-    </div>
-    <div class="header-right">
-      ${date}<br/>
-      ${logoUrl
-        ? `<img src="${logoUrl}" alt="Logo" style="max-width:200px;max-height:80px;object-fit:contain;display:block;margin-left:auto;margin-bottom:4px;" />`
-        : `<strong>${nombreImpresion}</strong>`
-      }<br/>
-      Reporte impreso por: <strong>${nombreImpresion}</strong>
-    </div>
-  </div>
+  ${header}
 
   <h2>Resumen del periodo</h2>
   <div class="grid2">
     <div class="kpi"><div class="kpi-label">Cantidad de sesiones</div><div class="kpi-value">${totalSesiones}</div></div>
     <div class="kpi"><div class="kpi-label">Personas atendidas</div><div class="kpi-value">${personasAtendidas}</div></div>
   </div>
+
+  ${tipoAsesoriaRows.length > 0 ? `
+  <h3 style="font-size:9pt;font-weight:600;color:#777;text-transform:uppercase;letter-spacing:0.04em;margin:16px 0 4px;">Tipo de asesoría por terapeuta</h3>
+  <table>
+    <thead><tr><th>Terapeuta</th><th style="text-align:right;">Total</th><th style="text-align:right;">Virtuales</th><th style="text-align:right;">Presenciales</th><th style="text-align:right;">Pro-Bono</th><th style="text-align:right;">Facturables</th></tr></thead>
+    <tbody>${tipoRows}
+      <tr style="font-weight:700;background:#f5f5f5;"><td style="padding:5px 10px;">Total</td><td style="padding:5px 10px;text-align:right;">${tipoTot.total}</td><td style="padding:5px 10px;text-align:right;">${tipoTot.virtuales}</td><td style="padding:5px 10px;text-align:right;">${tipoTot.presenciales}</td><td style="padding:5px 10px;text-align:right;">${tipoTot.proBono}</td><td style="padding:5px 10px;text-align:right;">${tipoTot.facturables}</td></tr>
+    </tbody>
+  </table>` : ''}
 
   ${institucionRows.length > 0 ? `
   <h2>Sesiones por institución</h2>
@@ -145,18 +156,19 @@ export default function PrintEstadisticasButton(props: PrintEstadisticasProps) {
     <tbody>${motivos}</tbody>
   </table>` : ''}
 
-  ${totalDerivaciones > 0 ? `
-  <h2>Derivaciones (${totalDerivaciones} total)</h2>
-  <ul>${derivTipos}</ul>` : ''}
-
-  <h2>Métricas de cierres y seguimiento</h2>
+  <h2>Derivaciones${totalDerivaciones > 0 ? ` (${totalDerivaciones} total)` : ''}</h2>
+  ${totalDerivaciones > 0 ? `<ul>${derivTipos}</ul>` : ''}
   <div style="margin-top:6px;">
     <div class="metric-row"><span>Casos con riesgo detectado</span><strong>${casosRiesgo}</strong></div>
     <div class="metric-row"><span>Asistencia a seguimiento</span><strong>${asistSeguimiento}</strong></div>
-    <div class="metric-row"><span>Percepción de alivio del paciente</span><strong>${percepcionAlivio}</strong></div>
-    <div class="metric-row"><span>Cambio en funcionamiento</span><strong>${cambioFunc}</strong></div>
-    <div class="metric-row"><span>Abandonos</span><strong>${abandono}</strong></div>
     <div class="metric-row"><span>Derivados a atención especializada</span><strong>${atenEspecializada}</strong></div>
+  </div>
+
+  <h2>Cierres</h2>
+  <div style="margin-top:6px;">
+    <div class="metric-row"><span>Cambio en funcionamiento</span><strong>${cambioFunc}</strong></div>
+    <div class="metric-row"><span>Percepción de alivio del paciente</span><strong>${percepcionAlivio}</strong></div>
+    <div class="metric-row"><span>Abandonos</span><strong>${abandono}</strong></div>
   </div>
 
   ${calificaciones.length > 0 ? `
@@ -169,13 +181,7 @@ export default function PrintEstadisticasButton(props: PrintEstadisticasProps) {
 </body>
 </html>`
 
-    const win = window.open('', '_blank', 'width=900,height=700')
-    if (!win) { alert('Permite ventanas emergentes para imprimir.'); return }
-    win.document.write(html)
-    win.document.close()
-    win.focus()
-    win.onload = () => win.print()
-    setTimeout(() => { if (!win.closed) win.print() }, 500)
+    printHtmlViaIframe(html)
   }
 
   return (

@@ -2023,6 +2023,8 @@ export interface ReportHeaderOptions {
   side?: 'logo' | 'name'
   /** Subtítulo del reporte (aparece bajo "AVI Therapy Companion") */
   subtitle?: string
+  /** Quién imprime, si no es el terapeuta (ej. Persona Institucional). Default: terapeutaNombre */
+  impresoPor?: string
 }
 
 /**
@@ -2031,7 +2033,7 @@ export interface ReportHeaderOptions {
  * 2. Bloque AVI: cuadro "AVI" + "AVI Therapy Companion" + subtítulo (izq) / Terapeuta (der)
  */
 export function buildReportHeader(opts: ReportHeaderOptions): string {
-  const { terapeutaNombre, logoUrl, side = 'name', subtitle } = opts
+  const { terapeutaNombre, logoUrl, side = 'name', subtitle, impresoPor = terapeutaNombre } = opts
 
   const date = new Date().toLocaleDateString('es-MX', {
     day: 'numeric', month: 'long', year: 'numeric',
@@ -2047,7 +2049,7 @@ export function buildReportHeader(opts: ReportHeaderOptions): string {
     <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #ddd;padding-bottom:3px;margin-bottom:4px;">
       <div>
         <div style="font-size:9pt;color:#777;">${date}</div>
-        <div style="font-size:8.5pt;color:#888;">Reporte impreso por: <strong>${terapeutaNombre}</strong></div>
+        <div style="font-size:8.5pt;color:#888;">Reporte impreso por: <strong>${impresoPor}</strong></div>
       </div>
       <div style="display:flex;align-items:center;">${rightContent}</div>
     </div>

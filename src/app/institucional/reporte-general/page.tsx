@@ -596,6 +596,7 @@ function renderPage({
               abandono={abandono}
               atenEspecializada={atenEspecializada}
               calificaciones={calificaciones}
+              tipoAsesoriaRows={tipoAsesoriaRows}
               reportTitle="Reporte Institucional General"
               impresoPor={piNombre}
             />
