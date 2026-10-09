@@ -37,21 +37,23 @@ export default async function ReporteTerapeutaPage({
   const admin = createAdminClient()
 
   // Verificar que es PI activo
-  const { data: piRecords } = await admin
-    .from('convenio_personas_institucionales')
-    .select('empresa_id, convenio_empresas(nombre, logo_url)')
-    .eq('therapist_id', user.id)
-    .eq('is_active', true)
-    .in('nivel', NIVELES_REPORTE_TERAPEUTA)   // solo empresas donde su nivel permite este reporte
+  // + perfil de la PI (para "Reporte impreso por"), en paralelo
+  const [{ data: piRecords }, { data: piProfile }] = await Promise.all([
+    admin
+      .from('convenio_personas_institucionales')
+      .select('empresa_id, convenio_empresas(nombre, logo_url)')
+      .eq('therapist_id', user.id)
+      .eq('is_active', true)
+      .in('nivel', NIVELES_REPORTE_TERAPEUTA),   // solo empresas donde su nivel permite este reporte
+    supabase
+      .from('profiles')
+      .select('full_name, email')
+      .eq('id', user.id)
+      .single(),
+  ])
 
   if (!piRecords || piRecords.length === 0) redirect('/institucional/dashboard')
 
-  // Perfil de la PI (para "Reporte impreso por")
-  const { data: piProfile } = await supabase
-    .from('profiles')
-    .select('full_name, email')
-    .eq('id', user.id)
-    .single()
   const piNombre = piProfile?.full_name || piProfile?.email || 'Persona Institucional'
 
   // Empresas de la PI
@@ -152,23 +154,99 @@ export default async function ReporteTerapeutaPage({
     )
   }
 
-  // ── 1. Pacientes en scope ──────────────────────────────────────────────────
+  // ── Consultas en paralelo (solo dependen de terapeutas, empresas y estatus) ──
+  // Sin la columna initial_note (texto completo): solo se filtra por "no nula".
   let relacionesQuery = admin
     .from('therapist_patients')
-    .select('patient_id, is_active, empresa_id, sensacion_paciente_inicial, initial_note_date, initial_note_pro_bono, initial_note, status, convenio_empresas(nombre)')
+    .select('patient_id, is_active, empresa_id, sensacion_paciente_inicial, initial_note_date, initial_note_pro_bono, status, convenio_empresas(nombre)')
     .in('empresa_id', selectedIds)
     .in('therapist_id', therapistIds)
+  // Pacientes SIN convenio (referencia) — aparece aunque no haya pacientes del convenio en el mes/tipo
+  let scQuery = admin
+    .from('therapist_patients')
+    .select('patient_id')
+    .in('therapist_id', therapistIds)
+    .is('empresa_id', null)
+  let scNotasQuery = admin
+    .from('therapist_patients')
+    .select('patient_id')
+    .in('therapist_id', therapistIds)
+    .is('empresa_id', null)
+    .not('initial_note', 'is', null)
+    .not('initial_note_date', 'is', null)
+    .gte('initial_note_date', mesInicio)
+    .lt('initial_note_date', mesSiguiente)
 
-  if (tipo === 'activos') relacionesQuery = relacionesQuery.eq('is_active', true).neq('status', 'archived')
-  else if (tipo === 'inactivos') relacionesQuery = relacionesQuery.eq('is_active', false).neq('status', 'archived')
-  else relacionesQuery = relacionesQuery.neq('status', 'archived') // total: activos + inactivos sin archivados
+  // total: activos + inactivos sin archivados
+  if (tipo === 'activos') {
+    relacionesQuery = relacionesQuery.eq('is_active', true).neq('status', 'archived')
+    scQuery = scQuery.eq('is_active', true).neq('status', 'archived')
+    scNotasQuery = scNotasQuery.eq('is_active', true).neq('status', 'archived')
+  } else if (tipo === 'inactivos') {
+    relacionesQuery = relacionesQuery.eq('is_active', false).neq('status', 'archived')
+    scQuery = scQuery.eq('is_active', false).neq('status', 'archived')
+    scNotasQuery = scNotasQuery.eq('is_active', false).neq('status', 'archived')
+  } else {
+    relacionesQuery = relacionesQuery.neq('status', 'archived')
+    scQuery = scQuery.neq('status', 'archived')
+    scNotasQuery = scNotasQuery.neq('status', 'archived')
+  }
 
-  const { data: relaciones } = await relacionesQuery
+  const [
+    { data: relaciones },
+    { data: scRels },
+    { data: scNotasRows },
+    { data: todosActivosRowsRaw }, // satisfacción: todos los activos
+  ] = await Promise.all([
+    relacionesQuery,
+    scQuery,
+    scNotasQuery,
+    admin.from('therapist_patients')
+      .select('patient_id, sensacion_paciente_inicial')
+      .in('therapist_id', therapistIds)
+      .in('empresa_id', selectedIds)
+      .eq('is_active', true)
+      .neq('status', 'archived'),
+  ])
+
   const pacienteIds = (relaciones ?? []).map(r => r.patient_id as string)
+  const scPacIds = (scRels ?? []).map(r => r.patient_id as string)
 
-  const { data: profiles } = pacienteIds.length > 0
-    ? await admin.from('profiles').select('id, full_name, email').in('id', pacienteIds)
-    : { data: [] }
+  // ── Segunda ronda en paralelo: nombres, sesiones del periodo y sin convenio ──
+  const sesionesQuery = admin
+    .from('therapist_session_notes')
+    .select('patient_id, session_date, is_pro_bono, therapist_id')
+    .in('therapist_id', therapistIds)
+    .in('patient_id', pacienteIds)
+    .gte('session_date', mesInicio)
+    .lt('session_date', mesSiguiente)
+
+  const notasIniQuery = admin
+    .from('therapist_patients')
+    .select('patient_id, initial_note_date, initial_note_pro_bono')
+    .in('therapist_id', therapistIds)
+    .in('empresa_id', selectedIds)
+    .neq('status', 'archived')
+    .not('initial_note', 'is', null)
+    .not('initial_note_date', 'is', null)
+    .gte('initial_note_date', mesInicio)
+    .lt('initial_note_date', mesSiguiente)
+    .in('patient_id', pacienteIds)
+
+  const hayPacientes = pacienteIds.length > 0
+  const [{ data: profiles }, { data: scSesRaw }, { data: sesionesRows }, { data: notasRows }] = await Promise.all([
+    hayPacientes ? admin.from('profiles').select('id, full_name, email').in('id', pacienteIds) : Promise.resolve({ data: [] }),
+    scPacIds.length > 0
+      ? admin.from('therapist_session_notes')
+          .select('patient_id')
+          .in('therapist_id', therapistIds)
+          .in('patient_id', scPacIds)
+          .gte('session_date', mesInicio)
+          .lt('session_date', mesSiguiente)
+      : Promise.resolve({ data: [] }),
+    hayPacientes ? sesionesQuery : Promise.resolve({ data: [] }),
+    hayPacientes ? notasIniQuery : Promise.resolve({ data: [] }),
+  ])
 
   const nombreByPatient: Record<string, string> = {}
   for (const p of profiles ?? []) nombreByPatient[p.id] = p.full_name ?? p.email ?? p.id
@@ -179,43 +257,13 @@ export default async function ReporteTerapeutaPage({
     empresaByPatient[r.patient_id as string] = e?.nombre ?? 'Sin empresa'
   }
 
-  // ── 5. Pacientes SIN convenio (referencia) — ejecutar ANTES del early return
-  // para que aparezca aunque no haya pacientes del convenio en el mes/tipo.
-  let scQuery = admin
-    .from('therapist_patients')
-    .select('patient_id, is_active, status, initial_note_date, initial_note')
-    .in('therapist_id', therapistIds)
-    .is('empresa_id', null)
-
-  if (tipo === 'activos') scQuery = scQuery.eq('is_active', true).neq('status', 'archived')
-  else if (tipo === 'inactivos') scQuery = scQuery.eq('is_active', false).neq('status', 'archived')
-  else scQuery = scQuery.neq('status', 'archived')
-
-  const { data: scRels } = await scQuery
-  const scPacIds = (scRels ?? []).map(r => r.patient_id as string)
-
-  const { data: scSesRaw } = scPacIds.length > 0
-    ? await admin.from('therapist_session_notes')
-        .select('patient_id')
-        .in('therapist_id', therapistIds)
-        .in('patient_id', scPacIds)
-        .gte('session_date', mesInicio)
-        .lt('session_date', mesSiguiente)
-    : { data: [] }
-
-  const scNotasPacIds = (scRels ?? [])
-    .filter(r => r.initial_note != null && r.initial_note_date != null &&
-      (r.initial_note_date as string) >= mesInicio &&
-      (r.initial_note_date as string) < mesSiguiente)
-    .map(r => r.patient_id as string)
-
+  const scNotasPacIds = (scNotasRows ?? []).map(r => r.patient_id as string)
   const allScPacIds = [...(scSesRaw ?? []).map(s => s.patient_id as string), ...scNotasPacIds]
   const sinConvenioSesiones = allScPacIds.length
   const sinConvenioPersonas = new Set(allScPacIds).size
 
-  // ── 2. Sesiones del periodo ────────────────────────────────────────────────
   // pacienteIds ya excluye archivados para todos los tipos (activos/inactivos/total)
-  if (pacienteIds.length === 0) {
+  if (!hayPacientes) {
     return renderPage({
       year, month, mesKey, isCurrentMonth, tipo, pid, terapeutaId,
       piNombre, empresas, terapeutas, selectedIds, empresasActuales,
@@ -227,28 +275,6 @@ export default async function ReporteTerapeutaPage({
     })
   }
 
-  const sesionesQuery = admin
-    .from('therapist_session_notes')
-    .select('patient_id, session_date, is_pro_bono, therapist_id')
-    .in('therapist_id', therapistIds)
-    .in('patient_id', pacienteIds)
-    .gte('session_date', mesInicio)
-    .lt('session_date', mesSiguiente)
-
-  const notasIniQuery = admin
-    .from('therapist_patients')
-    .select('patient_id, initial_note_date, initial_note_pro_bono, initial_note')
-    .in('therapist_id', therapistIds)
-    .in('empresa_id', selectedIds)
-    .neq('status', 'archived')
-    .not('initial_note', 'is', null)
-    .not('initial_note_date', 'is', null)
-    .gte('initial_note_date', mesInicio)
-    .lt('initial_note_date', mesSiguiente)
-    .in('patient_id', pacienteIds)
-
-  const [{ data: sesionesRows }, { data: notasRows }] = await Promise.all([sesionesQuery, notasIniQuery])
-
   type SesionRow = { patient_id: string; session_date: string; is_pro_bono: boolean }
   const todasLasSesiones: SesionRow[] = [
     ...(sesionesRows ?? []).map(s => ({ patient_id: s.patient_id as string, session_date: s.session_date as string, is_pro_bono: (s.is_pro_bono as boolean) ?? false })),
@@ -258,38 +284,27 @@ export default async function ReporteTerapeutaPage({
   const pacientesEnPeriodoSet = new Set(todasLasSesiones.map(s => s.patient_id))
   const pacientesEnPeriodoIds = [...pacientesEnPeriodoSet]
 
-  // ── 3. Derivaciones y expedientes ─────────────────────────────────────────
-  const [{ data: derivacionesRows }, { data: expedientesRows }] = await Promise.all([
-    pacientesEnPeriodoIds.length > 0
+  // ── Tercera ronda en paralelo: derivaciones, expedientes y satisfacción ──
+  const todosActivosRows = todosActivosRowsRaw ?? []
+  const todosActivosIds = todosActivosRows.map(r => r.patient_id as string)
+  const hayPeriodo = pacientesEnPeriodoIds.length > 0
+  const [{ data: derivacionesRows }, { data: expedientesRows }, { data: derivActivosRows }] = await Promise.all([
+    hayPeriodo
       ? supabase.from('patient_derivaciones_cierres')
           .select('patient_id, derivacion_tipos, caso_riesgo, asistencia_seguimiento, atencion_especializada, percepcion_alivio, cambio_funcionamiento, abandono, sensacion_paciente_final')
-          .in('therapist_id', therapistIds)
-          .in('patient_id', pacientesEnPeriodoIds)
+          .in('therapist_id', therapistIds).in('patient_id', pacientesEnPeriodoIds)
       : Promise.resolve({ data: [] }),
-    pacientesEnPeriodoIds.length > 0
+    hayPeriodo
       ? supabase.from('patient_expediente')
           .select('patient_id, tipo_caso, problematica')
-          .in('therapist_id', therapistIds)
-          .in('patient_id', pacientesEnPeriodoIds)
+          .in('therapist_id', therapistIds).in('patient_id', pacientesEnPeriodoIds)
+      : Promise.resolve({ data: [] }),
+    todosActivosIds.length > 0
+      ? supabase.from('patient_derivaciones_cierres')
+          .select('patient_id, sensacion_paciente_final')
+          .in('therapist_id', therapistIds).in('patient_id', todosActivosIds)
       : Promise.resolve({ data: [] }),
   ])
-
-  // ── 4. Todos los activos (satisfacción) ───────────────────────────────────
-  const { data: todosActivosRows } = await admin
-    .from('therapist_patients')
-    .select('patient_id, sensacion_paciente_inicial')
-    .in('therapist_id', therapistIds)
-    .in('empresa_id', selectedIds)
-    .eq('is_active', true)
-    .neq('status', 'archived')
-
-  const todosActivosIds = (todosActivosRows ?? []).map(r => r.patient_id as string)
-  const { data: derivActivosRows } = todosActivosIds.length > 0
-    ? await supabase.from('patient_derivaciones_cierres')
-        .select('patient_id, sensacion_paciente_final')
-        .in('therapist_id', therapistIds)
-        .in('patient_id', todosActivosIds)
-    : { data: [] }
 
   return renderPage({
     year, month, mesKey, isCurrentMonth, tipo, pid, terapeutaId,
@@ -298,7 +313,7 @@ export default async function ReporteTerapeutaPage({
     relaciones: relaciones ?? [],
     derivacionesRows: derivacionesRows ?? [],
     expedientesRows: expedientesRows ?? [],
-    todosActivosRows: todosActivosRows ?? [],
+    todosActivosRows,
     derivActivosRows: derivActivosRows ?? [],
     empresaByPatient, nombreByPatient,
     sinConvenioSesiones, sinConvenioPersonas,
@@ -452,6 +467,9 @@ function renderPage({
         pacientes={pacientesParaDropdown}
       />
 
+      {/* Contenido del reporte — se atenúa mientras los filtros cargan (ver Filtros*) */}
+      <div className="space-y-8 transition-opacity duration-150 [html[data-reporte-cargando]_&]:opacity-40 [html[data-reporte-cargando]_&]:pointer-events-none">
+
       {/* Navegación de meses */}
       <div className="flex items-center gap-2">
         <Link href={baseNavParams(prevMes)} className="px-3 py-1.5 text-sm border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors text-gray-600">← ant.</Link>
@@ -599,6 +617,7 @@ function renderPage({
           </div>
         </>
       )}
+      </div>
     </div>
   )
 }

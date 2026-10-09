@@ -27,7 +27,17 @@ export default function FiltrosReporte({
   pacientes,
 }: FiltrosReporteProps) {
   const router = useRouter()
-  const [, startTransition] = useTransition()
+  const [isPending, startTransition] = useTransition()
+
+  // Estatus marcado al instante (no espera la respuesta del servidor)
+  const [localTipo, setLocalTipo] = useState(tipo)
+  useEffect(() => { setLocalTipo(tipo) }, [tipo])
+
+  // Mientras carga: el contenido del reporte se atenúa (atributo en <html>, ver page.tsx)
+  useEffect(() => {
+    document.documentElement.toggleAttribute('data-reporte-cargando', isPending)
+    return () => document.documentElement.removeAttribute('data-reporte-cargando')
+  }, [isPending])
 
   // Estado local para feedback inmediato — se sincroniza cuando el servidor responde
   const [localSelected, setLocalSelected] = useState<string[]>(empresaIdsSelected)
@@ -39,6 +49,7 @@ export default function FiltrosReporte({
   const mesSafe = /^\d{4}-\d{2}$/.test(mes) ? mes : defaultMes
 
   function nav(params: Record<string, string>) {
+    if (params.tipo) setLocalTipo(params.tipo)
     const sp = new URLSearchParams({
       empresaIds: localSelected.join(','),
       terapeutaId, tipo, pid, mes: mesSafe,
@@ -148,7 +159,7 @@ export default function FiltrosReporte({
                   key={t}
                   onClick={() => nav({ tipo: t, pid: 'all' })}
                   className={`px-3 py-2 capitalize transition-colors ${
-                    tipo === t ? 'bg-primary-600 text-white font-medium' : 'text-gray-600 hover:bg-gray-50'
+                    localTipo === t ? 'bg-primary-600 text-white font-medium' : 'text-gray-600 hover:bg-gray-50'
                   }`}
                 >
                   {t === 'total' ? 'activos + inactivos' : t}
@@ -156,6 +167,13 @@ export default function FiltrosReporte({
               ))}
             </div>
           </div>
+
+          {isPending && (
+            <div className="flex items-center gap-2 py-2 text-sm text-primary-600">
+              <span className="w-4 h-4 border-2 border-primary-200 border-t-primary-600 rounded-full animate-spin" />
+              Actualizando…
+            </div>
+          )}
 
           {/* Dropdown paciente */}
           {pacientes.length > 0 && (

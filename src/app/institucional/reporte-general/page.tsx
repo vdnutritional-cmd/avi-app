@@ -35,20 +35,22 @@ export default async function ReporteGeneralPage({
 
   const admin = createAdminClient()
 
-  const { data: piRecords } = await admin
-    .from('convenio_personas_institucionales')
-    .select('empresa_id, convenio_empresas(nombre, logo_url)')
-    .eq('therapist_id', user.id)
-    .eq('is_active', true)
-    .in('nivel', NIVELES_REPORTE_GENERAL)   // solo empresas donde su nivel permite este reporte
+  const [{ data: piRecords }, { data: piProfile }] = await Promise.all([
+    admin
+      .from('convenio_personas_institucionales')
+      .select('empresa_id, convenio_empresas(nombre, logo_url)')
+      .eq('therapist_id', user.id)
+      .eq('is_active', true)
+      .in('nivel', NIVELES_REPORTE_GENERAL),   // solo empresas donde su nivel permite este reporte
+    supabase
+      .from('profiles')
+      .select('full_name, email')
+      .eq('id', user.id)
+      .single(),
+  ])
 
   if (!piRecords || piRecords.length === 0) redirect('/institucional/dashboard')
 
-  const { data: piProfile } = await supabase
-    .from('profiles')
-    .select('full_name, email')
-    .eq('id', user.id)
-    .single()
   const piNombre = piProfile?.full_name || piProfile?.email || 'Persona Institucional'
 
   const empresas = piRecords.map(r => {
@@ -114,82 +116,71 @@ export default async function ReporteGeneralPage({
     )
   }
 
-  // ── Perfiles de terapeutas (para tabla Tipo de asesoría) ──────────────────
-  const { data: terapeutaProfiles } = await admin
-    .from('profiles')
-    .select('id, full_name, email')
-    .in('id', therapistIds)
+  // ── Consultas en paralelo (solo dependen de terapeutas, empresas y estatus) ──
+  // Sin la columna initial_note (texto completo): solo se filtra por "no nula".
+  let relacionesQuery = admin
+    .from('therapist_patients')
+    .select('patient_id, is_active, empresa_id, sensacion_paciente_inicial, initial_note_date, initial_note_pro_bono, status, convenio_empresas(nombre)')
+    .in('empresa_id', selectedIds)
+    .in('therapist_id', therapistIds)
+  // Pacientes SIN convenio (referencia) — aparece aunque no haya pacientes del convenio en el mes/tipo
+  let scQuery = admin
+    .from('therapist_patients')
+    .select('patient_id')
+    .in('therapist_id', therapistIds)
+    .is('empresa_id', null)
+  let scNotasQuery = admin
+    .from('therapist_patients')
+    .select('patient_id')
+    .in('therapist_id', therapistIds)
+    .is('empresa_id', null)
+    .not('initial_note', 'is', null)
+    .not('initial_note_date', 'is', null)
+    .gte('initial_note_date', mesInicio)
+    .lt('initial_note_date', mesSiguiente)
+
+  // total: activos + inactivos sin archivados
+  if (tipo === 'activos') {
+    relacionesQuery = relacionesQuery.eq('is_active', true).neq('status', 'archived')
+    scQuery = scQuery.eq('is_active', true).neq('status', 'archived')
+    scNotasQuery = scNotasQuery.eq('is_active', true).neq('status', 'archived')
+  } else if (tipo === 'inactivos') {
+    relacionesQuery = relacionesQuery.eq('is_active', false).neq('status', 'archived')
+    scQuery = scQuery.eq('is_active', false).neq('status', 'archived')
+    scNotasQuery = scNotasQuery.eq('is_active', false).neq('status', 'archived')
+  } else {
+    relacionesQuery = relacionesQuery.neq('status', 'archived')
+    scQuery = scQuery.neq('status', 'archived')
+    scNotasQuery = scNotasQuery.neq('status', 'archived')
+  }
+
+  const [
+    { data: terapeutaProfiles },   // para tabla Tipo de asesoría
+    { data: relaciones },
+    { data: scRels },
+    { data: scNotasRows },
+    { data: todosActivosRowsRaw }, // satisfacción: todos los activos
+  ] = await Promise.all([
+    admin.from('profiles').select('id, full_name, email').in('id', therapistIds),
+    relacionesQuery,
+    scQuery,
+    scNotasQuery,
+    admin.from('therapist_patients')
+      .select('patient_id, sensacion_paciente_inicial')
+      .in('therapist_id', therapistIds)
+      .in('empresa_id', selectedIds)
+      .eq('is_active', true)
+      .neq('status', 'archived'),
+  ])
+
   const therapistNombres: Record<string, string> = {}
   for (const p of terapeutaProfiles ?? [])
     therapistNombres[p.id as string] = (p.full_name ?? p.email ?? p.id) as string
 
-  // ── 1. Pacientes en scope ──────────────────────────────────────────────────
-  let relacionesQuery = admin
-    .from('therapist_patients')
-    .select('patient_id, is_active, empresa_id, sensacion_paciente_inicial, initial_note_date, initial_note_pro_bono, initial_note, status, convenio_empresas(nombre)')
-    .in('empresa_id', selectedIds)
-    .in('therapist_id', therapistIds)
-
-  if (tipo === 'activos') relacionesQuery = relacionesQuery.eq('is_active', true).neq('status', 'archived')
-  else if (tipo === 'inactivos') relacionesQuery = relacionesQuery.eq('is_active', false).neq('status', 'archived')
-  else relacionesQuery = relacionesQuery.neq('status', 'archived') // total: activos + inactivos sin archivados
-
-  const { data: relaciones } = await relacionesQuery
   const pacienteIds = (relaciones ?? []).map(r => r.patient_id as string)
-
-  const { data: profiles } = pacienteIds.length > 0
-    ? await admin.from('profiles').select('id, full_name, email').in('id', pacienteIds)
-    : { data: [] }
-
-  const nombreByPatient: Record<string, string> = {}
-  for (const p of profiles ?? []) nombreByPatient[p.id] = p.full_name ?? p.email ?? p.id
-
-  const empresaByPatient: Record<string, string> = {}
-  for (const r of relaciones ?? []) {
-    const e = r.convenio_empresas as { nombre?: string } | null
-    empresaByPatient[r.patient_id as string] = e?.nombre ?? 'Sin empresa'
-  }
-
-  // ── 5. Pacientes SIN convenio (referencia) — ejecutar ANTES del early return
-  // para que aparezca aunque no haya pacientes del convenio en el mes/tipo.
-  let scQuery = admin
-    .from('therapist_patients')
-    .select('patient_id, is_active, status, initial_note_date, initial_note')
-    .in('therapist_id', therapistIds)
-    .is('empresa_id', null)
-
-  if (tipo === 'activos') scQuery = scQuery.eq('is_active', true).neq('status', 'archived')
-  else if (tipo === 'inactivos') scQuery = scQuery.eq('is_active', false).neq('status', 'archived')
-  else scQuery = scQuery.neq('status', 'archived')
-
-  const { data: scRels } = await scQuery
   const scPacIds = (scRels ?? []).map(r => r.patient_id as string)
 
-  const { data: scSesRaw } = scPacIds.length > 0
-    ? await admin.from('therapist_session_notes')
-        .select('patient_id')
-        .in('therapist_id', therapistIds)
-        .in('patient_id', scPacIds)
-        .gte('session_date', mesInicio)
-        .lt('session_date', mesSiguiente)
-    : { data: [] }
-
-  const scNotasPacIds = (scRels ?? [])
-    .filter(r => r.initial_note != null && r.initial_note_date != null &&
-      (r.initial_note_date as string) >= mesInicio &&
-      (r.initial_note_date as string) < mesSiguiente)
-    .map(r => r.patient_id as string)
-
-  const allScPacIds = [...(scSesRaw ?? []).map(s => s.patient_id as string), ...scNotasPacIds]
-  const sinConvenioSesiones = allScPacIds.length
-  const sinConvenioPersonas = new Set(allScPacIds).size
-
-  // ── 2. Sesiones del periodo ────────────────────────────────────────────────
-  // pacienteIds ya excluye archivados para todos los tipos (activos/inactivos/total)
-  if (pacienteIds.length === 0) {
-    return renderPage({ year, month, mesKey, isCurrentMonth, tipo, pid, piNombre, empresas, selectedIds, empresasActuales, todasLasSesiones: [], pacientesEnPeriodoIds: [], relaciones: [], derivacionesRows: [], expedientesRows: [], todosActivosRows: [], derivActivosRows: [], empresaByPatient, nombreByPatient, sinConvenioSesiones, sinConvenioPersonas, tipoAsesoriaRows: [] })
-  }
-
+  // ── Segunda ronda en paralelo: nombres, sesiones del periodo y sin convenio ──
   const sesionesQuery = admin
     .from('therapist_session_notes')
     .select('patient_id, session_date, is_pro_bono, is_virtual, therapist_id')
@@ -200,7 +191,7 @@ export default async function ReporteGeneralPage({
 
   const notasIniQuery = admin
     .from('therapist_patients')
-    .select('patient_id, initial_note_date, initial_note_pro_bono, initial_note, therapist_id, initial_note_virtual')
+    .select('patient_id, initial_note_date, initial_note_pro_bono, therapist_id, initial_note_virtual')
     .in('therapist_id', therapistIds)
     .in('empresa_id', selectedIds)
     .neq('status', 'archived')
@@ -210,7 +201,39 @@ export default async function ReporteGeneralPage({
     .lt('initial_note_date', mesSiguiente)
     .in('patient_id', pacienteIds)
 
-  const [{ data: sesionesRows }, { data: notasRows }] = await Promise.all([sesionesQuery, notasIniQuery])
+  const hayPacientes = pacienteIds.length > 0
+  const [{ data: profiles }, { data: scSesRaw }, { data: sesionesRows }, { data: notasRows }] = await Promise.all([
+    hayPacientes ? admin.from('profiles').select('id, full_name, email').in('id', pacienteIds) : Promise.resolve({ data: [] }),
+    scPacIds.length > 0
+      ? admin.from('therapist_session_notes')
+          .select('patient_id')
+          .in('therapist_id', therapistIds)
+          .in('patient_id', scPacIds)
+          .gte('session_date', mesInicio)
+          .lt('session_date', mesSiguiente)
+      : Promise.resolve({ data: [] }),
+    hayPacientes ? sesionesQuery : Promise.resolve({ data: [] }),
+    hayPacientes ? notasIniQuery : Promise.resolve({ data: [] }),
+  ])
+
+  const nombreByPatient: Record<string, string> = {}
+  for (const p of profiles ?? []) nombreByPatient[p.id] = p.full_name ?? p.email ?? p.id
+
+  const empresaByPatient: Record<string, string> = {}
+  for (const r of relaciones ?? []) {
+    const e = r.convenio_empresas as { nombre?: string } | null
+    empresaByPatient[r.patient_id as string] = e?.nombre ?? 'Sin empresa'
+  }
+
+  const scNotasPacIds = (scNotasRows ?? []).map(r => r.patient_id as string)
+  const allScPacIds = [...(scSesRaw ?? []).map(s => s.patient_id as string), ...scNotasPacIds]
+  const sinConvenioSesiones = allScPacIds.length
+  const sinConvenioPersonas = new Set(allScPacIds).size
+
+  // pacienteIds ya excluye archivados para todos los tipos (activos/inactivos/total)
+  if (!hayPacientes) {
+    return renderPage({ year, month, mesKey, isCurrentMonth, tipo, pid, piNombre, empresas, selectedIds, empresasActuales, todasLasSesiones: [], pacientesEnPeriodoIds: [], relaciones: [], derivacionesRows: [], expedientesRows: [], todosActivosRows: [], derivActivosRows: [], empresaByPatient, nombreByPatient, sinConvenioSesiones, sinConvenioPersonas, tipoAsesoriaRows: [] })
+  }
 
   type SesionRow = { patient_id: string; session_date: string; is_pro_bono: boolean }
   const todasLasSesiones: SesionRow[] = [
@@ -243,33 +266,27 @@ export default async function ReporteGeneralPage({
   }
   const tipoAsesoriaRows = Object.values(tipoAsesoriaMap).sort((a, b) => a.nombre.localeCompare(b.nombre))
 
-  const [{ data: derivacionesRows }, { data: expedientesRows }] = await Promise.all([
-    pacientesEnPeriodoIds.length > 0
+  // ── Tercera ronda en paralelo: derivaciones, expedientes y satisfacción ──
+  const todosActivosRows = todosActivosRowsRaw ?? []
+  const todosActivosIds = todosActivosRows.map(r => r.patient_id as string)
+  const hayPeriodo = pacientesEnPeriodoIds.length > 0
+  const [{ data: derivacionesRows }, { data: expedientesRows }, { data: derivActivosRows }] = await Promise.all([
+    hayPeriodo
       ? supabase.from('patient_derivaciones_cierres')
           .select('patient_id, derivacion_tipos, caso_riesgo, asistencia_seguimiento, atencion_especializada, percepcion_alivio, cambio_funcionamiento, abandono, sensacion_paciente_final')
           .in('therapist_id', therapistIds).in('patient_id', pacientesEnPeriodoIds)
       : Promise.resolve({ data: [] }),
-    pacientesEnPeriodoIds.length > 0
+    hayPeriodo
       ? supabase.from('patient_expediente')
           .select('patient_id, tipo_caso, problematica')
           .in('therapist_id', therapistIds).in('patient_id', pacientesEnPeriodoIds)
       : Promise.resolve({ data: [] }),
+    todosActivosIds.length > 0
+      ? supabase.from('patient_derivaciones_cierres')
+          .select('patient_id, sensacion_paciente_final')
+          .in('therapist_id', therapistIds).in('patient_id', todosActivosIds)
+      : Promise.resolve({ data: [] }),
   ])
-
-  const { data: todosActivosRows } = await admin
-    .from('therapist_patients')
-    .select('patient_id, sensacion_paciente_inicial')
-    .in('therapist_id', therapistIds)
-    .in('empresa_id', selectedIds)
-    .eq('is_active', true)
-    .neq('status', 'archived')
-
-  const todosActivosIds = (todosActivosRows ?? []).map(r => r.patient_id as string)
-  const { data: derivActivosRows } = todosActivosIds.length > 0
-    ? await supabase.from('patient_derivaciones_cierres')
-        .select('patient_id, sensacion_paciente_final')
-        .in('therapist_id', therapistIds).in('patient_id', todosActivosIds)
-    : { data: [] }
 
   return renderPage({
     year, month, mesKey, isCurrentMonth, tipo, pid,
@@ -278,7 +295,7 @@ export default async function ReporteGeneralPage({
     relaciones: relaciones ?? [],
     derivacionesRows: derivacionesRows ?? [],
     expedientesRows: expedientesRows ?? [],
-    todosActivosRows: todosActivosRows ?? [],
+    todosActivosRows,
     derivActivosRows: derivActivosRows ?? [],
     empresaByPatient, nombreByPatient,
     sinConvenioSesiones, sinConvenioPersonas,
@@ -410,6 +427,9 @@ function renderPage({
       <FiltrosReporteGeneral basePath="/institucional/reporte-general"
         empresas={empresas} empresaIdsSelected={selectedIds}
         tipo={tipo} pid={pid} mes={mesKey} pacientes={pacientesParaDropdown} />
+
+      {/* Contenido del reporte — se atenúa mientras los filtros cargan (ver Filtros*) */}
+      <div className="space-y-8 transition-opacity duration-150 [html[data-reporte-cargando]_&]:opacity-40 [html[data-reporte-cargando]_&]:pointer-events-none">
 
       <div className="flex items-center gap-2">
         <Link href={baseNavParams(prevMes)} className="px-3 py-1.5 text-sm border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors text-gray-600">← ant.</Link>
@@ -603,6 +623,7 @@ function renderPage({
           </div>
         </>
       )}
+      </div>
     </div>
   )
 }
