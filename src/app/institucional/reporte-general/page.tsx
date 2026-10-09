@@ -441,12 +441,57 @@ function renderPage({
       {totalSesiones > 0 && (
         <>
           <section className="space-y-3">
-            <SectionTitle>Resumen del periodo</SectionTitle>
+            <SectionTitle destacado>Resumen del periodo</SectionTitle>
             <div className="grid grid-cols-2 gap-3">
               <KpiCard label="Cantidad de sesiones" value={totalSesiones} accent />
               <KpiCard label="Personas atendidas" value={personasAtendidas} sub="Pacientes únicos con al menos 1 sesión" />
             </div>
           </section>
+
+          {tipoAsesoriaRows.length > 0 && (
+            <section className="space-y-3">
+              <SectionTitle>Tipo de asesoría por terapeuta</SectionTitle>
+              <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50">
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Terapeuta</th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Total</th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Virtuales</th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Presenciales</th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wide border-l border-gray-100">Pro-Bono</th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Facturables</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {tipoAsesoriaRows.map((r, i) => (
+                      <tr key={i} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 text-gray-700 font-medium">{r.nombre}</td>
+                        <td className="px-4 py-3 text-right font-semibold text-primary-600">{r.total || ''}</td>
+                        <td className="px-4 py-3 text-right text-blue-600">{r.virtuales || ''}</td>
+                        <td className="px-4 py-3 text-right text-gray-700">{r.presenciales || ''}</td>
+                        <td className="px-4 py-3 text-right text-amber-600 border-l border-gray-100">{r.proBono || ''}</td>
+                        <td className="px-4 py-3 text-right text-green-600">{r.facturables || ''}</td>
+                      </tr>
+                    ))}
+                    {tipoAsesoriaRows.length > 0 && (() => {
+                      const tot = tipoAsesoriaRows.reduce((a, r) => ({ total: a.total + r.total, virtuales: a.virtuales + r.virtuales, presenciales: a.presenciales + r.presenciales, proBono: a.proBono + r.proBono, facturables: a.facturables + r.facturables }), { total: 0, virtuales: 0, presenciales: 0, proBono: 0, facturables: 0 })
+                      return (
+                        <tr className="bg-gray-50 border-t-2 border-gray-200">
+                          <td className="px-4 py-3 font-semibold text-gray-700">Total</td>
+                          <td className="px-4 py-3 text-right font-bold text-primary-600">{tot.total}</td>
+                          <td className="px-4 py-3 text-right font-semibold text-blue-600">{tot.virtuales}</td>
+                          <td className="px-4 py-3 text-right font-semibold text-gray-700">{tot.presenciales}</td>
+                          <td className="px-4 py-3 text-right font-semibold text-amber-600 border-l border-gray-100">{tot.proBono}</td>
+                          <td className="px-4 py-3 text-right font-semibold text-green-600">{tot.facturables}</td>
+                        </tr>
+                      )
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
 
           <section className="space-y-3">
             <SectionTitle destacado>Sesiones por institución</SectionTitle>
@@ -526,51 +571,6 @@ function renderPage({
                         <td className="px-5 py-3 text-center"><ScoreBadge value={c.final} /></td>
                       </tr>
                     ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          )}
-
-          {tipoAsesoriaRows.length > 0 && (
-            <section className="space-y-3">
-              <SectionTitle>Tipo de asesoría por terapeuta</SectionTitle>
-              <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-gray-50">
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Terapeuta</th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Total</th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Virtuales</th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Presenciales</th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wide border-l border-gray-100">Pro-Bono</th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Facturables</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    {tipoAsesoriaRows.map((r, i) => (
-                      <tr key={i} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-gray-700 font-medium">{r.nombre}</td>
-                        <td className="px-4 py-3 text-right font-semibold text-primary-600">{r.total || ''}</td>
-                        <td className="px-4 py-3 text-right text-blue-600">{r.virtuales || ''}</td>
-                        <td className="px-4 py-3 text-right text-gray-700">{r.presenciales || ''}</td>
-                        <td className="px-4 py-3 text-right text-amber-600 border-l border-gray-100">{r.proBono || ''}</td>
-                        <td className="px-4 py-3 text-right text-green-600">{r.facturables || ''}</td>
-                      </tr>
-                    ))}
-                    {tipoAsesoriaRows.length > 0 && (() => {
-                      const tot = tipoAsesoriaRows.reduce((a, r) => ({ total: a.total + r.total, virtuales: a.virtuales + r.virtuales, presenciales: a.presenciales + r.presenciales, proBono: a.proBono + r.proBono, facturables: a.facturables + r.facturables }), { total: 0, virtuales: 0, presenciales: 0, proBono: 0, facturables: 0 })
-                      return (
-                        <tr className="bg-gray-50 border-t-2 border-gray-200">
-                          <td className="px-4 py-3 font-semibold text-gray-700">Total</td>
-                          <td className="px-4 py-3 text-right font-bold text-primary-600">{tot.total}</td>
-                          <td className="px-4 py-3 text-right font-semibold text-blue-600">{tot.virtuales}</td>
-                          <td className="px-4 py-3 text-right font-semibold text-gray-700">{tot.presenciales}</td>
-                          <td className="px-4 py-3 text-right font-semibold text-amber-600 border-l border-gray-100">{tot.proBono}</td>
-                          <td className="px-4 py-3 text-right font-semibold text-green-600">{tot.facturables}</td>
-                        </tr>
-                      )
-                    })()}
                   </tbody>
                 </table>
               </div>
