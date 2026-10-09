@@ -7,6 +7,7 @@ import Link from 'next/link'
 import FiltrosReporteGeneral from './FiltrosReporteGeneral'
 import PrintEstadisticasButton from '@/app/therapist/estadisticas/PrintEstadisticasButton'
 import { NIVELES_REPORTE_GENERAL } from '@/lib/niveles-institucionales'
+import { institucionRowsDesde } from '@/lib/sesiones-por-institucion'
 
 export const dynamic = 'force-dynamic'
 
@@ -411,9 +412,9 @@ function renderPage({
     return `/institucional/reporte-general?${sp.toString()}`
   }
 
-  const institucionRows = Object.entries(sesionesPorEmpresa)
-    .map(([nombre, total]) => ({ nombre, total, pct: totalSesiones > 0 ? Math.round((total / totalSesiones) * 100) : 0 }))
-    .sort((a, b) => b.total - a.total)
+  const institucionRows = institucionRowsDesde(sesionesPorEmpresa)   // % suman 100
+  const totalInstitucion = institucionRows.reduce((a, r) => a + r.total, 0)
+  const pctInstitucion   = institucionRows.reduce((a, r) => a + r.pct, 0)
 
   const empresasParaLogo = empresasActuales
 
@@ -515,7 +516,8 @@ function renderPage({
 
           <section className="space-y-3">
             <SectionTitle destacado>Sesiones por institución</SectionTitle>
-            <TableSimple rows={institucionRows.map(r => [r.nombre, String(r.total), `${r.pct}%`])} headers={['Institución', 'Sesiones', '%']} />
+            <TableSimple rows={institucionRows.map(r => [r.nombre, String(r.total), `${r.pct}%`])} headers={['Institución', 'Sesiones', '%']}
+              footer={['Total', String(totalInstitucion), `${pctInstitucion}%`]} />
             {sinConvenioSesiones > 0 && (
               <div className="flex items-center justify-between px-5 py-3 bg-gray-50 border border-dashed border-gray-200 rounded-xl text-sm">
                 <div>
@@ -652,12 +654,13 @@ function MetricCard({ label, value, color = 'default' }: { label: string; value:
 function EmptyCard({ text }: { text: string }) {
   return <div className="bg-white rounded-2xl border border-gray-100 p-6 text-center"><p className="text-sm text-gray-400">{text}</p></div>
 }
-function TableSimple({ headers, rows }: { headers: string[]; rows: string[][] }) {
+function TableSimple({ headers, rows, footer }: { headers: string[]; rows: string[][]; footer?: string[] }) {
   return (
     <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
       <table className="w-full text-sm">
         <thead><tr className="bg-gray-50">{headers.map(h => <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>)}</tr></thead>
         <tbody className="divide-y divide-gray-50">{rows.map((r, i) => <tr key={i} className="hover:bg-gray-50">{r.map((c, j) => <td key={j} className="px-5 py-3 text-gray-700">{c}</td>)}</tr>)}</tbody>
+        {footer && <tfoot><tr className="bg-gray-50 border-t-2 border-gray-200">{footer.map((c, j) => <td key={j} className="px-5 py-3 font-bold text-primary-600">{c}</td>)}</tr></tfoot>}
       </table>
     </div>
   )

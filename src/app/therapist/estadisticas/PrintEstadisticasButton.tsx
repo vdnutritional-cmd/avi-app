@@ -146,7 +146,9 @@ export default function PrintEstadisticasButton(props: PrintEstadisticasProps) {
   <h2>Sesiones por institución</h2>
   <table>
     <thead><tr><th>Institución</th><th style="text-align:right;">Sesiones</th><th style="text-align:right;">%</th></tr></thead>
-    <tbody>${inst}</tbody>
+    <tbody>${inst}
+      <tr style="font-weight:700;background:#f5f5f5;"><td style="padding:5px 10px;">Total</td><td style="padding:5px 10px;text-align:right;">${institucionRows.reduce((a, r) => a + r.total, 0)}</td><td style="padding:5px 10px;text-align:right;">${institucionRows.reduce((a, r) => a + r.pct, 0)}%</td></tr>
+    </tbody>
   </table>` : ''}
 
   ${motivoEntries.length > 0 ? `

@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import FiltrosEstadisticas from './FiltrosEstadisticas'
 import PrintEstadisticasButton from './PrintEstadisticasButton'
+import { institucionRowsDesde } from '@/lib/sesiones-por-institucion'
 
 export const dynamic = 'force-dynamic'
 
@@ -389,13 +390,9 @@ function renderPage({
   const tipoLabel = tipo === 'activos' ? 'activos' : tipo === 'inactivos' ? 'inactivos' : 'activos + inactivos'
 
   // ── Datos para botón de impresión ──────────────────────────────────────────
-  const institucionRows = Object.entries(sesionesPorEmpresa)
-    .map(([nombre, total]) => ({
-      nombre,
-      total,
-      pct: totalSesiones > 0 ? Math.round((total / totalSesiones) * 100) : 0,
-    }))
-    .sort((a, b) => b.total - a.total)
+  const institucionRows = institucionRowsDesde(sesionesPorEmpresa)   // % suman 100
+  const totalInstitucion = institucionRows.reduce((a, r) => a + r.total, 0)
+  const pctInstitucion   = institucionRows.reduce((a, r) => a + r.pct, 0)
 
   // ── JSX ────────────────────────────────────────────────────────────────────
   return (
@@ -489,23 +486,21 @@ function renderPage({
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {Object.entries(sesionesPorEmpresa)
-                  .sort(([, a], [, b]) => b - a)
-                  .map(([emp, cnt]) => (
-                    <tr key={emp} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-5 py-3 text-gray-700">{emp}</td>
-                      <td className="px-5 py-3 text-right font-medium text-gray-800">{cnt}</td>
-                      <td className="px-5 py-3 text-right text-gray-400">
-                        {Math.round((cnt / totalSesiones) * 100)}%
-                      </td>
-                    </tr>
-                  ))}
-                <tr className="bg-gray-50">
-                  <td className="px-5 py-3 font-semibold text-gray-700">Total</td>
-                  <td className="px-5 py-3 text-right font-semibold text-primary-600">{totalSesiones}</td>
-                  <td className="px-5 py-3 text-right text-gray-400">100%</td>
-                </tr>
+                {institucionRows.map(r => (
+                  <tr key={r.nombre} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-5 py-3 text-gray-700">{r.nombre}</td>
+                    <td className="px-5 py-3 text-right font-medium text-gray-800">{r.total}</td>
+                    <td className="px-5 py-3 text-right text-gray-400">{r.pct}%</td>
+                  </tr>
+                ))}
               </tbody>
+              <tfoot>
+                <tr className="bg-gray-50 border-t-2 border-gray-200">
+                  <td className="px-5 py-3 font-bold text-primary-600">Total</td>
+                  <td className="px-5 py-3 text-right font-bold text-primary-600">{totalInstitucion}</td>
+                  <td className="px-5 py-3 text-right font-bold text-primary-600">{pctInstitucion}%</td>
+                </tr>
+              </tfoot>
             </table>
           </div>
         </section>
