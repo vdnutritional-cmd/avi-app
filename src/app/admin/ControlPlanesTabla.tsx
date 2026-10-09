@@ -64,7 +64,7 @@ export default function ControlPlanesTabla({ filas, nombreMes }: { filas: Contro
 
   return (
     <section>
-      <h2 className="text-base font-semibold text-gray-700 mb-1">Control de Planes y Contrataciones</h2>
+      <h2 className="text-base font-semibold text-primary-700 mb-1">Control de Planes y Contrataciones</h2>
       <p className="text-xs text-gray-400 mb-4">
         Todos los terapeutas registrados en AVI. Pacientes sin convenio = activos con acceso + bloqueados de {nombreMes}.
         Bloqueados = registrados en {nombreMes} que hoy siguen sin acceso por ser sin convenio y no tener cupo
@@ -79,14 +79,14 @@ export default function ControlPlanesTabla({ filas, nombreMes }: { filas: Contro
               <th className="text-left font-semibold px-4 py-3">Terapeuta</th>
               <th className="text-center font-semibold px-3 py-3">Pacientes en Convenio</th>
               <th className="text-left font-semibold px-3 py-3 min-w-[190px]">Plan contratado</th>
-              <th className="text-center font-semibold px-3 py-3">Pacientes sin Convenio registrados (activos)</th>
-              <th className="text-center font-semibold px-3 py-3">Pacientes Bloqueados (al registrarse y no activos)</th>
+              <th className="text-center font-semibold px-3 py-3">Pacientes sin Convenio registrados</th>
+              <th className="text-center font-semibold px-3 py-3">Pacientes Bloqueados</th>
             </tr>
           </thead>
           <tbody>
             {filas.map(f => (
               <tr key={f.therapistId} className="border-t border-gray-100 align-top">
-                <td className="px-4 py-3">
+                <td className="px-4 py-1.5">
                   <p className="font-medium text-gray-800">
                     {f.nombre}
                     {f.desactivado && (
@@ -95,19 +95,19 @@ export default function ControlPlanesTabla({ filas, nombreMes }: { filas: Contro
                   </p>
                   <p className="text-xs text-gray-400">{f.email}</p>
                 </td>
-                <td className="px-3 py-3 text-center">
+                <td className="px-3 py-1.5 text-center">
                   <AcordeonPacientes pacientes={f.convenio} color="primary" />
                 </td>
-                <td className="px-3 py-3">
+                <td className="px-3 py-1.5">
                   <span className={`inline-block text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${PLAN_COLORS[f.plan.color]}`}>
                     {f.plan.texto}
                   </span>
                   {f.plan.sub && <p className="text-[11px] text-gray-400 mt-1 whitespace-nowrap">{f.plan.sub}</p>}
                 </td>
-                <td className="px-3 py-3 text-center">
+                <td className="px-3 py-1.5 text-center">
                   <AcordeonPacientes pacientes={f.sinConvenio} color="green" />
                 </td>
-                <td className="px-3 py-3 text-center">
+                <td className="px-3 py-1.5 text-center">
                   <AcordeonPacientes pacientes={f.bloqueados} color="red" />
                 </td>
               </tr>
