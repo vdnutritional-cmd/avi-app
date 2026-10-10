@@ -1,26 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
-import { revalidatePath } from 'next/cache'
 import Link from 'next/link'
 import { getAccesoTerapeuta, ACCESS_STATUSES, type AccesoTerapeuta } from '@/lib/acceso-paciente'
 import ControlPlanesTabla, { type ControlFila } from './ControlPlanesTabla'
-
-// ── Server Actions ────────────────────────────────────────────────────────────
-
-async function aprobarTerapeuta(formData: FormData) {
-  'use server'
-  const therapistId = formData.get('therapistId') as string
-  const slots = Number(formData.get('slots') ?? 10)
-  const tier  = (formData.get('tier') as string) ?? 'esencial'
-  const supabase = createAdminClient()
-  await supabase.from('subscriptions').upsert({
-    therapist_id: therapistId,
-    status: 'free_approved',
-    plan: 'free',
-    patient_slots: slots,
-    tier,
-  }, { onConflict: 'therapist_id' })
-  revalidatePath('/admin')
-}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -383,36 +364,21 @@ export default async function AdminPanelPage() {
       {/* ── Bloque 2: Pendientes de aprobación ── */}
       {pendientes.length > 0 && (
         <section>
-          <h2 className="text-base font-semibold text-gray-700 mb-3 flex items-center gap-2">
+          <h2 className="text-base mb-3 flex items-center gap-2 flex-wrap">
             <span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />
-            Pendientes de aprobación ({pendientes.length})
+            <span className="font-semibold text-primary-700">Pendientes de aprobación ({pendientes.length})</span>
+            <span className="text-sm text-gray-900">
+              Autorizaciones en la sección{' '}
+              <Link href="/admin/terapeutas" className="font-medium hover:underline">&quot;Terapeutas&quot;</Link>
+              {' '}de esta Administración AVI
+            </span>
           </h2>
+          {/* Solo informativo: aprobar o asignar Companion se hace en Admin › Terapeutas */}
           <div className="space-y-3">
             {pendientes.map(t => (
-              <div key={t.id} className="bg-white border border-amber-200 rounded-2xl px-5 py-4 flex flex-wrap items-center gap-3 justify-between">
-                <div>
-                  <p className="font-medium text-gray-800 text-sm">{t.full_name ?? '—'}</p>
-                  <p className="text-xs text-gray-400">{t.email} · Registrado {fmtDate(t.created_at)}</p>
-                </div>
-                <form action={aprobarTerapeuta} className="flex items-center gap-2 flex-wrap">
-                  <input type="hidden" name="therapistId" value={t.id} />
-                  <select name="tier" className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white">
-                    <option value="esencial">Esencial</option>
-                    <option value="clinico">Clínico</option>
-                  </select>
-                  <select name="slots" className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white">
-                    <option value="10">10 pacientes</option>
-                    <option value="20">20 pacientes</option>
-                    <option value="30">30 pacientes</option>
-                    <option value="50">50 pacientes</option>
-                  </select>
-                  <button
-                    type="submit"
-                    className="text-xs px-3 py-1.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors font-medium"
-                  >
-                    Aprobar →
-                  </button>
-                </form>
+              <div key={t.id} className="bg-white border border-amber-200 rounded-2xl px-5 py-4">
+                <p className="font-medium text-gray-800 text-sm">{t.full_name ?? '—'}</p>
+                <p className="text-xs text-gray-400">{t.email} · Registrado {fmtDate(t.created_at)}</p>
               </div>
             ))}
           </div>
