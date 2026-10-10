@@ -28,7 +28,50 @@ const PLAN_COLORS = {
   red:    'bg-red-100 text-red-700',
 }
 
-function AcordeonPacientes({ pacientes, color }: { pacientes: ControlPaciente[]; color: 'primary' | 'green' | 'red' }) {
+// Pacientes en Convenio: dos columnas (paciente | empresa), ordenados por empresa
+// y nombre, con subtotal por empresa al final
+function ListaPorEmpresa({ pacientes }: { pacientes: ControlPaciente[] }) {
+  const ordenados = [...pacientes].sort((a, b) =>
+    (a.detalle ?? '').localeCompare(b.detalle ?? '') || a.nombre.localeCompare(b.nombre))
+  const subtotales = new Map<string, number>()
+  for (const p of ordenados) {
+    const emp = p.detalle ?? 'Sin empresa'
+    subtotales.set(emp, (subtotales.get(emp) ?? 0) + 1)
+  }
+  return (
+    <div className="mt-2 min-w-[300px]">
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="text-gray-400">
+            <th className="text-left font-medium pb-1 pr-4">Paciente</th>
+            <th className="text-left font-medium pb-1">Empresa</th>
+          </tr>
+        </thead>
+        <tbody>
+          {ordenados.map(p => (
+            <tr key={p.id} className="align-top">
+              <td className="py-0.5 pr-4 text-gray-700 leading-snug">{p.nombre}</td>
+              <td className="py-0.5 text-gray-500 leading-snug whitespace-nowrap">{p.detalle ?? 'Sin empresa'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="mt-2 pt-2 border-t border-gray-100 flex flex-wrap gap-x-3 gap-y-1">
+        {Array.from(subtotales.entries()).map(([emp, n]) => (
+          <span key={emp} className="text-xs text-primary-700">
+            {emp}: <span className="font-semibold">{n}</span>
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function AcordeonPacientes({ pacientes, color, porEmpresa = false }: {
+  pacientes: ControlPaciente[]
+  color: 'primary' | 'green' | 'red'
+  porEmpresa?: boolean
+}) {
   if (pacientes.length === 0) return <span className="text-sm font-semibold text-primary-600">0</span>
   const badge = {
     primary: 'bg-primary-50 text-primary-700',
@@ -43,6 +86,7 @@ function AcordeonPacientes({ pacientes, color }: { pacientes: ControlPaciente[];
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </summary>
+      {porEmpresa ? <ListaPorEmpresa pacientes={pacientes} /> : (
       <ul className="mt-2 space-y-1 min-w-[180px]">
         {pacientes.map(p => (
           <li key={p.id} className="text-xs text-gray-700 leading-snug">
@@ -53,6 +97,7 @@ function AcordeonPacientes({ pacientes, color }: { pacientes: ControlPaciente[];
           </li>
         ))}
       </ul>
+      )}
     </details>
   )
 }
@@ -96,7 +141,7 @@ export default function ControlPlanesTabla({ filas, nombreMes }: { filas: Contro
                   <p className="text-xs text-gray-400">{f.email}</p>
                 </td>
                 <td className="px-3 py-1.5 text-center">
-                  <AcordeonPacientes pacientes={f.convenio} color="primary" />
+                  <AcordeonPacientes pacientes={f.convenio} color="primary" porEmpresa />
                 </td>
                 <td className="px-3 py-1.5">
                   <span className={`inline-block text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${PLAN_COLORS[f.plan.color]}`}>
