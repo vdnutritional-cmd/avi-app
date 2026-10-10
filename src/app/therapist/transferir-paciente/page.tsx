@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 type Paciente = { id: string; nombre: string; email: string }
@@ -9,12 +10,24 @@ type Paciente = { id: string; nombre: string; email: string }
 type Preview = {
   paciente:  { id: string; nombre: string; email: string }
   receptor:  { id: string; nombre: string; email: string }
-  resumen:   { sesionesPresenciales: number; analisis: number; tieneExpediente: boolean }
+  resumen:   {
+    sesionesPresenciales: number
+    analisis: number
+    tieneExpediente: boolean
+    tieneDerivaciones: boolean
+    cuestionarios: number
+  }
 }
 
 type Paso = 'formulario' | 'preview' | 'exito'
 
+// Mensajes del servidor: el texto entre **…** va en negritas
+function TextoConNegritas({ texto }: { texto: string }) {
+  return <>{texto.split('**').map((parte, i) => i % 2 === 1 ? <strong key={i}>{parte}</strong> : parte)}</>
+}
+
 export default function TransferirPacientePage() {
+  const router = useRouter()
   const [pacientes,      setPacientes]      = useState<Paciente[]>([])
   const [pacienteId,     setPacienteId]     = useState('')
   const [emailReceptor,  setEmailReceptor]  = useState('')
@@ -26,36 +39,37 @@ export default function TransferirPacientePage() {
   const [error,          setError]          = useState('')
   const [exitoModalidad, setExitoModalidad] = useState<'completo' | 'compartido'>('completo')
 
-  // Cargar pacientes activos del terapeuta
-  useEffect(() => {
-    async function cargar() {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+  // Pacientes activos del terapeuta — se vuelve a leer después de cada traslado
+  // (antes la lista quedaba fija y seguía mostrando al paciente ya transferido)
+  const cargarPacientes = useCallback(async () => {
+    setLoadingPacientes(true)
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
 
-      const { data } = await supabase
-        .from('therapist_patients')
-        .select('patient_id, profiles!therapist_patients_patient_id_fkey(full_name, email)')
-        .eq('therapist_id', user.id)
-        .eq('is_active', true)
-        .eq('status', 'active')
-        .order('created_at', { ascending: false })
+    const { data } = await supabase
+      .from('therapist_patients')
+      .select('patient_id, profiles!therapist_patients_patient_id_fkey(full_name, email)')
+      .eq('therapist_id', user.id)
+      .eq('is_active', true)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
 
-      if (data) {
-        const lista: Paciente[] = data.map((row: any) => {
-          const p = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles
-          return {
-            id:     row.patient_id,
-            nombre: p?.full_name ?? p?.email ?? row.patient_id,
-            email:  p?.email ?? '',
-          }
-        })
-        setPacientes(lista)
-      }
-      setLoadingPacientes(false)
+    if (data) {
+      const lista: Paciente[] = data.map((row: any) => {
+        const p = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles
+        return {
+          id:     row.patient_id,
+          nombre: p?.full_name ?? p?.email ?? row.patient_id,
+          email:  p?.email ?? '',
+        }
+      })
+      setPacientes(lista)
     }
-    cargar()
+    setLoadingPacientes(false)
   }, [])
+
+  useEffect(() => { cargarPacientes() }, [cargarPacientes])
 
   async function verPreview() {
     setError('')
@@ -89,6 +103,9 @@ export default function TransferirPacientePage() {
     }
     setExitoModalidad(modalidad)
     setPaso('exito')
+    // Lista y "Mis pacientes" sin datos viejos
+    cargarPacientes()
+    router.refresh()
   }
 
   function reiniciar() {
@@ -191,7 +208,7 @@ export default function TransferirPacientePage() {
           </div>
 
           {error && (
-            <p className="text-sm text-red-500 bg-red-50 px-4 py-3 rounded-xl">{error}</p>
+            <p className="text-sm text-red-500 bg-red-50 px-4 py-3 rounded-xl"><TextoConNegritas texto={error} /></p>
           )}
 
           <button
@@ -233,6 +250,11 @@ export default function TransferirPacientePage() {
                 <p>✓ {preview.resumen.sesionesPresenciales} sesión{preview.resumen.sesionesPresenciales !== 1 ? 'es' : ''} presencial{preview.resumen.sesionesPresenciales !== 1 ? 'es' : ''}</p>
                 <p>✓ {preview.resumen.analisis} análisis Consúltame</p>
                 {preview.resumen.tieneExpediente && <p>✓ Expediente completo (datos generales, secciones clínicas)</p>}
+                {preview.resumen.tieneDerivaciones && <p>✓ Derivaciones y cierres</p>}
+                {preview.resumen.cuestionarios > 0 && (
+                  <p>✓ {preview.resumen.cuestionarios} cuestionario{preview.resumen.cuestionarios !== 1 ? 's' : ''} asignado{preview.resumen.cuestionarios !== 1 ? 's' : ''}</p>
+                )}
+                <p>✓ Factores de riesgo y protección, frecuencia de sesiones y empresa CONVENIO</p>
                 <p>✓ Historial de sesiones AVI <span className="text-gray-400 text-xs">(visible automáticamente)</span></p>
               </div>
             </div>
@@ -245,7 +267,7 @@ export default function TransferirPacientePage() {
             </div>
 
             {error && (
-              <p className="text-sm text-red-500 bg-red-50 px-4 py-3 rounded-xl">{error}</p>
+              <p className="text-sm text-red-500 bg-red-50 px-4 py-3 rounded-xl"><TextoConNegritas texto={error} /></p>
             )}
 
             <div className="flex gap-3">
@@ -281,12 +303,12 @@ export default function TransferirPacientePage() {
             El paciente puede seguir usando AVI con su mismo correo y contraseña sin ningún cambio.
           </p>
           <div className="flex gap-3 justify-center pt-2">
-            <Link
-              href="/therapist/patients"
+            <button
+              onClick={() => { router.push('/therapist/patients'); router.refresh() }}
               className="px-5 py-2.5 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 transition-colors"
             >
               Ir a Mis pacientes
-            </Link>
+            </button>
             <button
               onClick={reiniciar}
               className="px-5 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
