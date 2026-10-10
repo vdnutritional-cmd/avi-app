@@ -523,7 +523,7 @@ export default async function AdminTerapeutasPage({
                   </p>
 
                   {/* Control de acceso con registro temporal */}
-                  <div className="mt-4 pt-3 border-t border-gray-100">
+                  <div className="mt-4 pt-3 border-t border-primary-300">
                     <p className="text-sm font-normal text-primary-400 mb-1">Control de acceso con registro temporal</p>
                     {/* ── Métricas de actividad ── */}
                     <div className="mt-2.5 flex flex-wrap gap-2">
@@ -613,7 +613,7 @@ export default async function AdminTerapeutasPage({
                   </div>
 
                   {/* Control de acceso con registro permanente */}
-                  <div className="mt-4 pt-3 border-t border-gray-100">
+                  <div className="mt-4 pt-3 border-t border-primary-300">
                     <p className="text-sm font-normal text-primary-400 mb-2">Control de acceso con registro permanente</p>
                   <div className="flex items-center gap-2 flex-wrap">
                     {/* Cambiar tier */}
