@@ -1,6 +1,6 @@
 # AVI Therapy Companion App — Contexto para Claude Code
 
-> **Versión:** 1.0 (cerrada) · **Fecha:** 06 octubre 2026  
+> **Versión:** 1.0 (cerrada) · **Actualizado:** 10 octubre 2026  
 > Este archivo es el punto de entrada para cualquier sesión de Claude Code en este proyecto.  
 > Léelo completo antes de modificar cualquier archivo.
 
@@ -26,9 +26,10 @@ Módulos transversales: **Administración** (superadmin), **Panel Institucional*
 | UI | React 19 + Tailwind CSS 3 |
 | Base de datos | Supabase (PostgreSQL + pgvector + RLS) |
 | Auth | Supabase Auth (email/password + MFA TOTP) |
-| IA — chat | Anthropic Claude (claude-sonnet-4-5) |
-| IA — embeddings | Google Gemini (text-embedding-004) |
-| IA — análisis | Claude con RAG multi-perfil |
+| IA — chat paciente | Anthropic `claude-haiku-4-5-20251001` (también patrones y Reporte de la Atención) |
+| IA — análisis | `claude-sonnet-5` con RAG multi-perfil (expediente, HC, análisis clínicos); `claude-sonnet-4-6` en emociones/recursos de sesiones |
+| IA — embeddings | OpenAI `text-embedding-3-small` (1536) |
+| Voz | TTS **Amazon Polly** (Mia, es-MX) en `/api/voice/tts`; dictado con **Web Speech API** del navegador. ElevenLabs **no se usa** (`/api/voice/stt` es legado, sin llamadas) |
 | Pagos | Stripe (checkout + webhooks) |
 | Email | Resend |
 | Push | Web Push API + Expo Push (app móvil) |
@@ -89,8 +90,9 @@ src/app/
 
 ├── admin/                          Panel superadmin
 │   ├── AdminSidebar.tsx            Sidebar admin (Volver a AVI + Cerrar sesión → `/`)
-│   ├── page.tsx                    Panel de Control (stats, aprobaciones, cumplimiento)
-│   ├── terapeutas/page.tsx         Desactivar/Reactivar terapeuta (profiles.is_active, NOM-024)
+│   ├── page.tsx                    Panel de Control — SOLO INFORMATIVO (stats, pendientes, Control de Planes, pago caído, cumplimiento)
+│   ├── ControlPlanesTabla.tsx      Tabla "Control de Planes y Contrataciones" (acordeones <details>, fila Total)
+│   ├── terapeutas/page.tsx         ACCIONES: Aprobar gratis permanente, Companion, tier, revocar, desactivar/reactivar
 │   ├── convenio/page.tsx           Códigos CONVENIO + logos de empresa
 │   ├── convenio-empresas/page.tsx  Teléfono + logo + Personas Institucionales por empresa
 │   ├── reportes/page.tsx
@@ -101,7 +103,7 @@ src/app/
     ├── analysis/route.ts           Análisis clínico IA (Claude + RAG)
     ├── analisis-clinicos/route.ts  Expediente: McMaster + diagnóstico
     ├── cron/
-    │   ├── bloquear-inactivos/     Cron diario 09:00 UTC — bloqueo pacientes inactivos
+    │   ├── bloquear-inactivos/     Cron diario 09:00 UTC — bloqueo por inactividad (15/30/45 días según frecuencia) → status 'inactive'
     │   └── desactivar-companion-expirados/  Cron diario 10:00 UTC — expira bundles companion
     ├── historia-clinica/route.ts   HC Original / HC Actualizada
     ├── expediente-analysis/route.ts
@@ -122,7 +124,8 @@ src/app/
     │   ├── checkout/route.ts       Crea sesión Stripe (CONVENIO: solo valida código) / activa Companion
     │   └── webhook/route.ts        Activa suscripción + liga empresa + marca código (con pago confirmado)
     ├── auth/
-    │   ├── login/route.ts          Auth con rate-limit + audit log
+    │   ├── login/route.ts          Auth con rate-limit + audit log + bloqueo de terapeuta desactivado
+    │   ├── estado-cuenta/route.ts  GET (Bearer) → { desactivado, institucional } para la app móvil
     │   ├── logout/route.ts
     │   ├── registro-consultorio/   Crea paciente desde QR público
     │   └── confirm-patient/
@@ -131,8 +134,7 @@ src/app/
     │   ├── convenio-empresas/
     │   ├── personas-institucionales/
     │   └── therapist-empresa/
-    ├── cron/bloquear-inactivos/    Auto-bloqueo pacientes +45 días
-    └── voice/ (stt + tts)          ElevenLabs + Whisper
+    └── voice/ (tts + stt)          tts: Amazon Polly · stt: legado sin uso
 ```
 
 ---
@@ -228,9 +230,9 @@ Los 6 reportes que usan `sharedCSS()` ya lo tienen. Los demás lo tienen inline.
 
 | Tabla | Descripción |
 |---|---|
-| `profiles` | Usuarios (role: therapist / patient / admin), therapy_profile, `is_active` (desactivar terapeuta). El WhatsApp del terapeuta está en **auth `user_metadata.whatsapp_phone`**, no en profiles |
+| `profiles` | Usuarios (role: therapist / patient / admin), therapy_profile, `is_active` (desactivar terapeuta: no inicia sesión). `bloqueo_manual` existe pero no se usa. El WhatsApp del terapeuta está en **auth `user_metadata.whatsapp_phone`**, no en profiles |
 | `subscriptions` | Plan del terapeuta: status, plan, tier (esencial/clinico), patient_slots. Constraint `subscriptions_plan_check`: `paid, free, valora, unit, companion` — **ampliarlo si se agrega un tipo de plan nuevo** |
-| `therapist_patients` | Relación terapeuta-paciente, status (active/archived/blocked) |
+| `therapist_patients` | Relación terapeuta-paciente. `is_active` + `status`: `active` · `archived` (fusionado/transferido) · `inactive` (bloqueado por inactividad, cron) · `blocked` (bloqueado manualmente). CHECK ampliado en migración `20261009` |
 | `case_notes` | Nota inicial + análisis IA por paciente |
 | `therapist_session_notes` | Sesiones presenciales (objetivo, desarrollo, acuerdo, seguimiento) |
 | `patient_expediente` | Expediente clínico completo (Individual, Familiar, Pareja, Análisis Clínicos, HC, info_*) |
@@ -291,13 +293,21 @@ SUPABASE_URL=          # sin prefijo NEXT_PUBLIC_ para server/admin
 SUPABASE_ANON_KEY=     # sin prefijo NEXT_PUBLIC_ para server
 SUPABASE_SERVICE_ROLE_KEY=
 ANTHROPIC_API_KEY=
-GOOGLE_API_KEY=        # para embeddings Gemini
+OPENAI_API_KEY=        # embeddings text-embedding-3-small (RAG)
 STRIPE_SECRET_KEY=
 STRIPE_WEBHOOK_SECRET=
 RESEND_API_KEY=
-VAPID_PUBLIC_KEY=
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=
+VAPID_SUBJECT=
 VAPID_PRIVATE_KEY=
-ELEVENLABS_API_KEY=    # TTS de voz
+AWS_ACCESS_KEY_ID=     # Amazon Polly (TTS)
+AWS_SECRET_ACCESS_KEY=
+AWS_REGION=
+ADMIN_EMAIL=           # superadmin
+CRON_SECRET=
+NEXT_PUBLIC_APP_URL=
+# STRIPE_PRICE_* (packs, unit, valora, patrocinio) — ver src/lib/stripe/plans.ts
+# ELEVENLABS_API_KEY sobra: ElevenLabs ya no se usa
 ```
 
 ---
@@ -345,6 +355,70 @@ Reglas del webhook (`handleCheckoutCompleted`):
 - Si ya existen bundles con ese `stripe_sub_id` → se omite (Stripe puede reenviar el evento)
 - Los errores al insertar bundles se lanzan → Stripe reintenta
 - "valora" es el **nombre del tipo de plan** CONVENIO, no la empresa: todo funciona por `empresa_id` para cualquier empresa
+
+---
+
+## Acceso por paciente — regla "la empresa paga"
+
+**Fuente única:** `src/lib/acceso-paciente.ts` → `getAccesoTerapeuta()` + `accesoDePaciente()`.
+
+| Paciente | Nivel | ¿Se bloquea? |
+|---|---|---|
+| CONVENIO (`empresa_id != null`) | Clínico | Nunca; no cuenta contra el cupo |
+| Independiente (`empresa_id = null`) | Del plan del terapeuta (bundle Companion → Clínico; si no, `subscriptions.tier`) | Solo los primeros N por fecha de registro tienen acceso (N = cupo). Sin plan → todos bloqueados |
+
+- El registro de pacientes **nunca** se detiene por cupo; el límite se aplica después, en el acceso.
+- `therapist/layout.tsx` deja entrar sin plan propio si el terapeuta tiene una empresa CONVENIO activa.
+
+### Tres motivos de bloqueo de un paciente
+| Motivo | Dónde | Datos |
+|---|---|---|
+| Inactividad | Cron `bloquear-inactivos` | `is_active=false`, `status='inactive'` (+ abandono en `patient_derivaciones_cierres`) |
+| Manual (🚫 Bloquear en Mis pacientes) | `togglePaciente` | `is_active=false`, `status='blocked'`; Reactivar → `status='active'` |
+| Sin convenio y sin cupo/plan | Calculado | **No se guarda**; lo calcula `acceso-paciente.ts` |
+
+"Mis pacientes" muestra el motivo en la sección Bloqueados. La tabla Control de Planes solo cuenta el tercer tipo.
+
+### Terapeuta desactivado (`profiles.is_active = false`)
+- **Login web** (`api/auth/login`): 403 + `signOut`, con el mensaje "Tu cuenta de terapeuta está desactivada… WhatsApp 33 1883 0312".
+- **Excepción:** si es Persona Institucional activa, sigue el flujo normal (MFA incluido) y entra **solo** a `/institucional`. `therapist/layout.tsx` lo redirige ahí y `institucional/layout.tsx` deshabilita las opciones de terapeuta.
+- **Sesión ya abierta:** `therapist/layout.tsx` muestra `CuentaDesactivada.tsx`, o redirige a `/institucional` si es PI.
+- **App móvil (`avi-tca`):** consulta `GET /api/auth/estado-cuenta` en `_layout.tsx` y aplica la misma regla.
+
+### Personas Institucionales — niveles (`src/lib/niveles-institucionales.ts`)
+| Nivel | Acceso |
+|---|---|
+| N3 | Panel Institucional |
+| N2 | Panel + Reporte Institucional General + Baja de Terapeutas |
+| N1 | N2 + Reporte por Terapeuta |
+
+`opera_como_terapeuta` es independiente del nivel. Usar `permisosPI(niveles)` en el sidebar, las tarjetas y las páginas.
+
+### Otras librerías compartidas (`src/lib/`)
+| Archivo | Uso |
+|---|---|
+| `companion.ts` | `activarCompanion()` — fuente única (checkout + Admin › Terapeutas), Opción B |
+| `registro-email.ts` | Verifica el correo antes de registrar (sin revelar el terapeuta de un paciente) |
+| `empresas-terapeuta.ts` | Empresas CONVENIO activas de un terapeuta |
+| `sesiones-por-institucion.ts` | `institucionRowsDesde()` — % por institución que suman 100% (mayor residuo) |
+| `patient-contacto.ts` | Contacto del paciente para la bienvenida y el chat |
+
+---
+
+## Administración AVI — información vs. acción
+
+- **Panel de Control (`/admin`) es solo informativo.** No lleva botones que cambien datos; solo enlaces. "Pendientes de aprobación" remite a Terapeutas.
+- **Control de Planes y Contrataciones**, por terapeuta:
+  - Pacientes en Convenio: acordeón en dos columnas (paciente | empresa), ordenado por empresa, con subtotal.
+  - Plan contratado.
+  - Pacientes sin Convenio registrados: con acceso + bloqueados por cupo del mes.
+  - Pacientes Bloqueados: por cupo, registrados en el mes y aún sin acceso.
+- **Terapeutas (`/admin/terapeutas`)** concentra las acciones:
+  - "Pendientes" y "Sin acceso" se dividen en **Registro Temporal** (Código CONVENIO / Companion con vencimiento) y **Registro Permanente** (Aprobar `free_approved` — autorización exclusiva del Administrador AVI).
+  - "Con acceso activo" muestra "Control de acceso con registro temporal / permanente".
+- **Gratis permanente** = `status 'free_approved'`, `plan 'free'`, con el cupo y nivel elegidos. Solo se puede aprobar a quien está en Pendientes (sin fila en `subscriptions`) o en Sin acceso (`cancelled`/`past_due`).
+  - Asignar Companion a un `free_approved` solo agrega un bundle: al vencer, el terapeuta vuelve a gratis permanente.
+- **Revocar acceso** = `subscriptions.status='cancelled'`. **Desactivar** = `profiles.is_active=false`; requiere 0 pacientes activos e impide iniciar sesión.
 
 ---
 
@@ -422,6 +496,8 @@ npm run build
 - **Último commit V1.0:** `9ddb2e1`
 - **Último commit Sprint 12 Companion:** `dd614c6`
 - **Último commit fixes Stripe CONVENIO + contacto por empresa:** `9f5ee22` (06 oct 2026)
+- **Último commit respaldado:** `89cfffc` (10 oct 2026) — Control de Planes, motivo de bloqueo, terapeuta desactivado, Admin › Terapeutas Temporal/Permanente
+- Confirmar el deploy: `vercel ls` / `vercel inspect go.avi-app.com.mx` (CLI con sesión en la Mac)
 - Migraciones nuevas: archivo en `supabase/migrations/AAAAMMDD_nombre.sql`; el SQL lo corre José Luis en Supabase SQL Editor **antes** de subir código que dependa de él
 - Al cerrar cada sesión: actualizar `../AVI - Bitácora de Desarrollo.md` (y el índice de `../AVI - SQL Migración Supabase.md` si hubo migración) y este archivo
 
