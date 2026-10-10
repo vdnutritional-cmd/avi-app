@@ -13,7 +13,7 @@ export default async function InstitucionalLayout({ children }: { children: Reac
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, full_name, email')
+    .select('role, full_name, email, is_active')
     .eq('id', user.id)
     .single()
 
@@ -33,7 +33,9 @@ export default async function InstitucionalLayout({ children }: { children: Reac
   // Si no tiene ningún registro institucional activo, redirigir al panel normal
   if (!piRecords || piRecords.length === 0) redirect('/therapist/dashboard')
 
-  const canActAsTherapist  = piRecords.some(r => r.opera_como_terapeuta)
+  // Terapeuta desactivado por Administración AVI: conserva el panel institucional,
+  // pero no las opciones de terapeuta
+  const canActAsTherapist  = profile.is_active !== false && piRecords.some(r => r.opera_como_terapeuta)
   const permisos = permisosPI(piRecords.map(r => r.nivel as string))
 
   // Empresas del terapeuta en therapist_empresa (para prop hasEmpresas del Sidebar)

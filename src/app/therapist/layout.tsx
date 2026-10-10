@@ -6,6 +6,7 @@ import Sidebar from './Sidebar'
 import ReportesPanel from './ReportesPanel'
 import WhatsAppSupport from '@/components/WhatsAppSupport'
 import ActivarPlan from './ActivarPlan'
+import CuentaDesactivada from './CuentaDesactivada'
 import InactivityGuard from '@/components/InactivityGuard'
 import { permisosPI } from '@/lib/niveles-institucionales'
 
@@ -20,7 +21,7 @@ export default async function TherapistLayout({ children }: { children: React.Re
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, full_name, email')
+    .select('role, full_name, email, is_active')
     .eq('id', user.id)
     .single()
 
@@ -45,6 +46,13 @@ export default async function TherapistLayout({ children }: { children: React.Re
 
   if (hasPI && !canActAsTherapist) {
     redirect('/institucional/dashboard')
+  }
+
+  // Desactivado por Administración AVI: sin panel de terapeuta. Si es Persona
+  // Institucional, solo Administración Institucional; si no, pantalla de bloqueo.
+  if (profile.is_active === false) {
+    if (hasPI) redirect('/institucional/dashboard')
+    return <CuentaDesactivada therapistName={profile.full_name ?? ''} />
   }
 
   // ── Empresas del terapeuta (para acordeón "Mis pacientes" en Sidebar) ────────

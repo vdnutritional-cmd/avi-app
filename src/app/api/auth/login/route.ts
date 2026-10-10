@@ -109,12 +109,32 @@ export async function POST(req: NextRequest) {
     // Obtener rol para redirección
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('role')
+      .select('role, is_active')
       .eq('id', data.user.id)
       .single()
 
     if (profileError) {
       console.error('[login] No se pudo obtener perfil del usuario:', profileError.message)
+    }
+
+    // Terapeuta desactivado por Administración AVI (Admin › Terapeutas › Desactivar):
+    // no puede iniciar sesión aunque conserve un plan vigente. Excepción: si es
+    // Persona Institucional activa, entra solo a Administración Institucional.
+    if (profile?.role === 'therapist' && profile.is_active === false) {
+      const { data: piActivo } = await admin
+        .from('convenio_personas_institucionales')
+        .select('id')
+        .eq('therapist_id', data.user.id)
+        .eq('is_active', true)
+        .limit(1)
+      // Con PI activa sigue el flujo normal (MFA + rol 'institucional' más abajo)
+      if (!piActivo || piActivo.length === 0) {
+        await supabase.auth.signOut()
+        return NextResponse.json(
+          { error: 'Tu cuenta de terapeuta está desactivada. Si crees que es un error, contacta a AVI por WhatsApp al 33 1883 0312.' },
+          { status: 403 }
+        )
+      }
     }
 
     // Verificar si el usuario tiene MFA activo
