@@ -506,8 +506,16 @@ export default async function AdminTerapeutasPage({
               const lastPatientSess = lastPatientSessionMap.get(t.id)
 
               return (
-                <div key={t.id} className="bg-white border border-green-100 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center gap-4">
-                  <div className="flex-1 min-w-0">
+                <div key={t.id} className="bg-white border border-green-100 rounded-2xl p-5">
+                  {/* Títulos de los dos bloques (desktop) — tenues, sin negritas */}
+                  <div className="hidden md:grid md:grid-cols-2 mb-2">
+                    <p className="text-sm font-normal text-primary-400 text-center">Control de acceso con registro temporal</p>
+                    <p className="text-sm font-normal text-primary-400 text-center">Control de acceso con registro permanente</p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-0">
+                  {/* Control temporal: datos, empresas, actividad y Companion con vencimiento */}
+                  <div className="min-w-0 md:pr-5 md:border-r-2 md:border-primary-200">
+                    <p className="md:hidden text-sm font-normal text-primary-400 mb-1">Control de acceso con registro temporal</p>
                     <p className="font-medium text-gray-800">{t.full_name ?? '—'}</p>
                     <p className="text-sm text-gray-500">{t.email}</p>
                     {/* Fila plan */}
@@ -604,6 +612,9 @@ export default async function AdminTerapeutasPage({
                     )}
                     <CompanionForm therapistId={t.id} />
                   </div>
+                  {/* Control permanente: nivel, revocar y desactivar (a la altura del bloque temporal) */}
+                  <div className="md:pl-5 flex flex-col justify-end">
+                    <p className="md:hidden text-sm font-normal text-primary-400 mb-1">Control de acceso con registro permanente</p>
                   <div className="flex items-center gap-2 flex-wrap">
                     {/* Cambiar tier */}
                     <form action={cambiarTier} className="flex items-center gap-1">
@@ -630,6 +641,8 @@ export default async function AdminTerapeutasPage({
                       displayName={t.full_name ?? t.email ?? 'este terapeuta'}
                       action={desactivarTerapeuta}
                     />
+                  </div>
+                  </div>
                   </div>
                 </div>
               )
