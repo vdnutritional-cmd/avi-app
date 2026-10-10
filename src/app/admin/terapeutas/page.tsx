@@ -419,8 +419,16 @@ export default async function AdminTerapeutasPage({
         ) : (
           <div className="space-y-3">
             {pendientes.map(t => (
-              <div key={t.id} className="bg-white border border-amber-100 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center gap-4">
-                <div className="flex-1">
+              <div key={t.id} className="bg-white border border-amber-100 rounded-2xl p-5">
+                {/* Títulos de los dos bloques (desktop) */}
+                <div className="hidden md:grid md:grid-cols-2 mb-2">
+                  <p className="text-sm font-semibold text-primary-600 text-center">Registro Temporal</p>
+                  <p className="text-sm font-semibold text-primary-600 text-center">Registro Permanente</p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-0">
+                {/* Registro temporal: datos del terapeuta + Companion con vencimiento */}
+                <div className="md:pr-5 md:border-r-2 md:border-primary-500">
+                  <p className="md:hidden text-sm font-semibold text-primary-600 mb-1">Registro Temporal</p>
                   <p className="font-medium text-gray-800">{t.full_name ?? '—'}</p>
                   <p className="text-sm text-gray-500">{t.email}</p>
                   <p className="text-xs text-gray-400 mt-0.5">
@@ -428,6 +436,9 @@ export default async function AdminTerapeutasPage({
                   </p>
                   <CompanionForm therapistId={t.id} />
                 </div>
+                {/* Registro permanente: gratis aprobado por AVI (a la altura del bloque temporal) */}
+                <div className="md:pl-5 flex flex-col justify-end">
+                  <p className="md:hidden text-sm font-semibold text-primary-600 mb-1">Registro Permanente</p>
                 <div className="flex items-center gap-2 flex-wrap">
                   {/* Formulario aprobar */}
                   <form action={aprobarTerapeuta} className="flex items-center gap-2 flex-wrap">
@@ -460,6 +471,8 @@ export default async function AdminTerapeutasPage({
                     displayName={t.full_name ?? t.email ?? 'este terapeuta'}
                     action={rechazarTerapeuta}
                   />
+                </div>
+                </div>
                 </div>
               </div>
             ))}
@@ -633,26 +646,43 @@ export default async function AdminTerapeutasPage({
           </h2>
           <div className="space-y-3">
             {revocados.map(t => (
-              <div key={t.id} className="bg-white border border-red-100 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center gap-4">
-                <div className="flex-1">
+              <div key={t.id} className="bg-white border border-red-100 rounded-2xl p-5">
+                {/* Títulos de los dos bloques (desktop) — mismo diseño que Pendientes */}
+                <div className="hidden md:grid md:grid-cols-2 mb-2">
+                  <p className="text-sm font-semibold text-primary-600 text-center">Registro Temporal</p>
+                  <p className="text-sm font-semibold text-primary-600 text-center">Registro Permanente</p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-0">
+                {/* Registro temporal: datos del terapeuta + Companion con vencimiento */}
+                <div className="md:pr-5 md:border-r-2 md:border-primary-500">
+                  <p className="md:hidden text-sm font-semibold text-primary-600 mb-1">Registro Temporal</p>
                   <p className="font-medium text-gray-800">{t.full_name ?? '—'}</p>
                   <p className="text-sm text-gray-500">{t.email}</p>
                   <CompanionForm therapistId={t.id} />
                 </div>
+                {/* Registro permanente: gratis aprobado por AVI (a la altura del bloque temporal) */}
+                <div className="md:pl-5 flex flex-col justify-end">
+                  <p className="md:hidden text-sm font-semibold text-primary-600 mb-1">Registro Permanente</p>
                 <div className="flex items-center gap-2 flex-wrap">
                   <form action={aprobarTerapeuta} className="flex items-center gap-2 flex-wrap">
                     <input type="hidden" name="therapistId" value={t.id} />
-                    <select name="slots" defaultValue="10"
-                      className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300">
-                      {[3, 5, 10, 15, 20, 30, 40].map(n => (
-                        <option key={n} value={n}>{n}</option>
-                      ))}
-                    </select>
-                    <select name="tier" defaultValue="esencial"
-                      className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300">
-                      <option value="esencial">Esencial</option>
-                      <option value="clinico">Clínico</option>
-                    </select>
+                    <div className="flex items-center gap-1">
+                      <label className="text-xs text-gray-500">Pac:</label>
+                      <select name="slots" defaultValue="10"
+                        className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300">
+                        {[3, 5, 10, 15, 20, 30, 40].map(n => (
+                          <option key={n} value={n}>{n}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <label className="text-xs text-gray-500">Tier:</label>
+                      <select name="tier" defaultValue="esencial"
+                        className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300">
+                        <option value="esencial">Esencial</option>
+                        <option value="clinico">Clínico</option>
+                      </select>
+                    </div>
                     <button type="submit"
                       className="bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors">
                       Reactivar
@@ -663,6 +693,8 @@ export default async function AdminTerapeutasPage({
                     displayName={t.full_name ?? t.email ?? 'este terapeuta'}
                     action={desactivarTerapeuta}
                   />
+                </div>
+                </div>
                 </div>
               </div>
             ))}
