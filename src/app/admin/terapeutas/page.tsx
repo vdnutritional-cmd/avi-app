@@ -507,25 +507,24 @@ export default async function AdminTerapeutasPage({
 
               return (
                 <div key={t.id} className="bg-white border border-green-100 rounded-2xl p-5">
-                  {/* Títulos de los dos bloques (desktop) — tenues, sin negritas */}
-                  <div className="hidden md:grid md:grid-cols-2 mb-2">
-                    <p className="text-sm font-normal text-primary-400 text-center">Control de acceso con registro temporal</p>
-                    <p className="text-sm font-normal text-primary-400 text-center">Control de acceso con registro permanente</p>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-0">
-                  {/* Control temporal: datos, empresas, actividad y Companion con vencimiento */}
-                  <div className="min-w-0 md:pr-5 md:border-r-2 md:border-primary-200">
-                    <p className="md:hidden text-sm font-normal text-primary-400 mb-1">Control de acceso con registro temporal</p>
+                  {/* Renglón 1: nombre (izquierda) · correo (centrado) */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 items-baseline gap-x-4">
                     <p className="font-medium text-gray-800">{t.full_name ?? '—'}</p>
-                    <p className="text-sm text-gray-500">{t.email}</p>
-                    {/* Fila plan */}
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      Plan: {sub.plan} · {sub.patient_slots} pac ·{' '}
-                      <span className="capitalize">{sub.status}</span> ·{' '}
-                      <span className={`font-semibold ${sub.tier === 'clinico' ? 'text-purple-600' : 'text-gray-500'}`}>
-                        AVI {sub.tier === 'clinico' ? 'Clínico' : 'Esencial'}
-                      </span>
-                    </p>
+                    <p className="text-sm text-gray-500 md:text-center truncate">{t.email}</p>
+                  </div>
+                  {/* Plan(es) del terapeuta */}
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    Plan: {sub.plan} · {sub.patient_slots} pac ·{' '}
+                    <span className="capitalize">{sub.status}</span> ·{' '}
+                    <span className={`font-semibold ${sub.tier === 'clinico' ? 'text-purple-600' : 'text-gray-500'}`}>
+                      AVI {sub.tier === 'clinico' ? 'Clínico' : 'Esencial'}
+                    </span>
+                    {convenioLabel && <> · Código: {convenioLabel}</>}
+                  </p>
+
+                  {/* Control de acceso con registro temporal */}
+                  <div className="mt-4 pt-3 border-t border-gray-100">
+                    <p className="text-sm font-normal text-primary-400 mb-1">Control de acceso con registro temporal</p>
                     {/* ── Métricas de actividad ── */}
                     <div className="mt-2.5 flex flex-wrap gap-2">
                       {/* Empresas en CONVENIO */}
@@ -612,9 +611,10 @@ export default async function AdminTerapeutasPage({
                     )}
                     <CompanionForm therapistId={t.id} />
                   </div>
-                  {/* Control permanente: nivel, revocar y desactivar (a la altura del bloque temporal) */}
-                  <div className="md:pl-5 flex flex-col justify-end">
-                    <p className="md:hidden text-sm font-normal text-primary-400 mb-1">Control de acceso con registro permanente</p>
+
+                  {/* Control de acceso con registro permanente */}
+                  <div className="mt-4 pt-3 border-t border-gray-100">
+                    <p className="text-sm font-normal text-primary-400 mb-2">Control de acceso con registro permanente</p>
                   <div className="flex items-center gap-2 flex-wrap">
                     {/* Cambiar tier */}
                     <form action={cambiarTier} className="flex items-center gap-1">
@@ -641,7 +641,6 @@ export default async function AdminTerapeutasPage({
                       displayName={t.full_name ?? t.email ?? 'este terapeuta'}
                       action={desactivarTerapeuta}
                     />
-                  </div>
                   </div>
                   </div>
                 </div>
