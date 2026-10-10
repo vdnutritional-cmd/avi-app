@@ -422,13 +422,20 @@ export default async function AdminTerapeutasPage({
               <div key={t.id} className="bg-white border border-amber-100 rounded-2xl p-5">
                 {/* Títulos de los dos bloques (desktop) */}
                 <div className="hidden md:grid md:grid-cols-2 mb-2">
-                  <p className="text-sm font-semibold text-primary-600 text-center">Registro Temporal</p>
-                  <p className="text-sm font-semibold text-primary-600 text-center">Registro Permanente</p>
+                  <div>
+                    <p className="text-sm font-semibold text-primary-600 text-center">Registro Temporal</p>
+                    <p className="text-xs font-normal text-primary-500 text-center">(Registro mediante Código CONVENIO)</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-primary-600 text-center">Registro Permanente</p>
+                    <p className="text-xs font-normal text-primary-500 text-center">(Autorización exclusiva: Administrador AVI)</p>
+                  </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-0">
                 {/* Registro temporal: datos del terapeuta + Companion con vencimiento */}
                 <div className="md:pr-5 md:border-r-2 md:border-primary-500">
-                  <p className="md:hidden text-sm font-semibold text-primary-600 mb-1">Registro Temporal</p>
+                  <p className="md:hidden text-sm font-semibold text-primary-600">Registro Temporal</p>
+                  <p className="md:hidden text-xs font-normal text-primary-500 mb-1">(Registro mediante Código CONVENIO)</p>
                   <p className="font-medium text-gray-800">{t.full_name ?? '—'}</p>
                   <p className="text-sm text-gray-500">{t.email}</p>
                   <p className="text-xs text-gray-400 mt-0.5">
@@ -438,7 +445,8 @@ export default async function AdminTerapeutasPage({
                 </div>
                 {/* Registro permanente: gratis aprobado por AVI (a la altura del bloque temporal) */}
                 <div className="md:pl-5 flex flex-col justify-end">
-                  <p className="md:hidden text-sm font-semibold text-primary-600 mb-1">Registro Permanente</p>
+                  <p className="md:hidden text-sm font-semibold text-primary-600">Registro Permanente</p>
+                  <p className="md:hidden text-xs font-normal text-primary-500 mb-1">(Autorización exclusiva: Administrador AVI)</p>
                 <div className="flex items-center gap-2 flex-wrap">
                   {/* Formulario aprobar */}
                   <form action={aprobarTerapeuta} className="flex items-center gap-2 flex-wrap">
@@ -661,20 +669,28 @@ export default async function AdminTerapeutasPage({
               <div key={t.id} className="bg-white border border-red-100 rounded-2xl p-5">
                 {/* Títulos de los dos bloques (desktop) — mismo diseño que Pendientes */}
                 <div className="hidden md:grid md:grid-cols-2 mb-2">
-                  <p className="text-sm font-semibold text-primary-600 text-center">Registro Temporal</p>
-                  <p className="text-sm font-semibold text-primary-600 text-center">Registro Permanente</p>
+                  <div>
+                    <p className="text-sm font-semibold text-primary-600 text-center">Registro Temporal</p>
+                    <p className="text-xs font-normal text-primary-500 text-center">(Registro mediante Código CONVENIO)</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-primary-600 text-center">Registro Permanente</p>
+                    <p className="text-xs font-normal text-primary-500 text-center">(Autorización exclusiva: Administrador AVI)</p>
+                  </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-0">
                 {/* Registro temporal: datos del terapeuta + Companion con vencimiento */}
                 <div className="md:pr-5 md:border-r-2 md:border-primary-500">
-                  <p className="md:hidden text-sm font-semibold text-primary-600 mb-1">Registro Temporal</p>
+                  <p className="md:hidden text-sm font-semibold text-primary-600">Registro Temporal</p>
+                  <p className="md:hidden text-xs font-normal text-primary-500 mb-1">(Registro mediante Código CONVENIO)</p>
                   <p className="font-medium text-gray-800">{t.full_name ?? '—'}</p>
                   <p className="text-sm text-gray-500">{t.email}</p>
                   <CompanionForm therapistId={t.id} />
                 </div>
                 {/* Registro permanente: gratis aprobado por AVI (a la altura del bloque temporal) */}
                 <div className="md:pl-5 flex flex-col justify-end">
-                  <p className="md:hidden text-sm font-semibold text-primary-600 mb-1">Registro Permanente</p>
+                  <p className="md:hidden text-sm font-semibold text-primary-600">Registro Permanente</p>
+                  <p className="md:hidden text-xs font-normal text-primary-500 mb-1">(Autorización exclusiva: Administrador AVI)</p>
                 <div className="flex items-center gap-2 flex-wrap">
                   <form action={aprobarTerapeuta} className="flex items-center gap-2 flex-wrap">
                     <input type="hidden" name="therapistId" value={t.id} />
