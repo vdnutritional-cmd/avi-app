@@ -35,7 +35,11 @@ export default function ResumenCombinadoAVI({ empresaBlocks }: { empresaBlocks: 
       {/* Por empresa (solo con varias) */}
       {bloques.length > 1 && (
         <section className="space-y-2">
-          <h2 className="text-sm font-bold text-primary-600 uppercase tracking-wide">Por empresa</h2>
+          <h2 className="pl-5 text-sm">
+            {/* pl-5: a la altura del título "Terapeutas por Empresa" (px-5 del acordeón) */}
+            <span className="font-bold text-gray-900 uppercase tracking-wide">Resumen por empresa</span>{' '}
+            <span className="font-normal text-gray-400">(solo Administración AVI)</span>
+          </h2>
           <div className="bg-white border border-gray-100 rounded-2xl overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-xs text-gray-500">
