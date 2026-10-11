@@ -12,7 +12,7 @@ import { cargarTelefonos, cargarTerapeutasEmpresa } from '@/app/institucional/da
 import PanelInstitucionalVista, { type EmpresaBlock } from '@/app/institucional/dashboard/PanelInstitucionalVista'
 import EncabezadoAVI from './EncabezadoAVI'
 import ResumenCombinadoAVI from './ResumenCombinadoAVI'
-import { cargarEmpresasAVI, resolverSeleccion } from './empresas-avi'
+import { cargarEmpresasAVI, cargarIndependientes, resolverSeleccion, SIN_EMPRESA } from './empresas-avi'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,7 +31,11 @@ export default async function AdminInstitucionalPanelPage({
   const seleccionadas = empresas.filter(e => selectedIds.includes(e.id))
   if (user) logApiAccess(supabase, user.id, '/admin/institucional', 'GET', { empresa_ids: selectedIds })
 
-  const whatsappMap = seleccionadas.length > 0 ? await cargarTelefonos(admin) : new Map<string, string>()
+  const conSinEmpresa = selectedIds.includes(SIN_EMPRESA)
+  const [whatsappMap, independientes] = await Promise.all([
+    seleccionadas.length > 0 || conSinEmpresa ? cargarTelefonos(admin) : Promise.resolve(new Map<string, string>()),
+    conSinEmpresa ? cargarIndependientes(admin) : Promise.resolve(null),
+  ])
   const empresaBlocks: EmpresaBlock[] = await Promise.all(
     seleccionadas.map(async e => ({
       empresaId: e.id,
@@ -50,15 +54,18 @@ export default async function AdminInstitucionalPanelPage({
       <EncabezadoAVI actual="/admin/institucional" empresas={empresas} selectedIds={selectedIds} mes={params.mes} />
 
       <div className="transition-opacity duration-150 [html[data-reporte-cargando]_&]:opacity-40 [html[data-reporte-cargando]_&]:pointer-events-none">
-        {empresaBlocks.length === 0 ? (
+        {empresaBlocks.length === 0 && !conSinEmpresa ? (
           <p className="text-sm text-gray-400 text-center py-8">Selecciona una o más empresas.</p>
+        ) : empresaBlocks.length === 0 ? (
+          // Solo "Sin empresa": no hay Terapeutas por Empresa ni Resumen; solo la lista de terapeutas
+          <ResumenCombinadoAVI empresaBlocks={[]} independientes={independientes} telefonos={whatsappMap} />
         ) : (
           <PanelInstitucionalVista
             empresaBlocks={empresaBlocks}
             permisos={{ reporteGeneral: true, reporteTerapeuta: true }}
             hrefReporteGeneral={`/admin/institucional/reporte-general?${qs.toString()}`}
             hrefReporteTerapeuta={`/admin/institucional/reporte-terapeuta?${qs.toString()}`}
-            antesDeReportes={<ResumenCombinadoAVI empresaBlocks={empresaBlocks} />}
+            antesDeReportes={<ResumenCombinadoAVI empresaBlocks={empresaBlocks} independientes={independientes} telefonos={whatsappMap} />}
           />
         )}
       </div>

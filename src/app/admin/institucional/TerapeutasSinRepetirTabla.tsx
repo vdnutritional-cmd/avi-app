@@ -2,9 +2,9 @@
 
 import { Fragment, useState } from 'react'
 
-// Administración Institucional AVI — "Terapeutas sin repetir": cada terapeuta una
-// vez, con sus empresas una debajo de otra y, al abrir la fila, sus pacientes
-// activos de todas las empresas (paciente | empresa).
+// Administración Institucional AVI — "Terapeutas registrados": cada terapeuta una
+// vez, con sus empresas una debajo de otra (+ "Sin empresa" si tiene pacientes
+// independientes) y, al abrir la fila, sus pacientes activos (paciente | empresa).
 
 export interface TerapeutaCombinado {
   therapistId: string
@@ -31,8 +31,9 @@ export default function TerapeutasSinRepetirTabla({ terapeutas }: { terapeutas: 
     <div className="bg-white border border-primary-100 rounded-2xl shadow-sm overflow-hidden">
       <button onClick={() => setOpen(v => !v)} className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors">
         <h3 className="font-semibold text-primary-700 text-sm flex items-center gap-2 flex-wrap text-left">
-          Terapeutas sin repetir
-          <span className="text-primary-400 font-normal">({terapeutas.length}) · pacientes de todas sus empresas</span>
+          Terapeutas registrados
+          <span className="text-primary-400 font-normal">({terapeutas.length}) · pacientes de todas sus actividades</span>
+          <span className="text-gray-400 font-normal">(solo Administración AVI)</span>
           {huerfanos > 0 && (
             <span className="inline-flex items-center gap-1 bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded-full">
               ⚠️ {huerfanos} requiere{huerfanos > 1 ? 'n' : ''} atención

@@ -5,8 +5,11 @@ import { useEffect, useState, useTransition } from 'react'
 
 // Selector común de empresas de Administración Institucional AVI.
 // Al cambiar empresas se conservan mes y estatus; terapeuta y paciente se reinician.
+// "Sin empresa" (pacientes independientes) va aparte de "Todas las empresas".
 
 interface Empresa { id: string; nombre: string }
+
+const SIN_EMPRESA = 'sin-empresa'   // mismo valor que empresas-avi.ts
 
 export default function SelectorEmpresasAVI({ empresas, selectedIds }: { empresas: Empresa[]; selectedIds: string[] }) {
   const router = useRouter()
@@ -33,6 +36,7 @@ export default function SelectorEmpresasAVI({ empresas, selectedIds }: { empresa
   }
 
   const todas = empresas.length > 0 && empresas.every(e => local.includes(e.id))
+  const sinEmpresa = local.includes(SIN_EMPRESA)
 
   function toggle(id: string) {
     ir(local.includes(id) ? local.filter(x => x !== id) : [...local, id])
@@ -54,10 +58,17 @@ export default function SelectorEmpresasAVI({ empresas, selectedIds }: { empresa
         <input
           type="checkbox"
           checked={todas}
-          onChange={() => ir(todas ? [] : empresas.map(e => e.id))}
+          onChange={() => ir([...(todas ? [] : empresas.map(e => e.id)), ...(sinEmpresa ? [SIN_EMPRESA] : [])])}
           className="accent-primary-600 w-4 h-4 shrink-0"
         />
         <span className="text-sm font-semibold text-primary-700">Todas las empresas</span>
+      </label>
+
+      <label className={`inline-flex items-center gap-2 px-3 py-2 ml-2 rounded-xl border cursor-pointer transition-colors ${
+        sinEmpresa ? 'bg-primary-50 border-primary-200 text-primary-700' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+      }`}>
+        <input type="checkbox" checked={sinEmpresa} onChange={() => toggle(SIN_EMPRESA)} className="accent-primary-600 w-4 h-4 shrink-0" />
+        <span className="text-sm font-semibold">Sin empresa</span>
       </label>
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
