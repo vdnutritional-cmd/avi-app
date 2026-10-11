@@ -9,6 +9,7 @@ import { sendCrisisEmail } from '@/lib/email/send-crisis-email'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { cerrarSesionesAbiertas } from '@/lib/cerrar-sesion-avi'
 import { retrievePasajesPersonalismo } from '@/lib/rag/retrieve-chunks'
+import { getEstadoSesionesAvi } from '@/lib/limite-sesiones-avi'
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY!,
@@ -57,6 +58,13 @@ export async function POST(request: NextRequest) {
     let activeSessionId = sessionId
 
     if (!activeSessionId) {
+      // Política de sesiones AVI (frecuencia, periodo entre presenciales, bloqueos):
+      // se revisa en el servidor al INICIAR una sesión; una sesión ya iniciada siempre se termina
+      const estado = await getEstadoSesionesAvi(createAdminClient(), user.id)
+      if (!estado.permitido) {
+        return NextResponse.json({ error: 'Sin sesiones AVI disponibles', estado }, { status: 403 })
+      }
+
       const { data: newSession, error: sessionError } = await supabase
         .from('sessions')
         .insert({ patient_id: user.id, status: 'active' })

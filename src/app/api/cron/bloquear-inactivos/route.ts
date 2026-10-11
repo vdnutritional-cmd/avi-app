@@ -4,7 +4,7 @@
 // Cron diario (Vercel Cron) — bloquea automáticamente pacientes
 // sin actividad según la frecuencia de sesiones configurada.
 //
-// Límites por frecuencia_sesiones del vínculo:
+// Límites por frecuencia del vínculo (frecuencia_config, Nota Inicial):
 //   semanal        → 15 días
 //   cada_2_semanas → 30 días
 //   mensual / null → 45 días
@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
   // 2. Obtener vínculos activos solo de esos terapeutas
   const { data: vinculos, error: errorVinculos } = await admin
     .from('therapist_patients')
-    .select('therapist_id, patient_id, created_at, initial_note_date, frecuencia_sesiones')
+    .select('therapist_id, patient_id, created_at, initial_note_date, frecuencia_sesiones, frecuencia_config')
     .eq('is_active', true)
     .in('therapist_id', terapeutasActivos)
 
@@ -99,7 +99,8 @@ export async function GET(req: NextRequest) {
 
   for (const v of (vinculos ?? [])) {
     const key = `${v.therapist_id}:${v.patient_id}`
-    const limite = diasLimite(v.frecuencia_sesiones)
+    // La Nota Inicial guarda la frecuencia en frecuencia_config (frecuencia_sesiones quedó sin uso)
+    const limite = diasLimite(v.frecuencia_config ?? v.frecuencia_sesiones)
     const fechaLimite = new Date(hoy)
     fechaLimite.setDate(fechaLimite.getDate() - limite)
     const limiteFecha = fechaLimite.toISOString().split('T')[0]

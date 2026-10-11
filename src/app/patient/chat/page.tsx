@@ -5,9 +5,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 
-// Primera semana de uso: 3 sesiones. Semanas siguientes: 2 sesiones.
-const LIMITE_PRIMERA_SEMANA = 3
-const LIMITE_SESIONES_SEMANA = 2
+// Límite de sesiones AVI: según la frecuencia de sesiones presenciales y el periodo
+// desde la última presencial (src/lib/limite-sesiones-avi.ts, vía /api/patient/sesiones-avi)
 
 // Tiempos de espera dentro de una sesión abierta (acordados con el supervisor de AVI)
 const ESPERA_ESCUCHANDO_MS = 10 * 60_000   // AVI escuchando y el paciente callado
@@ -51,20 +50,18 @@ export default function PatientChatPage() {
   const [accesoSuspendido, setAccesoSuspendido] = useState(false)
   const [pendientes, setPendientes] = useState<Pendiente[]>([])
 
-  // Verificar si el terapeuta bloqueó el acceso
+  // Acceso y sesiones AVI disponibles (la regla vive en el servidor)
   useEffect(() => {
-    async function checkAcceso() {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const { data } = await supabase
-        .from('therapist_patients')
-        .select('is_active')
-        .eq('patient_id', user.id)
-        .single()
-      if (data && data.is_active === false) setAccesoSuspendido(true)
+    async function checkSesionesAvi() {
+      try {
+        const res = await fetch('/api/patient/sesiones-avi')
+        if (!res.ok) return
+        const estado = await res.json()
+        aplicarEstadoSesiones(estado)
+      } catch { /* sin conexión: el servidor vuelve a revisar al iniciar la sesión */ }
     }
-    checkAcceso()
+    checkSesionesAvi()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Redirigir a onboarding si es la primera vez — verifica por usuario en Supabase
@@ -96,55 +93,6 @@ export default function PatientChatPage() {
     checkOnboarding()
   }, [router])
 
-  // Verificar límite de sesiones esta semana
-  useEffect(() => {
-    async function checkLimite() {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      // Verificar si esta cuenta tiene sesiones ilimitadas
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('unlimited_avi_sessions')
-        .eq('id', user.id)
-        .single()
-
-      if (profile?.unlimited_avi_sessions) return  // Sin límite para esta cuenta
-
-      const hace7dias = new Date()
-      hace7dias.setDate(hace7dias.getDate() - 6)
-      hace7dias.setHours(0, 0, 0, 0)
-
-      // Sesiones usadas en los últimos 7 días
-      const { count } = await supabase
-        .from('sessions')
-        .select('*', { count: 'exact', head: true })
-        .eq('patient_id', user.id)
-        .gte('started_at', hace7dias.toISOString())
-
-      // Verificar si están dentro de los primeros 7 días desde el registro
-      const { data: consent } = await supabase
-        .from('patient_consents')
-        .select('informed_consent_at')
-        .eq('patient_id', user.id)
-        .single()
-
-      const SIETE_DIAS_MS = 7 * 24 * 60 * 60 * 1000
-      const esPrimeraSemana = consent?.informed_consent_at
-        ? (Date.now() - new Date(consent.informed_consent_at).getTime()) < SIETE_DIAS_MS
-        : false
-
-      const limite = esPrimeraSemana ? LIMITE_PRIMERA_SEMANA : LIMITE_SESIONES_SEMANA
-
-      const usadas = count ?? 0
-      setSesionesUsadas(usadas)
-      setLimiteActual(limite)
-      if (usadas >= limite) setLimitAlcanzado(true)
-    }
-    checkLimite()
-  }, [])
-
   // Cargar cuestionarios pendientes del paciente
   useEffect(() => {
     async function fetchPendientes() {
@@ -174,7 +122,18 @@ export default function PatientChatPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [sesionesUsadas, setSesionesUsadas] = useState(0)
   const [limitAlcanzado, setLimitAlcanzado] = useState(false)
-  const [limiteActual, setLimiteActual] = useState(LIMITE_SESIONES_SEMANA)
+  const [limiteActual, setLimiteActual] = useState<number | null>(null)
+  // 'limite' = agotó sus sesiones del periodo · 'sin_cupo' = su terapeuta no tiene plan/cupo
+  const [motivoLimite, setMotivoLimite] = useState<'limite' | 'sin_cupo' | null>(null)
+
+  function aplicarEstadoSesiones(estado: { permitido: boolean; motivo: string; usadas: number; limite: number | null }) {
+    setSesionesUsadas(estado.usadas ?? 0)
+    setLimiteActual(estado.limite ?? null)
+    if (estado.permitido) { setLimitAlcanzado(false); setMotivoLimite(null); return }
+    if (estado.motivo === 'bloqueado' || estado.motivo === 'sin_terapeuta') { setAccesoSuspendido(true); return }
+    setLimitAlcanzado(true)
+    setMotivoLimite(estado.motivo === 'sin_cupo' ? 'sin_cupo' : 'limite')
+  }
   // El paciente presionó "Terminar" mientras hablaba o AVI respondía: se cierra al terminar
   const [cierrePendiente, setCierrePendiente] = useState(false)
   // Aviso 1 minuto antes del cierre por tiempo (null = sin aviso)
@@ -386,6 +345,14 @@ export default function PatientChatPage() {
         }),
       })
 
+      // Al iniciar una sesión el servidor revisa la política de sesiones AVI
+      if (response.status === 403) {
+        const data = await response.json().catch(() => null)
+        setMessages(prev => prev.slice(0, -1))   // quitar el mensaje que no se envió
+        if (data?.estado) aplicarEstadoSesiones(data.estado)
+        setAppState('idle')
+        return
+      }
       if (!response.ok) throw new Error('Error chat')
 
       const reader = response.body?.getReader()
@@ -708,21 +675,29 @@ export default function PatientChatPage() {
         <div className={`flex flex-col items-center justify-center gap-6 px-8
           ${showTranscript && messages.length > 0 ? 'py-4' : 'flex-1'}`}>
 
-          {/* Límite de sesiones alcanzado */}
-          {limitAlcanzado && !sessionId && (
+          {/* Sin sesiones AVI disponibles */}
+          {limitAlcanzado && !sessionId && motivoLimite === 'limite' && (
             <div className="flex flex-col items-center gap-4 text-center max-w-xs">
               <div className="text-5xl">🌙</div>
-              <h3 className="text-lg font-semibold text-gray-700">Has llegado a tu límite semanal</h3>
+              <h3 className="text-lg font-semibold text-gray-700">Usaste tus sesiones AVI</h3>
               <p className="text-sm text-gray-500 leading-relaxed">
-                Usaste tus {limiteActual} sesiones de esta semana. Regresa el próximo lunes para continuar con AVI.
+                Usaste tus {limiteActual} sesiones AVI. Se renuevan en tu próxima sesión presencial con tu terapeuta.
               </p>
               <div className="bg-blue-50 border border-blue-200 rounded-2xl px-5 py-4 w-full">
                 <p className="text-sm text-blue-700 leading-relaxed">
                   Mientras tanto, contacta a <strong>TU TERAPEUTA</strong>.
                 </p>
               </div>
-              <p className="text-xs text-gray-300">
-                Sesiones esta semana: {sesionesUsadas} / {limiteActual}
+            </div>
+          )}
+
+          {/* Terapeuta sin plan o sin cupo: el paciente le avisa */}
+          {limitAlcanzado && !sessionId && motivoLimite === 'sin_cupo' && (
+            <div className="flex flex-col items-center gap-4 text-center max-w-xs">
+              <div className="text-5xl">⏸️</div>
+              <h3 className="text-lg font-semibold text-gray-700">AVI no está disponible por ahora</h3>
+              <p className="text-sm text-gray-500 leading-relaxed">
+                Tu acceso a AVI está en pausa. Avísale a <strong>TU TERAPEUTA</strong> para que lo reactive.
               </p>
             </div>
           )}
@@ -836,6 +811,9 @@ export default function PatientChatPage() {
           {(!limitAlcanzado || sessionId) && !sessionClosed && (
             <p className="text-xs text-gray-300 text-center">
               AVI no reemplaza a tu terapeuta
+              {limiteActual !== null && !sessionId && (
+                <> · Sesiones AVI disponibles: {Math.max(0, limiteActual - sesionesUsadas)} de {limiteActual}</>
+              )}
             </p>
           )}
 
