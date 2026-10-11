@@ -1,12 +1,38 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import type { TerapeutaData, VinculoData, EmpresaData } from './page'
+import type { TerapeutaData, VinculoData, VinculoBusqueda, EstadoVinculo, EmpresaData } from './page'
 
 type Props = {
   terapeutas: TerapeutaData[]
   vinculos: VinculoData[]
+  vinculosBusqueda: VinculoBusqueda[]
   empresas: EmpresaData[]
+}
+
+// Etiqueta del estado del vínculo (Búsqueda de paciente)
+const ESTADO_LABEL: Record<EstadoVinculo, string> = {
+  activo:      'Activo',
+  sin_cupo:    'Bloqueado — sin cupo / sin plan',
+  inactividad: 'Bloqueado por inactividad',
+  manual:      'Bloqueado manualmente',
+  archivado:   'Archivado (fusionado / transferido)',
+}
+const ESTADO_COLOR: Record<EstadoVinculo, string> = {
+  activo:      'bg-green-50 text-green-700',
+  sin_cupo:    'bg-red-50 text-red-600',
+  inactividad: 'bg-amber-50 text-amber-700',
+  manual:      'bg-red-50 text-red-600',
+  archivado:   'bg-gray-100 text-gray-500',
+}
+const ESTADO_ORDEN: Record<EstadoVinculo, number> = { activo: 0, sin_cupo: 1, inactividad: 2, manual: 3, archivado: 4 }
+
+function EstadoBadge({ estado }: { estado: EstadoVinculo }) {
+  return (
+    <span className={`inline-block text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${ESTADO_COLOR[estado]}`}>
+      {ESTADO_LABEL[estado]}
+    </span>
+  )
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -278,7 +304,7 @@ function TerapeutaBlock({
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export default function ReportesClient({ terapeutas, vinculos, empresas }: Props) {
+export default function ReportesClient({ terapeutas, vinculos, vinculosBusqueda, empresas }: Props) {
   const [activeTab, setActiveTab] = useState(1)
 
   // Reporte 2: qué empresas están expandidas
@@ -359,13 +385,16 @@ export default function ReportesClient({ terapeutas, vinculos, empresas }: Props
     const q = search.trim().toLowerCase()
     if (q.length < 2) return []
     const matchingPatients = new Set<string>()
-    for (const v of vinculos) {
+    for (const v of vinculosBusqueda) {
       if (v.patient_name.toLowerCase().includes(q) || v.patient_email.toLowerCase().includes(q)) {
         matchingPatients.add(v.patient_id)
       }
     }
     return Array.from(matchingPatients).map(patientId => {
-      const pv = vinculos.filter(v => v.patient_id === patientId)
+      // Vínculos activos primero, luego bloqueados y archivados
+      const pv = vinculosBusqueda
+        .filter(v => v.patient_id === patientId)
+        .sort((a, b) => ESTADO_ORDEN[a.estado] - ESTADO_ORDEN[b.estado])
       const first = pv[0]
       return {
         patient_id: patientId,
@@ -375,10 +404,11 @@ export default function ReportesClient({ terapeutas, vinculos, empresas }: Props
           therapist_name: terapeutaMap.get(v.therapist_id)?.full_name ?? '—',
           therapist_email: terapeutaMap.get(v.therapist_id)?.email ?? '—',
           empresa_nombre: v.empresa_nombre,
+          estado: v.estado,
         })),
       }
     })
-  }, [search, vinculos, terapeutaMap])
+  }, [search, vinculosBusqueda, terapeutaMap])
 
   // Al cambiar la búsqueda, limpiar selección
   function handleSearch(value: string) {
@@ -452,13 +482,13 @@ export default function ReportesClient({ terapeutas, vinculos, empresas }: Props
   function exportR4() {
     const source = selectedPatient ? [selectedPatient] : searchResults
     const rows = source.flatMap(p =>
-      p.relaciones.map(r => [p.patient_name, p.patient_email, r.therapist_name, r.therapist_email, r.empresa_nombre ?? ''])
+      p.relaciones.map(r => [p.patient_name, p.patient_email, r.therapist_name, r.therapist_email, r.empresa_nombre ?? 'Sin empresa', ESTADO_LABEL[r.estado]])
     )
     const name = selectedPatient
       ? selectedPatient.patient_name.replace(/\s+/g, '-').toLowerCase()
       : 'busqueda'
     downloadCSV(`avi-paciente-${name}.csv`,
-      ['Paciente', 'Correo paciente', 'Terapeuta', 'Correo terapeuta', 'Empresa CONVENIO'],
+      ['Paciente', 'Correo paciente', 'Terapeuta', 'Correo terapeuta', 'Empresa CONVENIO', 'Estado'],
       rows
     )
   }
@@ -751,6 +781,18 @@ export default function ReportesClient({ terapeutas, vinculos, empresas }: Props
                     {p.patient_name || '—'}
                   </p>
                   <p className="text-xs text-gray-400 truncate mt-0.5">{p.patient_email}</p>
+                  {/* Quién lo atiende y con qué empresa (uno por vínculo activo) */}
+                  {p.relaciones.map((r, i) => (
+                    <div key={i} className="mt-1.5 pt-1.5 border-t border-gray-100 text-xs leading-snug">
+                      <p className="text-gray-600 truncate">
+                        <span className="text-gray-400">Terapeuta:</span> {r.therapist_name || '—'}
+                      </p>
+                      <p className={`truncate ${r.empresa_nombre ? 'text-primary-600' : 'text-gray-500'}`}>
+                        <span className="text-gray-400">Empresa:</span> {r.empresa_nombre ?? 'Sin empresa'}
+                      </p>
+                      <div className="mt-1"><EstadoBadge estado={r.estado} /></div>
+                    </div>
+                  ))}
                 </button>
               ))}
             </div>
@@ -769,6 +811,7 @@ export default function ReportesClient({ terapeutas, vinculos, empresas }: Props
                         <Th>Terapeuta</Th>
                         <Th>Correo terapeuta</Th>
                         <Th>Empresa CONVENIO</Th>
+                        <Th>Estado</Th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
@@ -776,7 +819,8 @@ export default function ReportesClient({ terapeutas, vinculos, empresas }: Props
                         <tr key={i} className="hover:bg-gray-50 transition-colors">
                           <Td>{r.therapist_name}</Td>
                           <Td muted>{r.therapist_email}</Td>
-                          <Td muted>{r.empresa_nombre ?? '—'}</Td>
+                          <Td muted>{r.empresa_nombre ?? 'Sin empresa'}</Td>
+                          <Td><EstadoBadge estado={r.estado} /></Td>
                         </tr>
                       ))}
                     </tbody>
@@ -795,6 +839,7 @@ export default function ReportesClient({ terapeutas, vinculos, empresas }: Props
                             <Th>Terapeuta</Th>
                             <Th>Correo terapeuta</Th>
                             <Th>Empresa CONVENIO</Th>
+                            <Th>Estado</Th>
                           </tr>
                         </thead>
                         <tbody>
@@ -802,7 +847,8 @@ export default function ReportesClient({ terapeutas, vinculos, empresas }: Props
                             <tr key={i}>
                               <Td>{r.therapist_name}</Td>
                               <Td muted>{r.therapist_email}</Td>
-                              <Td muted>{r.empresa_nombre ?? '—'}</Td>
+                              <Td muted>{r.empresa_nombre ?? 'Sin empresa'}</Td>
+                              <Td><EstadoBadge estado={r.estado} /></Td>
                             </tr>
                           ))}
                         </tbody>

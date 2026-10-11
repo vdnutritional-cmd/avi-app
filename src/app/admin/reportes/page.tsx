@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getAccesoTerapeuta } from '@/lib/acceso-paciente'
 import ReportesClient from './ReportesClient'
 
 export const dynamic = 'force-dynamic'
@@ -22,6 +23,12 @@ export type VinculoData = {
   empresa_id: string | null
   empresa_nombre: string | null
 }
+
+/** Estado del vínculo terapeuta–paciente (Búsqueda de paciente) */
+export type EstadoVinculo = 'activo' | 'sin_cupo' | 'inactividad' | 'manual' | 'archivado'
+
+/** Búsqueda de paciente: todos los vínculos (activos, bloqueados y archivados) */
+export type VinculoBusqueda = VinculoData & { estado: EstadoVinculo }
 
 export type EmpresaData = {
   id: string
@@ -53,6 +60,11 @@ export default async function ReportesPage() {
       .eq('status', 'active'),
     admin.auth.admin.listUsers({ perPage: 1000 }),
   ])
+
+  // Búsqueda de paciente: también bloqueados y archivados
+  const { data: todosVinculosRaw } = await admin
+    .from('therapist_patients')
+    .select('therapist_id, patient_id, empresa_id, is_active, status, convenio_empresas(nombre)')
 
   // whatsapp_phone from auth user_metadata
   const whatsappMap = new Map<string, string>()
@@ -114,12 +126,41 @@ export default async function ReportesPage() {
     }
   })
 
+  // Bloqueo por falta de cupo/plan (independientes): se calcula, no se guarda
+  const terapeutasConIndep = [...new Set((todosVinculosRaw ?? [])
+    .filter(v => v.empresa_id === null && v.is_active && v.status !== 'archived')
+    .map(v => v.therapist_id as string))]
+  const permitidos = new Map<string, Set<string>>(
+    await Promise.all(terapeutasConIndep.map(async id =>
+      [id, (await getAccesoTerapeuta(admin, id)).indepPermitidos] as const))
+  )
+
+  const vinculosBusqueda: VinculoBusqueda[] = (todosVinculosRaw ?? []).map(v => {
+    const empresa = v.convenio_empresas as unknown as { nombre: string } | null
+    const patient = patientMap.get(v.patient_id)
+    let estado: EstadoVinculo
+    if (v.status === 'archived') estado = 'archivado'
+    else if (!v.is_active) estado = v.status === 'inactive' ? 'inactividad' : 'manual'
+    else if (v.empresa_id === null && !permitidos.get(v.therapist_id)?.has(v.patient_id)) estado = 'sin_cupo'
+    else estado = 'activo'
+    return {
+      therapist_id: v.therapist_id,
+      patient_id: v.patient_id,
+      patient_name: patient?.full_name ?? '',
+      patient_email: patient?.email ?? '',
+      empresa_id: v.empresa_id as string | null,
+      empresa_nombre: empresa?.nombre ?? null,
+      estado,
+    }
+  })
+
   const empresas: EmpresaData[] = (todasEmpresas ?? []).map(e => ({ id: e.id, nombre: e.nombre }))
 
   return (
     <ReportesClient
       terapeutas={terapeutas}
       vinculos={vinculos}
+      vinculosBusqueda={vinculosBusqueda}
       empresas={empresas}
     />
   )
