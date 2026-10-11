@@ -11,7 +11,12 @@ interface Empresa { id: string; nombre: string }
 
 const SIN_EMPRESA = 'sin-empresa'   // mismo valor que empresas-avi.ts
 
-export default function SelectorEmpresasAVI({ empresas, selectedIds }: { empresas: Empresa[]; selectedIds: string[] }) {
+export default function SelectorEmpresasAVI({ empresas, selectedIds, sinEmpresaDisponible = true }: {
+  empresas: Empresa[]
+  selectedIds: string[]
+  /** false en los reportes: "Sin empresa" queda desmarcada y en gris (los reportes son por empresa) */
+  sinEmpresaDisponible?: boolean
+}) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -36,7 +41,7 @@ export default function SelectorEmpresasAVI({ empresas, selectedIds }: { empresa
   }
 
   const todas = empresas.length > 0 && empresas.every(e => local.includes(e.id))
-  const sinEmpresa = local.includes(SIN_EMPRESA)
+  const sinEmpresa = sinEmpresaDisponible && local.includes(SIN_EMPRESA)
 
   function toggle(id: string) {
     ir(local.includes(id) ? local.filter(x => x !== id) : [...local, id])
@@ -64,11 +69,22 @@ export default function SelectorEmpresasAVI({ empresas, selectedIds }: { empresa
         <span className="text-sm font-semibold text-primary-700">Todas las empresas</span>
       </label>
 
-      <label className={`inline-flex items-center gap-2 px-3 py-2 ml-2 rounded-xl border cursor-pointer transition-colors ${
-        sinEmpresa ? 'bg-primary-50 border-primary-200 text-primary-700' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+      <label className={`inline-flex items-center gap-2 px-3 py-2 ml-2 rounded-xl border transition-colors ${
+        !sinEmpresaDisponible
+          ? 'bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed'
+          : sinEmpresa
+            ? 'bg-primary-50 border-primary-200 text-primary-700 cursor-pointer'
+            : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50 cursor-pointer'
       }`}>
-        <input type="checkbox" checked={sinEmpresa} onChange={() => toggle(SIN_EMPRESA)} className="accent-primary-600 w-4 h-4 shrink-0" />
+        <input
+          type="checkbox"
+          checked={sinEmpresa}
+          disabled={!sinEmpresaDisponible}
+          onChange={() => toggle(SIN_EMPRESA)}
+          className="accent-primary-600 w-4 h-4 shrink-0 disabled:opacity-50"
+        />
         <span className="text-sm font-semibold">Sin empresa</span>
+        {!sinEmpresaDisponible && <span className="text-xs font-normal">(no aplica en este reporte)</span>}
       </label>
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-2">

@@ -6,7 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { logApiAccess } from '@/lib/audit/log-access'
 import ReporteGeneralContenido from '@/app/institucional/reporte-general/ReporteGeneralContenido'
 import EncabezadoAVI from '../EncabezadoAVI'
-import { cargarEmpresasAVI, resolverSeleccion } from '../empresas-avi'
+import { cargarEmpresasAVI, resolverSeleccion, SIN_EMPRESA } from '../empresas-avi'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,7 +21,8 @@ export default async function Page({
   const admin = createAdminClient()
 
   const empresas = await cargarEmpresasAVI(admin)
-  const selectedIds = resolverSeleccion(empresas, params.empresaIds)
+  // Los reportes son por empresa: "Sin empresa" no aplica (se desmarca)
+  const selectedIds = resolverSeleccion(empresas, params.empresaIds).filter(id => id !== SIN_EMPRESA)
   if (user) logApiAccess(supabase, user.id, '/admin/institucional/reporte-general', 'GET', { empresa_ids: selectedIds })
 
   return (

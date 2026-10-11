@@ -16,6 +16,9 @@ export default function EncabezadoAVI({ actual, empresas, selectedIds, mes }: {
   selectedIds: string[]
   mes?: string
 }) {
+  // En los reportes "Sin empresa" no aplica: se desmarca y queda en gris; al
+  // regresar al Panel llega desmarcada (los reportes ya la quitan de selectedIds)
+  const enReporte = actual !== '/admin/institucional'
   const sp = new URLSearchParams({ empresaIds: selectedIds.join(',') })
   if (mes) sp.set('mes', mes)
 
@@ -45,7 +48,11 @@ export default function EncabezadoAVI({ actual, empresas, selectedIds, mes }: {
       </nav>
 
       <Suspense>
-        <SelectorEmpresasAVI empresas={empresas.map(e => ({ id: e.id, nombre: e.nombre }))} selectedIds={selectedIds} />
+        <SelectorEmpresasAVI
+          empresas={empresas.map(e => ({ id: e.id, nombre: e.nombre }))}
+          selectedIds={selectedIds}
+          sinEmpresaDisponible={!enReporte}
+        />
       </Suspense>
     </div>
   )
