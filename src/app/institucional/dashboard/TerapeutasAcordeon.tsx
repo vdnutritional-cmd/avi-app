@@ -45,9 +45,9 @@ export default function TerapeutasAcordeon({ terapeutas }: { terapeutas: Terapeu
         className="w-full flex items-center justify-between px-5 py-4
                    hover:bg-gray-50 transition-colors"
       >
-        <h3 className="font-semibold text-gray-700 text-sm flex items-center gap-2">
-          Terapeutas registrados{' '}
-          <span className="text-gray-400 font-normal">({terapeutas.length})</span>
+        <h3 className="font-semibold text-primary-700 text-sm flex items-center gap-2">
+          Terapeutas por Empresa{' '}
+          <span className="text-primary-400 font-normal">({terapeutas.length})</span>
           {huerfanosTotal > 0 && (
             <span className="inline-flex items-center gap-1 bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded-full">
               ⚠️ {huerfanosTotal} requiere{huerfanosTotal > 1 ? 'n' : ''} atención
