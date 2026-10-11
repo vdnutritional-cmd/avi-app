@@ -10,10 +10,15 @@ import { useInactivityTimer } from '@/hooks/useInactivityTimer'
  * Uso en therapist/layout.tsx:
  *   <InactivityGuard>{children}</InactivityGuard>
  */
-export default function InactivityGuard({ children }: { children: React.ReactNode }) {
+export default function InactivityGuard({ children, timeoutMs }: {
+  children: React.ReactNode
+  /** Default 15 min (terapeuta). Paciente: 30 min (patient/layout.tsx). */
+  timeoutMs?: number
+}) {
   const [warning, setWarning] = useState(false)
 
   useInactivityTimer({
+    timeoutMs,
     onWarn:    () => setWarning(true),
     onDismiss: () => setWarning(false),  // usuario siguió activo → cancela el modal
     onSignOut: () => setWarning(false),

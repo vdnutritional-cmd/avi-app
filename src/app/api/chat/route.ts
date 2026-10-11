@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
 import { RECUPERATE_SYSTEM_PROMPT } from '@/lib/prompts/recuperate-system-prompt'
@@ -6,6 +6,8 @@ import { getPatientContacto } from '@/lib/patient-contacto'
 import { sendCrisisPush } from '@/lib/push/send-crisis-push'
 import { sendExpoCrisisPush } from '@/lib/push/send-expo-push'
 import { sendCrisisEmail } from '@/lib/email/send-crisis-email'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { cerrarSesionesAbiertas } from '@/lib/cerrar-sesion-avi'
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY!,
@@ -43,7 +45,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Solo pacientes pueden usar el chat' }, { status: 403 })
     }
 
-    const { message, sessionId } = await request.json()
+    // cierreSolicitado: el paciente presionó "Terminar" mientras hablaba o AVI respondía
+    const { message, sessionId, cierreSolicitado } = await request.json()
 
     if (!message?.trim()) {
       return NextResponse.json({ error: 'Mensaje vacío' }, { status: 400 })
@@ -63,6 +66,13 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'No se pudo crear la sesión' }, { status: 500 })
       }
       activeSessionId = newSession.id
+
+      // Sesiones anteriores que quedaron abiertas (el paciente cerró la app de golpe):
+      // se cierran y analizan después de responder, sin retrasar el chat
+      const nuevaId = newSession.id as string
+      after(() => cerrarSesionesAbiertas(createAdminClient(), { patientId: user.id, exceptoSessionId: nuevaId })
+        .then(r => { if (r.cerradas || r.errores) console.log('[chat] Sesiones anteriores cerradas:', r) })
+        .catch(err => console.error('[chat] Error cerrando sesiones anteriores:', err)))
     }
 
     // Obtener historial de mensajes de esta sesión (máx últimos 20)
@@ -96,6 +106,18 @@ export async function POST(request: NextRequest) {
 
     // Contacto para la invitación de cierre (empresa CONVENIO o terapeuta) — misma regla que la bienvenida
     const bloqueContacto = `## CONTACTO DEL PACIENTE\nEn la invitación de cierre, invita a contactar a ${contacto?.destino ?? 'tu terapeuta'}.`
+
+    // Honestidad: AVI solo responde a lo que realmente está en la conversación.
+    // Evita que "invente" algo que el paciente no dijo (p. ej. grabó silencio y luego
+    // pregunta "¿qué opinas de lo que dije?"). Bloque aparte: el prompt base sigue en caché.
+    const bloqueHonestidad = `## SOLO LO QUE REALMENTE SE DIJO\nLa conversación llega por voz y a veces no se escucha nada. Básate únicamente en lo que aparece escrito en los mensajes de esta sesión.\n- Si el paciente pregunta tu opinión o se refiere a algo que dijo, contó, mostró o hizo ("¿qué opinas?", "¿te gustó?", "¿qué te parece lo que dije?") y eso NO aparece en los mensajes, no lo inventes ni supongas su contenido. Responde con calidez algo como: "No escuché lo que dijiste o no se alcanzó a escuchar. ¿Me lo puedes repetir, por favor?"\n- Nunca afirmes haber visto, oído o recibido algo que no está en la conversación.`
+
+    // El paciente presionó "Terminar la sesión" mientras hablaba: si su mensaje dice que
+    // fue un error o que quiere seguir, AVI continúa y lo marca con [CONTINUAR_SESION].
+    // Bloque aparte (el prompt base sigue en caché).
+    const bloqueCierreSolicitado = cierreSolicitado
+      ? `## SOLICITUD DE CIERRE\nEl paciente presionó el botón "Terminar la sesión" mientras hablaba. Después de tu respuesta, la aplicación dirá automáticamente el mensaje de despedida y cerrará la sesión.\n- Si en este mensaje el paciente indica que fue un error o que quiere seguir (por ejemplo: "no, me equivoqué", "no cierres", "quiero seguir hablando" o algo equivalente), responde con normalidad para continuar la conversación y agrega al final exactamente esta marca: [CONTINUAR_SESION]\n- Si no, responde con normalidad y brevemente, sin despedirte ni agregar la marca [SESION_TERMINADA]: la despedida la dice la aplicación.`
+      : ''
 
     const rel = relacionRes.data
     const sesiones = (sesionesRes.data ?? []).reverse()
@@ -168,6 +190,8 @@ export async function POST(request: NextRequest) {
           { type: 'text', text: RECUPERATE_SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } },
           ...(contextoPaciente ? [{ type: 'text', text: contextoPaciente }] : []),
           { type: 'text', text: bloqueContacto },
+          { type: 'text', text: bloqueHonestidad },
+          ...(bloqueCierreSolicitado ? [{ type: 'text', text: bloqueCierreSolicitado }] : []),
         ] as any,
         messages,
       },
@@ -198,11 +222,13 @@ export async function POST(request: NextRequest) {
           // Detectar marcadores especiales de AVI
           const aviClosedSession = assistantMessage.includes('[SESION_TERMINADA]')
           const aviDetectedCrisis = assistantMessage.includes('[CRISIS_DETECTADA]')
+          const aviContinua = assistantMessage.includes('[CONTINUAR_SESION]')
 
           // Limpiar marcadores del texto guardado en DB
           const cleanMessage = assistantMessage
             .replace('[SESION_TERMINADA]', '')
             .replace('[CRISIS_DETECTADA]', '')
+            .replace('[CONTINUAR_SESION]', '')
             .trim()
 
           // Guardar respuesta completa de AVI en DB (sin marcadores)
@@ -236,6 +262,7 @@ export async function POST(request: NextRequest) {
                 sessionId: activeSessionId,
                 crisis: hasCrisis || aviDetectedCrisis,
                 autoClose: aviClosedSession,
+                continuar: aviContinua,
               })}\n\n`
             )
           )

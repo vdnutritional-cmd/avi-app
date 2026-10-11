@@ -19,7 +19,9 @@ export default async function PatientLayout({ children }: { children: React.Reac
   if (profile?.role !== 'patient') redirect('/therapist/dashboard')
 
   return (
-    <InactivityGuard>
+    // Paciente: 30 min con AVI abierta; hablar con AVI o escucharla cuenta como actividad
+    // (los tiempos dentro de una sesión — 10 y 5 min — los maneja patient/chat/page.tsx)
+    <InactivityGuard timeoutMs={30 * 60_000}>
       <div className="min-h-screen flex flex-col bg-gray-50">
         <header className="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between sticky top-0 z-10">
           <span className="text-xl font-bold text-primary-700">Recupérate</span>

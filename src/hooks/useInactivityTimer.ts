@@ -4,9 +4,10 @@ import { useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
-const TIMEOUT_MS  = Number(process.env.NEXT_PUBLIC_INACTIVITY_TIMEOUT_MS ?? 900_000)  // 15 min
-const WARNING_MS  = TIMEOUT_MS - 60_000  // Aviso a los 14 min
-const EVENTS      = ['mousemove', 'keydown', 'click', 'touchstart', 'scroll'] as const
+const DEFAULT_TIMEOUT_MS = Number(process.env.NEXT_PUBLIC_INACTIVITY_TIMEOUT_MS ?? 900_000)  // 15 min (terapeuta)
+// 'avi:actividad': evento propio del chat del paciente — hablar con AVI o escucharla
+// cuenta como actividad aunque no se toque la pantalla
+const EVENTS      = ['mousemove', 'keydown', 'click', 'touchstart', 'scroll', 'avi:actividad'] as const
 
 /**
  * NOM-024 — Timeout de inactividad para el panel del terapeuta.
@@ -27,7 +28,11 @@ export function useInactivityTimer(opts?: {
   onWarn?:    () => void
   onDismiss?: () => void
   onSignOut?: () => void
+  /** Tiempo total sin actividad (default 15 min; pacientes: 30 min). Aviso 1 min antes. */
+  timeoutMs?: number
 }) {
+  const TIMEOUT_MS = opts?.timeoutMs ?? DEFAULT_TIMEOUT_MS
+  const WARNING_MS = TIMEOUT_MS - 60_000
   const router = useRouter()
 
   // Refs para callbacks — actualizados en render, sin ser dependencias de hooks
@@ -77,7 +82,7 @@ export function useInactivityTimer(opts?: {
     logoutRef.current = setTimeout(() => {
       signOut()
     }, TIMEOUT_MS)
-  }, [clearTimers, signOut])
+  }, [clearTimers, signOut, TIMEOUT_MS, WARNING_MS])
 
   useEffect(() => {
     resetTimers()

@@ -9,6 +9,11 @@ import { createClient } from '@/lib/supabase/client'
 const LIMITE_PRIMERA_SEMANA = 3
 const LIMITE_SESIONES_SEMANA = 2
 
+// Tiempos de espera dentro de una sesión abierta (acordados con el supervisor de AVI)
+const ESPERA_ESCUCHANDO_MS = 10 * 60_000   // AVI escuchando y el paciente callado
+const ESPERA_PACIENTE_MS   =  5 * 60_000   // AVI terminó y espera que el paciente toque el micrófono
+const AVISO_ANTES_MS       =      60_000   // aviso 1 minuto antes de cerrar
+
 type AppState =
   | 'idle'        // Esperando que el paciente hable
   | 'recording'   // Grabando voz del paciente
@@ -170,69 +175,113 @@ export default function PatientChatPage() {
   const [sesionesUsadas, setSesionesUsadas] = useState(0)
   const [limitAlcanzado, setLimitAlcanzado] = useState(false)
   const [limiteActual, setLimiteActual] = useState(LIMITE_SESIONES_SEMANA)
+  // El paciente presionó "Terminar" mientras hablaba o AVI respondía: se cierra al terminar
+  const [cierrePendiente, setCierrePendiente] = useState(false)
+  // Aviso 1 minuto antes del cierre por tiempo (null = sin aviso)
+  const [avisoTiempo, setAvisoTiempo] = useState<string | null>(null)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null)
   const transcriptRef = useRef<string>('')   // Acumula el texto mientras el usuario habla
+  const interimRef = useRef<string>('')      // Último texto aún no confirmado (respaldo al terminar)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
-  const userStoppedRef = useRef(false)       // true solo cuando el usuario presionó el botón de parar
+  const userStoppedRef = useRef(false)       // true cuando se detuvo la grabación a propósito (botón o tiempo)
+  const grabacionProcesadaRef = useRef(false) // evita procesar dos veces la misma grabación
 
   // Refs para acceder a valores actuales desde event listeners (evitan closures obsoletos)
   const sessionIdRef = useRef<string | null>(null)
   const sessionClosedRef = useRef(false)
   const hasMessagesRef = useRef(false)
+  const cierrePendienteRef = useRef(false)
+  const cierrePorTiempoRef = useRef(false)   // venció el tiempo mientras AVI escuchaba
+  const finalizandoRef = useRef(false)
+
+  // Canal de voz único: cada voz espera a que termine la anterior (nunca dos a la vez)
+  const voiceChainRef = useRef<Promise<void>>(Promise.resolve())
+  const finishCurrentRef = useRef<(() => void) | null>(null)
+
+  // Tiempos dentro de una sesión abierta
+  const ultimaVozPacienteRef = useRef(0)     // última palabra reconocida mientras AVI escucha
+  const limiteRef = useRef<{ en: number; tipo: 'escuchando' | 'esperando' } | null>(null)
+  const vencidoRef = useRef(false)
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const wakeLockRef = useRef<any>(null)
 
   useEffect(() => { sessionIdRef.current = sessionId }, [sessionId])
   useEffect(() => { sessionClosedRef.current = sessionClosed }, [sessionClosed])
   useEffect(() => { hasMessagesRef.current = messages.length > 0 }, [messages])
+  useEffect(() => { cierrePendienteRef.current = cierrePendiente }, [cierrePendiente])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // Cierre automático por abandono — sendBeacon sobrevive el cierre de app/pestaña
+  // Cierre por abandono SOLO si la página se descarga de verdad (cerrar pestaña/app).
+  // Ya no se cierra al bloquear la pantalla o cambiar de app: las sesiones que
+  // quedan abiertas se cierran al iniciar la siguiente o en el barrido diario.
   useEffect(() => {
-    function dispararCierre() {
+    function handlePageHide(e: PageTransitionEvent) {
+      if (e.persisted) return   // va al bfcache (puede regresar)
       const sid = sessionIdRef.current
       if (!sid || sessionClosedRef.current || !hasMessagesRef.current) return
-      const payload = new Blob(
-        [JSON.stringify({ sessionId: sid })],
-        { type: 'application/json' }
-      )
-      navigator.sendBeacon('/api/patterns', payload)
+      navigator.sendBeacon('/api/patterns', new Blob([JSON.stringify({ sessionId: sid })], { type: 'application/json' }))
     }
-
-    function handleVisibility() {
-      if (document.visibilityState === 'hidden') dispararCierre()
-    }
-
-    document.addEventListener('visibilitychange', handleVisibility)
-    window.addEventListener('pagehide', dispararCierre)
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibility)
-      window.removeEventListener('pagehide', dispararCierre)
-    }
+    window.addEventListener('pagehide', handlePageHide)
+    return () => window.removeEventListener('pagehide', handlePageHide)
   }, [])
 
-  // Detener audio si está sonando
+  // Pantalla encendida mientras la sesión está abierta (Wake Lock; si el navegador no lo soporta, no pasa nada)
+  useEffect(() => {
+    if (!sessionId || sessionClosed) return
+    let activo = true
+    async function pedir() {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const wl = (navigator as any).wakeLock
+        if (wl && activo && document.visibilityState === 'visible') wakeLockRef.current = await wl.request('screen')
+      } catch { /* sin soporte o sin permiso */ }
+    }
+    function alVolver() { if (document.visibilityState === 'visible') pedir() }   // se pierde al ocultarse
+    pedir()
+    document.addEventListener('visibilitychange', alVolver)
+    return () => {
+      activo = false
+      document.removeEventListener('visibilitychange', alVolver)
+      wakeLockRef.current?.release?.().catch?.(() => {})
+      wakeLockRef.current = null
+    }
+  }, [sessionId, sessionClosed])
+
+  // Hablar con AVI o escucharla cuenta como actividad (temporizador general de 30 min)
+  const marcarActividad = useCallback(() => {
+    window.dispatchEvent(new Event('avi:actividad'))
+  }, [])
+  useEffect(() => {
+    if (appState === 'idle') return
+    marcarActividad()
+    const t = setInterval(marcarActividad, 20_000)
+    return () => clearInterval(t)
+  }, [appState, marcarActividad])
+
+  // Detener la voz que suena ahora (el canal sigue con la siguiente)
   const stopAudio = useCallback(() => {
     if (audioRef.current) {
       audioRef.current.pause()
       audioRef.current.currentTime = 0
     }
+    finishCurrentRef.current?.()
   }, [])
 
-  // Reproducir respuesta de AVI con ElevenLabs
-  const speakResponse = useCallback(async (text: string) => {
+  // Reproducir un texto con Amazon Polly (una sola voz a la vez)
+  const playTTS = useCallback(async (text: string) => {
     try {
       const response = await fetch('/api/voice/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text }),
       })
-
       if (!response.ok) throw new Error('Error TTS')
 
       const audioBlob = await response.blob()
@@ -241,25 +290,82 @@ export default function PatientChatPage() {
       audioRef.current = audio
 
       await new Promise<void>((resolve) => {
-        audio.onended = () => {
+        let terminado = false
+        const terminar = () => {
+          if (terminado) return
+          terminado = true
+          finishCurrentRef.current = null
           URL.revokeObjectURL(audioUrl)
-          setAppState('idle')
           resolve()
         }
-        audio.onerror = () => {
-          setAppState('idle')
-          resolve()
-        }
+        finishCurrentRef.current = terminar
+        audio.onended = terminar
+        audio.onerror = terminar
         audio.play()
           .then(() => setAppState('speaking'))
-          .catch(() => { setAppState('idle'); resolve() })
+          .catch(terminar)
       })
     } catch {
+      /* sin voz: el texto ya está en pantalla */
+    } finally {
       setAppState('idle')
     }
   }, [])
 
-  // Enviar mensaje a Claude y reproducir respuesta
+  const speak = useCallback((text: string) => {
+    const turno = voiceChainRef.current.then(() => playTTS(text))
+    voiceChainRef.current = turno.catch(() => {})
+    return turno
+  }, [playTTS])
+
+  // Generar patrones (cierre técnico)
+  const closeSession = useCallback(async (): Promise<boolean> => {
+    const sid = sessionIdRef.current
+    if (!sid) return false
+    setClosing(true)
+    try {
+      const res = await fetch('/api/patterns', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: sid }),
+      })
+      if (res.ok) setSessionClosed(true)
+      return res.ok
+    } catch {
+      return false
+    } finally {
+      setClosing(false)
+      setAppState('idle')
+    }
+  }, [])
+
+  /**
+   * Cierre ordenado de la sesión.
+   *   'avi'      → AVI ya se despidió: el mensaje fijo solo se muestra (no se repite en voz)
+   *   'paciente' → presionó "Terminar": el mensaje fijo se dice en voz y se muestra
+   *   'tiempo'   → venció el tiempo de espera: en voz y en pantalla
+   */
+  const finalizarSesion = useCallback(async (motivo: 'avi' | 'paciente' | 'tiempo') => {
+    if (finalizandoRef.current || !sessionIdRef.current) return
+    finalizandoRef.current = true
+    cierrePendienteRef.current = false
+    setCierrePendiente(false)
+    setAvisoTiempo(null)
+    limiteRef.current = null
+    try { userStoppedRef.current = true; recognitionRef.current?.stop() } catch { /* sin grabación */ }
+
+    const mensaje = 'Gracias por usar AVI. Recuerda contactar a tu terapeuta personal y haz una cita, o contacta a AVI Acompañamiento por WhatsApp para apoyarte para tener tu cita.'
+    setMessages(prev => [...prev, { role: 'assistant', content: mensaje }])
+    if (motivo !== 'avi') await speak(mensaje)
+    const ok = await closeSession()
+    if (!ok) {
+      // No se pudo guardar el resumen: se puede volver a intentar con "Terminar la sesión"
+      finalizandoRef.current = false
+      setErrorMsg('No se pudo guardar tu sesión. Toca "Terminar la sesión" para intentarlo de nuevo.')
+    }
+  }, [speak, closeSession])
+
+  // Enviar mensaje a Claude y reproducir respuesta; al terminar, aplicar el cierre pendiente
   const sendMessage = useCallback(async (transcript: string) => {
     if (!transcript.trim()) {
       setAppState('idle')
@@ -273,7 +379,11 @@ export default function PatientChatPage() {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: transcript, sessionId }),
+        body: JSON.stringify({
+          message: transcript,
+          sessionId: sessionIdRef.current,
+          cierreSolicitado: cierrePendienteRef.current,
+        }),
       })
 
       if (!response.ok) throw new Error('Error chat')
@@ -282,7 +392,8 @@ export default function PatientChatPage() {
       const decoder = new TextDecoder()
       let buffer = ''
       let fullResponse = ''
-      let shouldAutoClose = false
+      let aviSeDespidio = false
+      let continuar = false
 
       // Leer stream de texto
       while (reader) {
@@ -299,9 +410,10 @@ export default function PatientChatPage() {
           if (data.error) throw new Error(data.error)
           if (data.text) fullResponse += data.text
           if (data.done) {
-            if (data.sessionId) setSessionId(data.sessionId)
+            if (data.sessionId) { setSessionId(data.sessionId); sessionIdRef.current = data.sessionId }
             if (data.crisis) setCrisis(true)
-            if (data.autoClose) shouldAutoClose = true
+            if (data.autoClose) aviSeDespidio = true
+            if (data.continuar) continuar = true
           }
         }
       }
@@ -310,25 +422,60 @@ export default function PatientChatPage() {
       const cleanResponse = fullResponse
         .replace('[SESION_TERMINADA]', '')
         .replace('[CRISIS_DETECTADA]', '')
+        .replace('[CONTINUAR_SESION]', '')
         .trim()
 
-      // Agregar respuesta al transcript visual
       setMessages(prev => [...prev, { role: 'assistant', content: cleanResponse }])
 
-      // Reproducir con ElevenLabs
-      await speakResponse(cleanResponse)
+      // AVI siempre termina de hablar antes de cualquier cierre
+      await speak(cleanResponse)
 
-      // Si AVI cerró la sesión, siempre decir el mensaje del terapeuta antes de cerrar
-      if (shouldAutoClose) {
-        await speakMensajeCierre()
-        await closeSession()
+      // "Terminar" presionado por error ("no, me equivoqué", "no cierres"...): se sigue normal
+      if (continuar) {
+        cierrePendienteRef.current = false
+        setCierrePendiente(false)
       }
 
+      if (aviSeDespidio) await finalizarSesion('avi')
+      else if (cierrePendienteRef.current) await finalizarSesion('paciente')
+      else if (cierrePorTiempoRef.current) await finalizarSesion('tiempo')
     } catch (e) {
       setErrorMsg(`Error al conectar con AVI: ${e instanceof Error ? e.message : 'desconocido'}`)
       setAppState('idle')
+      if (cierrePendienteRef.current) await finalizarSesion('paciente')
+      else if (cierrePorTiempoRef.current) await finalizarSesion('tiempo')
     }
-  }, [sessionId, speakResponse])
+  }, [speak, finalizarSesion])
+
+  // Procesa lo grabado una sola vez (botón, tiempo o respaldo si el navegador no avisa)
+  const procesarGrabacion = useCallback(async () => {
+    if (grabacionProcesadaRef.current) return
+    grabacionProcesadaRef.current = true
+    // userStoppedRef se queda en true: si onend llega tarde, no reabre el micrófono
+    // Se suman las últimas palabras que el navegador no alcanzó a confirmar
+    const transcript = `${transcriptRef.current} ${interimRef.current}`.trim()
+    if (transcript) {
+      setAppState('processing')
+      await sendMessage(transcript)
+    } else if (cierrePendienteRef.current) {
+      await finalizarSesion('paciente')
+    } else if (cierrePorTiempoRef.current) {
+      await finalizarSesion('tiempo')
+    } else {
+      // Silencio: AVI lo dice en voz y NO lo envía (así nunca "responde" a algo que no se dijo)
+      const aviso = 'No dijiste nada o no se escuchó nada. Por favor, repítelo.'
+      setMessages(prev => [...prev, { role: 'assistant', content: aviso }])
+      setErrorMsg('No se escuchó nada. Habla un poco más cerca del micrófono.')
+      await speak(aviso)
+    }
+  }, [sendMessage, finalizarSesion, speak])
+
+  // Termina la grabación a propósito; si el navegador no dispara onend en 2 s, se procesa igual
+  const terminarGrabacion = useCallback(() => {
+    userStoppedRef.current = true
+    try { recognitionRef.current?.stop() } catch { /* ya detenida */ }
+    setTimeout(() => { procesarGrabacion() }, 2000)
+  }, [procesarGrabacion])
 
   // Iniciar reconocimiento de voz con Web Speech API
   function startRecording() {
@@ -336,6 +483,9 @@ export default function PatientChatPage() {
     setErrorMsg(null)
     stopAudio()
     transcriptRef.current = ''
+    interimRef.current = ''
+    grabacionProcesadaRef.current = false
+    userStoppedRef.current = false
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
@@ -350,15 +500,29 @@ export default function PatientChatPage() {
     recognition.interimResults = true
     recognitionRef.current = recognition
 
-    recognition.onstart = () => setAppState('recording')
+    recognition.onstart = () => {
+      ultimaVozPacienteRef.current = Date.now()
+      setAppState('recording')
+    }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recognition.onresult = (event: any) => {
+      // Cualquier palabra reconocida reinicia los 10 min de espera
+      ultimaVozPacienteRef.current = Date.now()
+      if (limiteRef.current?.tipo === 'escuchando') {
+        limiteRef.current = { en: Date.now() + ESPERA_ESCUCHANDO_MS, tipo: 'escuchando' }
+        setAvisoTiempo(null)
+      }
+      marcarActividad()
+      let provisional = ''
       for (let i = event.resultIndex; i < event.results.length; i++) {
         if (event.results[i].isFinal) {
           transcriptRef.current += event.results[i][0].transcript + ' '
+        } else {
+          provisional += event.results[i][0].transcript
         }
       }
+      interimRef.current = provisional
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -370,20 +534,12 @@ export default function PatientChatPage() {
     }
 
     recognition.onend = async () => {
+      // Pausa larga: el navegador corta el micrófono; se reanuda mientras AVI escucha
       if (!userStoppedRef.current) {
         try { recognition.start() } catch { /* ya destruido */ }
         return
       }
-
-      userStoppedRef.current = false
-      const transcript = transcriptRef.current.trim()
-      if (transcript) {
-        setAppState('processing')
-        await sendMessage(transcript)
-      } else {
-        setErrorMsg('No escuché nada. Intenta hablar más cerca del micrófono.')
-        setAppState('idle')
-      }
+      await procesarGrabacion()
     }
 
     recognition.start()
@@ -391,49 +547,76 @@ export default function PatientChatPage() {
 
   function stopRecording() {
     if (appState !== 'recording') return
-    userStoppedRef.current = true
-    recognitionRef.current?.stop()
+    terminarGrabacion()
   }
 
-  // Mensaje de cierre garantizado
-  const speakMensajeCierre = useCallback(async () => {
-    const mensaje = 'Gracias por usar AVI. Recuerda contactar a tu terapeuta personal y haz una cita, o contacta a AVI Acompañamiento por WhatsApp para apoyarte para tener tu cita.'
-    setMessages(prev => [...prev, { role: 'assistant', content: mensaje }])
-    await speakResponse(mensaje)
-  }, [speakResponse])
-
-  // Generar patrones (cierre técnico)
-  async function closeSession() {
-    if (!sessionId || closing) return
-    setClosing(true)
-    try {
-      const res = await fetch('/api/patterns', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId }),
-      })
-      if (res.ok) setSessionClosed(true)
-    } finally {
-      setClosing(false)
-      setAppState('idle')
+  // ── Tiempos de espera dentro de una sesión abierta ───────────────────────────
+  //   AVI escuchando (grabando): 10 min sin palabras → aviso al 9
+  //   AVI esperando que el paciente toque el micrófono: 5 min → aviso al 4
+  //   Pensando o hablando: sin límite
+  useEffect(() => {
+    if (!sessionId || sessionClosed || closing || finalizandoRef.current) {
+      limiteRef.current = null
+      setAvisoTiempo(null)
+      return
     }
+    vencidoRef.current = false
+    setAvisoTiempo(null)
+    if (appState === 'recording') {
+      limiteRef.current = { en: (ultimaVozPacienteRef.current || Date.now()) + ESPERA_ESCUCHANDO_MS, tipo: 'escuchando' }
+    } else if (appState === 'idle') {
+      limiteRef.current = { en: Date.now() + ESPERA_PACIENTE_MS, tipo: 'esperando' }
+    } else {
+      limiteRef.current = null
+    }
+  }, [appState, sessionId, sessionClosed, closing])
+
+  // Reloj de 1 s con la hora real (sigue funcionando al regresar de otra app)
+  useEffect(() => {
+    const t = setInterval(() => {
+      const lim = limiteRef.current
+      if (!lim || vencidoRef.current) return
+      const resta = lim.en - Date.now()
+      if (resta <= 0) {
+        vencidoRef.current = true
+        setAvisoTiempo(null)
+        if (lim.tipo === 'escuchando') {
+          // Se envía lo grabado, AVI responde y luego cierra
+          cierrePorTiempoRef.current = true
+          terminarGrabacion()
+        } else {
+          finalizarSesion('tiempo')
+        }
+      } else if (resta <= AVISO_ANTES_MS) {
+        setAvisoTiempo(lim.tipo === 'escuchando'
+          ? 'Si no continúas la conversación en 1 minuto, se cerrará la sesión.'
+          : 'Si no retomas la conversación en 1 minuto, se cerrará la sesión.')
+      }
+    }, 1000)
+    return () => clearInterval(t)
+  }, [terminarGrabacion, finalizarSesion])
+
+  // "Terminar la sesión": en orden, sin cortar al paciente ni a AVI
+  async function handlePatientClose() {
+    if (!sessionIdRef.current || closing || finalizandoRef.current) return
+    if (appState === 'idle') {
+      await finalizarSesion('paciente')
+      return
+    }
+    // Grabando, pensando o hablando: se cierra cuando termine
+    cierrePendienteRef.current = true
+    setCierrePendiente(true)
   }
 
-  async function handlePatientClose() {
-    if (!sessionId || closing) return
-    stopAudio()
-    setAppState('processing')
-    await speakMensajeCierre()
-    await closeSession()
+  function cancelarCierre() {
+    cierrePendienteRef.current = false
+    setCierrePendiente(false)
   }
 
   const handleMicButton = () => {
     if (appState === 'idle') startRecording()
     else if (appState === 'recording') stopRecording()
-    else if (appState === 'speaking') {
-      stopAudio()
-      setAppState('idle')
-    }
+    else if (appState === 'speaking') stopAudio()
   }
 
   // ── Acceso suspendido ────────────────────────────────────────────────────────
@@ -634,10 +817,20 @@ export default function PatientChatPage() {
             <p className="text-sm text-gray-400 text-center">
               {appState === 'idle' && messages.length === 0 && 'Toca el micrófono para empezar'}
               {appState === 'idle' && messages.length > 0 && 'Toca para responder'}
-              {appState === 'recording' && 'Toca el botón para terminar'}
+              {appState === 'recording' && (cierrePendiente
+                ? 'Termina de hablar y toca el botón; después cerraremos la sesión.'
+                : 'Toca el botón para terminar')}
               {appState === 'processing' && 'AVI está pensando...'}
               {appState === 'speaking' && 'Toca para interrumpir'}
             </p>
+          )}
+
+          {/* Aviso 1 minuto antes del cierre por tiempo */}
+          {avisoTiempo && !sessionClosed && (
+            <div className="w-full max-w-xs bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-center">
+              <p className="text-sm font-semibold text-amber-700">¿Sigues ahí?</p>
+              <p className="text-xs text-amber-700 mt-0.5">{avisoTiempo}</p>
+            </div>
           )}
 
           {(!limitAlcanzado || sessionId) && !sessionClosed && (
@@ -648,15 +841,23 @@ export default function PatientChatPage() {
 
           {/* Botón Terminar sesión */}
           {messages.length > 0 && !sessionClosed && (
+            <>
             <button
               onClick={handlePatientClose}
-              disabled={closing || !sessionId || appState === 'processing'}
+              disabled={closing || !sessionId || cierrePendiente}
               className="w-full max-w-xs py-3.5 rounded-2xl border-2 border-red-300
                          text-red-500 font-semibold text-sm bg-red-50 hover:bg-red-100
                          transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              {closing ? 'Generando tu resumen...' : '⏹ Terminar la sesión'}
+              {closing ? 'Generando tu resumen...' : cierrePendiente ? 'Cerrando al terminar…' : '⏹ Terminar la sesión'}
             </button>
+            {/* Presionó "Terminar" por error: puede cancelarlo (AVI también lo detecta si lo dice) */}
+            {cierrePendiente && !closing && (
+              <button onClick={cancelarCierre} className="text-xs text-primary-600 hover:underline">
+                No, quiero seguir
+              </button>
+            )}
+            </>
           )}
         </div>
       </div>
