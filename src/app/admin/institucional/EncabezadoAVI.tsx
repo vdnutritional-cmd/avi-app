@@ -1,0 +1,52 @@
+import Link from 'next/link'
+import { Suspense } from 'react'
+import SelectorEmpresasAVI from './SelectorEmpresasAVI'
+import type { EmpresaAVI } from './empresas-avi'
+
+// Encabezado común: título, pestañas (conservan empresas y mes) y selector de empresas.
+const SECCIONES = [
+  { href: '/admin/institucional',                   label: 'Panel Institucional' },
+  { href: '/admin/institucional/reporte-general',   label: 'Reporte Institucional General' },
+  { href: '/admin/institucional/reporte-terapeuta', label: 'Reporte por Terapeuta' },
+] as const
+
+export default function EncabezadoAVI({ actual, empresas, selectedIds, mes }: {
+  actual: (typeof SECCIONES)[number]['href']
+  empresas: EmpresaAVI[]
+  selectedIds: string[]
+  mes?: string
+}) {
+  const sp = new URLSearchParams({ empresaIds: selectedIds.join(',') })
+  if (mes) sp.set('mes', mes)
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h1 className="text-2xl font-bold text-primary-700">Administración Institucional AVI</h1>
+        <p className="text-sm text-gray-500 mt-1">
+          Lo mismo que ve una Persona Institucional N1, para todas las Empresas en Convenio.
+        </p>
+      </div>
+
+      <nav className="flex flex-wrap gap-2">
+        {SECCIONES.map(s => (
+          <Link
+            key={s.href}
+            href={`${s.href}?${sp.toString()}`}
+            className={`text-sm px-4 py-2 rounded-xl border transition-colors ${
+              s.href === actual
+                ? 'bg-primary-600 border-primary-600 text-white font-semibold'
+                : 'bg-white border-gray-200 text-gray-600 hover:border-primary-300 hover:text-primary-700'
+            }`}
+          >
+            {s.label}
+          </Link>
+        ))}
+      </nav>
+
+      <Suspense>
+        <SelectorEmpresasAVI empresas={empresas.map(e => ({ id: e.id, nombre: e.nombre }))} selectedIds={selectedIds} />
+      </Suspense>
+    </div>
+  )
+}

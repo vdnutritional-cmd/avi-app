@@ -4,22 +4,9 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import TerapeutasAcordeon from './TerapeutasAcordeon'
 import { permisosPI } from '@/lib/niveles-institucionales'
+import { cargarTelefonos, cargarTerapeutasEmpresa, type TerapeutaRow } from './cargar-panel'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
-interface PacienteItem { id: string; nombre: string }
-
-interface TerapeutaRow {
-  therapistId: string
-  nombre: string
-  email: string
-  telefono: string
-  empresa: string
-  /** true si ya NO está en therapist_empresa pero aún tiene pacientes activos */
-  isHuerfano: boolean
-  pacientes: PacienteItem[]
-  pacientesActivos: number
-}
-
 interface EmpresaBlock {
   empresaId: string
   empresaNombre: string
@@ -88,12 +75,7 @@ export default async function InstitucionalDashboardPage() {
   if (!piRecords || piRecords.length === 0) redirect('/therapist/dashboard')
 
   // ── Teléfonos desde user_metadata ─────────────────────────────────────────
-  const { data: authUsersData } = await admin.auth.admin.listUsers({ perPage: 1000 })
-  const whatsappMap = new Map<string, string>()
-  for (const u of authUsersData?.users ?? []) {
-    const phone = u.user_metadata?.whatsapp_phone
-    if (phone) whatsappMap.set(u.id, String(phone))
-  }
+  const whatsappMap = await cargarTelefonos(admin)
 
   // ── Cargar terapeutas y pacientes por empresa ──────────────────────────────
   const empresaBlocks: EmpresaBlock[] = await Promise.all(
@@ -104,71 +86,7 @@ export default async function InstitucionalDashboardPage() {
       const empresaLogoUrl = empresaData?.logo_url ?? null
       const nivel = pi.nivel as 'N1' | 'N2' | 'N3'
 
-      // Fuente 1: terapeutas registrados en therapist_empresa para esta empresa
-      const { data: empresaRels } = await admin
-        .from('therapist_empresa')
-        .select('therapist_id, profiles!therapist_id(full_name, email, is_active)')
-        .eq('empresa_id', empresaId)
-
-      // Fuente 2: PIs con opera_como_terapeuta=true (pueden ser terapeutas activos
-      // de la empresa que aún no están en therapist_empresa)
-      const { data: piTerapeutas } = await admin
-        .from('convenio_personas_institucionales')
-        .select('therapist_id, profiles!therapist_id(full_name, email, is_active)')
-        .eq('empresa_id', empresaId)
-        .eq('opera_como_terapeuta', true)
-        .eq('is_active', true)
-
-      // Ids que vienen de therapist_empresa (Fuente 1) — para detectar huérfanos
-      const empresaRelIds = new Set((empresaRels ?? []).map(r => r.therapist_id as string))
-
-      // Unión deduplicada por therapist_id — excluir perfiles desactivados (is_active=false)
-      type TerapeutaEntry = { therapist_id: string; profiles: { full_name?: string; email?: string; is_active?: boolean } | null }
-      const therapistMap = new Map<string, TerapeutaEntry>()
-      for (const r of [...(empresaRels ?? []), ...(piTerapeutas ?? [])]) {
-        const prof = r.profiles as { full_name?: string; email?: string; is_active?: boolean } | null
-        if (prof?.is_active === false) continue  // terapeuta desactivado por admin
-        if (!therapistMap.has(r.therapist_id as string)) {
-          therapistMap.set(r.therapist_id as string, {
-            therapist_id: r.therapist_id as string,
-            profiles: prof,
-          })
-        }
-      }
-
-      // Fetch pacientes activos (con nombre) por terapeuta + empresa
-      const terapeutas: TerapeutaRow[] = await Promise.all(
-        Array.from(therapistMap.values()).map(async (t) => {
-          const p = t.profiles as { full_name?: string; email?: string } | null
-          const { data: tpRows } = await admin
-            .from('therapist_patients')
-            .select('patient_id, profiles!therapist_patients_patient_id_fkey(full_name, email)')
-            .eq('therapist_id', t.therapist_id)
-            .eq('empresa_id', empresaId)
-            .eq('is_active', true)
-
-          const pacientes: PacienteItem[] = (tpRows ?? []).map((row: any) => {
-            const pp = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles
-            return {
-              id:     row.patient_id as string,
-              nombre: pp?.full_name ?? pp?.email ?? row.patient_id,
-            }
-          })
-
-          const isHuerfano = !empresaRelIds.has(t.therapist_id) && pacientes.length > 0
-
-          return {
-            therapistId:      t.therapist_id,
-            nombre:           p?.full_name ?? 'Sin nombre',
-            email:            p?.email     ?? '',
-            telefono:         whatsappMap.get(t.therapist_id) ?? '',
-            empresa:          empresaNombre,
-            isHuerfano,
-            pacientes,
-            pacientesActivos: pacientes.length,
-          }
-        })
-      )
+      const terapeutas = await cargarTerapeutasEmpresa(admin, empresaId, empresaNombre, whatsappMap)
 
       return { empresaId, empresaNombre, empresaLogoUrl, nivel, terapeutas }
     })

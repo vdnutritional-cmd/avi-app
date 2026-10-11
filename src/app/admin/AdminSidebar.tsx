@@ -87,6 +87,7 @@ export default function AdminSidebar({ email }: AdminSidebarProps) {
           <NavLink href="/admin/terapeutas"       icon="👩‍⚕️" label="Terapeutas"              active={pathname.startsWith('/admin/terapeutas')}        onClose={closeSidebar} />
           <NavLink href="/admin/convenio"         icon="🔑" label="Códigos CONVENIO"         active={pathname.startsWith('/admin/convenio') && !pathname.startsWith('/admin/convenio-empresas')} onClose={closeSidebar} />
           <NavLink href="/admin/convenio-empresas" icon="🏢" label="Empresas en CONVENIO"   active={pathname.startsWith('/admin/convenio-empresas')} onClose={closeSidebar} />
+          <NavLink href="/admin/institucional"    icon="🏛️" label="Administración Institucional AVI" active={pathname.startsWith('/admin/institucional')} onClose={closeSidebar} />
           <NavLink href="/admin/reportes"         icon="📊" label="Reportes"                 active={pathname.startsWith('/admin/reportes')}          onClose={closeSidebar} />
           <NavLink href="/admin/auditoria"        icon="🔍" label="Auditoría"                active={pathname.startsWith('/admin/auditoria')}         onClose={closeSidebar} />
         </nav>

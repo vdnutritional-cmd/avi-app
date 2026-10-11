@@ -13,10 +13,12 @@ interface Props {
   pid: string
   mes: string
   pacientes: { id: string; nombre: string }[]
+  /** Administración Institucional AVI: las empresas se eligen en el selector de arriba */
+  ocultarEmpresas?: boolean
 }
 
 export default function FiltrosReporteGeneral({
-  basePath, empresas, empresaIdsSelected, tipo, pid, mes, pacientes,
+  basePath, empresas, empresaIdsSelected, tipo, pid, mes, pacientes, ocultarEmpresas = false,
 }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -80,7 +82,8 @@ export default function FiltrosReporteGeneral({
   return (
     <div className="space-y-4">
 
-      {/* ── Checkboxes de empresa ── */}
+      {/* ── Checkboxes de empresa (ocultos en Administración Institucional AVI: el selector va arriba) ── */}
+      {!ocultarEmpresas && (
       <div>
         <label className="text-xs text-gray-400 font-medium uppercase tracking-wide block mb-2">
           Empresa(s) a analizar
@@ -124,6 +127,7 @@ export default function FiltrosReporteGeneral({
           })}
         </div>
       </div>
+      )}
 
       {/* ── Filtros secundarios: tipo + paciente (solo si hay selección) ── */}
       {hasSelection && (
