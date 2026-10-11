@@ -167,3 +167,54 @@ export function buildRagQuery(params: {
 
   return parts.join('\n\n')
 }
+
+// ─── Chat del paciente (AVI-Consúltame): base personalista ───────────────────
+// 5 libros de docs-personalismo (mismos doc_name que genera scripts/index-fuentes.ts).
+// Sin "Supervision de Casos": es para terapeutas, no para la conversación con el paciente.
+export const LIBROS_PERSONALISMO = [
+  'Wojtyla Persona y Accion',
+  'Burgos Reconstruir La Persona Ensayos Personalistas',
+  'Buber Filosofia del Dialogo',
+  'Apuntes Teologia del Cuerpo',
+  'El amor Humano en el Plan divino',
+]
+
+/**
+ * Pasajes personalistas para el chat del paciente (máximo uno por libro), SIN nombres de libros ni autores
+ * (AVI no debe citarlos). Se llama una vez por sesión; el texto se guarda en
+ * sessions.rag_personalista para que el prompt sea idéntico en cada intercambio.
+ */
+export async function retrievePasajesPersonalismo(consulta: string, matchCount = 3): Promise<string> {
+  const embeddingResponse = await openai.embeddings.create({
+    model: 'text-embedding-3-small',
+    input: consulta.slice(0, 8000),
+  })
+  // Se piden más candidatos y se toma el mejor de cada libro (variedad: 3 libros distintos)
+  const { data: chunks, error } = await getSupabaseAdmin().rpc('match_document_chunks', {
+    query_embedding: embeddingResponse.data[0].embedding,
+    match_count:     80,
+    min_similarity:  0.10,
+    filter_books:    LIBROS_PERSONALISMO,
+  })
+  if (error) {
+    console.error('[RAG] Error búsqueda personalismo (chat):', error.message)
+    return ''
+  }
+  const candidatos = (chunks ?? []) as { doc_name: string; content: string }[]
+  const librosUsados = new Set<string>()
+  const lista: { doc_name: string; content: string }[] = []
+  for (const c of candidatos) {
+    if (librosUsados.has(c.doc_name)) continue
+    librosUsados.add(c.doc_name)
+    lista.push(c)
+    if (lista.length >= matchCount) break
+  }
+  // Si no hubo suficientes libros distintos, se completa con los siguientes mejores
+  // (siempre 3 pasajes: así el bloque fijo pasa el mínimo de caché con margen)
+  for (const c of candidatos) {
+    if (lista.length >= matchCount) break
+    if (!lista.includes(c)) lista.push(c)
+  }
+  console.log(`[RAG] ${lista.length} pasajes personalistas (chat)`)
+  return lista.map((c, i) => `Pasaje ${i + 1}:\n${c.content}`).join('\n\n')
+}
