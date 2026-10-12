@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { leerModoElegido, guardarModoElegido } from '@/lib/modo-platica'
 
 // Límite de sesiones AVI: según la frecuencia de sesiones presenciales y el periodo
 // desde la última presencial (src/lib/limite-sesiones-avi.ts, vía /api/patient/sesiones-avi)
@@ -14,7 +15,8 @@ const ESPERA_PACIENTE_MS   =  5 * 60_000   // AVI terminó y espera que el pacie
 const ESPERA_ESCRIBIENDO_MS = 10 * 60_000  // sesión escrita: sin escribir (cada tecla reinicia)
 const AVISO_ANTES_MS       =      60_000   // aviso 1 minuto antes de cerrar
 
-// Cómo platica el paciente: se elige antes de iniciar y no cambia durante la sesión
+// Cómo platica el paciente: se elige antes de iniciar y no cambia durante la sesión.
+// Ya elegido, se recuerda al ir a "Resumen" y regresar; se vuelve a preguntar al salir.
 type Modo = 'hablada' | 'escrita'
 
 type AppState =
@@ -62,8 +64,8 @@ export default function PatientChatPage() {
         if (!res.ok) return
         const estado = await res.json()
         aplicarEstadoSesiones(estado)
-        // Se marca de entrada lo que eligió la última vez
-        if (estado.ultimoModo === 'hablada' || estado.ultimoModo === 'escrita') setModo(estado.ultimoModo)
+        // Se marca de entrada lo que eligió la última vez (si aún no lo eligió en este inicio de sesión)
+        if (!leerModoElegido() && (estado.ultimoModo === 'hablada' || estado.ultimoModo === 'escrita')) setModo(estado.ultimoModo)
       } catch { /* sin conexión: el servidor vuelve a revisar al iniciar la sesión */ }
     }
     checkSesionesAvi()
@@ -150,6 +152,12 @@ export default function PatientChatPage() {
   const [texto, setTexto] = useState('')       // Lo que el paciente va escribiendo (modo escrito)
   const modoRef = useRef<Modo>('hablada')
   const textoRef = useRef('')
+
+  // Ya eligió en este inicio de sesión (fue a "Resumen" y regresó): directo a su modo
+  useEffect(() => {
+    const elegido = leerModoElegido()
+    if (elegido) { setModo(elegido); setModoConfirmado(true) }
+  }, [])
   const cajaTextoRef = useRef<HTMLTextAreaElement>(null)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -192,7 +200,9 @@ export default function PatientChatPage() {
     const el = cajaTextoRef.current
     if (!el) return
     el.style.height = 'auto'
-    el.style.height = `${Math.min(el.scrollHeight, 112)}px`
+    const alto = el.scrollHeight + (el.offsetHeight - el.clientHeight)   // + marco
+    el.style.height = `${Math.min(alto, 112)}px`
+    el.style.overflowY = alto > 112 ? 'auto' : 'hidden'
   }, [texto])
 
   useEffect(() => {
@@ -803,7 +813,7 @@ export default function PatientChatPage() {
                     rows={1}
                     placeholder="Escribe aquí..."
                     className="flex-1 resize-none rounded-2xl border-2 border-gray-400 bg-white px-4 py-2.5 text-base leading-snug
-                               text-gray-900 placeholder:text-gray-500 max-h-28 overflow-y-auto
+                               text-gray-900 placeholder:text-gray-500 max-h-28 overflow-y-hidden
                                focus:outline-none focus:border-primary-500"
                   />
                   <button
@@ -882,7 +892,7 @@ export default function PatientChatPage() {
                   </button>
                 ))}
                 <button
-                  onClick={() => setModoConfirmado(true)}
+                  onClick={() => { guardarModoElegido(modo); setModoConfirmado(true) }}
                   className="w-full mt-2 py-3.5 rounded-2xl bg-primary-600 hover:bg-primary-700 text-white font-semibold transition-colors"
                 >
                   Empezar

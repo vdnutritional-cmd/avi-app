@@ -3,6 +3,7 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { olvidarModoElegido } from '@/lib/modo-platica'
 
 const DEFAULT_TIMEOUT_MS = Number(process.env.NEXT_PUBLIC_INACTIVITY_TIMEOUT_MS ?? 900_000)  // 15 min (terapeuta)
 // 'avi:actividad': evento propio del chat del paciente — hablar con AVI o escucharla
@@ -56,6 +57,7 @@ export function useInactivityTimer(opts?: {
 
   const signOut = useCallback(async () => {
     clearTimers()
+    olvidarModoElegido()
     const supabase = createClient()
     await supabase.auth.signOut()
     onSignOutRef.current?.()

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { olvidarModoElegido } from '@/lib/modo-platica'
 
 // variante: 'menu' (sidebar del terapeuta, con 🚪) · 'paciente' (encabezado del paciente)
 //           · 'nav' (barra de abajo del paciente: "Salir")
@@ -11,6 +12,7 @@ export default function LogoutButton({ variante = 'menu' }: { variante?: 'menu' 
 
   async function handleLogout() {
     setLoading(true)
+    olvidarModoElegido()
     try {
       await fetch('/api/auth/logout', { method: 'POST' })
     } finally {
