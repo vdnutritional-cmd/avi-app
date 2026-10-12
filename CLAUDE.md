@@ -1,6 +1,6 @@
 # AVI Therapy Companion App — Contexto para Claude Code
 
-> **Versión:** 1.0 (cerrada) · **Actualizado:** 10 octubre 2026  
+> **Versión:** 1.0 (cerrada) · **Actualizado:** 12 octubre 2026  
 > Este archivo es el punto de entrada para cualquier sesión de Claude Code en este proyecto.  
 > Léelo completo antes de modificar cualquier archivo.
 
@@ -12,7 +12,7 @@
 Tiene dos roles principales:
 
 - **Terapeuta** — gestiona su consultorio, pacientes, expedientes clínicos y reportes
-- **Paciente** — accede a AVI-Consúltame (chat terapéutico IA) y cuestionarios
+- **Paciente** — accede a AVI "Platícame..." (chat terapéutico IA, hablado o escrito), su Resumen y cuestionarios
 
 Módulos transversales: **Administración** (superadmin), **Panel Institucional** (empresas con convenio) y **App móvil Expo** (AVI-TCA).
 
@@ -29,7 +29,7 @@ Módulos transversales: **Administración** (superadmin), **Panel Institucional*
 | IA — chat paciente | Anthropic `claude-haiku-4-5-20251001` (también patrones y Reporte de la Atención) |
 | IA — análisis | `claude-sonnet-5` con RAG multi-perfil (expediente, HC, análisis clínicos); `claude-sonnet-4-6` en emociones/recursos de sesiones |
 | IA — embeddings | OpenAI `text-embedding-3-small` (1536) |
-| Voz | TTS **Amazon Polly** (Mia, es-MX) en `/api/voice/tts`; dictado con **Web Speech API** del navegador. ElevenLabs **no se usa** (`/api/voice/stt` es legado, sin llamadas) |
+| Voz | TTS **Amazon Polly** (Mia, es-MX) en `/api/voice/tts`; dictado con **Web Speech API** del navegador. ElevenLabs **no se usa** (`/api/voice/stt` es legado, sin llamadas). En sesión **escrita** no se usa voz |
 | Pagos | Stripe (checkout + webhooks) |
 | Email | Resend |
 | Push | Web Push API + Expo Push (app móvil) |
@@ -55,8 +55,9 @@ src/app/
 │   ├── forgot-password/
 │   └── reset-password/
 
-├── patient/                        Panel del paciente
-│   ├── chat/page.tsx               AVI-Consúltame (chat IA con voz)
+├── patient/                        Panel del paciente ("Platícame..." · barra: Habla | Resumen | Salir)
+│   ├── chat/page.tsx               Chat AVI: elección Hablada/Escrita, voz o chat escrito (ver "Chat AVI del paciente")
+│   ├── reformulate/page.tsx        "Resumen" (patrones de cada sesión)
 │   ├── discover/page.tsx           Pantalla de crisis / descubre
 │   ├── onboarding/page.tsx
 │   └── cuestionario/[id]/page.tsx  Cuestionarios asignados
@@ -89,6 +90,7 @@ src/app/
 │   └── reporte-general/page.tsx
 
 ├── admin/                          Panel superadmin
+│   ├── institucional/              Administración Institucional AVI: Panel + reportes como N1 de las empresas elegidas (+ "Sin empresa")
 │   ├── AdminSidebar.tsx            Sidebar admin (Volver a AVI + Cerrar sesión → `/`)
 │   ├── page.tsx                    Panel de Control — SOLO INFORMATIVO (stats, pendientes, Control de Planes, pago caído, cumplimiento)
 │   ├── ControlPlanesTabla.tsx      Tabla "Control de Planes y Contrataciones" (acordeones <details>, fila Total)
@@ -103,7 +105,8 @@ src/app/
     ├── analysis/route.ts           Análisis clínico IA (Claude + RAG)
     ├── analisis-clinicos/route.ts  Expediente: McMaster + diagnóstico
     ├── cron/
-    │   ├── bloquear-inactivos/     Cron diario 09:00 UTC — bloqueo por inactividad (15/30/45 días según frecuencia) → status 'inactive'
+    │   ├── bloquear-inactivos/     Cron diario 09:00 UTC — bloqueo por inactividad (15/30/45 días según frecuencia_config) → status 'inactive'
+    │   ├── cerrar-sesiones-avi/    Cron diario 08:00 UTC — cierra y analiza sesiones AVI que quedaron abiertas
     │   └── desactivar-companion-expirados/  Cron diario 10:00 UTC — expira bundles companion
     ├── historia-clinica/route.ts   HC Original / HC Actualizada
     ├── expediente-analysis/route.ts
@@ -117,7 +120,9 @@ src/app/
     │   ├── transferir-paciente/
     │   └── paciente-empresa/
     ├── patient/
-    │   └── contacto/route.ts       Contacto del paciente para la bienvenida (empresa o terapeuta)
+    │   ├── contacto/route.ts       Contacto del paciente para la bienvenida (empresa o terapeuta)
+    │   ├── sesiones-avi/route.ts   Sesiones AVI disponibles + ultimoModo (hablada/escrita)
+    │   └── sesion-abierta/route.ts Sesión AVI abierta (≤ 30 min) para retomarla con su conversación
     ├── institucional/
     │   └── baja-terapeuta/         GET/DELETE therapist_empresa (solo PI N1/N2 de su empresa)
     ├── stripe/
@@ -230,9 +235,11 @@ Los 6 reportes que usan `sharedCSS()` ya lo tienen. Los demás lo tienen inline.
 
 | Tabla | Descripción |
 |---|---|
-| `profiles` | Usuarios (role: therapist / patient / admin), therapy_profile, `is_active` (desactivar terapeuta: no inicia sesión). `bloqueo_manual` existe pero no se usa. El WhatsApp del terapeuta está en **auth `user_metadata.whatsapp_phone`**, no en profiles |
+| `profiles` | Usuarios (role: therapist / patient / admin), therapy_profile, `is_active` (desactivar terapeuta: no inicia sesión), `unlimited_avi_sessions` (excepción del límite; solo la cuenta de prueba). `bloqueo_manual` existe pero no se usa. El WhatsApp del terapeuta está en **auth `user_metadata.whatsapp_phone`**, no en profiles |
 | `subscriptions` | Plan del terapeuta: status, plan, tier (esencial/clinico), patient_slots. Constraint `subscriptions_plan_check`: `paid, free, valora, unit, companion` — **ampliarlo si se agrega un tipo de plan nuevo** |
 | `therapist_patients` | Relación terapeuta-paciente. `is_active` + `status`: `active` · `archived` (fusionado/transferido) · `inactive` (bloqueado por inactividad, cron) · `blocked` (bloqueado manualmente). CHECK ampliado en migración `20261009` |
+| `sessions` | Sesiones AVI del paciente: `status` active/completed, `modo` (`hablada`/`escrita`; NULL = antes del 12 oct), `rag_personalista` (3 pasajes reutilizados en toda la sesión) |
+| `messages` / `patterns` | Mensajes de cada sesión AVI / resumen al cerrar (lo que el paciente ve en "Resumen") |
 | `case_notes` | Nota inicial + análisis IA por paciente |
 | `therapist_session_notes` | Sesiones presenciales (objetivo, desarrollo, acuerdo, seguimiento) |
 | `patient_expediente` | Expediente clínico completo (Individual, Familiar, Pareja, Análisis Clínicos, HC, info_*) |
@@ -278,7 +285,7 @@ Los 6 reportes que usan `sharedCSS()` ya lo tienen. Los demás lo tienen inline.
 
 ### Auth y seguridad
 - Rate limit en login: tabla `auth_attempts` (5 intentos → bloqueo 15 min)
-- Timeout inactividad terapeuta: 15 min → redirect `/auth/login` (`InactivityGuard`)
+- Timeout inactividad: terapeuta 15 min, paciente 30 min (`InactivityGuard timeoutMs`) → redirect `/auth/login`. Hablar/escuchar a AVI o escribir cuenta como actividad (evento `avi:actividad`)
 - Audit log NOM-024: `logApiAccess()` en todas las rutas que acceden datos clínicos
 - RLS activo en todas las tablas clínicas; DELETE físico bloqueado por política
 
@@ -402,6 +409,10 @@ Reglas del webhook (`handleCheckoutCompleted`):
 | `empresas-terapeuta.ts` | Empresas CONVENIO activas de un terapeuta |
 | `sesiones-por-institucion.ts` | `institucionRowsDesde()` — % por institución que suman 100% (mayor residuo) |
 | `patient-contacto.ts` | Contacto del paciente para la bienvenida y el chat |
+| `limite-sesiones-avi.ts` | `getEstadoSesionesAvi()` — sesiones AVI permitidas (política por frecuencia) |
+| `cerrar-sesion-avi.ts` | `procesarCierreSesion()` (patrones + completed) y `cerrarSesionesAbiertas()` |
+| `modo-platica.ts` | Modo elegido (hablada/escrita) y borrador sin enviar, en localStorage; se olvidan al salir |
+| `rag/retrieve-chunks.ts` | `retrievePasajesPersonalismo()` — 3 pasajes de 5 libros personalistas para el chat AVI |
 
 ---
 
@@ -440,13 +451,57 @@ Reglas del webhook (`handleCheckoutCompleted`):
 
 ## RAG multi-perfil
 
-Los chunks de documentación terapéutica están indexados con `therapy_profile`:
-- `tcc` — Beck, TCC
-- `familiar` — Sistémico-familiar
-- `trec` — TREC / Ellis
-- `personalismo` — Personalismo
+Una sola tabla, `document_chunks` (pgvector, 1536). `scripts/index-fuentes.ts` indexa las carpetas `docs-*` y les asigna `therapy_profiles`:
 
-El perfil del terapeuta (`profiles.therapy_profile`) filtra los chunks relevantes en cada análisis. Se configura en `/therapist/configuracion/terapia`.
+| Carpeta | Perfiles |
+|---|---|
+| `docs-familiar-sistemico` | `famsis`, `famsis_trec`, `famsis_cc` |
+| `docs-trec` | `trec`, `famsis_trec`, `trec_cc` |
+| `docs-cognitivo-conductual` | `cc`, `famsis_cc`, `trec_cc` |
+| `docs-analisis` | `analisis` |
+| `docs-personalismo` | **todos** los perfiles (base común) |
+
+- El enfoque del terapeuta (`profiles.therapy_profile`: `famsis`, `trec`, `cc` o combinaciones) filtra los chunks de los análisis. Se configura en `/therapist/configuracion/terapia`.
+- `match_document_chunks` acepta `filter_profile` y `filter_books` (ILIKE por libro).
+- **Chat AVI del paciente:** no usa el perfil del terapeuta, sino `retrievePasajesPersonalismo()`: 3 pasajes de Wojtyla, Burgos, Buber, Teología del Cuerpo y El amor humano (sin Supervisión de Casos), sin nombres de autores.
+
+---
+
+## Chat AVI del paciente (`patient/chat/page.tsx` + `api/chat/route.ts`)
+
+- **Elección al iniciar:** "¿Cómo quieres platicar hoy?" → Hablada / Escrita.
+  - Queda marcada la última elección.
+  - No cambia a mitad de la sesión; se guarda en `sessions.modo`.
+  - Se recuerda al ir a Resumen y regresar; se vuelve a preguntar después de salir.
+- **Tiempos (acordados con el supervisor):**
+
+| Momento | Tiempo |
+|---|---|
+| App del paciente abierta | 30 min |
+| Voz: AVI escuchando y el paciente callado | 10 min (aviso al 9; se envía lo grabado) |
+| Voz: esperando a que toque el micrófono | 5 min (aviso al 4) |
+| Escrita: sin escribir | 10 min (aviso al 9; cada tecla reinicia) |
+
+- **Cierre en orden:**
+  - Hay un solo canal de voz (`speak` en cadena).
+  - "Terminar" nunca corta: "Cerrando al terminar…" y "No, quiero seguir" (`[CONTINUAR_SESION]`).
+  - **Cerrar sesión / Salir** (`LogoutButton`, evento `avi:salir`) cierran primero la plática con su resumen y luego salen. "Terminar" deja al paciente dentro.
+- **Retomar:** al regresar a Habla con una sesión abierta (≤ 30 min) se retoma la misma sesión, con su conversación y el borrador sin enviar.
+- **Las sesiones abiertas se cierran** al iniciar la siguiente (`after()`) o en el cron diario. Ya no se cierran al bloquear la pantalla; solo el `pagehide` real manda un beacon.
+- **Bloque fijo del prompt** (en caché de 1 h; Haiku solo cachea ≥ 4,096 tokens):
+  - `RECUPERATE_SYSTEM_PROMPT`.
+  - Contexto del paciente: Nota Inicial, 2 últimas presenciales y prediagnóstico **sin diagnóstico** (cliente admin).
+  - Sesiones AVI anteriores: 2 resúmenes + 6 últimos mensajes.
+  - Contacto.
+  - Honestidad (voz o escrita).
+  - Pasajes personalistas.
+  - El historial (30 mensajes) va en caché de 5 min.
+- **Costo medido:** ~$0.041–0.045 por sesión, igual hablada o escrita (ver `AVI - Análisis de Costos.md`).
+- **Límite de sesiones:** `limite-sesiones-avi.ts`.
+  - Semanal 3, cada 2 semanas 6, mensual 12, sin definir 5, entre sesiones presenciales; no se acumulan.
+  - Paciente bloqueado o sin cupo → sin AVI.
+- **Cualquier cambio al prompt de AVI** se revisa con el terapeuta supervisor.
+- **App móvil:** su chat de paciente (`avi-tca/app/(patient)/chat.tsx`) es antiguo y ya **no funciona** con esta API (usa `sessions.user_id`, espera JSON y Bearer). Los pacientes usan la PWA.
 
 ---
 
@@ -496,8 +551,11 @@ npm run build
 - **Último commit V1.0:** `9ddb2e1`
 - **Último commit Sprint 12 Companion:** `dd614c6`
 - **Último commit fixes Stripe CONVENIO + contacto por empresa:** `9f5ee22` (06 oct 2026)
-- **Último commit respaldado:** `89cfffc` (10 oct 2026) — Control de Planes, motivo de bloqueo, terapeuta desactivado, Admin › Terapeutas Temporal/Permanente
+- **Respaldo anterior:** `89cfffc` (10 oct 2026) — Control de Planes, motivo de bloqueo, terapeuta desactivado, Admin › Terapeutas Temporal/Permanente
+- **Último commit respaldado:** `69954cd` (12 oct 2026) — chat AVI (tiempos, caché real 1h+5m, base personalista, política de sesiones, modo escrito, retomar sesión, sesiones anteriores), Administración Institucional AVI, transferir paciente seguro
 - Confirmar el deploy: `vercel ls` / `vercel inspect go.avi-app.com.mx` (CLI con sesión en la Mac)
+- `npx next build` modifica `tsconfig.json` solo (jsx, `.next/dev/types`): regresarlo con `git checkout tsconfig.json` antes de hacer commit
+- `globals.css`: los colores por defecto usan `hsl(var(--foreground/--background))` — con `rgb()` el texto salía rojo
 - Migraciones nuevas: archivo en `supabase/migrations/AAAAMMDD_nombre.sql`; el SQL lo corre José Luis en Supabase SQL Editor **antes** de subir código que dependa de él
 - Al cerrar cada sesión: actualizar `../AVI - Bitácora de Desarrollo.md` (y el índice de `../AVI - SQL Migración Supabase.md` si hubo migración) y este archivo
 
