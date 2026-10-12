@@ -27,7 +27,7 @@ export default async function PatientLayout({ children }: { children: React.Reac
           <span className="text-xl font-bold text-primary-700">Platícame...</span>
           <div className="flex items-center gap-3">
             <span className="text-sm text-gray-500">{profile?.full_name ?? user.email}</span>
-            <LogoutButton icono={false} />
+            <LogoutButton variante="paciente" />
           </div>
         </header>
 
@@ -44,6 +44,7 @@ export default async function PatientLayout({ children }: { children: React.Reac
             <span className="text-xl">✨</span>
             <span>Resumen</span>
           </Link>
+          <LogoutButton variante="nav" />
         </nav>
       </div>
     </InactivityGuard>

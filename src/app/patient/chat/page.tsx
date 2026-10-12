@@ -758,7 +758,7 @@ export default function PatientChatPage() {
               {messages.length === 0 && (
                 <div className="text-center pt-10 space-y-2">
                   <p className="text-2xl font-semibold text-gray-700">Hola, estoy aquí</p>
-                  <p className="text-gray-400 text-sm max-w-xs mx-auto leading-relaxed">
+                  <p className="text-gray-600 text-sm max-w-xs mx-auto leading-relaxed">
                     Escríbeme cómo te sientes. Te leo con calma.
                   </p>
                 </div>
@@ -792,7 +792,7 @@ export default function PatientChatPage() {
             {/* Caja para escribir + Enviar (crece hasta 4 líneas) */}
             {!sessionClosed && (
               <div className="border-t border-gray-100 bg-white px-3 pt-1.5 pb-2">
-                <p className="text-[10px] text-gray-300 text-center mb-1.5">
+                <p className="text-xs text-gray-500 text-center mb-1.5">
                   AVI no reemplaza a tu terapeuta{sesionesDisponibles && <> · {sesionesDisponibles}</>}
                 </p>
                 <div className="flex items-end gap-2">
@@ -802,8 +802,9 @@ export default function PatientChatPage() {
                     onChange={e => alEscribir(e.target.value)}
                     rows={1}
                     placeholder="Escribe aquí..."
-                    className="flex-1 resize-none rounded-2xl border border-gray-200 px-4 py-2.5 text-base leading-snug
-                               max-h-28 overflow-y-auto focus:outline-none focus:border-primary-400"
+                    className="flex-1 resize-none rounded-2xl border-2 border-gray-400 bg-white px-4 py-2.5 text-base leading-snug
+                               text-gray-900 placeholder:text-gray-500 max-h-28 overflow-y-auto
+                               focus:outline-none focus:border-primary-500"
                   />
                   <button
                     onClick={enviarTexto}
