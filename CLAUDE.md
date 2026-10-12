@@ -503,9 +503,9 @@ Una sola tabla, `document_chunks` (pgvector, 1536). `scripts/index-fuentes.ts` i
 - **Cualquier cambio al prompt de AVI** se revisa con el terapeuta supervisor.
 - **App móvil — decisión 12 oct 2026 (ver `../AVI - Plan Maestro Producto.md` §2.7):**
   - **Una sola AVI, la PWA.** Toda mejora de paciente y terapeuta se hace en la PWA.
-  - La app de tiendas (`avi-tca`, Expo, Android primero) solo es la puerta: registro, login, Face ID y push nativos, y después un WebView con la PWA.
+  - La app de tiendas (`avi-tca`, Expo) es **la misma app, idéntica, en Android y iPhone** (un solo código, mismas funciones; Android se publica primero). Solo es la puerta: registro, login, Face ID y push nativos, y después un WebView con la PWA.
   - **No duplicar funciones en la app.** El chat de paciente nativo (`avi-tca/app/(patient)/chat.tsx`) está roto con esta API y **se eliminará**.
-  - En iPhone no se muestran precios ni pagos (regla 3.1.1 de Apple).
+  - **Sin precios ni pagos en la app** (ni Android ni iPhone): el terapeuta contrata siempre en la web (regla 3.1.1 de Apple).
 
 ---
 
