@@ -823,8 +823,8 @@ export default function PatientChatPage() {
             <button
               onClick={handlePatientClose}
               disabled={closing || !sessionId || cierrePendiente}
-              className="w-full max-w-xs py-3.5 rounded-2xl border-2 border-red-300
-                         text-red-500 font-semibold text-sm bg-red-50 hover:bg-red-100
+              className="w-full max-w-xs py-3.5 rounded-2xl border-2 border-gray-900
+                         text-gray-900 font-semibold text-sm bg-white hover:bg-gray-100
                          transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {closing ? 'Generando tu resumen...' : cierrePendiente ? 'Cerrando al terminar…' : '⏹ Terminar la sesión'}
