@@ -18,5 +18,23 @@ export function guardarModoElegido(modo: ModoPlatica) {
 }
 
 export function olvidarModoElegido() {
-  try { localStorage.removeItem(CLAVE) } catch { /* sin almacenamiento */ }
+  try {
+    localStorage.removeItem(CLAVE)
+    localStorage.removeItem(CLAVE_BORRADOR)
+  } catch { /* sin almacenamiento */ }
+}
+
+// Lo que el paciente lleva escrito y aún no envía (sesión escrita): no se pierde si va a
+// "Resumen" y regresa. Se borra al enviarlo, al terminar la sesión y al salir.
+const CLAVE_BORRADOR = 'avi_borrador_texto'
+
+export function leerBorrador(): string {
+  try { return localStorage.getItem(CLAVE_BORRADOR) ?? '' } catch { return '' }
+}
+
+export function guardarBorrador(texto: string) {
+  try {
+    if (texto) localStorage.setItem(CLAVE_BORRADOR, texto)
+    else localStorage.removeItem(CLAVE_BORRADOR)
+  } catch { /* sin almacenamiento */ }
 }

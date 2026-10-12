@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { leerModoElegido, guardarModoElegido } from '@/lib/modo-platica'
+import { leerModoElegido, guardarModoElegido, leerBorrador, guardarBorrador } from '@/lib/modo-platica'
 
 // Límite de sesiones AVI: según la frecuencia de sesiones presenciales y el periodo
 // desde la última presencial (src/lib/limite-sesiones-avi.ts, vía /api/patient/sesiones-avi)
@@ -153,10 +153,39 @@ export default function PatientChatPage() {
   const modoRef = useRef<Modo>('hablada')
   const textoRef = useRef('')
 
-  // Ya eligió en este inicio de sesión (fue a "Resumen" y regresó): directo a su modo
+  // Ya eligió en este inicio de sesión (fue a "Resumen" y regresó): directo a su modo,
+  // con lo que llevaba escrito sin enviar
   useEffect(() => {
     const elegido = leerModoElegido()
     if (elegido) { setModo(elegido); setModoConfirmado(true) }
+    if (elegido === 'escrita') setTexto(leerBorrador())
+  }, [])
+
+  // Salió a mitad de una sesión y regresó: se retoma la misma sesión con su conversación
+  // (el servidor solo la devuelve si la última actividad fue hace 30 min o menos)
+  useEffect(() => {
+    let vigente = true
+    async function retomarSesion() {
+      try {
+        const res = await fetch('/api/patient/sesion-abierta')
+        if (!res.ok) return
+        const { sesion } = await res.json()
+        // Si mientras tanto ya empezó a platicar, no se toca nada
+        if (!vigente || !sesion || sessionIdRef.current || hasMessagesRef.current) return
+        const modoSesion: Modo = sesion.modo === 'escrita' || sesion.modo === 'hablada'
+          ? sesion.modo
+          : (leerModoElegido() ?? 'hablada')
+        sessionIdRef.current = sesion.id
+        setSessionId(sesion.id)
+        setMessages(sesion.messages)
+        setModo(modoSesion)
+        setModoConfirmado(true)
+        guardarModoElegido(modoSesion)
+        if (modoSesion === 'hablada') setShowTranscript(true)   // que vea dónde se quedó
+      } catch { /* sin conexión: empieza normal */ }
+    }
+    retomarSesion()
+    return () => { vigente = false }
   }, [])
   const cajaTextoRef = useRef<HTMLTextAreaElement>(null)
 
@@ -349,6 +378,7 @@ export default function PatientChatPage() {
     setAvisoTiempo(null)
     limiteRef.current = null
     try { userStoppedRef.current = true; recognitionRef.current?.stop() } catch { /* sin grabación */ }
+    guardarBorrador('')   // lo no enviado no pasa a la siguiente sesión
 
     const mensaje = 'Gracias por usar AVI. Recuerda contactar a tu terapeuta personal y haz una cita, o contacta a AVI Acompañamiento por WhatsApp para apoyarte para tener tu cita.'
     setMessages(prev => [...prev, { role: 'assistant', content: mensaje }])
@@ -387,7 +417,7 @@ export default function PatientChatPage() {
       if (response.status === 403) {
         const data = await response.json().catch(() => null)
         setMessages(prev => prev.slice(0, -1))   // quitar el mensaje que no se envió
-        if (modoRef.current === 'escrita') setTexto(transcript)
+        if (modoRef.current === 'escrita') { setTexto(transcript); guardarBorrador(transcript) }
         if (data?.estado) aplicarEstadoSesiones(data.estado)
         setAppState('idle')
         return
@@ -598,6 +628,7 @@ export default function PatientChatPage() {
           cierrePorTiempoRef.current = true
           const pendiente = textoRef.current
           setTexto('')
+          guardarBorrador('')
           sendMessage(pendiente)
         } else {
           finalizarSesion('tiempo')
@@ -617,6 +648,7 @@ export default function PatientChatPage() {
   // Cada tecla cuenta como actividad y reinicia los 10 min sin escribir
   function alEscribir(valor: string) {
     setTexto(valor)
+    guardarBorrador(valor)
     marcarActividad()
     if (limiteRef.current?.tipo === 'escribiendo' && !vencidoRef.current) {
       limiteRef.current = { en: Date.now() + ESPERA_ESCRIBIENDO_MS, tipo: 'escribiendo' }
@@ -629,6 +661,7 @@ export default function PatientChatPage() {
     if (!mensaje || appState !== 'idle' || sessionClosed || finalizandoRef.current) return
     setErrorMsg(null)
     setTexto('')
+    guardarBorrador('')
     sendMessage(mensaje)
   }
 
