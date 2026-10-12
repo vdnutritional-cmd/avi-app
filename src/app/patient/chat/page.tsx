@@ -205,6 +205,10 @@ export default function PatientChatPage() {
   const cierrePendienteRef = useRef(false)
   const cierrePorTiempoRef = useRef(false)   // venció el tiempo mientras AVI escuchaba
   const finalizandoRef = useRef(false)
+  // "Cerrar sesión" / "Salir" con una plática abierta: se cierra en orden (con resumen) y luego sale
+  const saliendoRef = useRef(false)
+  const avisosSalidaRef = useRef<Array<() => void>>([])
+  const appStateRef = useRef<AppState>('idle')
 
   // Canal de voz único: cada voz espera a que termine la anterior (nunca dos a la vez)
   const voiceChainRef = useRef<Promise<void>>(Promise.resolve())
@@ -223,6 +227,7 @@ export default function PatientChatPage() {
   useEffect(() => { hasMessagesRef.current = messages.length > 0 }, [messages])
   useEffect(() => { cierrePendienteRef.current = cierrePendiente }, [cierrePendiente])
   useEffect(() => { modoRef.current = modo }, [modo])
+  useEffect(() => { appStateRef.current = appState }, [appState])
   useEffect(() => { textoRef.current = texto }, [texto])
   // La caja para escribir crece con el texto (hasta 4 líneas; después se desplaza por dentro)
   useEffect(() => {
@@ -386,9 +391,12 @@ export default function PatientChatPage() {
     const ok = await closeSession()
     if (!ok) {
       // No se pudo guardar el resumen: se puede volver a intentar con "Terminar la sesión"
+      // (si estaba saliendo, sale igual: la sesión se cierra y analiza en el barrido diario)
       finalizandoRef.current = false
       setErrorMsg('No se pudo guardar tu sesión. Toca "Terminar la sesión" para intentarlo de nuevo.')
     }
+    // Avisar a "Cerrar sesión" / "Salir" que ya puede salir
+    avisosSalidaRef.current.splice(0).forEach(listo => listo())
   }, [speak, closeSession])
 
   // Enviar mensaje a Claude y reproducir respuesta; al terminar, aplicar el cierre pendiente
@@ -467,7 +475,7 @@ export default function PatientChatPage() {
       await speak(cleanResponse)
 
       // "Terminar" presionado por error ("no, me equivoqué", "no cierres"...): se sigue normal
-      if (continuar) {
+      if (continuar && !saliendoRef.current) {
         cierrePendienteRef.current = false
         setCierrePendiente(false)
       }
@@ -677,7 +685,34 @@ export default function PatientChatPage() {
     setCierrePendiente(true)
   }
 
+  // "Cerrar sesión" / "Salir" (encabezado y barra de abajo): si hay una plática abierta,
+  // primero se cierra como con "Terminar" (AVI termina, resumen) y después sale.
+  // Siempre con la versión más reciente de esta función (el listener se registra una vez).
+  const cerrarParaSalirRef = useRef<() => Promise<void> | null>(() => null)
+  cerrarParaSalirRef.current = () => {
+    if (!sessionIdRef.current || sessionClosedRef.current || !hasMessagesRef.current) return null
+    saliendoRef.current = true
+    const listo = new Promise<void>(resolve => { avisosSalidaRef.current.push(resolve) })
+    if (finalizandoRef.current) return listo   // ya se está cerrando
+    cierrePendienteRef.current = true
+    setCierrePendiente(true)
+    const estado = appStateRef.current
+    if (estado === 'idle') finalizarSesion('paciente')
+    else if (estado === 'recording') terminarGrabacion()   // se envía lo grabado, AVI responde y cierra
+    // Pensando o hablando: se cierra al terminar la respuesta
+    return listo
+  }
+  useEffect(() => {
+    function alSalir(e: Event) {
+      const listo = cerrarParaSalirRef.current()
+      if (listo) (e as CustomEvent<{ esperar: (p: Promise<void>) => void }>).detail.esperar(listo)
+    }
+    window.addEventListener('avi:salir', alSalir)
+    return () => window.removeEventListener('avi:salir', alSalir)
+  }, [])
+
   function cancelarCierre() {
+    if (saliendoRef.current) return   // ya está saliendo de la app
     cierrePendienteRef.current = false
     setCierrePendiente(false)
   }
