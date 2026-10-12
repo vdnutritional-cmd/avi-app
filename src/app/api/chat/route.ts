@@ -238,7 +238,10 @@ export async function POST(request: NextRequest) {
     // Haiku 4.5 solo cachea bloques de ≥ 4,096 tokens: el prompt base solo (~3,063)
     // NO llegaba y nunca se cacheó. Ahora el punto de caché va al final de TODO el
     // bloque fijo de la sesión (prompt + paciente + contacto + honestidad + pasajes,
-    // ~5,300–6,300 tokens), que no cambia entre intercambios.
+    // ~5,300–9,000 tokens), que no cambia entre intercambios.
+    // Caché combinado: el bloque fijo con duración de 1 HORA (se escribe una vez por
+    // sesión y no se vence aunque el paciente tarde en responder) y el historial con
+    // 5 minutos (si se vence, solo se vuelve a pagar la conversación).
     const bloquesFijos = [
       RECUPERATE_SYSTEM_PROMPT,
       contextoPaciente,
@@ -270,7 +273,7 @@ export async function POST(request: NextRequest) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         system: [
           ...bloquesFijos.map((texto, i) => i === bloquesFijos.length - 1
-            ? { type: 'text', text: texto, cache_control: { type: 'ephemeral' } }
+            ? { type: 'text', text: texto, cache_control: { type: 'ephemeral', ttl: '1h' } }
             : { type: 'text', text: texto }),
           // Variable: va DESPUÉS del punto de caché
           ...(bloqueCierreSolicitado ? [{ type: 'text', text: bloqueCierreSolicitado }] : []),
@@ -294,7 +297,8 @@ export async function POST(request: NextRequest) {
             // Verificación del caché en los logs de Vercel
             if (chunk.type === 'message_start') {
               const u = chunk.message.usage as unknown as Record<string, number>
-              console.log(`[chat] tokens entrada=${u.input_tokens} cache_escrito=${u.cache_creation_input_tokens ?? 0} cache_leido=${u.cache_read_input_tokens ?? 0}`)
+              const cc = (chunk.message.usage as unknown as { cache_creation?: { ephemeral_1h_input_tokens?: number; ephemeral_5m_input_tokens?: number } }).cache_creation
+              console.log(`[chat] tokens entrada=${u.input_tokens} cache_escrito=${u.cache_creation_input_tokens ?? 0} (1h=${cc?.ephemeral_1h_input_tokens ?? 0} 5m=${cc?.ephemeral_5m_input_tokens ?? 0}) cache_leido=${u.cache_read_input_tokens ?? 0}`)
             }
             if (
               chunk.type === 'content_block_delta' &&
