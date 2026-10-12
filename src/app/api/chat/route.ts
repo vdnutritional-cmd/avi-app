@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
     const terapeutaId = rel?.therapist_id as string | undefined
 
     const admin = createAdminClient()
-    const [sesionesRes, expedienteRes, contacto] = await Promise.all([
+    const [sesionesRes, expedienteRes, contacto, bloqueSesionesAvi] = await Promise.all([
       // Últimas 2 sesiones presenciales de su terapeuta actual
       terapeutaId
         ? supabase
@@ -136,6 +136,8 @@ export async function POST(request: NextRequest) {
             .maybeSingle()
         : Promise.resolve({ data: null }),
       getPatientContacto(user.id).catch(() => null),
+      // Sesiones AVI anteriores: para poder "seguir donde nos quedamos"
+      construirBloqueSesionesAvi(supabase, user.id, activeSessionId).catch(() => ''),
     ])
 
     // Contacto para la invitación de cierre (empresa CONVENIO o terapeuta) — misma regla que la bienvenida
@@ -250,6 +252,7 @@ export async function POST(request: NextRequest) {
     const bloquesFijos = [
       RECUPERATE_SYSTEM_PROMPT,
       contextoPaciente,
+      bloqueSesionesAvi,
       bloqueContacto,
       bloqueHonestidad,
       bloquePersonalismo,
@@ -386,4 +389,74 @@ export async function POST(request: NextRequest) {
     console.error('Error en /api/chat:', error)
     return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
   }
+}
+
+// ── Sesiones AVI anteriores ────────────────────────────────────────────────────
+// Resúmenes de las 2 últimas sesiones AVI (los mismos de "Resumen") + los últimos 6
+// mensajes de la más reciente, para que AVI sepa dónde se quedaron si el paciente
+// pide continuar. Va en el bloque fijo (caché): +~1,000 tokens ≈ +$0.003 por sesión.
+const SESIONES_AVI_PREVIAS = 2
+const MENSAJES_FINALES = 6
+const MAX_CARACTERES_MENSAJE = 600
+
+async function construirBloqueSesionesAvi(
+  db: Awaited<ReturnType<typeof createClient>>,
+  patientId: string,
+  sesionActualId: string,
+): Promise<string> {
+  const { data: previas } = await db
+    .from('sessions')
+    .select('id, started_at')
+    .eq('patient_id', patientId)
+    .neq('id', sesionActualId)
+    .order('started_at', { ascending: false })
+    .limit(SESIONES_AVI_PREVIAS)
+
+  if (!previas?.length) {
+    return `## SESIONES AVI ANTERIORES\nEsta es la primera sesión AVI de esta persona: no tienes pláticas anteriores con ella. Si te pide continuar donde se quedaron, dile con calidez desde el principio que no tienes registro de una plática anterior y pídele que te cuente en qué se quedó. No digas que sí para después decir que no tienes los elementos.`
+  }
+
+  const [{ data: patrones }, { data: finales }] = await Promise.all([
+    db.from('patterns')
+      .select('session_id, summary, emotional_patterns, predominant_emotions')
+      .in('session_id', previas.map(p => p.id)),
+    db.from('messages')
+      .select('role, content')
+      .eq('session_id', previas[0].id)
+      .order('created_at', { ascending: false })
+      .limit(MENSAJES_FINALES),
+  ])
+
+  const fecha = (iso: string) => new Date(iso).toLocaleDateString('es-MX', {
+    timeZone: 'America/Mexico_City', day: 'numeric', month: 'long', year: 'numeric',
+  })
+  const lista = (v: unknown) => (Array.isArray(v) ? v.join(', ') : '')
+
+  // De la más antigua a la más reciente
+  const resumenes = [...previas].reverse().map(p => {
+    const pat = patrones?.find(x => x.session_id === p.id)
+    if (!pat?.summary) return `Sesión del ${fecha(p.started_at as string)}: sin resumen.`
+    return [
+      `Sesión del ${fecha(p.started_at as string)}: ${pat.summary}`,
+      lista(pat.predominant_emotions) ? `  Emociones: ${lista(pat.predominant_emotions)}` : '',
+      lista(pat.emotional_patterns)   ? `  Patrones: ${lista(pat.emotional_patterns)}`     : '',
+    ].filter(Boolean).join('\n')
+  }).join('\n\n')
+
+  const corto = (t: string) => (t.length > MAX_CARACTERES_MENSAJE ? `${t.slice(0, MAX_CARACTERES_MENSAJE)}…` : t)
+  const ultimaPlatica = (finales ?? []).reverse()
+    .map(m => `${m.role === 'user' ? 'PERSONA' : 'AVI'}: ${corto(String(m.content ?? '').trim())}`)
+    .join('\n')
+
+  return [
+    `## SESIONES AVI ANTERIORES`,
+    `Esto es lo que esta persona platicó contigo en sus sesiones AVI anteriores.`,
+    `- Úsalo solo si la persona pide continuar donde se quedaron, se refiere a algo de una plática anterior o viene claramente al caso. No lo saques por tu cuenta al empezar.`,
+    `- Si pide continuar, retoma con naturalidad desde el final de la última plática (por ejemplo: "La vez pasada platicábamos de… y te habías quedado en…").`,
+    `- No repitas textualmente estos resúmenes y nunca uses con la persona los términos clínicos de los patrones.`,
+    ``,
+    `### Resúmenes`,
+    resumenes,
+    ultimaPlatica ? `\n### Final de la última plática (${fecha(previas[0].started_at as string)})\n${ultimaPlatica}` : '',
+  ].filter(s => s !== '').join('\n')
 }
