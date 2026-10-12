@@ -48,7 +48,9 @@ export async function POST(request: NextRequest) {
     }
 
     // cierreSolicitado: el paciente presionó "Terminar" mientras hablaba o AVI respondía
-    const { message, sessionId, cierreSolicitado } = await request.json()
+    // modo: 'hablada' | 'escrita', lo elige el paciente al iniciar (no cambia en la sesión)
+    const { message, sessionId, cierreSolicitado, modo } = await request.json()
+    const modoSesion: 'hablada' | 'escrita' | null = modo === 'hablada' || modo === 'escrita' ? modo : null
 
     if (!message?.trim()) {
       return NextResponse.json({ error: 'Mensaje vacío' }, { status: 400 })
@@ -67,7 +69,7 @@ export async function POST(request: NextRequest) {
 
       const { data: newSession, error: sessionError } = await supabase
         .from('sessions')
-        .insert({ patient_id: user.id, status: 'active' })
+        .insert({ patient_id: user.id, status: 'active', modo: modoSesion })
         .select('id')
         .single()
 
@@ -142,7 +144,10 @@ export async function POST(request: NextRequest) {
     // Honestidad: AVI solo responde a lo que realmente está en la conversación.
     // Evita que "invente" algo que el paciente no dijo (p. ej. grabó silencio y luego
     // pregunta "¿qué opinas de lo que dije?"). Bloque aparte: el prompt base sigue en caché.
-    const bloqueHonestidad = `## SOLO LO QUE REALMENTE SE DIJO\nLa conversación llega por voz y a veces no se escucha nada. Básate únicamente en lo que aparece escrito en los mensajes de esta sesión.\n- Si el paciente pregunta tu opinión o se refiere a algo que dijo, contó, mostró o hizo ("¿qué opinas?", "¿te gustó?", "¿qué te parece lo que dije?") y eso NO aparece en los mensajes, no lo inventes ni supongas su contenido. Responde con calidez algo como: "No escuché lo que dijiste o no se alcanzó a escuchar. ¿Me lo puedes repetir, por favor?"\n- Nunca afirmes haber visto, oído o recibido algo que no está en la conversación.`
+    // En sesión escrita no hay voz: "no alcancé a leer" en lugar de "no escuché".
+    const bloqueHonestidad = modoSesion === 'escrita'
+      ? `## SOLO LO QUE REALMENTE SE DIJO\nEsta sesión es por escrito: el paciente te escribe y tú le respondes por escrito. Básate únicamente en lo que aparece escrito en los mensajes de esta sesión.\n- Si el paciente pregunta tu opinión o se refiere a algo que dijo, contó, mostró o hizo ("¿qué opinas?", "¿te gustó?", "¿qué te parece lo que te dije?") y eso NO aparece en los mensajes, no lo inventes ni supongas su contenido. Responde con calidez algo como: "No alcancé a leer lo que me dices o no me llegó. ¿Me lo puedes escribir de nuevo, por favor?"\n- Nunca afirmes haber visto, oído o recibido algo que no está en la conversación.`
+      : `## SOLO LO QUE REALMENTE SE DIJO\nLa conversación llega por voz y a veces no se escucha nada. Básate únicamente en lo que aparece escrito en los mensajes de esta sesión.\n- Si el paciente pregunta tu opinión o se refiere a algo que dijo, contó, mostró o hizo ("¿qué opinas?", "¿te gustó?", "¿qué te parece lo que dije?") y eso NO aparece en los mensajes, no lo inventes ni supongas su contenido. Responde con calidez algo como: "No escuché lo que dijiste o no se alcanzó a escuchar. ¿Me lo puedes repetir, por favor?"\n- Nunca afirmes haber visto, oído o recibido algo que no está en la conversación.`
 
     // El paciente presionó "Terminar la sesión" mientras hablaba: si su mensaje dice que
     // fue un error o que quiere seguir, AVI continúa y lo marca con [CONTINUAR_SESION].
