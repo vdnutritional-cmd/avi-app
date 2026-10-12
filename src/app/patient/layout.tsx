@@ -24,10 +24,10 @@ export default async function PatientLayout({ children }: { children: React.Reac
     <InactivityGuard timeoutMs={30 * 60_000}>
       <div className="min-h-screen flex flex-col bg-gray-50">
         <header className="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between sticky top-0 z-10">
-          <span className="text-xl font-bold text-primary-700">Recupérate</span>
+          <span className="text-xl font-bold text-primary-700">Platícame...</span>
           <div className="flex items-center gap-3">
             <span className="text-sm text-gray-500">{profile?.full_name ?? user.email}</span>
-            <LogoutButton />
+            <LogoutButton icono={false} />
           </div>
         </header>
 
@@ -42,7 +42,7 @@ export default async function PatientLayout({ children }: { children: React.Reac
           </Link>
           <Link href="/patient/reformulate" className="flex flex-col items-center gap-1 text-xs text-gray-500 hover:text-primary-600 transition-colors">
             <span className="text-xl">✨</span>
-            <span>Reformúlate</span>
+            <span>Resumen</span>
           </Link>
         </nav>
       </div>

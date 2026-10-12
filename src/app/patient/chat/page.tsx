@@ -782,7 +782,7 @@ export default function PatientChatPage() {
                 💬 Contactar por WhatsApp
               </a>
               <p className="text-xs text-blue-400">
-                ✓ Sesión guardada — ve a <strong>&quot;Reformúlate&quot;</strong> para ver una propuesta de cómo verte
+                ✓ Sesión guardada — ve a <strong>&quot;Resumen&quot;</strong> para ver una propuesta de cómo verte
               </p>
             </div>
           )}

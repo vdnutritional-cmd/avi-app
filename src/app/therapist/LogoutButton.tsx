@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
-export default function LogoutButton() {
+export default function LogoutButton({ icono = true }: { icono?: boolean }) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
 
@@ -27,7 +27,7 @@ export default function LogoutButton() {
                  text-sm text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors
                  disabled:opacity-50"
     >
-      <span>🚪</span>
+      {icono && <span>🚪</span>}
       <span>{loading ? 'Cerrando…' : 'Cerrar sesión'}</span>
     </button>
   )

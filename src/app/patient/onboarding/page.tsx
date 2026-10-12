@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 const pasos = [
   {
     icono: '👋',
-    titulo: 'Bienvenido a Recupérate',
+    titulo: 'Bienvenido y platícame...',
     contenido: `AVI es un espacio de escucha cálida y acompañamiento emocional entre tus sesiones de terapia.
 
 El nombre de AVI viene de "Acompañamiento Virtual Interactivo" y está constituido desde una visión con valores católicos desde la visión Personalista de Karol Józef Wojtyla, basada en el respeto a tu dignidad como persona en todas sus dimensiones, ya que eres una persona única e irrepetible.`,
