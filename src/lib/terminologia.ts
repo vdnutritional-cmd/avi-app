@@ -9,12 +9,17 @@
 //   <user> <users> <User> <Users>   paciente(s)  / asesorado(s)
 //   <pro>  <pros>  <Pro>  <Pros>    terapeuta(s) / asesor(es)
 //   <serv> <servs> <Serv> <Servs>   terapia(s)   / asesoría(s)
+//
+// Quién la define (política 14 oct 2026, src/lib/terminologia-paciente.ts):
+//   - Empresa: la Persona Institucional (User/Superuser) en Administración › Configuración Admin
+//   - Personas sin empresa: el terapeuta en Configuración › Cómo me nombran (profiles.terminologia)
+//   - Pantallas generales del terapeuta: una sola palabra; 'asesorado' si tiene alguna
 // ─────────────────────────────────────────────────────────────
 export type Terminologia = 'paciente' | 'asesorado'
 
 export const TERMINOLOGIA_DEFAULT: Terminologia = 'asesorado'
 
-/** Pacientes sin empresa (independientes del terapeuta). Pendiente decisión A: mientras, siguen como hoy */
+/** Personas sin empresa cuando el terapeuta no ha elegido en "Cómo me nombran" */
 export const TERMINOLOGIA_SIN_EMPRESA: Terminologia = 'paciente'
 
 export const TERMINOLOGIA_OPCIONES: { valor: Terminologia; nombre: string; ejemplo: string }[] = [

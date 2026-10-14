@@ -1,5 +1,6 @@
 'use client'
 
+import { terminos, TERMINOLOGIA_SIN_EMPRESA, type Terminologia } from '@/lib/terminologia'
 import { useState } from 'react'
 import Link from 'next/link'
 import LogoutButton from './LogoutButton'
@@ -18,9 +19,13 @@ interface SidebarProps {
   accesoConvenio?: boolean        // sin plan propio, entra por su empresa CONVENIO
   canReporteGeneral?: boolean     // PI N1 o N2
   canReporteTerapeuta?: boolean   // PI N1
+  canConfiguracion?: boolean      // PI N1 o N2: Configuración Admin de sus empresas
+  terminologia?: Terminologia // palabras de las pantallas generales (src/lib/terminologia-paciente.ts)
 }
 
-export default function Sidebar({ fullName, email, subscriptionStatus, patientSlots, tier, isInstitucional, hasEmpresas, disabled, hideInstitucionalLink, canGestionarBajas, accesoConvenio, canReporteGeneral, canReporteTerapeuta }: SidebarProps) {
+export default function Sidebar({ fullName, email, subscriptionStatus, patientSlots, tier, isInstitucional, hasEmpresas, disabled, hideInstitucionalLink, canGestionarBajas, accesoConvenio, canReporteGeneral, canReporteTerapeuta, canConfiguracion, terminologia }: SidebarProps) {
+  // Palabras según las personas del terapeuta (Inventario de Terminología, página 3)
+  const w = terminos(terminologia ?? TERMINOLOGIA_SIN_EMPRESA)
   const [open, setOpen] = useState(false)
   const [openGroup, setOpenGroup] = useState<string | null>(null)
 
@@ -82,7 +87,7 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
         <nav className="p-4 space-y-1 overflow-y-auto flex-1">
           {disabled && (
             <div className="mb-3 px-3 py-2.5 rounded-xl bg-primary-50 border border-primary-200 text-xs text-primary-700 leading-snug font-medium">
-              🔒 Panel terapeuta no disponible para este perfil
+              🔒 Panel terapeuta o asesor no disponible para este perfil
             </div>
           )}
           <div className={disabled ? 'opacity-40 pointer-events-none select-none' : ''}>
@@ -91,16 +96,16 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
           {hasEmpresas ? (
             <NavGroup
               name="pacientes"
-              label="Mis pacientes"
+              label={`Mis ${w.users}`}
               icon="👥"
               isOpen={openGroup === 'pacientes'}
               onToggle={() => toggleGroup('pacientes')}
             >
-              <NavLink href="/therapist/patients"                 icon="🔍" label="Seleccionar paciente"    onClose={closeSidebar} />
+              <NavLink href="/therapist/patients"                 icon="🔍" label={`Seleccionar ${w.user}`}  onClose={closeSidebar} />
               <NavLink href="/therapist/asignacion-institucion"   icon="🏢" label="Asignación a Institución" onClose={closeSidebar} />
             </NavGroup>
           ) : (
-            <NavLink href="/therapist/patients" icon="👥" label="Mis pacientes" onClose={closeSidebar} />
+            <NavLink href="/therapist/patients" icon="👥" label={`Mis ${w.users}`} onClose={closeSidebar} />
           )}
 
           {/* Bloque: Información */}
@@ -111,7 +116,7 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
             isOpen={openGroup === 'informacion'}
             onToggle={() => toggleGroup('informacion')}
           >
-            <NavLink href="/therapist/asesorias"   icon="📈" label="Mis asesorías"                   onClose={closeSidebar} />
+            <NavLink href="/therapist/asesorias"   icon="📈" label={`Mis ${w.servs}`} onClose={closeSidebar} />
             <NavLink href="/therapist/estadisticas" icon="📊" label="Mi estadística"                   onClose={closeSidebar} />
 
             {/* Reportes terapéuticos — desktop: página dedicada · móvil: panel deslizante */}
@@ -136,7 +141,7 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
               <span className="flex-1 text-left">Reportes terapéuticos</span>
             </button>
 
-            <NavLink href="/therapist/auditoria"   icon="🔍" label="Auditorías información pacientes"  onClose={closeSidebar} />
+            <NavLink href="/therapist/auditoria"   icon="🔍" label={`Auditorías información ${w.users}`} onClose={closeSidebar} />
             <NavLink href="/therapist/tutoriales"   icon="🎬" label="Consejos prácticos y Tutoriales"       onClose={closeSidebar} />
             <PlanInfo status={subscriptionStatus} patientSlots={patientSlots} tier={tier} />
           </NavGroup>
@@ -144,14 +149,14 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
           {/* Bloque: Registro de pacientes */}
           <NavGroup
             name="registro"
-            label="Registro de pacientes"
+            label={`Registro de ${w.users}`}
             icon="📋"
             isOpen={openGroup === 'registro'}
             onToggle={() => toggleGroup('registro')}
           >
             <NavLink href="/therapist/mi-qr"                    icon="📲" label="Mi QR de registro"                    onClose={closeSidebar} />
-            <NavLink href="/therapist/fusionar-paciente"        icon="⚡" label="Fusionar cuentas de un paciente"         onClose={closeSidebar} />
-            <NavLink href="/therapist/transferir-paciente"      icon="🔄" label="Transferir paciente a otro terapeuta" onClose={closeSidebar} />
+            <NavLink href="/therapist/fusionar-paciente"        icon="⚡" label={`Fusionar cuentas de un ${w.user}`} onClose={closeSidebar} />
+            <NavLink href="/therapist/transferir-paciente"      icon="🔄" label={`Transferir ${w.user} a otro ${w.pro}`} onClose={closeSidebar} />
             <NavLink href="/therapist/codes"                    icon="🔑" label="Códigos de acceso"                    onClose={closeSidebar} />
           </NavGroup>
 
@@ -165,7 +170,8 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
           >
             <NavLink href="/therapist/configuracion/seguridad"     icon="🔐" label="Seguridad (2FA)"              onClose={closeSidebar} />
             <NavLink href="/therapist/configuracion/terapia"      icon="🧠" label="Enfoque terapéutico"         onClose={closeSidebar} />
-            <NavLink href="/therapist/configuracion/politica-baja" icon="🔒" label="Política de baja de un asesorado o paciente" onClose={closeSidebar} />
+            <NavLink href="/therapist/configuracion/politica-baja" icon="🔒" label={`Política de baja de un ${w.user}`} onClose={closeSidebar} />
+            <NavLink href="/therapist/configuracion/terminologia" icon="🏷️" label="Cómo me nombran"             onClose={closeSidebar} />
           </NavGroup>
           </div>
         </nav>
@@ -195,6 +201,9 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
               )}
               {canReporteTerapeuta && (
                 <NavLink href="/institucional/reporte-terapeuta" icon="👤" label="Reporte por Terapeuta"         onClose={closeSidebar} />
+              )}
+              {canConfiguracion && (
+                <NavLink href="/institucional/configuracion"   icon="⚙️" label="Configuración Admin"           onClose={closeSidebar} />
               )}
               {canGestionarBajas && (
                 <NavLink href="/institucional/baja-terapeutas" icon="🚫" label="Baja de Terapeutas"           onClose={closeSidebar} />

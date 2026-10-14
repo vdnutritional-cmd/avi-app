@@ -5,7 +5,7 @@
 //   N3 (Community Manager): Panel de Control
 //   N2 (User):       Panel de Control + Reporte General
 //   N1 (Superuser):  Panel de Control + Reporte General + Reporte por Terapeuta
-//   Baja de Terapeutas: N1 y N2
+//   Baja de Terapeutas y Configuración Admin (terminología, teléfono y logo de la empresa): N1 y N2
 //
 // "Opera como terapeuta" es independiente del nivel.
 // Se aplica en el sidebar, en las tarjetas del Panel de Control y en las
@@ -17,6 +17,7 @@ export type NivelPI = 'N1' | 'N2' | 'N3'
 export const NIVELES_REPORTE_GENERAL: NivelPI[]  = ['N1', 'N2']
 export const NIVELES_REPORTE_TERAPEUTA: NivelPI[] = ['N1']
 export const NIVELES_BAJA_TERAPEUTAS: NivelPI[]  = ['N1', 'N2']
+export const NIVELES_CONFIGURACION: NivelPI[]    = ['N1', 'N2']
 
 /** Nombre visible de cada nivel */
 export const NIVEL_NOMBRES: Record<NivelPI, string> = {
@@ -41,5 +42,6 @@ export function permisosPI(niveles: string[]) {
     reporteGeneral:  tiene(NIVELES_REPORTE_GENERAL),
     reporteTerapeuta: tiene(NIVELES_REPORTE_TERAPEUTA),
     bajas:           tiene(NIVELES_BAJA_TERAPEUTAS),
+    configuracion:   tiene(NIVELES_CONFIGURACION),
   }
 }

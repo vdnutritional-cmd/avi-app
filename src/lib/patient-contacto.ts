@@ -7,13 +7,14 @@
 // Solo servidor: usa service role (el WhatsApp del terapeuta vive en auth user_metadata).
 // ─────────────────────────────────────────────────────────────
 import { createAdminClient } from '@/lib/supabase/admin'
-import { normalizarTerminologia, terminos, TERMINOLOGIA_SIN_EMPRESA, type Terminologia } from '@/lib/terminologia'
+import { terminos, TERMINOLOGIA_SIN_EMPRESA, type Terminologia } from '@/lib/terminologia'
+import { terminologiaDeVinculo } from '@/lib/terminologia-paciente'
 
 export interface PatientContacto {
   empresaNombre: string | null
   empresaTelefono: string | null
   terapeutaTelefono: string | null
-  /** Palabras que ve el paciente (de su empresa; sin empresa → TERMINOLOGIA_SIN_EMPRESA) */
+  /** Palabras que ve el paciente (de su empresa; sin empresa → "Cómo me nombran" de su terapeuta) */
   terminologia: Terminologia
   /** Destino ya redactado, ej. "tu terapeuta o a Valora al 33 1363 0266" */
   destino: string
@@ -39,18 +40,19 @@ export async function getPatientContacto(patientId: string): Promise<PatientCont
   const rel = (vinculos ?? []).find(v => v.is_active) ?? vinculos?.[0] ?? null
 
   if (!rel) return result
+  result.terminologia = await terminologiaDeVinculo(admin, rel)
+  result.destino = `tu ${terminos(result.terminologia).pro}`
 
   if (rel.empresa_id) {
     const { data: empresa } = await admin
       .from('convenio_empresas')
-      .select('nombre, telefono, terminologia')
+      .select('nombre, telefono')
       .eq('id', rel.empresa_id)
-      .maybeSingle() as { data: { nombre: string; telefono: string | null; terminologia: string | null } | null }
+      .maybeSingle() as { data: { nombre: string; telefono: string | null } | null }
 
     if (empresa) {
       result.empresaNombre   = empresa.nombre
       result.empresaTelefono = empresa.telefono?.trim() || null
-      result.terminologia    = normalizarTerminologia(empresa.terminologia)
       result.destino = `tu ${terminos(result.terminologia).pro} o a ${empresa.nombre}${result.empresaTelefono ? ` al ${result.empresaTelefono}` : ''}`
       return result
     }

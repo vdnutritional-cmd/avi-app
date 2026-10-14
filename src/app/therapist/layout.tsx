@@ -7,6 +7,7 @@ import ReportesPanel from './ReportesPanel'
 import WhatsAppSupport from '@/components/WhatsAppSupport'
 import ActivarPlan from './ActivarPlan'
 import CuentaDesactivada from './CuentaDesactivada'
+import { getTerminologiaTerapeuta } from '@/lib/terminologia-paciente'
 import InactivityGuard from '@/components/InactivityGuard'
 import { permisosPI } from '@/lib/niveles-institucionales'
 
@@ -52,7 +53,7 @@ export default async function TherapistLayout({ children }: { children: React.Re
   // Institucional, solo Administración Institucional; si no, pantalla de bloqueo.
   if (profile.is_active === false) {
     if (hasPI) redirect('/institucional/dashboard')
-    return <CuentaDesactivada therapistName={profile.full_name ?? ''} />
+    return <CuentaDesactivada therapistName={profile.full_name ?? ''} terminologia={await getTerminologiaTerapeuta(admin, user.id)} />
   }
 
   // ── Empresas del terapeuta (para acordeón "Mis pacientes" en Sidebar) ────────
@@ -82,6 +83,8 @@ export default async function TherapistLayout({ children }: { children: React.Re
     return <ActivarPlan therapistName={profile?.full_name ?? ''} />
   }
 
+  const terminologia = await getTerminologiaTerapeuta(admin, user.id)
+
   return (
     <InactivityGuard>
       <div className="min-h-screen flex bg-gray-50">
@@ -97,6 +100,8 @@ export default async function TherapistLayout({ children }: { children: React.Re
           canGestionarBajas={permisosPIs.bajas}
           canReporteGeneral={permisosPIs.reporteGeneral}
           canReporteTerapeuta={permisosPIs.reporteTerapeuta}
+          canConfiguracion={permisosPIs.configuracion}
+          terminologia={terminologia}
         />
 
         {/* Contenido principal — padding-top extra en móvil para el botón hamburger */}

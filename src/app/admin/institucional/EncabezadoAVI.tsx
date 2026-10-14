@@ -8,6 +8,7 @@ const SECCIONES = [
   { href: '/admin/institucional',                   label: 'Panel de Control' },
   { href: '/admin/institucional/reporte-general',   label: 'Reporte General' },
   { href: '/admin/institucional/reporte-terapeuta', label: 'Reporte por Terapeuta' },
+  { href: '/admin/institucional/configuracion',     label: 'Configuración Admin' },
 ] as const
 
 export default function EncabezadoAVI({ actual, empresas, selectedIds, mes }: {

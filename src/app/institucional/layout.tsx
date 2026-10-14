@@ -5,6 +5,7 @@ import Sidebar from '@/app/therapist/Sidebar'
 import InactivityGuard from '@/components/InactivityGuard'
 import WhatsAppSupport from '@/components/WhatsAppSupport'
 import { permisosPI } from '@/lib/niveles-institucionales'
+import { getTerminologiaTerapeuta } from '@/lib/terminologia-paciente'
 
 export default async function InstitucionalLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -53,6 +54,8 @@ export default async function InstitucionalLayout({ children }: { children: Reac
     .eq('therapist_id', user.id)
     .single()
 
+  const terminologia = await getTerminologiaTerapeuta(admin, user.id)
+
   return (
     <InactivityGuard>
       <div className="min-h-screen flex bg-gray-50">
@@ -69,6 +72,8 @@ export default async function InstitucionalLayout({ children }: { children: Reac
           canGestionarBajas={permisos.bajas}
           canReporteGeneral={permisos.reporteGeneral}
           canReporteTerapeuta={permisos.reporteTerapeuta}
+          canConfiguracion={permisos.configuracion}
+          terminologia={terminologia}
         />
 
         {/* Contenido principal — padding-top extra en móvil para el botón hamburger */}

@@ -2,14 +2,13 @@
 
 // ─────────────────────────────────────────────────────────────
 // /admin/convenio-empresas — Gestión de Empresas en CONVENIO
-// Sprint 10: logo upload por empresa
 // Sprint 11: Personas Institucionales por empresa
+// 14 oct 2026: terminología, teléfono y logo pasaron a Configuración Admin
+// (Administración de la Persona Institucional y SaaS Controller › AVI Administración)
 // ─────────────────────────────────────────────────────────────
 
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { createBrowserClient } from '@supabase/ssr'
+import { useState, useEffect, useCallback } from 'react'
 import { NIVEL_LABELS, nombreNivel } from '@/lib/niveles-institucionales'
-import { TERMINOLOGIA_OPCIONES, normalizarTerminologia, type Terminologia } from '@/lib/terminologia'
 
 interface Empresa {
   id: string
@@ -38,195 +37,11 @@ interface Terapeuta {
   email: string
 }
 
-const BUCKET = 'empresa-logos'
 // Accesos por nivel en Administración Institucional — ver src/lib/niveles-institucionales.ts
 const NIVEL_COLORS: Record<string, string> = {
   N1: 'bg-green-100 text-green-700 border-green-200',
   N2: 'bg-blue-100  text-blue-700  border-blue-200',
   N3: 'bg-amber-100 text-amber-700 border-amber-200',
-}
-
-function getSupabase() {
-  return createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
-}
-
-// ── Logo uploader ────────────────────────────────────────────
-function LogoUploader({ empresa, onUpdated }: { empresa: Empresa; onUpdated: () => void }) {
-  const [uploading, setUploading] = useState(false)
-  const [deleting,  setDeleting]  = useState(false)
-  const [err, setErr]             = useState('')
-  const fileRef = useRef<HTMLInputElement>(null)
-
-  async function handleUpload(file: File) {
-    setErr('')
-    if (file.size > 2 * 1024 * 1024) { setErr('El archivo no debe superar 2 MB.'); return }
-    const allowed = ['image/png', 'image/jpeg', 'image/webp']
-    if (!allowed.includes(file.type)) { setErr('Solo PNG, JPG o WebP.'); return }
-
-    setUploading(true)
-    try {
-      const supabase = getSupabase()
-      const ext  = file.name.split('.').pop()
-      const path = `${empresa.id}/logo.${ext}`
-      const { error: storageErr } = await supabase.storage.from(BUCKET).upload(path, file, { upsert: true, contentType: file.type })
-      if (storageErr) throw storageErr
-      const { data: { publicUrl } } = supabase.storage.from(BUCKET).getPublicUrl(path)
-      const urlWithBust = `${publicUrl}?t=${Date.now()}`
-      const res = await fetch('/api/admin/convenio-empresas', {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: empresa.id, logo_url: urlWithBust }),
-      })
-      const json = await res.json()
-      if (json.error) throw new Error(json.error)
-      onUpdated()
-    } catch (e: unknown) {
-      setErr(e instanceof Error ? e.message : 'Error al subir logo.')
-    } finally {
-      setUploading(false)
-      if (fileRef.current) fileRef.current.value = ''
-    }
-  }
-
-  async function handleDelete() {
-    if (!empresa.logo_url) return
-    setDeleting(true); setErr('')
-    try {
-      const supabase = getSupabase()
-      const exts = ['png', 'jpg', 'jpeg', 'webp']
-      for (const ext of exts) await supabase.storage.from(BUCKET).remove([`${empresa.id}/logo.${ext}`])
-      await fetch('/api/admin/convenio-empresas', {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: empresa.id, logo_url: null }),
-      })
-      onUpdated()
-    } catch (e: unknown) {
-      setErr(e instanceof Error ? e.message : 'Error al eliminar logo.')
-    } finally { setDeleting(false) }
-  }
-
-  return (
-    <div className="mt-3 border-t border-gray-100 pt-3 space-y-2">
-      {empresa.logo_url ? (
-        <div className="flex items-center gap-4">
-          <div className="border border-gray-200 rounded-lg p-2 bg-gray-50 flex items-center justify-center" style={{ width: 200, height: 80 }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={empresa.logo_url} alt={`Logo de ${empresa.nombre}`} style={{ maxWidth: 200, maxHeight: 80, objectFit: 'contain' }} />
-          </div>
-          <button onClick={handleDelete} disabled={deleting} className="text-xs text-red-400 hover:text-red-600 disabled:opacity-50 transition-colors">
-            {deleting ? 'Eliminando…' : '✕ Eliminar logo'}
-          </button>
-        </div>
-      ) : (
-        <p className="text-xs text-gray-400 italic">Sin logo cargado.</p>
-      )}
-      <div className="flex items-center gap-2">
-        <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden"
-          onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f) }} />
-        <button onClick={() => fileRef.current?.click()} disabled={uploading}
-          className="text-xs bg-gray-100 hover:bg-gray-200 disabled:opacity-50 text-gray-700 px-3 py-1.5 rounded-lg transition-colors">
-          {uploading ? 'Subiendo…' : empresa.logo_url ? '↑ Cambiar logo' : '↑ Subir logo'}
-        </button>
-        <span className="text-xs text-gray-400">PNG, JPG o WebP · máx 2 MB · min 300×120 px</span>
-      </div>
-      {err && <p className="text-red-500 text-xs">{err}</p>}
-    </div>
-  )
-}
-
-// ── Teléfono de contacto (se muestra al paciente en la bienvenida) ──
-function TelefonoEditor({ empresa, onUpdated }: { empresa: Empresa; onUpdated: () => void }) {
-  const [valor,  setValor]  = useState(empresa.telefono ?? '')
-  const [saving, setSaving] = useState(false)
-  const [err,    setErr]    = useState('')
-  const cambiado = valor.trim() !== (empresa.telefono ?? '')
-
-  async function guardar() {
-    setSaving(true); setErr('')
-    try {
-      const res  = await fetch('/api/admin/convenio-empresas', {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: empresa.id, telefono: valor }),
-      })
-      const json = await res.json()
-      if (json.error) throw new Error(json.error)
-      onUpdated()
-    } catch (e: unknown) {
-      setErr(e instanceof Error ? e.message : 'Error al guardar teléfono.')
-    } finally { setSaving(false) }
-  }
-
-  return (
-    <div className="mt-3 border-t border-gray-100 pt-3 space-y-1">
-      <label className="text-xs text-gray-500 block">Teléfono de contacto (lo ve el paciente en la bienvenida)</label>
-      <div className="flex items-center gap-2">
-        <input
-          type="tel" placeholder="Ej. 33 1363 0266" value={valor}
-          onChange={e => { setValor(e.target.value); setErr('') }}
-          onKeyDown={e => e.key === 'Enter' && cambiado && guardar()}
-          className="w-56 border border-gray-200 rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300"
-        />
-        <button
-          onClick={guardar} disabled={saving || !cambiado}
-          className="text-xs bg-gray-100 hover:bg-gray-200 disabled:opacity-50 text-gray-700 px-3 py-1.5 rounded-lg transition-colors"
-        >
-          {saving ? 'Guardando…' : 'Guardar'}
-        </button>
-        {!empresa.telefono && <span className="text-xs text-amber-600">Sin teléfono capturado</span>}
-      </div>
-      {err && <p className="text-red-500 text-xs">{err}</p>}
-    </div>
-  )
-}
-
-// ── Terminología de la empresa (Paciente / Asesorado) ────────
-function TerminologiaSelector({ empresa, onUpdated }: { empresa: Empresa; onUpdated: () => void }) {
-  // Se marca al momento; si falla el guardado, regresa a lo que tenía
-  const [actual, setActual] = useState(normalizarTerminologia(empresa.terminologia))
-  const [saving, setSaving] = useState(false)
-  const [err,    setErr]    = useState('')
-
-  async function cambiar(valor: Terminologia) {
-    if (valor === actual) return
-    const anterior = actual
-    setActual(valor); setSaving(true); setErr('')
-    try {
-      const res  = await fetch('/api/admin/convenio-empresas', {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: empresa.id, terminologia: valor }),
-      })
-      const json = await res.json()
-      if (json.error) throw new Error(json.error)
-      onUpdated()
-    } catch (e: unknown) {
-      setActual(anterior)
-      setErr(e instanceof Error ? e.message : 'Error al guardar la terminología.')
-    } finally { setSaving(false) }
-  }
-
-  return (
-    <div className="mt-3 border-t border-gray-100 pt-3 space-y-1">
-      <label className="text-xs text-gray-500 block">Terminología (cómo se nombra a las personas en AVI para esta empresa)</label>
-      <div className="flex flex-wrap items-center gap-4">
-        {TERMINOLOGIA_OPCIONES.map(o => (
-          <label key={o.valor} className={`flex items-center gap-2 text-sm ${saving ? 'opacity-50' : 'cursor-pointer'}`}>
-            <input
-              type="radio" name={`terminologia-${empresa.id}`} value={o.valor}
-              checked={actual === o.valor} disabled={saving}
-              onChange={() => cambiar(o.valor)}
-              className="accent-purple-700"
-            />
-            <span className="font-medium text-gray-800">{o.nombre}</span>
-            <span className="text-xs text-gray-400">({o.ejemplo})</span>
-          </label>
-        ))}
-        {saving && <span className="text-xs text-gray-400">Guardando…</span>}
-      </div>
-      {err && <p className="text-red-500 text-xs">{err}</p>}
-    </div>
-  )
 }
 
 // ── Personas Institucionales por empresa ─────────────────────
@@ -538,7 +353,11 @@ export default function ConvenioEmpresasPage() {
 
       {/* ── Empresas activas ── */}
       <div>
-        <h2 className="text-base font-semibold text-gray-800 mb-3">Activas ({activas.length})</h2>
+        <h2 className="text-base font-semibold text-gray-800 mb-1">Activas ({activas.length})</h2>
+        <p className="text-xs text-gray-500 mb-3">
+          La terminología, el teléfono de contacto y el logo los define cada empresa (Personas Institucionales User o
+          Superuser) en Administración › Configuración Admin. Para apoyarlas: AVI Administración › Configuración Admin.
+        </p>
         {loading ? (
           <p className="text-sm text-gray-400">Cargando…</p>
         ) : activas.length === 0 ? (
@@ -553,9 +372,6 @@ export default function ConvenioEmpresasPage() {
                     Desactivar
                   </button>
                 </div>
-                <TerminologiaSelector empresa={e} onUpdated={fetchEmpresas} />
-                <TelefonoEditor empresa={e} onUpdated={fetchEmpresas} />
-                <LogoUploader empresa={e} onUpdated={fetchEmpresas} />
                 <PersonasInstitucionales empresa={e} />
               </div>
             ))}

@@ -2,12 +2,12 @@
 // /api/admin/convenio-empresas — solo admin
 // GET  → lista todas las empresas
 // POST → crea una empresa
-// PATCH → activa/desactiva y/o actualiza logo_url / telefono / terminologia de una empresa
+// PATCH → activa/desactiva una empresa
+// (terminología, teléfono y logo: /api/institucional/empresa-config, Configuración Admin)
 // ─────────────────────────────────────────────────────────────
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
-import type { Terminologia } from '@/lib/terminologia'
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? 'pepe.vargas.papa@gmail.com'
 
@@ -58,21 +58,13 @@ export async function PATCH(req: NextRequest) {
   if (!await requireAdmin()) return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
 
   const body = await req.json()
-  const { id, is_active, logo_url, telefono, terminologia } = body
+  const { id, is_active } = body
 
   if (!id) return NextResponse.json({ error: 'id requerido' }, { status: 400 })
 
   // Build update object with only provided fields
   const updates: Record<string, unknown> = {}
   if (is_active !== undefined) updates.is_active = is_active
-  if (logo_url !== undefined) updates.logo_url = logo_url   // null clears the logo
-  if (telefono !== undefined) updates.telefono = typeof telefono === 'string' && telefono.trim() ? telefono.trim() : null
-  if (terminologia !== undefined) {
-    if (!(['paciente', 'asesorado'] as Terminologia[]).includes(terminologia)) {
-      return NextResponse.json({ error: 'Terminología no válida' }, { status: 400 })
-    }
-    updates.terminologia = terminologia
-  }
 
   const service = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

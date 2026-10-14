@@ -1,9 +1,14 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { terminos } from '@/lib/terminologia'
+import { getTerminologiaTerapeuta } from '@/lib/terminologia-paciente'
 import Link from 'next/link'
 
 export default async function TherapistDashboardPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
+  // Palabras según las personas del terapeuta (Inventario de Terminología, página 3)
+  const w = terminos(user ? await getTerminologiaTerapeuta(createAdminClient(), user.id) : null)
 
   const now = new Date()
   const mesInicio = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
@@ -127,11 +132,11 @@ export default async function TherapistDashboardPage() {
       <div className="grid grid-cols-2 gap-4">
         <div className="bg-white rounded-2xl border border-gray-100 p-6">
           <p className="text-3xl font-bold text-primary-600">{patientCount ?? 0}</p>
-          <p className="text-sm text-gray-500 mt-1">Pacientes activos</p>
+          <p className="text-sm text-gray-500 mt-1">{w.Users} activos</p>
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 p-6">
           <p className="text-3xl font-bold text-calm-500">{codeCount ?? 0}</p>
-          <p className="text-sm text-gray-500 mt-1">Códigos entregados a pacientes sin usar</p>
+          <p className="text-sm text-gray-500 mt-1">Códigos entregados a {w.users} sin usar</p>
         </div>
       </div>
 
@@ -144,16 +149,16 @@ export default async function TherapistDashboardPage() {
           <ActionCard
             href="/therapist/patients"
             icon="👥"
-            title="Ver mis pacientes"
-            description="Revisa los resúmenes y patrones emocionales de tus consultantes"
+            title={`Ver mis ${w.users}`}
+            description={`Revisa los resúmenes y patrones emocionales de tus ${w.users}`}
           />
 
           {/* Auditorías */}
           <ActionCard
             href="/therapist/auditoria"
             icon="🔍"
-            title="Auditorías información pacientes"
-            description="Consulta el historial de cambios clínicos de tus pacientes (NOM-024)"
+            title={`Auditorías información ${w.users}`}
+            description={`Consulta el historial de cambios clínicos de tus ${w.users} (NOM-024)`}
           />
 
           {/* Asesorías este mes */}
@@ -166,7 +171,7 @@ export default async function TherapistDashboardPage() {
               <span className="text-3xl">📊</span>
               <div>
                 <p className="font-semibold text-gray-800 group-hover:text-primary-700 transition-colors">
-                  Asesorías este mes
+                  {w.Servs} este mes
                 </p>
                 <p className="text-sm text-gray-500 mt-0.5">
                   {totalAsesorias === 0
