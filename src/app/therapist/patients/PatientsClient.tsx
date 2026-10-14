@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import type { Variable } from '@/lib/terminologia'
 
 interface Patient {
   id: string
@@ -31,9 +32,10 @@ interface Props {
   activos: Patient[]
   bloqueados: Patient[]
   toggleAction: (formData: FormData) => Promise<void>
+  w: Record<Variable, string>
 }
 
-export default function PatientsClient({ activos, bloqueados, toggleAction }: Props) {
+export default function PatientsClient({ activos, bloqueados, toggleAction, w }: Props) {
   const [query, setQuery] = useState('')
 
   const filtrar = (lista: Patient[]) => {
@@ -55,9 +57,9 @@ export default function PatientsClient({ activos, bloqueados, toggleAction }: Pr
   return (
     <div className="p-6 max-w-lg mx-auto space-y-4">
       <div className="pt-2 pb-1">
-        <h1 className="text-xl font-semibold text-gray-800">Mis pacientes</h1>
+        <h1 className="text-xl font-semibold text-gray-800">Mis {w.Users}</h1>
         <p className="text-sm text-gray-400">
-          {activos.length} paciente{activos.length !== 1 ? 's' : ''} activo{activos.length !== 1 ? 's' : ''}
+          {activos.length} {activos.length !== 1 ? w.users : w.user} activo{activos.length !== 1 ? 's' : ''}
           {bloqueados.length > 0 && ` · ${bloqueados.length} bloqueado${bloqueados.length !== 1 ? 's' : ''}`}
         </p>
       </div>

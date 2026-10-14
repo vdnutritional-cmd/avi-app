@@ -2,6 +2,8 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import AsignacionClient from './AsignacionClient'
+import { terminos } from '@/lib/terminologia'
+import { getTerminologiaTerapeuta } from '@/lib/terminologia-paciente'
 
 export default async function AsignacionInstitucionPage() {
   const supabase = await createClient()
@@ -51,16 +53,19 @@ export default async function AsignacionInstitucionPage() {
     }
   })
 
+  // Palabras de las pantallas generales del terapeuta (Inventario de Terminología, página 4)
+  const w = terminos(await getTerminologiaTerapeuta(admin, user.id))
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div>
         <h1 className="text-xl font-bold text-gray-800">Asignación a Institución</h1>
         <p className="text-sm text-gray-500 mt-1">
-          Asigna o cambia la empresa institucional de cada paciente. El cambio se guarda automáticamente.
+          Asigna o cambia la empresa institucional de cada {w.user}. El cambio se guarda automáticamente.
         </p>
       </div>
 
-      <AsignacionClient pacientes={pacientes} empresas={empresas} />
+      <AsignacionClient pacientes={pacientes} empresas={empresas} w={w} />
     </div>
   )
 }

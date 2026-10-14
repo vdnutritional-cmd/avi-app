@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import type { Variable } from '@/lib/terminologia'
 
 interface Empresa {
   id: string
@@ -17,9 +18,10 @@ interface Paciente {
 interface Props {
   pacientes: Paciente[]
   empresas: Empresa[]
+  w: Record<Variable, string>
 }
 
-export default function AsignacionClient({ pacientes, empresas }: Props) {
+export default function AsignacionClient({ pacientes, empresas, w }: Props) {
   const [assignments, setAssignments] = useState<Record<string, string | null>>(
     Object.fromEntries(pacientes.map(p => [p.patient_id, p.empresa_id]))
   )
@@ -59,7 +61,7 @@ export default function AsignacionClient({ pacientes, empresas }: Props) {
   if (pacientes.length === 0) {
     return (
       <p className="text-sm text-gray-400 text-center py-8">
-        No tienes pacientes activos registrados.
+        No tienes {w.users} activos registrados.
       </p>
     )
   }
@@ -69,7 +71,7 @@ export default function AsignacionClient({ pacientes, empresas }: Props) {
       <table className="w-full text-sm">
         <thead className="bg-gray-50">
           <tr>
-            <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Paciente</th>
+            <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">{w.User}</th>
             <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide hidden sm:table-cell">Correo</th>
             <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Institución asignada</th>
             <th className="text-center px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-12"></th>

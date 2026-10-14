@@ -3,6 +3,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import Link from 'next/link'
 import PatientsClient from './PatientsClient'
+import { terminos } from '@/lib/terminologia'
+import { getTerminologiaTerapeuta } from '@/lib/terminologia-paciente'
 
 export const dynamic = 'force-dynamic'
 
@@ -32,6 +34,8 @@ async function togglePaciente(formData: FormData) {
 export default async function TherapistPatientsPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
+  // Palabras de las pantallas generales del terapeuta (Inventario de Terminología, página 4)
+  const w = terminos(await getTerminologiaTerapeuta(createAdminClient(), user!.id))
 
   // Gate: el terapeuta debe haber configurado su enfoque terapéutico
   const { data: profileData } = await supabase
@@ -46,7 +50,7 @@ export default async function TherapistPatientsPage() {
         <span className="text-5xl block">🧠</span>
         <h2 className="text-xl font-bold text-gray-900">Configura tu enfoque terapéutico</h2>
         <p className="text-gray-500 text-sm">
-          Antes de acceder a tus pacientes, selecciona el tipo de Terapia que utilizas
+          Antes de acceder a tus {w.users}, selecciona el tipo de Terapia que utilizas
           para que AVI pueda apoyarte correctamente en tus análisis clínicos.
         </p>
         <Link
@@ -96,7 +100,7 @@ export default async function TherapistPatientsPage() {
         <div className="text-4xl">👥</div>
         <h2 className="text-lg font-semibold text-gray-700">Presiona las 3 rayitas del menú para entrar a tu Dashboard</h2>
         <p className="text-sm text-gray-400">
-          Genera un código en la sección de Códigos y compártelo con tu paciente para que se registre.
+          Genera un código en la sección de Códigos y compártelo con tu {w.user} para que se registre.
         </p>
         <Link href="/therapist/codes" className="inline-block text-sm text-primary-600 hover:underline">
           Ir a Códigos →
@@ -110,6 +114,7 @@ export default async function TherapistPatientsPage() {
       activos={activos}
       bloqueados={bloqueados}
       toggleAction={togglePaciente}
+      w={w}
     />
   )
 }
