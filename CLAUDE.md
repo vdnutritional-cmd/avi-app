@@ -124,7 +124,8 @@ src/app/
     │   ├── sesiones-avi/route.ts   Sesiones AVI disponibles + ultimoModo (hablada/escrita)
     │   └── sesion-abierta/route.ts Sesión AVI abierta (≤ 30 min) para retomarla con su conversación
     ├── institucional/
-    │   └── baja-terapeuta/         GET/DELETE therapist_empresa (solo PI N1/N2 de su empresa)
+    │   ├── alta-baja/              POST/DELETE therapist_empresa: Alta/Baja de <Pros> (PI User/Superuser de esa empresa, o superadmin)
+    │   └── empresa-config/         Configuración Admin: terminología, teléfono, logo (mismo permiso)
     ├── stripe/
     │   ├── checkout/route.ts       Crea sesión Stripe (CONVENIO: solo valida código) / activa Companion
     │   └── webhook/route.ts        Activa suscripción + liga empresa + marca código (con pago confirmado)
@@ -358,7 +359,7 @@ En `therapist/patients/[patientId]/page.tsx`: state `hasCompanionBundle` — si 
 | **Companion** (sin Stripe) | En el checkout, solo si sigue libre (`.is('used_by', null)`) | `releaseCode()` lo libera si falla la suscripción o el bundle |
 
 Reglas del webhook (`handleCheckoutCompleted`):
-- `therapist_empresa` se crea **solo con pago confirmado** (upsert, `ignoreDuplicates`). **Nunca se borra** por pagos fallidos: una renovación fallida conserva la empresa. Solo la quita la Baja de Terapeutas manual (PI N1/N2)
+- `therapist_empresa` se crea **solo con pago confirmado** (upsert, `ignoreDuplicates`). **Nunca se borra** por pagos fallidos: una renovación fallida conserva la empresa. Solo la quita la baja manual en Alta/Baja de <Pros> (PI User/Superuser). El alta también la puede hacer la empresa ahí (por correo), sin el SaaS Controller
 - Si ya existen bundles con ese `stripe_sub_id` → se omite (Stripe puede reenviar el evento)
 - Los errores al insertar bundles se lanzan → Stripe reintenta
 - "valora" es el **nombre del tipo de plan** CONVENIO, no la empresa: todo funciona por `empresa_id` para cualquier empresa
@@ -396,7 +397,7 @@ Reglas del webhook (`handleCheckoutCompleted`):
 | Nivel | Acceso |
 |---|---|
 | N3 — **Community Manager** | Panel de Control |
-| N2 — **User** | Panel + Reporte General + Baja de Terapeutas |
+| N2 — **User** | Panel + Reporte General + Configuración Admin + Alta/Baja de <Pros> |
 | N1 — **Superuser** | User + Reporte por Terapeuta |
 
 Se guardan como N1/N2/N3; en pantalla siempre se muestra el nombre (`NIVEL_NOMBRES` / `nombreNivel()`).
@@ -424,8 +425,8 @@ Se guardan como N1/N2/N3; en pantalla siempre se muestra el nombre (`NIVEL_NOMBR
 
 | Menú | Contenido |
 |---|---|
-| **SaaS Controller** (`/admin`, superadmin) | Panel de Control AVI · ⚙️ **Configuración AVI** (acordeón: Terapeutas, Códigos CONVENIO, Empresas en CONVENIO) · AVI Administración (`/admin/institucional`, todas las empresas) · Reportes de Control · Auditoría |
-| **Administración** (`/institucional`, Personas Institucionales, solo sus empresas) | Panel de Control · Reporte General · Reporte por Terapeuta · Baja de Terapeutas |
+| **SaaS Controller** (`/admin`, superadmin) | Panel de Control AVI · ⚙️ **Configuración AVI** (acordeón: Terapeutas — solo registro temporal/Companion y permanente; Códigos CONVENIO; Empresas en CONVENIO — agregar empresa y Personas Institucionales) · AVI Administración (`/admin/institucional`: Panel, reportes, Configuración Admin y Alta/Baja de las empresas elegidas) · Reportes de Control · Auditoría |
+| **Administración** (`/institucional`, Personas Institucionales, solo sus empresas) | Panel de Control · Reporte General · Reporte por Terapeuta · Configuración Admin · Alta/Baja de <Pros> |
 
 ## Terminología Paciente / Asesorado (14 oct 2026)
 
@@ -576,7 +577,7 @@ npm run build
 - **Último commit Sprint 12 Companion:** `dd614c6`
 - **Último commit fixes Stripe CONVENIO + contacto por empresa:** `9f5ee22` (06 oct 2026)
 - **Respaldo del 10 oct:** `89cfffc` — Control de Planes, motivo de bloqueo, terapeuta desactivado, Admin › Terapeutas Temporal/Permanente
-- **Último commit respaldado:** `bb25486` (14 oct 2026) — terminología Paciente/Asesorado: Configuración Admin por empresa, Cómo me nombran, inventario páginas 1–3
+- **Último commit respaldado:** `ac31736` (14 oct 2026) — Alta/Baja de <Pros> por la empresa; antes `bb25486` terminología (Configuración Admin, Cómo me nombran, inventario 1–3)
 - **Respaldo del 13 oct:** `15ebffb` — nombres: SaaS Controller, Configuración AVI, Administración, niveles
 - **Respaldo anterior:** `69954cd` (12 oct 2026) — chat AVI (tiempos, caché real 1h+5m, base personalista, política de sesiones, modo escrito, retomar sesión, sesiones anteriores), Administración Institucional AVI, transferir paciente seguro
 - Confirmar el deploy: `vercel ls` / `vercel inspect go.avi-app.com.mx` (CLI con sesión en la Mac)
