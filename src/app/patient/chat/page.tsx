@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { leerModoElegido, guardarModoElegido, leerBorrador, guardarBorrador } from '@/lib/modo-platica'
+import { terminos, normalizarTerminologia, TERMINOLOGIA_SIN_EMPRESA, type Terminologia } from '@/lib/terminologia'
 
 // Límite de sesiones AVI: según la frecuencia de sesiones presenciales y el periodo
 // desde la última presencial (src/lib/limite-sesiones-avi.ts, vía /api/patient/sesiones-avi)
@@ -55,6 +56,10 @@ export default function PatientChatPage() {
   const router = useRouter()
   const [accesoSuspendido, setAccesoSuspendido] = useState(false)
   const [pendientes, setPendientes] = useState<Pendiente[]>([])
+  // Palabras según la empresa del paciente (Inventario de Terminología, página 2)
+  const [terminologia, setTerminologia] = useState<Terminologia>(TERMINOLOGIA_SIN_EMPRESA)
+  const terminologiaRef = useRef<Terminologia>(TERMINOLOGIA_SIN_EMPRESA)
+  const pro = terminos(terminologia).pro
 
   // Acceso y sesiones AVI disponibles (la regla vive en el servidor)
   useEffect(() => {
@@ -64,6 +69,10 @@ export default function PatientChatPage() {
         if (!res.ok) return
         const estado = await res.json()
         aplicarEstadoSesiones(estado)
+        if (estado.terminologia) {
+          terminologiaRef.current = normalizarTerminologia(estado.terminologia)
+          setTerminologia(terminologiaRef.current)
+        }
         // Se marca de entrada lo que eligió la última vez (si aún no lo eligió en este inicio de sesión)
         if (!leerModoElegido() && (estado.ultimoModo === 'hablada' || estado.ultimoModo === 'escrita')) setModo(estado.ultimoModo)
       } catch { /* sin conexión: el servidor vuelve a revisar al iniciar la sesión */ }
@@ -385,7 +394,7 @@ export default function PatientChatPage() {
     try { userStoppedRef.current = true; recognitionRef.current?.stop() } catch { /* sin grabación */ }
     guardarBorrador('')   // lo no enviado no pasa a la siguiente sesión
 
-    const mensaje = 'Gracias por usar AVI. Recuerda contactar a tu terapeuta personal y haz una cita, o contacta a AVI Acompañamiento por WhatsApp para apoyarte para tener tu cita.'
+    const mensaje = `Gracias por usar AVI. Recuerda contactar a tu ${terminos(terminologiaRef.current).pro} personal y haz una cita, o contacta a AVI Therapy Companion por WhatsApp para apoyarte para tener tu cita.`
     setMessages(prev => [...prev, { role: 'assistant', content: mensaje }])
     if (motivo !== 'avi') await speak(mensaje)
     const ok = await closeSession()
@@ -730,7 +739,7 @@ export default function PatientChatPage() {
         <div className="text-5xl">🔒</div>
         <h2 className="text-lg font-semibold text-gray-700">Acceso suspendido</h2>
         <p className="text-sm text-gray-500 max-w-xs">
-          Para continuar usando AVI, solicita una nueva Sesión Presencial con tu Asesor y coméntale en la cita.
+          Para continuar usando AVI, solicita una nueva Sesión Presencial con tu {terminos(terminologia).Pro} y coméntale en la cita.
         </p>
       </div>
     )
@@ -748,10 +757,10 @@ export default function PatientChatPage() {
   const bloqueCierre = (
     <div className="text-center max-w-xs space-y-3 px-2">
       <p className="text-sm text-blue-600 leading-relaxed">
-        Te invitamos a contactar a <strong>TU TERAPEUTA</strong> personal o contacta por WhatsApp a <strong>AVI Acompañamiento</strong> para apoyarte a obtener tu cita.
+        Te invitamos a contactar a <strong>TU {pro.toUpperCase()}</strong> personal o contacta por WhatsApp a <strong>AVI Therapy Companion</strong> para apoyarte a obtener tu cita.
       </p>
       <a
-        href={`https://wa.me/523318830312?text=${encodeURIComponent('Apóyenme para tener una cita con un terapeuta. Mi nombre es: ')}`}
+        href={`https://wa.me/523318830312?text=${encodeURIComponent('Apóyenme para tener una cita. Mi nombre es: ')}`}
         target="_blank"
         rel="noopener noreferrer"
         className="inline-flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors w-full justify-center"
@@ -786,7 +795,7 @@ export default function PatientChatPage() {
             📞 800 911 2000
           </a>
           <p className="text-xs text-gray-400 max-w-xs">
-            También puedes escribirle a tu terapeuta o ir a urgencias de tu hospital más cercano.
+            También puedes escribirle a tu {pro} o ir a urgencias de tu hospital más cercano.
           </p>
           <button
             onClick={() => setCrisis(false)}
@@ -871,7 +880,7 @@ export default function PatientChatPage() {
             {!sessionClosed && (
               <div className="border-t border-gray-100 bg-white px-3 pt-1.5 pb-2">
                 <p className="text-xs text-gray-500 text-center mb-1.5">
-                  AVI no reemplaza a tu terapeuta{sesionesDisponibles && <> · {sesionesDisponibles}</>}
+                  AVI no reemplaza a tu {pro}{sesionesDisponibles && <> · {sesionesDisponibles}</>}
                 </p>
                 <div className="flex items-end gap-2">
                   <textarea
@@ -966,7 +975,7 @@ export default function PatientChatPage() {
                   Empezar
                 </button>
                 <p className="text-xs text-gray-300">
-                  AVI no reemplaza a tu terapeuta{sesionesDisponibles && <> · {sesionesDisponibles}</>}
+                  AVI no reemplaza a tu {pro}{sesionesDisponibles && <> · {sesionesDisponibles}</>}
                 </p>
               </div>
             ) : (
@@ -978,11 +987,11 @@ export default function PatientChatPage() {
                 <div className="text-5xl">🌙</div>
                 <h3 className="text-lg font-semibold text-gray-700">Usaste tus sesiones AVI</h3>
                 <p className="text-sm text-gray-500 leading-relaxed">
-                  Usaste tus {limiteActual} sesiones AVI. Se renuevan en tu próxima sesión presencial con tu terapeuta.
+                  Usaste tus {limiteActual} sesiones AVI. Se renuevan en tu próxima sesión presencial con tu {pro}.
                 </p>
                 <div className="bg-blue-50 border border-blue-200 rounded-2xl px-5 py-4 w-full">
                   <p className="text-sm text-blue-700 leading-relaxed">
-                    Mientras tanto, contacta a <strong>TU TERAPEUTA</strong>.
+                    Mientras tanto, contacta a <strong>TU {pro.toUpperCase()}</strong>.
                   </p>
                 </div>
               </div>
@@ -994,7 +1003,7 @@ export default function PatientChatPage() {
                 <div className="text-5xl">⏸️</div>
                 <h3 className="text-lg font-semibold text-gray-700">AVI no está disponible por ahora</h3>
                 <p className="text-sm text-gray-500 leading-relaxed">
-                  Tu acceso a AVI está en pausa. Avísale a <strong>TU TERAPEUTA</strong> para que lo reactive.
+                  Tu acceso a AVI está en pausa. Avísale a <strong>TU {pro.toUpperCase()}</strong> para que lo reactive.
                 </p>
               </div>
             )}
@@ -1090,7 +1099,7 @@ export default function PatientChatPage() {
 
             {(!limitAlcanzado || sessionId) && !sessionClosed && (
               <p className="text-xs text-gray-300 text-center">
-                AVI no reemplaza a tu terapeuta
+                AVI no reemplaza a tu {pro}
                 {limiteActual !== null && !sessionId && (
                   <> · Sesiones AVI disponibles: {Math.max(0, limiteActual - sesionesUsadas)} de {limiteActual}</>
                 )}
@@ -1128,7 +1137,7 @@ export default function PatientChatPage() {
       {hasPendientes && (
         <div className="flex-[1] border-t border-gray-100 bg-white px-4 py-3 overflow-y-auto">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-            Tu terapeuta te pide completar
+            Tu {pro} te pide completar
           </p>
           <div className="space-y-2">
             {pendientes.map(p => (

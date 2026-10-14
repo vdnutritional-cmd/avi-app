@@ -4,6 +4,7 @@ import { useState, useEffect, use } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { FAD_ITEMS } from '@/lib/questionnaires/mcmaster-fad'
+import { terminos, TERMINOLOGIA_SIN_EMPRESA, type Terminologia } from '@/lib/terminologia'
 
 interface QuestData {
   id: string
@@ -322,13 +323,22 @@ function SensacionFinalPage({ id, onCompletado }: { id: string; onCompletado: ()
 }
 
 function PantallaGracias({ onRegresar }: { onRegresar: () => void }) {
+  // Palabras según la empresa del paciente (Inventario de Terminología, 6.11); null = cargando
+  const [terminologia, setTerminologia] = useState<Terminologia | null>(null)
+  useEffect(() => {
+    fetch('/api/patient/contacto')
+      .then(r => r.json())
+      .then((d: { terminologia?: Terminologia }) => setTerminologia(d.terminologia ?? TERMINOLOGIA_SIN_EMPRESA))
+      .catch(() => setTerminologia(TERMINOLOGIA_SIN_EMPRESA))
+  }, [])
+
   return (
     <div className="flex flex-col items-center justify-center h-[calc(100vh-120px)] px-6 text-center space-y-6">
       <div className="text-6xl">🙏</div>
       <div className="space-y-2">
         <h2 className="text-xl font-bold text-gray-800">¡Gracias por completarlo!</h2>
         <p className="text-gray-500 text-sm leading-relaxed max-w-xs">
-          Tu terapeuta recibirá los resultados y los revisará en tu próxima sesión.
+          {terminologia && <>Tu {terminos(terminologia).pro} recibirá los resultados y los revisará en tu próxima sesión.</>}
         </p>
       </div>
       <div className="bg-indigo-50 border border-indigo-100 rounded-2xl px-6 py-4 max-w-xs w-full">
