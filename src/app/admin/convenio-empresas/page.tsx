@@ -9,6 +9,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
 import { NIVEL_LABELS, nombreNivel } from '@/lib/niveles-institucionales'
+import { TERMINOLOGIA_OPCIONES, normalizarTerminologia, type Terminologia } from '@/lib/terminologia'
 
 interface Empresa {
   id: string
@@ -16,6 +17,7 @@ interface Empresa {
   is_active: boolean
   logo_url: string | null
   telefono: string | null
+  terminologia?: string | null
   created_at: string
 }
 
@@ -173,6 +175,54 @@ function TelefonoEditor({ empresa, onUpdated }: { empresa: Empresa; onUpdated: (
           {saving ? 'Guardando…' : 'Guardar'}
         </button>
         {!empresa.telefono && <span className="text-xs text-amber-600">Sin teléfono capturado</span>}
+      </div>
+      {err && <p className="text-red-500 text-xs">{err}</p>}
+    </div>
+  )
+}
+
+// ── Terminología de la empresa (Paciente / Asesorado) ────────
+function TerminologiaSelector({ empresa, onUpdated }: { empresa: Empresa; onUpdated: () => void }) {
+  // Se marca al momento; si falla el guardado, regresa a lo que tenía
+  const [actual, setActual] = useState(normalizarTerminologia(empresa.terminologia))
+  const [saving, setSaving] = useState(false)
+  const [err,    setErr]    = useState('')
+
+  async function cambiar(valor: Terminologia) {
+    if (valor === actual) return
+    const anterior = actual
+    setActual(valor); setSaving(true); setErr('')
+    try {
+      const res  = await fetch('/api/admin/convenio-empresas', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: empresa.id, terminologia: valor }),
+      })
+      const json = await res.json()
+      if (json.error) throw new Error(json.error)
+      onUpdated()
+    } catch (e: unknown) {
+      setActual(anterior)
+      setErr(e instanceof Error ? e.message : 'Error al guardar la terminología.')
+    } finally { setSaving(false) }
+  }
+
+  return (
+    <div className="mt-3 border-t border-gray-100 pt-3 space-y-1">
+      <label className="text-xs text-gray-500 block">Terminología (cómo se nombra a las personas en AVI para esta empresa)</label>
+      <div className="flex flex-wrap items-center gap-4">
+        {TERMINOLOGIA_OPCIONES.map(o => (
+          <label key={o.valor} className={`flex items-center gap-2 text-sm ${saving ? 'opacity-50' : 'cursor-pointer'}`}>
+            <input
+              type="radio" name={`terminologia-${empresa.id}`} value={o.valor}
+              checked={actual === o.valor} disabled={saving}
+              onChange={() => cambiar(o.valor)}
+              className="accent-purple-700"
+            />
+            <span className="font-medium text-gray-800">{o.nombre}</span>
+            <span className="text-xs text-gray-400">({o.ejemplo})</span>
+          </label>
+        ))}
+        {saving && <span className="text-xs text-gray-400">Guardando…</span>}
       </div>
       {err && <p className="text-red-500 text-xs">{err}</p>}
     </div>
@@ -422,8 +472,8 @@ export default function ConvenioEmpresasPage() {
   const [nombre,  setNombre]    = useState('')
   const [error,   setError]     = useState('')
 
+  // "Cargando…" solo la primera vez: al refrescar tras un cambio, la lista se queda en su lugar
   const fetchEmpresas = useCallback(async () => {
-    setLoading(true)
     const res  = await fetch('/api/admin/convenio-empresas')
     const data = await res.json()
     setEmpresas(data.empresas ?? [])
@@ -503,6 +553,7 @@ export default function ConvenioEmpresasPage() {
                     Desactivar
                   </button>
                 </div>
+                <TerminologiaSelector empresa={e} onUpdated={fetchEmpresas} />
                 <TelefonoEditor empresa={e} onUpdated={fetchEmpresas} />
                 <LogoUploader empresa={e} onUpdated={fetchEmpresas} />
                 <PersonasInstitucionales empresa={e} />
