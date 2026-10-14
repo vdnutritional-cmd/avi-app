@@ -120,31 +120,8 @@ async function cambiarTier(formData: FormData) {
   revalidatePath('/admin/terapeutas')
 }
 
-async function agregarEmpresa(formData: FormData) {
-  'use server'
-  const therapistId = formData.get('therapistId') as string
-  const empresaId   = formData.get('empresaId')   as string
-  if (!therapistId || !empresaId) return
-  const supabase = createAdminClient()
-  await supabase.from('therapist_empresa').upsert(
-    { therapist_id: therapistId, empresa_id: empresaId },
-    { onConflict: 'therapist_id,empresa_id', ignoreDuplicates: true }
-  )
-  revalidatePath('/admin/terapeutas')
-}
-
-async function quitarEmpresa(formData: FormData) {
-  'use server'
-  const therapistId = formData.get('therapistId') as string
-  const empresaId   = formData.get('empresaId')   as string
-  if (!therapistId || !empresaId) return
-  const supabase = createAdminClient()
-  await supabase.from('therapist_empresa')
-    .delete()
-    .eq('therapist_id', therapistId)
-    .eq('empresa_id', empresaId)
-  revalidatePath('/admin/terapeutas')
-}
+// Alta y baja de terapeutas en empresas: Administración › Alta/Baja de <Pros>
+// (Persona Institucional User/Superuser) o AVI Administración › Alta/Baja de <Pros>.
 
 async function revocarTerapeuta(formData: FormData) {
   'use server'
@@ -234,13 +211,6 @@ export default async function AdminTerapeutasPage({
   const { data: subs, error: errS } = await supabase
     .from('subscriptions')
     .select('therapist_id, status, patient_slots, plan, tier')
-
-  // Todas las empresas en convenio ACTIVAS (para el selector del admin)
-  const { data: todasEmpresas } = await supabase
-    .from('convenio_empresas')
-    .select('id, nombre')
-    .eq('is_active', true)
-    .order('nombre', { ascending: true })
 
   // Empresas asignadas por terapeuta
   const { data: therapistEmpresas } = await supabase
@@ -504,9 +474,6 @@ export default async function AdminTerapeutasPage({
               const convenioLabel = convenioVal !== undefined
                 ? (convenioVal ? `CONVENIO ${CONVENIO_LABELS[convenioVal] ?? convenioVal}` : 'CONVENIO')
                 : null
-              const empresasDisponibles = (todasEmpresas ?? []).filter(
-                e => !empresasAsignadas.some(a => a.empresa_id === e.id)
-              )
               const pacientes       = patientsByTherapist.get(t.id)?.size ?? 0
               const pacientesNombres = (patientNamesByTherapist.get(t.id) ?? [])
                 .sort((a, b) => a.nombre.localeCompare(b.nombre))
@@ -542,18 +509,10 @@ export default async function AdminTerapeutasPage({
                         </span>
                       ) : (
                         empresasAsignadas.map(emp => (
-                          <form key={emp.empresa_id} action={quitarEmpresa} className="inline-flex">
-                            <input type="hidden" name="therapistId" value={t.id} />
-                            <input type="hidden" name="empresaId" value={emp.empresa_id} />
-                            <button
-                              type="submit"
-                              title="Quitar empresa"
-                              className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 border border-purple-200 font-medium hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors group"
-                            >
-                              🏢 {emp.nombre}
-                              <span className="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] ml-0.5">✕</span>
-                            </button>
-                          </form>
+                          <span key={emp.empresa_id}
+                            className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 border border-purple-200 font-medium">
+                            🏢 {emp.nombre}
+                          </span>
                         ))
                       )}
                       {/* Pacientes — acordeón */}
@@ -595,28 +554,9 @@ export default async function AdminTerapeutasPage({
                       </span>
                     </div>
 
-                    {/* Agregar empresa */}
-                    {empresasDisponibles.length > 0 && (
-                      <form action={agregarEmpresa} className="flex items-center gap-1.5 mt-1">
-                        <input type="hidden" name="therapistId" value={t.id} />
-                        <select
-                          name="empresaId"
-                          className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-purple-300 text-gray-600"
-                          defaultValue=""
-                        >
-                          <option value="" disabled>+ Agregar empresa...</option>
-                          {empresasDisponibles.map(e => (
-                            <option key={e.id} value={e.id}>{e.nombre}</option>
-                          ))}
-                        </select>
-                        <button
-                          type="submit"
-                          className="text-xs text-purple-600 border border-purple-200 rounded-lg px-2 py-1 hover:bg-purple-50 transition-colors"
-                        >
-                          Agregar
-                        </button>
-                      </form>
-                    )}
+                    <p className="text-[11px] text-gray-400 mt-1">
+                      Alta y baja en empresas: las hace cada empresa en Administración › Alta/Baja (o AVI Administración).
+                    </p>
                     <CompanionForm therapistId={t.id} />
                   </div>
 

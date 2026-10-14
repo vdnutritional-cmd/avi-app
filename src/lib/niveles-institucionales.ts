@@ -5,7 +5,7 @@
 //   N3 (Community Manager): Panel de Control
 //   N2 (User):       Panel de Control + Reporte General
 //   N1 (Superuser):  Panel de Control + Reporte General + Reporte por Terapeuta
-//   Baja de Terapeutas y Configuración Admin (terminología, teléfono y logo de la empresa): N1 y N2
+//   Configuración Admin (terminología, teléfono y logo) y Alta/Baja de <Pros>: N1 y N2
 //
 // "Opera como terapeuta" es independiente del nivel.
 // Se aplica en el sidebar, en las tarjetas del Panel de Control y en las

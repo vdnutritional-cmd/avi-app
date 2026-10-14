@@ -8,35 +8,14 @@
 // El logo se sube desde el servidor (service role): el navegador no escribe en Storage.
 // ─────────────────────────────────────────────────────────────
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logApiAccess } from '@/lib/audit/log-access'
-import { NIVELES_CONFIGURACION } from '@/lib/niveles-institucionales'
+import { autorizarEmpresa as autorizar } from '@/lib/autorizar-empresa'
 
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? 'pepe.vargas.papa@gmail.com'
 const BUCKET = 'empresa-logos'
 const RUTA = '/api/institucional/empresa-config'
 const TIPOS: Record<string, string> = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' }
 const MAX_BYTES = 2 * 1024 * 1024
-
-/** Usuario que puede configurar la empresa, o null */
-async function autorizar(empresaId: unknown) {
-  if (typeof empresaId !== 'string' || !empresaId) return null
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-  if (user.email === ADMIN_EMAIL) return { supabase, user }
-
-  const { data } = await createAdminClient()
-    .from('convenio_personas_institucionales')
-    .select('id')
-    .eq('therapist_id', user.id)
-    .eq('empresa_id', empresaId)
-    .eq('is_active', true)
-    .in('nivel', NIVELES_CONFIGURACION)
-    .limit(1)
-  return data && data.length > 0 ? { supabase, user } : null
-}
 
 const noAutorizado = () => NextResponse.json({ error: 'No tienes permiso para configurar esta empresa.' }, { status: 403 })
 

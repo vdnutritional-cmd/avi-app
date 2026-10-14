@@ -206,7 +206,7 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
                 <NavLink href="/institucional/configuracion"   icon="⚙️" label="Configuración Admin"           onClose={closeSidebar} />
               )}
               {canGestionarBajas && (
-                <NavLink href="/institucional/baja-terapeutas" icon="🚫" label="Baja de Terapeutas"           onClose={closeSidebar} />
+                <NavLink href="/institucional/alta-baja"      icon="👥" label={`Alta/Baja de ${w.Pros}`}      onClose={closeSidebar} />
               )}
             </NavGroup>
           )}

@@ -1,8 +1,9 @@
 // Administración Institucional AVI — empresas disponibles y selección común
 // (la selección viaja en ?empresaIds= entre Panel, Reporte General y Reporte por Terapeuta).
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { normalizarTerminologia, type Terminologia } from '@/lib/terminologia'
 
-export interface EmpresaAVI { id: string; nombre: string; logo_url: string | null }
+export interface EmpresaAVI { id: string; nombre: string; logo_url: string | null; terminologia: Terminologia }
 
 /** Opción "Sin empresa" del selector: pacientes independientes (empresa_id = null). */
 export const SIN_EMPRESA = 'sin-empresa'
@@ -12,10 +13,18 @@ export const SIN_EMPRESA = 'sin-empresa'
 export async function cargarEmpresasAVI(admin: SupabaseClient<any, any, any>): Promise<EmpresaAVI[]> {
   const { data } = await admin
     .from('convenio_empresas')
-    .select('id, nombre, logo_url')
+    .select('id, nombre, logo_url, terminologia')
     .eq('is_active', true)
     .order('nombre', { ascending: true })
-  return (data ?? []).map(e => ({ id: e.id as string, nombre: e.nombre as string, logo_url: (e.logo_url as string | null) ?? null }))
+  return (data ?? []).map(e => ({
+    id: e.id as string, nombre: e.nombre as string, logo_url: (e.logo_url as string | null) ?? null,
+    terminologia: normalizarTerminologia(e.terminologia),
+  }))
+}
+
+/** Una sola palabra para varias empresas: 'asesorado' si alguna lo es (misma política que el menú del terapeuta) */
+export function palabraDeEmpresas(empresas: { terminologia: Terminologia }[]): Terminologia {
+  return empresas.some(e => e.terminologia === 'asesorado') ? 'asesorado' : 'paciente'
 }
 
 /**
