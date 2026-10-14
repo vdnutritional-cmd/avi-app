@@ -1,6 +1,6 @@
 # AVI Therapy Companion App — Contexto para Claude Code
 
-> **Versión:** 1.0 (cerrada) · **Actualizado:** 12 octubre 2026  
+> **Versión:** 1.0 (cerrada) · **Actualizado:** 13 octubre 2026  
 > Este archivo es el punto de entrada para cualquier sesión de Claude Code en este proyecto.  
 > Léelo completo antes de modificar cualquier archivo.
 
@@ -14,7 +14,7 @@ Tiene dos roles principales:
 - **Terapeuta** — gestiona su consultorio, pacientes, expedientes clínicos y reportes
 - **Paciente** — accede a AVI "Platícame..." (chat terapéutico IA, hablado o escrito), su Resumen y cuestionarios
 
-Módulos transversales: **Administración** (superadmin), **Panel Institucional** (empresas con convenio) y **App móvil Expo** (AVI-TCA).
+Módulos transversales: **SaaS Controller** (superadmin), **Administración** de las empresas con convenio (Personas Institucionales) y **App móvil Expo** (AVI-TCA).
 
 ---
 
@@ -85,14 +85,14 @@ src/app/
 
 ├── institucional/                  Panel empresa/convenio
 │   ├── layout.tsx
-│   ├── dashboard/page.tsx          AVI - Panel Institucional
+│   ├── dashboard/page.tsx          AVI - Panel de Control
 │   ├── reporte-terapeuta/page.tsx
 │   └── reporte-general/page.tsx
 
 ├── admin/                          Panel superadmin
-│   ├── institucional/              Administración Institucional AVI: Panel + reportes como N1 de las empresas elegidas (+ "Sin empresa")
+│   ├── institucional/              AVI Administración: Panel + reportes como Superuser (N1) de las empresas elegidas (+ "Sin empresa")
 │   ├── AdminSidebar.tsx            Sidebar admin (Volver a AVI + Cerrar sesión → `/`)
-│   ├── page.tsx                    Panel de Control — SOLO INFORMATIVO (stats, pendientes, Control de Planes, pago caído, cumplimiento)
+│   ├── page.tsx                    Panel de Control AVI — SOLO INFORMATIVO (stats, pendientes, Control de Planes, pago caído, cumplimiento)
 │   ├── ControlPlanesTabla.tsx      Tabla "Control de Planes y Contrataciones" (acordeones <details>, fila Total)
 │   ├── terapeutas/page.tsx         ACCIONES: Aprobar gratis permanente, Companion, tier, revocar, desactivar/reactivar
 │   ├── convenio/page.tsx           Códigos CONVENIO + logos de empresa
@@ -395,9 +395,11 @@ Reglas del webhook (`handleCheckoutCompleted`):
 ### Personas Institucionales — niveles (`src/lib/niveles-institucionales.ts`)
 | Nivel | Acceso |
 |---|---|
-| N3 | Panel Institucional |
-| N2 | Panel + Reporte Institucional General + Baja de Terapeutas |
-| N1 | N2 + Reporte por Terapeuta |
+| N3 — **Community Manager** | Panel de Control |
+| N2 — **User** | Panel + Reporte General + Baja de Terapeutas |
+| N1 — **Superuser** | User + Reporte por Terapeuta |
+
+Se guardan como N1/N2/N3; en pantalla siempre se muestra el nombre (`NIVEL_NOMBRES` / `nombreNivel()`).
 
 `opera_como_terapeuta` es independiente del nivel. Usar `permisosPI(niveles)` en el sidebar, las tarjetas y las páginas.
 
@@ -416,9 +418,16 @@ Reglas del webhook (`handleCheckoutCompleted`):
 
 ---
 
-## Administración AVI — información vs. acción
+## Nombres visibles (13 oct 2026)
 
-- **Panel de Control (`/admin`) es solo informativo.** No lleva botones que cambien datos; solo enlaces. "Pendientes de aprobación" remite a Terapeutas.
+| Menú | Contenido |
+|---|---|
+| **SaaS Controller** (`/admin`, superadmin) | Panel de Control AVI · ⚙️ **Configuración AVI** (acordeón: Terapeutas, Códigos CONVENIO, Empresas en CONVENIO) · AVI Administración (`/admin/institucional`, todas las empresas) · Reportes de Control · Auditoría |
+| **Administración** (`/institucional`, Personas Institucionales, solo sus empresas) | Panel de Control · Reporte General · Reporte por Terapeuta · Baja de Terapeutas |
+
+## SaaS Controller — información vs. acción
+
+- **Panel de Control AVI (`/admin`) es solo informativo.** No lleva botones que cambien datos; solo enlaces. "Pendientes de aprobación" remite a Terapeutas.
 - **Control de Planes y Contrataciones**, por terapeuta:
   - Pacientes en Convenio: acordeón en dos columnas (paciente | empresa), ordenado por empresa, con subtotal.
   - Plan contratado.
@@ -555,8 +564,9 @@ npm run build
 - **Último commit V1.0:** `9ddb2e1`
 - **Último commit Sprint 12 Companion:** `dd614c6`
 - **Último commit fixes Stripe CONVENIO + contacto por empresa:** `9f5ee22` (06 oct 2026)
-- **Respaldo anterior:** `89cfffc` (10 oct 2026) — Control de Planes, motivo de bloqueo, terapeuta desactivado, Admin › Terapeutas Temporal/Permanente
-- **Último commit respaldado:** `69954cd` (12 oct 2026) — chat AVI (tiempos, caché real 1h+5m, base personalista, política de sesiones, modo escrito, retomar sesión, sesiones anteriores), Administración Institucional AVI, transferir paciente seguro
+- **Respaldo del 10 oct:** `89cfffc` — Control de Planes, motivo de bloqueo, terapeuta desactivado, Admin › Terapeutas Temporal/Permanente
+- **Último commit respaldado:** `15ebffb` (13 oct 2026) — nombres: SaaS Controller, Configuración AVI, Administración, niveles Superuser/User/Community Manager
+- **Respaldo anterior:** `69954cd` (12 oct 2026) — chat AVI (tiempos, caché real 1h+5m, base personalista, política de sesiones, modo escrito, retomar sesión, sesiones anteriores), Administración Institucional AVI, transferir paciente seguro
 - Confirmar el deploy: `vercel ls` / `vercel inspect go.avi-app.com.mx` (CLI con sesión en la Mac)
 - `npx next build` modifica `tsconfig.json` solo (jsx, `.next/dev/types`): regresarlo con `git checkout tsconfig.json` antes de hacer commit
 - `globals.css`: los colores por defecto usan `hsl(var(--foreground/--background))` — con `rgb()` el texto salía rojo
