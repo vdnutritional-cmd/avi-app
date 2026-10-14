@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────
 // GET /api/convenio-empresas
 // Pública — devuelve la lista de empresas en CONVENIO activas
-// para el dropdown en /pricing
+// para el selector de /pricing y Activar plan, con su WhatsApp de solicitudes de alta
 //
 // GET /api/convenio-empresas?codeId=<authorization_codes.id>
 // Registro de paciente con código: solo las empresas activas del
@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await supabase
     .from('convenio_empresas')
-    .select('id, nombre')
+    .select('id, nombre, telefono_solicitudes')
     .eq('is_active', true)
     .order('nombre', { ascending: true })
 

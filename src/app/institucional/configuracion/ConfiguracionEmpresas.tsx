@@ -13,6 +13,7 @@ export interface EmpresaConfig {
   nombre: string
   terminologia: string | null
   telefono: string | null
+  telefono_solicitudes: string | null
   logo_url: string | null
 }
 
@@ -53,7 +54,10 @@ function TarjetaEmpresa({ empresa, abierta }: { empresa: EmpresaConfig; abierta:
       </summary>
       <div className="px-5 pb-5 space-y-5 border-t border-gray-100 pt-4">
         <TerminologiaEmpresa empresa={empresa} />
-        <TelefonoEmpresa empresa={empresa} />
+        <TelefonoEmpresa empresa={empresa} campo="telefono" titulo="Teléfono de contacto"
+          explicacion={'Lo ve la persona en la bienvenida de AVI ("Para cualquier otro apoyo, contacta a…") y AVI lo usa en el chat para invitarla a llamar.'} />
+        <TelefonoEmpresa empresa={empresa} campo="telefono_solicitudes" titulo="WhatsApp para solicitudes de alta"
+          explicacion={'Debe tener WhatsApp. Ahí te llegan las solicitudes de los terapeutas que quieren participar en tu empresa (botón "Solicita acceso a la empresa" de Planes y precios). Después los das de alta en Alta/Baja.'} />
         <LogoEmpresa empresa={empresa} />
       </div>
     </details>
@@ -100,10 +104,12 @@ function TerminologiaEmpresa({ empresa }: { empresa: EmpresaConfig }) {
   )
 }
 
-// ── Teléfono de contacto ─────────────────────────────────────
-function TelefonoEmpresa({ empresa }: { empresa: EmpresaConfig }) {
-  const [guardado, setGuardado] = useState(empresa.telefono ?? '')
-  const [valor, setValor] = useState(empresa.telefono ?? '')
+// ── Teléfonos (contacto del paciente y WhatsApp de solicitudes) ──
+function TelefonoEmpresa({ empresa, campo, titulo, explicacion }: {
+  empresa: EmpresaConfig; campo: 'telefono' | 'telefono_solicitudes'; titulo: string; explicacion: string
+}) {
+  const [guardado, setGuardado] = useState(empresa[campo] ?? '')
+  const [valor, setValor] = useState(empresa[campo] ?? '')
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
   const [ok, setOk] = useState(false)
@@ -112,7 +118,7 @@ function TelefonoEmpresa({ empresa }: { empresa: EmpresaConfig }) {
   async function guardar() {
     setSaving(true); setErr(''); setOk(false)
     try {
-      await enviar({ method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ empresa_id: empresa.id, telefono: valor }) })
+      await enviar({ method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ empresa_id: empresa.id, [campo]: valor }) })
       setGuardado(valor.trim()); setValor(valor.trim()); setOk(true)
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'No se pudo guardar.')
@@ -121,10 +127,8 @@ function TelefonoEmpresa({ empresa }: { empresa: EmpresaConfig }) {
 
   return (
     <section className="space-y-2 border-t border-gray-100 pt-4">
-      <h3 className="text-sm font-semibold text-gray-800">Teléfono de contacto</h3>
-      <p className="text-xs text-gray-500 leading-relaxed">
-        Lo ve la persona en la bienvenida de AVI (&quot;Para cualquier otro apoyo, contacta a…&quot;) y AVI lo usa en el chat para invitarla a llamar.
-      </p>
+      <h3 className="text-sm font-semibold text-gray-800">{titulo}</h3>
+      <p className="text-xs text-gray-500 leading-relaxed">{explicacion}</p>
       <div className="flex flex-wrap items-center gap-2">
         <input type="tel" placeholder="Ej. 33 1363 0266" value={valor}
           onChange={e => { setValor(e.target.value); setErr(''); setOk(false) }}

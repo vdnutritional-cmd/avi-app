@@ -1,5 +1,6 @@
 'use client'
 
+import { AVI_WHATSAPP, enlaceWhatsApp, numeroWhatsApp } from '@/lib/whatsapp'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -246,17 +247,13 @@ export default function ActivarPlan({ therapistName }: { therapistName: string }
   const router = useRouter()
   const [tier, setTier] = useState<PlanTier>('esencial')
   const [customSlots, setCustomSlots] = useState(3)
-  const [empresas, setEmpresas] = useState<{ id: string; nombre: string }[]>([])
-  const [empresa1, setEmpresa1] = useState('')
-  const [empresa2, setEmpresa2] = useState('')
-  const [empresa3, setEmpresa3] = useState('')
+  const [empresas, setEmpresas] = useState<{ id: string; nombre: string; telefono_solicitudes: string | null }[]>([])
+  // Una sola empresa: la solicitud de alta va al WhatsApp de esa empresa
+  const [empresaId, setEmpresaId] = useState('')
   const [whatsappEnviado, setWhatsappEnviado] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
 
-  // IDs únicos no vacíos seleccionados en los 3 dropdowns
-  const empresasSeleccionadas = [empresa1, empresa2, empresa3]
-    .filter(Boolean)
-    .filter((v, i, arr) => arr.indexOf(v) === i)
+  const empresasSeleccionadas = empresaId ? [empresaId] : []
 
   async function handleLogoutAndHome() {
     setLoggingOut(true)
@@ -277,10 +274,12 @@ export default function ActivarPlan({ therapistName }: { therapistName: string }
       .catch(() => {})
   }, [])
 
-  const empresasNombres = empresas
-    .filter(e => empresasSeleccionadas.includes(e.id))
-    .map(e => e.nombre)
-    .join(', ')
+  const empresaElegida = empresas.find(e => e.id === empresaId) ?? null
+  const whatsappEmpresa = numeroWhatsApp(empresaElegida?.telefono_solicitudes)
+  const enlaceEmpresa = empresaElegida && whatsappEmpresa
+    ? enlaceWhatsApp(whatsappEmpresa, `Hola, solicito acceso a AVI para participar en ${empresaElegida.nombre}. Mi correo y mi nombre son: `)
+    : null
+  const enlaceDescuento = enlaceWhatsApp(AVI_WHATSAPP, 'Hola! Solicito plan con descuento ¿Es posible? Mi nombre es: ')
 
   const isEsencial = tier === 'esencial'
   const unitPrice  = isEsencial ? UNIT_PRICE_ESENCIAL : UNIT_PRICE_CLINICO
@@ -423,35 +422,19 @@ export default function ActivarPlan({ therapistName }: { therapistName: string }
             </div>
             {empresas.length > 0 && (
               <div className="shrink-0 min-w-[280px]">
-                <p className="text-xs text-white font-semibold mb-3">Empresas en CONVENIO en que participas</p>
-                <div className="space-y-2">
-                  {([
-                    { label: 'Empresa 1:', value: empresa1, set: setEmpresa1 },
-                    { label: 'Empresa 2:', value: empresa2, set: setEmpresa2 },
-                    { label: 'Empresa 3:', value: empresa3, set: setEmpresa3 },
-                  ] as const).map(({ label, value, set }) => (
-                    <div key={label} className="flex items-center gap-2">
-                      <span className="text-xs text-white/80 w-20 shrink-0">{label}</span>
-                      <select
-                        value={value}
-                        onChange={e => set(e.target.value)}
-                        className="flex-1 bg-white/10 border border-white/30 text-white text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-white/50"
-                      >
-                        <option value="" className="text-gray-800 bg-white">— Ninguna —</option>
-                        {empresas.map(emp => (
-                          <option key={emp.id} value={emp.id} className="text-gray-800 bg-white">
-                            {emp.nombre}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                <p className="text-xs text-white font-semibold mb-2">Empresa en CONVENIO en que participas</p>
+                <select
+                  value={empresaId}
+                  onChange={e => setEmpresaId(e.target.value)}
+                  className="w-full bg-white/10 border border-white/30 text-white text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-white/50"
+                >
+                  <option value="" className="text-gray-800 bg-white">— Elige tu empresa —</option>
+                  {empresas.map(emp => (
+                    <option key={emp.id} value={emp.id} className="text-gray-800 bg-white">
+                      {emp.nombre}
+                    </option>
                   ))}
-                </div>
-                {empresasSeleccionadas.length > 0 && (
-                  <p className="mt-2 text-xs text-green-300">
-                    ✓ {empresasSeleccionadas.length === 1 ? '1 empresa seleccionada' : `${empresasSeleccionadas.length} empresas seleccionadas`}
-                  </p>
-                )}
+                </select>
               </div>
             )}
           </div>
@@ -508,14 +491,24 @@ export default function ActivarPlan({ therapistName }: { therapistName: string }
             <p className="text-xs text-purple-200 mb-3">
               ¿Eres Asesor o Terapeuta activo en una institución en CONVENIO? Solicita por WhatsApp obtener precio en descuento o acceso gratuito.
             </p>
-            <button
-              onClick={() => abrirWhatsApp(`https://wa.me/523318830312?text=${encodeURIComponent(
-                `Hola, soy Asesor/Terapeuta activo en ${empresasNombres || '<empresa en convenio>'}. Solicito acceso a AVI en la modalidad del Convenio con ${empresasNombres || '<empresa en convenio>'}. Mi nombre es: `
-              )}`)}
-              className="inline-flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white text-sm px-4 py-2 rounded-xl font-medium transition-colors"
-            >
-              💬 Solicitar por WhatsApp
-            </button>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="space-y-1">
+                <button
+                  onClick={() => enlaceEmpresa && abrirWhatsApp(enlaceEmpresa)}
+                  disabled={!enlaceEmpresa}
+                  className="inline-flex items-center gap-2 bg-green-500 hover:bg-green-600 disabled:bg-white/20 disabled:text-white/60 disabled:cursor-not-allowed text-white text-sm px-4 py-2 rounded-xl font-medium transition-colors"
+                >
+                  💬 Solicita acceso a la empresa
+                </button>
+                {!enlaceEmpresa && <p className="text-[11px] text-purple-200">{!empresaElegida ? 'Elige tu empresa arriba.' : 'Esta empresa aún no registra su WhatsApp.'}</p>}
+              </div>
+              <button
+                onClick={() => abrirWhatsApp(enlaceDescuento)}
+                className="inline-flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white text-sm px-4 py-2 rounded-xl font-medium transition-colors"
+              >
+                💬 Solicito plan con descuento
+              </button>
+            </div>
           </div>
         </section>
 

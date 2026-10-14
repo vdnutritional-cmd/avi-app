@@ -20,7 +20,7 @@ export default async function AdminConfiguracionPage({
   const selectedIds = resolverSeleccion(empresas, params.empresaIds).filter(id => id !== SIN_EMPRESA)
 
   const { data } = selectedIds.length
-    ? await admin.from('convenio_empresas').select('id, nombre, terminologia, telefono, logo_url')
+    ? await admin.from('convenio_empresas').select('id, nombre, terminologia, telefono, telefono_solicitudes, logo_url')
         .in('id', selectedIds).order('nombre')
     : { data: [] }
 

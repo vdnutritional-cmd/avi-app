@@ -23,7 +23,7 @@ export default async function ConfiguracionAdminPage() {
   const empresaIds = [...new Set((registros ?? []).map(r => r.empresa_id as string))]
 
   const { data: empresas } = empresaIds.length
-    ? await admin.from('convenio_empresas').select('id, nombre, terminologia, telefono, logo_url')
+    ? await admin.from('convenio_empresas').select('id, nombre, terminologia, telefono, telefono_solicitudes, logo_url')
         .in('id', empresaIds).eq('is_active', true).order('nombre')
     : { data: [] }
 

@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────
 // /api/institucional/empresa-config — Configuración Admin de una empresa en CONVENIO
-//   PATCH  { empresa_id, terminologia?, telefono? }
+//   PATCH  { empresa_id, terminologia?, telefono?, telefono_solicitudes? }
 //   POST   multipart { empresa_id, file }  → sube o cambia el logo
 //   DELETE ?empresa_id=…                   → quita el logo
 // Acceso: Persona Institucional activa con nivel User o Superuser (N2/N1) EN ESA
@@ -20,7 +20,7 @@ const MAX_BYTES = 2 * 1024 * 1024
 const noAutorizado = () => NextResponse.json({ error: 'No tienes permiso para configurar esta empresa.' }, { status: 403 })
 
 export async function PATCH(req: NextRequest) {
-  const { empresa_id, terminologia, telefono } = await req.json()
+  const { empresa_id, terminologia, telefono, telefono_solicitudes } = await req.json()
   const auth = await autorizar(empresa_id)
   if (!auth) return noAutorizado()
 
@@ -33,6 +33,10 @@ export async function PATCH(req: NextRequest) {
   }
   if (telefono !== undefined) {
     updates.telefono = typeof telefono === 'string' && telefono.trim() ? telefono.trim().slice(0, 40) : null
+  }
+  if (telefono_solicitudes !== undefined) {
+    updates.telefono_solicitudes = typeof telefono_solicitudes === 'string' && telefono_solicitudes.trim()
+      ? telefono_solicitudes.trim().slice(0, 40) : null
   }
   if (Object.keys(updates).length === 0) return NextResponse.json({ error: 'Nada que guardar' }, { status: 400 })
 
