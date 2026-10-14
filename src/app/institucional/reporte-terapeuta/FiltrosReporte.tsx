@@ -19,7 +19,7 @@ interface FiltrosReporteProps {
   pid: string
   mes: string
   pacientes: { id: string; nombre: string }[]
-  /** Administración Institucional AVI: las empresas se eligen en el selector de arriba */
+  /** AVI Administración: las empresas se eligen en el selector de arriba */
   ocultarEmpresas?: boolean
 }
 
@@ -89,7 +89,7 @@ export default function FiltrosReporte({
   return (
     <div className="space-y-4">
 
-      {/* ── Checkboxes de empresa (ocultos en Administración Institucional AVI: el selector va arriba) ── */}
+      {/* ── Checkboxes de empresa (ocultos en AVI Administración: el selector va arriba) ── */}
       {!ocultarEmpresas && (
       <div>
         <label className="text-xs text-gray-400 font-medium uppercase tracking-wide block mb-2">

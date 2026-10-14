@@ -1,4 +1,4 @@
-// Reporte Institucional General — misma lógica que reporte-terapeuta
+// Reporte General — misma lógica que reporte-terapeuta
 // pero siempre agrega TODOS los terapeutas de la empresa (sin dropdown de terapeuta).
 import { createAdminClient } from '@/lib/supabase/admin'
 import Link from 'next/link'
@@ -32,7 +32,7 @@ export default async function ReporteGeneralContenido({ empresas, piNombre, base
   piNombre: string
   basePath: string
   searchParams: Params
-  /** Administración Institucional AVI: las empresas se eligen en el selector común de arriba */
+  /** AVI Administración: las empresas se eligen en el selector común de arriba */
   ocultarSelectorEmpresas?: boolean
 }) {
   const { empresaIds: empIdsParam, mes, tipo: tipoParam, pid: pidParam } = searchParams
@@ -52,7 +52,7 @@ export default async function ReporteGeneralContenido({ empresas, piNombre, base
     return (
       <div className="max-w-3xl space-y-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Reporte Institucional General</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Reporte General</h1>
           <p className="text-gray-500 mt-1 text-sm">Selecciona una o más empresas para generar el reporte.</p>
         </div>
         <FiltrosReporteGeneral basePath={basePath} ocultarEmpresas={ocultarSelectorEmpresas}
@@ -87,7 +87,7 @@ export default async function ReporteGeneralContenido({ empresas, piNombre, base
   if (therapistIds.length === 0) {
     return (
       <div className="max-w-3xl space-y-8">
-        <div><h1 className="text-2xl font-bold text-gray-900">Reporte Institucional General</h1></div>
+        <div><h1 className="text-2xl font-bold text-gray-900">Reporte General</h1></div>
         <FiltrosReporteGeneral basePath={basePath} ocultarEmpresas={ocultarSelectorEmpresas}
           empresas={empresas} empresaIdsSelected={selectedIds}
           tipo={tipo} pid={pid} mes={mesKey} pacientes={[]} />
@@ -403,7 +403,7 @@ function renderPage({
   return (
     <div className="max-w-3xl space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Reporte Institucional General</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Reporte General</h1>
         <p className="text-gray-500 mt-1 text-sm">{empresasActuales.map(e => e.nombre).join(' + ') || '—'} · Todos los terapeutas · pacientes {tipoLabel}</p>
       </div>
 
@@ -601,7 +601,7 @@ function renderPage({
               atenEspecializada={atenEspecializada}
               calificaciones={calificaciones}
               tipoAsesoriaRows={tipoAsesoriaRows}
-              reportTitle="Reporte Institucional General"
+              reportTitle="Reporte General"
               impresoPor={piNombre}
             />
           </div>

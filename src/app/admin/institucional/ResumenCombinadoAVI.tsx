@@ -71,7 +71,7 @@ export default function ResumenCombinadoAVI({ empresaBlocks, independientes, tel
           <h2 className="pl-5 text-sm">
             {/* pl-5: a la altura del título "Terapeutas por Empresa" (px-5 del acordeón) */}
             <span className="font-bold text-gray-900 uppercase tracking-wide">Resumen por empresa</span>{' '}
-            <span className="font-normal text-gray-400">(solo Administración AVI)</span>
+            <span className="font-normal text-gray-400">(solo AVI Administración)</span>
           </h2>
           <div className="bg-white border border-gray-100 rounded-2xl overflow-x-auto">
             <table className="w-full text-sm">

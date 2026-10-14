@@ -538,7 +538,7 @@ export default function ReportesClient({ terapeutas, vinculos, vinculosBusqueda,
 
       {/* ── Screen header ───────────────────────────────────────────────────── */}
       <div className="no-print">
-        <h1 className="text-2xl font-bold text-gray-900">Reportes</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Reportes de Control</h1>
         <p className="text-sm text-gray-400 mt-1">Información consolidada · {generatedDate}</p>
       </div>
 

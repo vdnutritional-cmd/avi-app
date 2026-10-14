@@ -123,7 +123,7 @@ async function validar(
       return {
         ok: false, status: 400,
         // **…** se muestra en negritas en la pantalla de Transferir
-        error: `El terapeuta receptor no pertenece a ${nombreEmp}. Solicita su incorporación en **Administración AVI** para proceder con el cambio.`,
+        error: `El terapeuta receptor no pertenece a ${nombreEmp}. Solicita su incorporación en **SaaS Controller** para proceder con el cambio.`,
       }
     }
   }

@@ -349,7 +349,7 @@ export default async function AdminPanelPage() {
 
       {/* ── Título ── */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Panel de Control</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Panel de Control AVI</h1>
         <p className="text-sm text-gray-400 mt-1">Resumen de actividad y cumplimiento de AVI Therapy Companion</p>
       </div>
 
@@ -370,7 +370,7 @@ export default async function AdminPanelPage() {
             <span className="text-sm text-gray-900">
               Autorizaciones en la sección{' '}
               <Link href="/admin/terapeutas" className="font-medium hover:underline">&quot;Terapeutas&quot;</Link>
-              {' '}de esta Administración AVI
+              {' '}de Configuración AVI
             </span>
           </h2>
           {/* Solo informativo: aprobar o asignar Companion se hace en Admin › Terapeutas */}
@@ -426,7 +426,7 @@ export default async function AdminPanelPage() {
         <h2 className="text-base font-semibold text-gray-700 mb-1">Cumplimiento — Pacientes sin convenio</h2>
         <p className="text-xs text-gray-400 mb-4">
           Terapeutas con pacientes fuera de convenio institucional. Los cubre un plan pagado, un plan aprobado
-          por Administración AVI o un AVI Therapy Companion, dentro de su cupo de pacientes independientes.
+          por el SaaS Controller o un AVI Therapy Companion, dentro de su cupo de pacientes independientes.
           Sesiones de {nombreMesActual}: presenciales + nota inicial del mes.
         </p>
 

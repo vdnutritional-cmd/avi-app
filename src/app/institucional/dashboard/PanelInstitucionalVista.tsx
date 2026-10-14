@@ -4,6 +4,7 @@
 import Link from 'next/link'
 import TerapeutasAcordeon from './TerapeutasAcordeon'
 import type { TerapeutaRow } from './cargar-panel'
+import { nombreNivel } from '@/lib/niveles-institucionales'
 
 export interface EmpresaBlock {
   empresaId: string
@@ -57,7 +58,7 @@ function SeccionActiva({ titulo, descripcion, href }: { titulo: string; descripc
 // ── Vista ─────────────────────────────────────────────────────────────────────
 export default function PanelInstitucionalVista({ empresaBlocks, permisos, hrefReporteGeneral, hrefReporteTerapeuta, antesDeReportes }: {
   empresaBlocks: EmpresaBlock[]
-  /** Solo Administración Institucional AVI: bloques extra antes de las tarjetas de reportes */
+  /** Solo AVI Administración: bloques extra antes de las tarjetas de reportes */
   antesDeReportes?: React.ReactNode
   permisos: { reporteGeneral: boolean; reporteTerapeuta: boolean }
   hrefReporteGeneral: string
@@ -69,7 +70,7 @@ export default function PanelInstitucionalVista({ empresaBlocks, permisos, hrefR
       {/* Encabezado */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-primary-700">AVI - Panel Institucional</h1>
+          <h1 className="text-xl font-bold text-primary-700">AVI - Panel de Control</h1>
           {empresaBlocks.length > 1 && (
             <p className="text-sm text-gray-500 mt-1">
               Tienes acceso a {empresaBlocks.length} empresas en convenio
@@ -104,7 +105,7 @@ export default function PanelInstitucionalVista({ empresaBlocks, permisos, hrefR
                   bloque.nivel === 'N2' ? 'bg-blue-100 text-blue-700' :
                   'bg-amber-100 text-amber-700'
                 }`}>
-                  {bloque.nivel}
+                  {nombreNivel(bloque.nivel)}
                 </span>
               </div>
             )}
@@ -147,15 +148,15 @@ export default function PanelInstitucionalVista({ empresaBlocks, permisos, hrefR
 
       {/* ── Reportes (según nivel) ─────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Reporte Institucional General (N1 y N2) */}
+        {/* Reporte General (N1 y N2) */}
         {permisos.reporteGeneral ? (
           <SeccionActiva
-            titulo="Reporte Institucional General"
+            titulo="Reporte General"
             descripcion="Estadística agregada de todos los terapeutas de la empresa: sesiones, derivaciones y satisfacción."
             href={hrefReporteGeneral}
           />
         ) : (
-          <SeccionBloqueada titulo="Reporte Institucional General" />
+          <SeccionBloqueada titulo="Reporte General" />
         )}
 
         {/* Reporte por terapeuta (solo N1) */}

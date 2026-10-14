@@ -33,7 +33,7 @@ export default async function ReporteTerapeutaContenido({ empresas, piNombre, ba
   piNombre: string
   basePath: string
   searchParams: Params
-  /** Administración Institucional AVI: las empresas se eligen en el selector común de arriba */
+  /** AVI Administración: las empresas se eligen en el selector común de arriba */
   ocultarSelectorEmpresas?: boolean
 }) {
   const { empresaIds: empIdsParam, empresaId: empParam, terapeutaId: terapParam, mes, tipo: tipoParam, pid: pidParam } = searchParams

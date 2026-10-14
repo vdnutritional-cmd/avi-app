@@ -13,7 +13,7 @@ interface SidebarProps {
   isInstitucional?: boolean
   hasEmpresas?: boolean
   disabled?: boolean              // nav en gris — opera_como_terapeuta=false
-  hideInstitucionalLink?: boolean // ocultar link "Administración Institucional" (ya estás ahí)
+  hideInstitucionalLink?: boolean // ocultar link "Administración" (ya estás ahí)
   canGestionarBajas?: boolean     // true si el PI tiene nivel N1 o N2
   accesoConvenio?: boolean        // sin plan propio, entra por su empresa CONVENIO
   canReporteGeneral?: boolean     // PI N1 o N2
@@ -183,15 +183,15 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
           {isInstitucional && !hideInstitucionalLink && (
             <NavGroup
               name="institucional"
-              label="Administración Institucional"
+              label="Administración"
               icon="🏢"
               accent
               isOpen={openGroup === 'institucional'}
               onToggle={() => toggleGroup('institucional')}
             >
-              <NavLink href="/institucional/dashboard"         icon="🏠" label="Panel institucional"           onClose={closeSidebar} />
+              <NavLink href="/institucional/dashboard"         icon="🏠" label="Panel de Control"           onClose={closeSidebar} />
               {canReporteGeneral && (
-                <NavLink href="/institucional/reporte-general"   icon="📊" label="Reporte Institucional General" onClose={closeSidebar} />
+                <NavLink href="/institucional/reporte-general"   icon="📊" label="Reporte General" onClose={closeSidebar} />
               )}
               {canReporteTerapeuta && (
                 <NavLink href="/institucional/reporte-terapeuta" icon="👤" label="Reporte por Terapeuta"         onClose={closeSidebar} />
@@ -202,7 +202,7 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
             </NavGroup>
           )}
           {email === 'pepe.vargas.papa@gmail.com' && (
-            <NavLink href="/admin" icon="⚙️" label="Administración AVI" onClose={closeSidebar} />
+            <NavLink href="/admin" icon="⚙️" label="SaaS Controller" bold onClose={closeSidebar} />
           )}
           <LogoutButton />
         </div>
@@ -213,8 +213,9 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
 
 // ── Componentes ──────────────────────────────────────────────────────────────
 
-function NavLink({ href, icon, label, onClose }: {
+function NavLink({ href, icon, label, onClose, bold = false }: {
   href: string; icon: string; label: string; onClose: () => void
+  bold?: boolean
 }) {
   return (
     <Link
@@ -224,7 +225,7 @@ function NavLink({ href, icon, label, onClose }: {
                  hover:bg-primary-50 hover:text-primary-700 transition-colors text-sm"
     >
       <span>{icon}</span>
-      <span>{label}</span>
+      <span className={bold ? 'font-bold' : undefined}>{label}</span>
     </Link>
   )
 }
@@ -233,7 +234,7 @@ function NavGroup({ name, label, icon, isOpen, onToggle, children, accent = fals
   name: string; label: string; icon: string
   isOpen: boolean; onToggle: () => void
   children: React.ReactNode
-  accent?: boolean   // título siempre en color AVI (ej. Administración Institucional)
+  accent?: boolean   // título siempre en color AVI (ej. Administración)
 }) {
   return (
     <div>

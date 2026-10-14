@@ -5,8 +5,8 @@ import type { EmpresaAVI } from './empresas-avi'
 
 // Encabezado común: título, pestañas (conservan empresas y mes) y selector de empresas.
 const SECCIONES = [
-  { href: '/admin/institucional',                   label: 'Panel Institucional' },
-  { href: '/admin/institucional/reporte-general',   label: 'Reporte Institucional General' },
+  { href: '/admin/institucional',                   label: 'Panel de Control' },
+  { href: '/admin/institucional/reporte-general',   label: 'Reporte General' },
   { href: '/admin/institucional/reporte-terapeuta', label: 'Reporte por Terapeuta' },
 ] as const
 
@@ -25,9 +25,9 @@ export default function EncabezadoAVI({ actual, empresas, selectedIds, mes }: {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold text-primary-700">Administración Institucional AVI</h1>
+        <h1 className="text-2xl font-bold text-primary-700">AVI Administración</h1>
         <p className="text-sm text-gray-500 mt-1">
-          Lo mismo que ve una Persona Institucional N1, para todas las Empresas en Convenio.
+          Lo mismo que ve una Persona Institucional Superuser, para todas las Empresas en Convenio.
         </p>
       </div>
 

@@ -14,6 +14,15 @@ export default function AdminSidebar({ email }: AdminSidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
 
+  // Acordeón "Configuración AVI": abierto si estás en una de sus páginas
+  const enConfiguracion = ['/admin/terapeutas', '/admin/convenio'].some(r => pathname.startsWith(r))
+  const [configAbierta, setConfigAbierta] = useState(enConfiguracion)
+  const [rutaPrevia, setRutaPrevia] = useState(pathname)
+  if (rutaPrevia !== pathname) {
+    setRutaPrevia(pathname)
+    if (enConfiguracion) setConfigAbierta(true)
+  }
+
   const closeSidebar = () => setOpen(false)
 
   async function handleLogout() {
@@ -66,7 +75,7 @@ export default function AdminSidebar({ email }: AdminSidebarProps) {
             >
               AVI
             </Link>
-            <p className="text-xs font-semibold text-gray-500 mt-0.5">Administración AVI</p>
+            <p className="text-xs font-bold text-gray-700 mt-0.5">SaaS Controller</p>
             <p className="text-xs text-gray-400 mt-0.5 truncate max-w-[160px]">{email}</p>
           </div>
           {/* Botón cerrar — solo en móvil */}
@@ -83,12 +92,32 @@ export default function AdminSidebar({ email }: AdminSidebarProps) {
 
         {/* Nav */}
         <nav className="p-4 space-y-1 overflow-y-auto flex-1">
-          <NavLink href="/admin"                  icon="🏠" label="Panel de Control"        active={pathname === '/admin'}                          onClose={closeSidebar} />
-          <NavLink href="/admin/terapeutas"       icon="👩‍⚕️" label="Terapeutas"              active={pathname.startsWith('/admin/terapeutas')}        onClose={closeSidebar} />
-          <NavLink href="/admin/convenio"         icon="🔑" label="Códigos CONVENIO"         active={pathname.startsWith('/admin/convenio') && !pathname.startsWith('/admin/convenio-empresas')} onClose={closeSidebar} />
-          <NavLink href="/admin/convenio-empresas" icon="🏢" label="Empresas en CONVENIO"   active={pathname.startsWith('/admin/convenio-empresas')} onClose={closeSidebar} />
-          <NavLink href="/admin/institucional"    icon="🏛️" label="Administración Institucional AVI" active={pathname.startsWith('/admin/institucional')} onClose={closeSidebar} />
-          <NavLink href="/admin/reportes"         icon="📊" label="Reportes"                 active={pathname.startsWith('/admin/reportes')}          onClose={closeSidebar} />
+          <NavLink href="/admin"                  icon="🏠" label="Panel de Control AVI"    active={pathname === '/admin'}                          onClose={closeSidebar} />
+
+          {/* Configuración AVI (acordeón) */}
+          <button
+            onClick={() => setConfigAbierta(v => !v)}
+            aria-expanded={configAbierta}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition-colors text-sm ${
+              enConfiguracion ? 'text-primary-700 font-medium' : 'text-gray-600'
+            } hover:bg-primary-50 hover:text-primary-700`}
+          >
+            <span>⚙️</span>
+            <span className="flex-1 text-left">Configuración AVI</span>
+            <svg className={`w-3.5 h-3.5 transition-transform duration-200 ${configAbierta ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          {configAbierta && (
+            <div className="ml-4 pl-2 border-l border-gray-100 space-y-1">
+              <NavLink href="/admin/terapeutas"       icon="👩‍⚕️" label="Terapeutas"              active={pathname.startsWith('/admin/terapeutas')}        onClose={closeSidebar} />
+              <NavLink href="/admin/convenio"         icon="🔑" label="Códigos CONVENIO"         active={pathname.startsWith('/admin/convenio') && !pathname.startsWith('/admin/convenio-empresas')} onClose={closeSidebar} />
+              <NavLink href="/admin/convenio-empresas" icon="🏢" label="Empresas en CONVENIO"   active={pathname.startsWith('/admin/convenio-empresas')} onClose={closeSidebar} />
+            </div>
+          )}
+
+          <NavLink href="/admin/institucional"    icon="🏛️" label="AVI Administración"      active={pathname.startsWith('/admin/institucional')}     onClose={closeSidebar} />
+          <NavLink href="/admin/reportes"         icon="📊" label="Reportes de Control"     active={pathname.startsWith('/admin/reportes')}          onClose={closeSidebar} />
           <NavLink href="/admin/auditoria"        icon="🔍" label="Auditoría"                active={pathname.startsWith('/admin/auditoria')}         onClose={closeSidebar} />
         </nav>
 

@@ -8,6 +8,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { nombreNivel } from '@/lib/niveles-institucionales'
 
 interface EmpresaPI {
   empresaId: string
@@ -54,7 +55,7 @@ export default function BajaTerapeutasPage() {
           .in('nivel', ['N1', 'N2'])
 
         if (!piRows || piRows.length === 0) {
-          setError('No tienes permiso para acceder a esta sección (requiere nivel N1 o N2).')
+          setError('No tienes permiso para acceder a esta sección (requiere nivel Superuser o User).')
           return
         }
 
@@ -167,7 +168,7 @@ export default function BajaTerapeutasPage() {
                   ? 'bg-green-100 text-green-700'
                   : 'bg-blue-100 text-blue-700'
               }`}>
-                {emp.nivel}
+                {nombreNivel(emp.nivel)}
               </span>
             </div>
 

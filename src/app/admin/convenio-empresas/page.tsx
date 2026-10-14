@@ -8,7 +8,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
-import { NIVEL_LABELS } from '@/lib/niveles-institucionales'
+import { NIVEL_LABELS, nombreNivel } from '@/lib/niveles-institucionales'
 
 interface Empresa {
   id: string
@@ -294,7 +294,7 @@ function PersonasInstitucionales({ empresa }: { empresa: Empresa }) {
                           <p className="text-xs text-gray-400 truncate">{p.email}</p>
                         </div>
                         <span className={`shrink-0 text-xs font-semibold border px-2 py-0.5 rounded-full ${p.is_active ? NIVEL_COLORS[p.nivel] : 'bg-gray-100 text-gray-400 border-gray-200'}`}>
-                          {p.nivel}
+                          {nombreNivel(p.nivel)}
                         </span>
                       </div>
 

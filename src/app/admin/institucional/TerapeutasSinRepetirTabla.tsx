@@ -33,7 +33,7 @@ export default function TerapeutasSinRepetirTabla({ terapeutas }: { terapeutas: 
         <h3 className="font-semibold text-primary-700 text-sm flex items-center gap-2 flex-wrap text-left">
           Terapeutas registrados
           <span className="text-primary-400 font-normal">({terapeutas.length}) · pacientes de todas sus actividades</span>
-          <span className="text-gray-400 font-normal">(solo Administración AVI)</span>
+          <span className="text-gray-400 font-normal">(solo AVI Administración)</span>
           {huerfanos > 0 && (
             <span className="inline-flex items-center gap-1 bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded-full">
               ⚠️ {huerfanos} requiere{huerfanos > 1 ? 'n' : ''} atención

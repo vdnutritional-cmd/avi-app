@@ -30,7 +30,7 @@ export default async function Page({
       <EncabezadoAVI actual="/admin/institucional/reporte-general" empresas={empresas} selectedIds={selectedIds} mes={params.mes} />
       <ReporteGeneralContenido
         empresas={empresas}
-        piNombre="Administración AVI"
+        piNombre="AVI Administración"
         basePath="/admin/institucional/reporte-general"
         searchParams={{ ...params, empresaIds: selectedIds.join(',') }}
         ocultarSelectorEmpresas
