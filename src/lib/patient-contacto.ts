@@ -1,16 +1,20 @@
 // ─────────────────────────────────────────────────────────────
 // Contacto del paciente — fuente única para la bienvenida (onboarding)
 // y para la invitación de cierre del chat AVI.
-//   - Paciente con empresa CONVENIO → "tu terapeuta o a <empresa> al <tel empresa>"
-//   - Paciente sin empresa          → "tu terapeuta al <WhatsApp del terapeuta>"
+//   - Paciente con empresa CONVENIO → "tu <pro> o a <empresa> al <tel empresa>"
+//   - Paciente sin empresa          → "tu <pro> al <WhatsApp del terapeuta>"
+// <pro> = terapeuta / asesor según la terminología de la empresa (src/lib/terminologia.ts).
 // Solo servidor: usa service role (el WhatsApp del terapeuta vive en auth user_metadata).
 // ─────────────────────────────────────────────────────────────
 import { createAdminClient } from '@/lib/supabase/admin'
+import { normalizarTerminologia, terminos, TERMINOLOGIA_SIN_EMPRESA, type Terminologia } from '@/lib/terminologia'
 
 export interface PatientContacto {
   empresaNombre: string | null
   empresaTelefono: string | null
   terapeutaTelefono: string | null
+  /** Palabras que ve el paciente (de su empresa; sin empresa → TERMINOLOGIA_SIN_EMPRESA) */
+  terminologia: Terminologia
   /** Destino ya redactado, ej. "tu terapeuta o a Valora al 33 1363 0266" */
   destino: string
 }
@@ -21,30 +25,33 @@ export async function getPatientContacto(patientId: string): Promise<PatientCont
     empresaNombre: null,
     empresaTelefono: null,
     terapeutaTelefono: null,
-    destino: 'tu terapeuta',
+    terminologia: TERMINOLOGIA_SIN_EMPRESA,
+    destino: `tu ${terminos(TERMINOLOGIA_SIN_EMPRESA).pro}`,
   }
 
-  const { data: rel } = await admin
+  // Vínculo activo más reciente (un paciente puede tener otro vínculo bloqueado o inactivo)
+  const { data: vinculos } = await admin
     .from('therapist_patients')
-    .select('therapist_id, empresa_id')
+    .select('therapist_id, empresa_id, is_active, created_at')
     .eq('patient_id', patientId)
     .neq('status', 'archived')
-    .limit(1)
-    .maybeSingle() as { data: { therapist_id: string; empresa_id: string | null } | null }
+    .order('created_at', { ascending: false }) as { data: { therapist_id: string; empresa_id: string | null; is_active: boolean }[] | null }
+  const rel = (vinculos ?? []).find(v => v.is_active) ?? vinculos?.[0] ?? null
 
   if (!rel) return result
 
   if (rel.empresa_id) {
     const { data: empresa } = await admin
       .from('convenio_empresas')
-      .select('nombre, telefono')
+      .select('nombre, telefono, terminologia')
       .eq('id', rel.empresa_id)
-      .maybeSingle() as { data: { nombre: string; telefono: string | null } | null }
+      .maybeSingle() as { data: { nombre: string; telefono: string | null; terminologia: string | null } | null }
 
     if (empresa) {
       result.empresaNombre   = empresa.nombre
       result.empresaTelefono = empresa.telefono?.trim() || null
-      result.destino = `tu terapeuta o a ${empresa.nombre}${result.empresaTelefono ? ` al ${result.empresaTelefono}` : ''}`
+      result.terminologia    = normalizarTerminologia(empresa.terminologia)
+      result.destino = `tu ${terminos(result.terminologia).pro} o a ${empresa.nombre}${result.empresaTelefono ? ` al ${result.empresaTelefono}` : ''}`
       return result
     }
   }
@@ -53,7 +60,7 @@ export async function getPatientContacto(patientId: string): Promise<PatientCont
   const telefono = (therapist?.user?.user_metadata?.whatsapp_phone as string | undefined)?.trim()
   if (telefono) {
     result.terapeutaTelefono = telefono
-    result.destino = `tu terapeuta al ${telefono}`
+    result.destino = `tu ${terminos(result.terminologia).pro} al ${telefono}`
   }
   return result
 }

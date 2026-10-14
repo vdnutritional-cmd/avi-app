@@ -3,39 +3,42 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { aplicarTerminologia, TERMINOLOGIA_SIN_EMPRESA, type Terminologia } from '@/lib/terminologia'
+
+// Textos con <user>/<pro>/<serv>: se cambian según la empresa del paciente (Inventario de Terminología, página 1)
 
 const pasos = [
   {
     icono: '👋',
     titulo: 'Bienvenido y platícame...',
-    contenido: `AVI es un espacio de escucha cálida y acompañamiento emocional entre tus sesiones de terapia.
+    contenido: `AVI es un espacio de escucha cálida y acompañamiento emocional entre tus sesiones de <serv>.
 
 El nombre de AVI viene de "Acompañamiento Virtual Interactivo" y está constituido desde una visión con valores católicos desde la visión Personalista de Karol Józef Wojtyla, basada en el respeto a tu dignidad como persona en todas sus dimensiones, ya que eres una persona única e irrepetible.`,
   },
   {
     icono: '🎙️',
     titulo: '¿Cómo funciona?',
-    contenido: `Hablas con AVI por voz — como una llamada. Cuéntale cómo te sientes, qué te preocupa o qué viviste desde tu última sesión con tu terapeuta.
+    contenido: `Platicas con AVI por voz, como una llamada, o por escrito, como un chat. Cuéntale cómo te sientes, qué te preocupa o qué viviste desde tu última sesión con tu <pro>.
 
-AVI escucha, te hace preguntas y te acompaña. Al terminar, guarda un breve resumen que tu terapeuta podrá conocer para darte un mejor acompañamiento en la siguiente sesión.`,
+AVI escucha, te hace preguntas y te acompaña. Al terminar, guarda un breve resumen que tu <pro> podrá conocer para darte un mejor acompañamiento en la siguiente sesión.`,
   },
   {
     icono: '🔒',
     titulo: 'Tu privacidad importa',
-    contenido: `Tu terapeuta NO escucha las conversaciones. Solo ve un resumen de los temas que exploraste y las emociones que surgieron.
+    contenido: `Tu <pro> NO escucha las conversaciones. Solo ve un resumen de los temas que exploraste y las emociones que surgieron.
 
 Tus mensajes están protegidos. AVI no comparte tu información con nadie más.`,
   },
   {
     icono: '⚠️',
     titulo: 'Importante que sepas',
-    contenido: `AVI NO es un terapeuta. NO hace diagnósticos. NO reemplaza la atención de tu terapeuta personal.
+    contenido: `AVI NO es un asesor o terapeuta. NO hace diagnósticos. NO reemplaza la atención de tu <pro> personal.
 
 Si en algún momento sientes que estás en crisis o en peligro, llama a la Línea de la Vida: 800 911 2000 (gratuita, 24 horas).
 
 Para cualquier otro apoyo, {{CONTACTO}}.`,
     requiereCheckbox: true,
-    textoCheckbox: 'Entiendo que AVI es un acompañamiento, no una terapia, y que debo contactar a mi terapeuta para mi proceso profesional.',
+    textoCheckbox: 'Entiendo que AVI es un acompañamiento, no una terapia, y que debo contactar a mi <pro> para mi proceso profesional.',
   },
   {
     icono: '📋',
@@ -46,9 +49,9 @@ II.- Consentimiento sobre tratamiento de datos personales: Respecto a los datos 
 
      a) El tratamiento de mis datos personales.
 
-     b) Para que el terapeuta o consultor me informe de los resultados de las entrevistas y pruebas realizadas a mi persona.
+     b) Para que el <pro> me informe de los resultados de las entrevistas y pruebas realizadas a mi persona.
 
-Así mismo manifiesto y estoy enterado(a) de que quedo en libertad de revocar el presente consentimiento, sabiendo que para dichos efectos es suficiente entregar una solicitud de revocación del consentimiento dirigida al consultor o terapeuta que me dio acceso a esta plataforma; o acudir personalmente a la oficina o consultor para redactar la revocación de mi consentimiento.`,
+Así mismo manifiesto y estoy enterado(a) de que quedo en libertad de revocar el presente consentimiento, sabiendo que para dichos efectos es suficiente entregar una solicitud de revocación del consentimiento dirigida al <pro> que me dio acceso a esta plataforma; o acudir personalmente a la oficina o consultorio para redactar la revocación de mi consentimiento.`,
     requiereCheckbox: true,
     textoCheckbox: 'Manifiesto y otorgo mi Consentimiento Informado en los términos aquí expuestos.',
     esConsentimiento: true,
@@ -61,17 +64,21 @@ export default function OnboardingPage() {
   const [aceptadoGeneral, setAceptadoGeneral] = useState(false)
   const [aceptadoConsentimiento, setAceptadoConsentimiento] = useState(false)
   const [guardando, setGuardando] = useState(false)
-  const [contacto, setContacto] = useState('contacta a tu terapeuta')
+  const [contacto, setContacto] = useState('contacta a tu <pro>')
+  // null = aún cargando: los textos esperan para no cambiar de palabra frente al paciente
+  const [terminologia, setTerminologia] = useState<Terminologia | null>(null)
 
-  // Contacto según la empresa CONVENIO del paciente, o el teléfono del terapeuta si no tiene empresa
+  // Contacto y terminología según la empresa CONVENIO del paciente, o el teléfono del terapeuta si no tiene empresa
   useEffect(() => {
     fetch('/api/patient/contacto')
       .then(r => r.json())
-      .then((d: { destino?: string }) => {
+      .then((d: { destino?: string; terminologia?: Terminologia }) => {
         if (d.destino) setContacto(`contacta a ${d.destino}`)
+        setTerminologia(d.terminologia ?? TERMINOLOGIA_SIN_EMPRESA)
       })
-      .catch(() => { /* se queda el texto genérico */ })
+      .catch(() => setTerminologia(TERMINOLOGIA_SIN_EMPRESA))
   }, [])
+  const t = (texto: string) => aplicarTerminologia(texto, terminologia ?? TERMINOLOGIA_SIN_EMPRESA)
 
   const esUltimo = paso === pasos.length - 1
   const actual = pasos[paso]
@@ -137,7 +144,7 @@ export default function OnboardingPage() {
           <p className={`text-gray-600 text-sm leading-relaxed whitespace-pre-line ${
             esPasoConsentimiento ? 'text-justify' : 'text-center'
           }`}>
-            {actual.contenido.replace('{{CONTACTO}}', contacto)}
+            {terminologia ? t(actual.contenido.replace('{{CONTACTO}}', contacto)) : ''}
           </p>
 
           {/* Checkbox */}
@@ -153,7 +160,7 @@ export default function OnboardingPage() {
                 className="mt-0.5 accent-primary-600 w-5 h-5 flex-shrink-0"
               />
               <span className="text-sm text-gray-700 leading-relaxed font-medium">
-                {actual.textoCheckbox}
+                {terminologia ? t(actual.textoCheckbox ?? '') : ''}
               </span>
             </label>
           )}

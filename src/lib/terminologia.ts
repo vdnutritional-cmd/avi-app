@@ -14,6 +14,9 @@ export type Terminologia = 'paciente' | 'asesorado'
 
 export const TERMINOLOGIA_DEFAULT: Terminologia = 'asesorado'
 
+/** Pacientes sin empresa (independientes del terapeuta). Pendiente decisión A: mientras, siguen como hoy */
+export const TERMINOLOGIA_SIN_EMPRESA: Terminologia = 'paciente'
+
 export const TERMINOLOGIA_OPCIONES: { valor: Terminologia; nombre: string; ejemplo: string }[] = [
   { valor: 'paciente',  nombre: 'Paciente',  ejemplo: 'paciente · terapeuta · terapia' },
   { valor: 'asesorado', nombre: 'Asesorado', ejemplo: 'asesorado · asesor · asesoría' },
