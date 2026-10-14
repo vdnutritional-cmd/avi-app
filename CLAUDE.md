@@ -1,6 +1,6 @@
 # AVI Therapy Companion App — Contexto para Claude Code
 
-> **Versión:** 1.0 (cerrada) · **Actualizado:** 13 octubre 2026  
+> **Versión:** 1.0 (cerrada) · **Actualizado:** 14 octubre 2026  
 > Este archivo es el punto de entrada para cualquier sesión de Claude Code en este proyecto.  
 > Léelo completo antes de modificar cualquier archivo.
 
@@ -96,7 +96,7 @@ src/app/
 │   ├── ControlPlanesTabla.tsx      Tabla "Control de Planes y Contrataciones" (acordeones <details>, fila Total)
 │   ├── terapeutas/page.tsx         ACCIONES: Aprobar gratis permanente, Companion, tier, revocar, desactivar/reactivar
 │   ├── convenio/page.tsx           Códigos CONVENIO + logos de empresa
-│   ├── convenio-empresas/page.tsx  Teléfono + logo + Personas Institucionales por empresa
+│   ├── convenio-empresas/page.tsx  Agregar/activar empresa + Personas Institucionales (terminología, teléfono y logo: Configuración Admin)
 │   ├── reportes/page.tsx
 │   └── auditoria/page.tsx
 
@@ -235,7 +235,7 @@ Los 6 reportes que usan `sharedCSS()` ya lo tienen. Los demás lo tienen inline.
 
 | Tabla | Descripción |
 |---|---|
-| `profiles` | Usuarios (role: therapist / patient / admin), therapy_profile, `is_active` (desactivar terapeuta: no inicia sesión), `unlimited_avi_sessions` (excepción del límite; solo la cuenta de prueba). `bloqueo_manual` existe pero no se usa. El WhatsApp del terapeuta está en **auth `user_metadata.whatsapp_phone`**, no en profiles |
+| `profiles` | Usuarios (role: therapist / patient / admin), therapy_profile, `terminologia` ("Cómo me nombran": paciente/asesorado para sus personas sin empresa), `is_active` (desactivar terapeuta: no inicia sesión), `unlimited_avi_sessions` (excepción del límite; solo la cuenta de prueba). `bloqueo_manual` existe pero no se usa. El WhatsApp del terapeuta está en **auth `user_metadata.whatsapp_phone`**, no en profiles |
 | `subscriptions` | Plan del terapeuta: status, plan, tier (esencial/clinico), patient_slots. Constraint `subscriptions_plan_check`: `paid, free, valora, unit, companion` — **ampliarlo si se agrega un tipo de plan nuevo** |
 | `therapist_patients` | Relación terapeuta-paciente. `is_active` + `status`: `active` · `archived` (fusionado/transferido) · `inactive` (bloqueado por inactividad, cron) · `blocked` (bloqueado manualmente). CHECK ampliado en migración `20261009` |
 | `sessions` | Sesiones AVI del paciente: `status` active/completed, `modo` (`hablada`/`escrita`; NULL = antes del 12 oct), `rag_personalista` (3 pasajes reutilizados en toda la sesión) |
@@ -245,7 +245,7 @@ Los 6 reportes que usan `sharedCSS()` ya lo tienen. Los demás lo tienen inline.
 | `patient_expediente` | Expediente clínico completo (Individual, Familiar, Pareja, Análisis Clínicos, HC, info_*) |
 | `patient_questionnaires` | Cuestionarios asignados (McMaster FAD) |
 | `convenio_codes` | Códigos de descuento CONVENIO (`code`, `plan_id`, `used_by`, `expires_at`, `is_active`) |
-| `convenio_empresas` | Empresas convenio (nombre, logo_url, `telefono`, is_active) |
+| `convenio_empresas` | Empresas convenio (nombre, logo_url, `telefono`, `terminologia` paciente/asesorado, is_active). Terminología, teléfono y logo los configura la empresa en Configuración Admin |
 | `therapist_empresa` | Relación terapeuta ↔ empresa |
 | `therapist_slot_bundles` | Paquetes de slots (`source_type`: convenio/regular/free_approved · `empresa_id`: null=independientes · `patient_slots` · `status`) |
 | `convenio_personas_institucionales` | Personas institucionales (rol especial en empresa) |
@@ -413,6 +413,8 @@ Se guardan como N1/N2/N3; en pantalla siempre se muestra el nombre (`NIVEL_NOMBR
 | `patient-contacto.ts` | Contacto del paciente para la bienvenida y el chat |
 | `limite-sesiones-avi.ts` | `getEstadoSesionesAvi()` — sesiones AVI permitidas (política por frecuencia) |
 | `cerrar-sesion-avi.ts` | `procesarCierreSesion()` (patrones + completed) y `cerrarSesionesAbiertas()` |
+| `terminologia.ts` | Diccionario `<user>/<pro>/<serv>` (paciente/terapeuta/terapia · asesorado/asesor/asesoría), `terminos()`, `aplicarTerminologia()` |
+| `terminologia-paciente.ts` | Política: qué palabra ve cada quien (persona, terapeuta, pantallas generales). Solo servidor |
 | `modo-platica.ts` | Modo elegido (hablada/escrita) y borrador sin enviar, en localStorage; se olvidan al salir |
 | `rag/retrieve-chunks.ts` | `retrievePasajesPersonalismo()` — 3 pasajes de 5 libros personalistas para el chat AVI |
 
@@ -424,6 +426,15 @@ Se guardan como N1/N2/N3; en pantalla siempre se muestra el nombre (`NIVEL_NOMBR
 |---|---|
 | **SaaS Controller** (`/admin`, superadmin) | Panel de Control AVI · ⚙️ **Configuración AVI** (acordeón: Terapeutas, Códigos CONVENIO, Empresas en CONVENIO) · AVI Administración (`/admin/institucional`, todas las empresas) · Reportes de Control · Auditoría |
 | **Administración** (`/institucional`, Personas Institucionales, solo sus empresas) | Panel de Control · Reporte General · Reporte por Terapeuta · Baja de Terapeutas |
+
+## Terminología Paciente / Asesorado (14 oct 2026)
+
+Por cuestión legal (instituciones Sin Fines de Lucro no pueden usar "paciente"). Inventario de textos en `../AVI - Inventario Terminología.md`.
+- **Empresa:** la define la Persona Institucional User/Superuser en **Administración › Configuración Admin** (`/institucional/configuracion`, también teléfono y logo). El superadmin, en AVI Administración › Configuración Admin. API `/api/institucional/empresa-config` (permiso por empresa, logo subido desde el servidor). Empresas en CONVENIO del SaaS Controller ya no lo hace.
+- **Persona con empresa:** la de su empresa (bienvenida, chat, y lo que ve el terapeuta dentro de ella). **Sin empresa:** "Cómo me nombran" del terapeuta (`/therapist/configuracion/terminologia`).
+- **Menú y pantallas generales del terapeuta:** una sola palabra; "asesorado" si alguna empresa suya (o su elección) lo es. Nunca "pacientes/asesorados".
+- **Logo:** se imprime en 140 × 48 px; medida recomendada 360 × 144 px (2.5 : 1), sin márgenes.
+- Aplicado hasta la página 3 del inventario (Bienvenida, Habla, cuestionario, menú, Dashboard).
 
 ## SaaS Controller — información vs. acción
 
@@ -565,7 +576,8 @@ npm run build
 - **Último commit Sprint 12 Companion:** `dd614c6`
 - **Último commit fixes Stripe CONVENIO + contacto por empresa:** `9f5ee22` (06 oct 2026)
 - **Respaldo del 10 oct:** `89cfffc` — Control de Planes, motivo de bloqueo, terapeuta desactivado, Admin › Terapeutas Temporal/Permanente
-- **Último commit respaldado:** `15ebffb` (13 oct 2026) — nombres: SaaS Controller, Configuración AVI, Administración, niveles Superuser/User/Community Manager
+- **Último commit respaldado:** `bb25486` (14 oct 2026) — terminología Paciente/Asesorado: Configuración Admin por empresa, Cómo me nombran, inventario páginas 1–3
+- **Respaldo del 13 oct:** `15ebffb` — nombres: SaaS Controller, Configuración AVI, Administración, niveles
 - **Respaldo anterior:** `69954cd` (12 oct 2026) — chat AVI (tiempos, caché real 1h+5m, base personalista, política de sesiones, modo escrito, retomar sesión, sesiones anteriores), Administración Institucional AVI, transferir paciente seguro
 - Confirmar el deploy: `vercel ls` / `vercel inspect go.avi-app.com.mx` (CLI con sesión en la Mac)
 - `npx next build` modifica `tsconfig.json` solo (jsx, `.next/dev/types`): regresarlo con `git checkout tsconfig.json` antes de hacer commit
