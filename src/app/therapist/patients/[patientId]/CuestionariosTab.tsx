@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { terminos, TERMINOLOGIA_SIN_EMPRESA, type Terminologia } from '@/lib/terminologia'
 import {
   FAD_DIMENSION_LABELS,
   FAD_DIMENSION_ORDER,
@@ -11,6 +12,8 @@ import {
 interface Props {
   patientId: string
   therapistId: string
+  /** Palabras de esta persona (Inventario de Terminología, página 6) */
+  terminologia?: Terminologia
 }
 
 interface Cuestionario {
@@ -28,7 +31,8 @@ const TIPOS_DISPONIBLES = [
   { value: 'mcmaster_fad', label: 'FAD McMaster — Evaluación Familiar (60 ítems)' },
 ]
 
-export default function CuestionariosTab({ patientId, therapistId }: Props) {
+export default function CuestionariosTab({ patientId, therapistId, terminologia = TERMINOLOGIA_SIN_EMPRESA }: Props) {
+  const w = terminos(terminologia)
   const [cuestionarios, setCuestionarios] = useState<Cuestionario[]>([])
   const [loading, setLoading]             = useState(true)
   const [asignando, setAsignando]         = useState(false)
@@ -81,7 +85,7 @@ export default function CuestionariosTab({ patientId, therapistId }: Props) {
 
       {/* ── Asignar ── */}
       <div className="bg-indigo-50 border border-indigo-200 rounded-2xl px-5 py-4">
-        <p className="text-sm font-semibold text-indigo-800 mb-3">Asignar cuestionario al paciente</p>
+        <p className="text-sm font-semibold text-indigo-800 mb-3">Asignar cuestionario al {w.user}</p>
         <div className="flex gap-3">
           <select
             value={tipoSeleccionado}
@@ -103,7 +107,7 @@ export default function CuestionariosTab({ patientId, therapistId }: Props) {
           </button>
         </div>
         <p className="text-xs text-indigo-500 mt-2">
-          El paciente verá el cuestionario pendiente en su pantalla principal de AVI.
+          El {w.user} verá el cuestionario pendiente en su pantalla principal de AVI.
         </p>
       </div>
 
@@ -161,7 +165,7 @@ export default function CuestionariosTab({ patientId, therapistId }: Props) {
 
       {cuestionarios.length === 0 && (
         <p className="text-center text-sm text-gray-400 py-8">
-          Aún no has asignado cuestionarios a este paciente.
+          Aún no has asignado cuestionarios a este {w.user}.
         </p>
       )}
     </div>

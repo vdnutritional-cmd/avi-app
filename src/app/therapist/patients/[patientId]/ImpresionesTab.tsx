@@ -444,7 +444,7 @@ export default function ImpresionesTab({ patientId, therapistId, patientName }: 
 
           {/* Bitácora */}
           <IndexCard
-            icon="📅" title="Bitácora de Asesoría" color="green"
+            icon="📅" title="Bitácora de Sesiones Presenciales" color="green"
             status={hasSesiones ? 'ready' : 'unavailable'}
             desc={hasSesiones
               ? `${sesiones.length} sesión${sesiones.length !== 1 ? 'es' : ''} presencial${sesiones.length !== 1 ? 'es' : ''} registrada${sesiones.length !== 1 ? 's' : ''}`

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { terminos, TERMINOLOGIA_SIN_EMPRESA, type Terminologia } from '@/lib/terminologia'
 import { resolveFactores, SCHEMA_LABELS, FactorGroup } from './factores-nota-inicial'
 
 // ── Constantes ────────────────────────────────────────────────────────────────
@@ -233,10 +234,13 @@ function AnalysisButton({
 interface Props {
   patientId: string
   therapistId: string
+  /** Palabras de esta persona (Inventario de Terminología, página 6) */
+  terminologia?: Terminologia
 }
 
 // ── Componente principal ──────────────────────────────────────────────────────
-export default function FamiliarTab({ patientId, therapistId }: Props) {
+export default function FamiliarTab({ patientId, therapistId, terminologia = TERMINOLOGIA_SIN_EMPRESA }: Props) {
+  const w = terminos(terminologia)
   const [data, setData]     = useState<FamiliarData>(vacio())
   const [saved, setSaved]   = useState<FamiliarData>(vacio())
   const [loading, setLoading] = useState(true)
@@ -511,7 +515,7 @@ export default function FamiliarTab({ patientId, therapistId }: Props) {
       </div>
 
       {/* ── Apartado 1: Síntomas ── */}
-      <SectionCard num="1" title="Síntomas" desc="Las observaciones que expresa el paciente o asesorado de uno o varios conflictos.">
+      <SectionCard num="1" title="Síntomas" desc={`Las observaciones que expresa el ${w.user} de uno o varios conflictos.`}>
         <WordLimitTextarea
           value={data.sintomas}
           onChange={v => set('sintomas', v)}

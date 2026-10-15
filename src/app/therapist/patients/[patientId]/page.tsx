@@ -2359,6 +2359,7 @@ export default function PatientDetailPage() {
           therapistId={therapistId}
           patientEmail={profile?.email ?? null}
           patientName={profile?.full_name ?? null}
+          terminologia={terminologia.persona}
           controlledSubTab={activeTab as 'individual' | 'familiar' | 'pareja' | 'prediagnostico' | 'analisis-clinicos' | 'cuestionarios' | 'impresiones'}
         />
       )}

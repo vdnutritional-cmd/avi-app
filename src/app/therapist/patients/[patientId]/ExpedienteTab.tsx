@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import type { Terminologia } from '@/lib/terminologia'
 import IndividualTab from './IndividualTab'
 import ImpresionesTab from './ImpresionesTab'
 import FamiliarTab from './FamiliarTab'
@@ -22,12 +23,14 @@ interface Props {
   patientName: string | null
   /** Cuando se pasa desde el sidebar EHR, sobreescribe el subTab interno y oculta la sub-nav */
   controlledSubTab?: ClinicSubTab
+  /** Palabras de esta persona (Inventario de Terminología, página 6) */
+  terminologia?: Terminologia
 }
 
 // ──────────────────────────────────────────────
 // Main component
 // ──────────────────────────────────────────────
-export default function ExpedienteTab({ patientId, therapistId, patientEmail: _patientEmail, patientName, controlledSubTab }: Props) {
+export default function ExpedienteTab({ patientId, therapistId, patientEmail: _patientEmail, patientName, controlledSubTab, terminologia }: Props) {
   const [tipoCaso, setTipoCaso] = useState('')
   const [loading, setLoading] = useState(true)
   const [subTab, setSubTab] = useState<ClinicSubTab>('prediagnostico')
@@ -126,6 +129,7 @@ export default function ExpedienteTab({ patientId, therapistId, patientEmail: _p
           patientId={patientId}
           therapistId={therapistId}
           patientName={patientName}
+          terminologia={terminologia}
         />
       )}
 
@@ -143,6 +147,7 @@ export default function ExpedienteTab({ patientId, therapistId, patientEmail: _p
         <FamiliarTab
           patientId={patientId}
           therapistId={therapistId}
+          terminologia={terminologia}
         />
       )}
 
@@ -159,6 +164,7 @@ export default function ExpedienteTab({ patientId, therapistId, patientEmail: _p
         <AnalisisClanicosTab
           patientId={patientId}
           therapistId={therapistId}
+          terminologia={terminologia}
         />
       )}
 
@@ -175,6 +181,7 @@ export default function ExpedienteTab({ patientId, therapistId, patientEmail: _p
         <CuestionariosTab
           patientId={patientId}
           therapistId={therapistId}
+          terminologia={terminologia}
         />
       )}
     </div>

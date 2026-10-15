@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { terminos, TERMINOLOGIA_SIN_EMPRESA, type Terminologia } from '@/lib/terminologia'
 import { DIMENSIONES } from './print-utils'
 import { resolveFactores, SCHEMA_LABELS, FactorGroup } from './factores-nota-inicial'
 
@@ -94,12 +95,15 @@ interface Props {
   patientId: string
   therapistId: string
   patientName: string | null
+  /** Palabras de esta persona (Inventario de Terminología, página 6) */
+  terminologia?: Terminologia
 }
 
 // ──────────────────────────────────────────────────────────
 // Componente principal
 // ──────────────────────────────────────────────────────────
-export default function IndividualTab({ patientId, therapistId, patientName: _patientName }: Props) {
+export default function IndividualTab({ patientId, therapistId, patientName: _patientName, terminologia = TERMINOLOGIA_SIN_EMPRESA }: Props) {
+  const w = terminos(terminologia)
   const [data, setData] = useState<IndividualData>(vacio())
   const [saved, setSaved] = useState<IndividualData>(vacio())
   const [loading, setLoading] = useState(true)
@@ -377,7 +381,7 @@ export default function IndividualTab({ patientId, therapistId, patientName: _pa
       {/* ── Apartado 4: Sintomatología ── */}
       <SectionCard num="4" title="Sintomatología observada">
         <p className="text-xs text-gray-400 mb-3">
-          Análisis AVI — Sintomatología que presenta el paciente (máx. 100 palabras), basado en la Nota Inicial.
+          Análisis AVI — Sintomatología que presenta el {w.user} (máx. 100 palabras), basado en la Nota Inicial.
           Puedes editar el resultado directamente.
         </p>
         <div className="space-y-3">

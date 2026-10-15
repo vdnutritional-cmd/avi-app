@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { terminos, TERMINOLOGIA_SIN_EMPRESA, type Terminologia } from '@/lib/terminologia'
 import {
   FAD_ITEMS,
   FAD_DIMENSION_LABELS,
@@ -17,6 +18,8 @@ import {
 interface Props {
   patientId:   string
   therapistId: string
+  /** Palabras de esta persona (Inventario de Terminología, página 6) */
+  terminologia?: Terminologia
 }
 
 // ──────────────────────────────────────────────────────────
@@ -168,14 +171,15 @@ function ImageUpload({
 
 // Textarea editable con label
 function InterpretacionArea({
-  value, onChange, placeholder, rows = 6,
+  value, onChange, placeholder, rows = 6, pro,
 }: {
   value: string; onChange: (v: string) => void; placeholder?: string; rows?: number
+  pro: string   // <Pro> de la persona: Terapeuta / Asesor
 }) {
   return (
     <div>
       <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-        Interpretación del Terapeuta
+        Interpretación del {pro}
       </label>
       <textarea
         rows={rows}
@@ -193,7 +197,8 @@ function InterpretacionArea({
 // ──────────────────────────────────────────────────────────
 // Componente principal
 // ──────────────────────────────────────────────────────────
-export default function AnalisisClanicosTab({ patientId, therapistId }: Props) {
+export default function AnalisisClanicosTab({ patientId, therapistId, terminologia = TERMINOLOGIA_SIN_EMPRESA }: Props) {
+  const w = terminos(terminologia)
   const [loading,        setLoading]        = useState(true)
   const [indexOpen,      setIndexOpen]      = useState(false)
 
@@ -388,7 +393,7 @@ export default function AnalisisClanicosTab({ patientId, therapistId }: Props) {
 
   // ── McMaster — generar interpretación IA ──────────────
   async function generarInterpretacionMc() {
-    if (!mcResult) { alert('No hay resultados McMaster del paciente para interpretar.'); return }
+    if (!mcResult) { alert(`No hay resultados McMaster del ${w.user} para interpretar.`); return }
     setGenerandoMc(true)
     try {
       const res = await fetch('/api/analisis-clinicos', {
@@ -588,7 +593,7 @@ export default function AnalisisClanicosTab({ patientId, therapistId }: Props) {
           {/* Botón generar descripción */}
           <div className="flex items-center justify-between flex-wrap gap-2">
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              Descripción / Interpretación del Terapeuta
+              Descripción / Interpretación del {w.Pro}
             </label>
             <button
               onClick={generarDescripcionGenograma}
@@ -603,6 +608,7 @@ export default function AnalisisClanicosTab({ patientId, therapistId }: Props) {
             </button>
           </div>
           <InterpretacionArea
+            pro={w.Pro}
             value={genogramaInterp}
             onChange={setGenogramaInterp}
             placeholder="Presiona 'Generar descripción' para obtener una guía de las relaciones familiares basada en la Sesión inicial, o escribe tu interpretación directamente…"
@@ -628,7 +634,7 @@ export default function AnalisisClanicosTab({ patientId, therapistId }: Props) {
               <p className="text-3xl">📋</p>
               <p className="text-sm text-gray-500 font-medium">Sin cuestionario completado</p>
               <p className="text-xs text-gray-400">
-                El paciente aún no ha completado el cuestionario FAD McMaster.<br />
+                El {w.user} aún no ha completado el cuestionario FAD McMaster.<br />
                 Asígnalo desde la pestaña <strong>Cuestionarios</strong>.
               </p>
             </div>
@@ -721,6 +727,7 @@ export default function AnalisisClanicosTab({ patientId, therapistId }: Props) {
                   </div>
                 )}
                 <InterpretacionArea
+                  pro={w.Pro}
                   value={mcInterp}
                   onChange={setMcInterp}
                   placeholder="La interpretación clínica del FAD McMaster aparecerá aquí. Puedes editarla antes de guardar."
@@ -749,6 +756,7 @@ export default function AnalisisClanicosTab({ patientId, therapistId }: Props) {
             label="Sube aquí la imagen del Análisis FODA (PNG / JPG)"
           />
           <InterpretacionArea
+            pro={w.Pro}
             value={fodaInterp}
             onChange={setFodaInterp}
             placeholder="Describe tu interpretación del FODA: fortalezas, oportunidades, debilidades y amenazas identificadas en el caso…"
@@ -829,7 +837,7 @@ export default function AnalisisClanicosTab({ patientId, therapistId }: Props) {
               <>
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                    Resumen del Terapeuta — edita antes de guardar
+                    Resumen del {w.Pro} — edita antes de guardar
                   </label>
                   <textarea
                     rows={20}
@@ -900,7 +908,7 @@ export default function AnalisisClanicosTab({ patientId, therapistId }: Props) {
             <>
               <div>
                 <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                  Diagnóstico del Terapeuta — edita antes de guardar
+                  Diagnóstico del {w.Pro} — edita antes de guardar
                 </label>
                 <textarea
                   rows={22}
@@ -970,7 +978,7 @@ export default function AnalisisClanicosTab({ patientId, therapistId }: Props) {
             <>
               <div>
                 <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                  Informe del Terapeuta — edita antes de guardar
+                  Informe del {w.Pro} — edita antes de guardar
                 </label>
                 <textarea
                   rows={28}
@@ -1007,7 +1015,7 @@ export default function AnalisisClanicosTab({ patientId, therapistId }: Props) {
       >
         <div className="space-y-3">
           <p className="text-xs text-gray-400">
-            Espacio libre para añadir cualquier información relevante que el terapeuta considere pertinente.
+            Espacio libre para añadir cualquier información relevante que el {w.pro} considere pertinente.
           </p>
           <textarea
             rows={8}
