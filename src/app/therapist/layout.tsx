@@ -9,6 +9,7 @@ import ActivarPlan from './ActivarPlan'
 import CuentaDesactivada from './CuentaDesactivada'
 import { getTerminologiaTerapeuta } from '@/lib/terminologia-paciente'
 import InactivityGuard from '@/components/InactivityGuard'
+import { TerminologiaMenuProvider } from './TerminologiaMenu'
 import { permisosPI } from '@/lib/niveles-institucionales'
 
 // Statuses que permiten acceso al app
@@ -106,7 +107,7 @@ export default async function TherapistLayout({ children }: { children: React.Re
 
         {/* Contenido principal — padding-top extra en móvil para el botón hamburger */}
         <main className="flex-1 p-8 pt-16 md:pt-8 overflow-y-auto">
-          {children}
+          <TerminologiaMenuProvider terminologia={terminologia}>{children}</TerminologiaMenuProvider>
         </main>
 
         <PushRegistrar />

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import { getAccesoTerapeuta } from '@/lib/acceso-paciente'
+import { useTerminologiaMenu } from '../TerminologiaMenu'
 
 interface Code {
   code: string
@@ -19,6 +20,8 @@ interface SlotInfo {
 }
 
 export default function CodesPage() {
+  // Palabra del menú del terapeuta (Inventario de Terminología, página 8)
+  const w = useTerminologiaMenu()
   const [codes, setCodes] = useState<Code[]>([])
   const [loading, setLoading] = useState(false)
   const [generating, setGenerating] = useState(false)
@@ -101,7 +104,7 @@ export default function CodesPage() {
       <div>
         <h1 className="text-xl font-semibold text-gray-800">Códigos de acceso</h1>
         <p className="text-sm text-gray-500 mt-1">
-          Genera un código y dáselo a tu paciente para que se registre en Recupérate.
+          Genera un código y dáselo a tu {w.user} para que se registre en AVI.
         </p>
       </div>
 
@@ -114,10 +117,10 @@ export default function CodesPage() {
             <p className={`text-sm font-medium ${
               slots.isCompanion ? 'text-emerald-800' : 'text-purple-800'
             }`}>
-              {`Pacientes independientes: ${slots.used} / ${slots.total}`}
+              {`${w.Users} independientes: ${slots.used} / ${slots.total}`}
             </p>
             <p className="text-xs text-purple-600 mt-0.5">
-              Los pacientes de empresas en CONVENIO no cuentan en este límite.
+              Los {w.users} de empresas en CONVENIO no cuentan en este límite.
             </p>
             <div className={`mt-1.5 h-1.5 rounded-full w-48 ${
               slots.isCompanion ? 'bg-emerald-100' : 'bg-purple-100'

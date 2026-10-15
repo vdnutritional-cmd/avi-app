@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { useTerminologiaMenu } from '../TerminologiaMenu'
 
 type Paciente = { id: string; nombre: string; email: string }
 
@@ -27,6 +28,8 @@ function TextoConNegritas({ texto }: { texto: string }) {
 }
 
 export default function TransferirPacientePage() {
+  // Palabra del menú del terapeuta (Inventario de Terminología, página 8)
+  const w = useTerminologiaMenu()
   const router = useRouter()
   const [pacientes,      setPacientes]      = useState<Paciente[]>([])
   const [pacienteId,     setPacienteId]     = useState('')
@@ -125,12 +128,12 @@ export default function TransferirPacientePage() {
       {/* Cabecera */}
       <div>
         <Link href="/therapist/patients" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">
-          ← Mis pacientes
+          ← Mis {w.Users}
         </Link>
-        <h1 className="mt-3 text-xl font-bold text-gray-900">Transferir paciente</h1>
+        <h1 className="mt-3 text-xl font-bold text-gray-900">Transferir {w.user}</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Traslada el expediente completo de un paciente a otro terapeuta de AVI.
-          El paciente no notará ningún cambio — seguirá usando su mismo correo y contraseña.
+          Traslada el expediente completo de un {w.user} a otro {w.pro} de AVI.
+          El {w.user} no notará ningún cambio — seguirá usando su mismo correo y contraseña.
         </p>
       </div>
 
@@ -140,16 +143,16 @@ export default function TransferirPacientePage() {
 
           {/* Selector de paciente */}
           <div className="space-y-1">
-            <label className="block text-sm font-medium text-gray-700">Paciente a transferir</label>
+            <label className="block text-sm font-medium text-gray-700">{w.User} a transferir</label>
             {loadingPacientes ? (
-              <p className="text-sm text-gray-400 py-2">Cargando pacientes…</p>
+              <p className="text-sm text-gray-400 py-2">Cargando {w.users}…</p>
             ) : (
               <select
                 value={pacienteId}
                 onChange={e => { setPacienteId(e.target.value); setError('') }}
                 className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 bg-white"
               >
-                <option value="">— Selecciona un paciente —</option>
+                <option value="">— Selecciona un {w.user} —</option>
                 {pacientes.map(p => (
                   <option key={p.id} value={p.id}>
                     {p.nombre} {p.email ? `(${p.email})` : ''}
@@ -162,16 +165,16 @@ export default function TransferirPacientePage() {
           {/* Email del receptor */}
           <div className="space-y-1">
             <label className="block text-sm font-medium text-gray-700">
-              Correo del terapeuta receptor
+              Correo del {w.pro} receptor
             </label>
             <input
               type="email"
               value={emailReceptor}
               onChange={e => { setEmailReceptor(e.target.value); setError('') }}
-              placeholder="terapeuta@ejemplo.com"
+              placeholder={`${w.pro}@ejemplo.com`}
               className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300"
             />
-            <p className="text-xs text-gray-400">Debe tener una cuenta de terapeuta activa en AVI</p>
+            <p className="text-xs text-gray-400">Debe tener una cuenta de {w.pro} activa en AVI</p>
           </div>
 
           {/* Modalidad */}
@@ -188,7 +191,7 @@ export default function TransferirPacientePage() {
               />
               <div>
                 <p className="text-sm font-medium text-gray-800">Traslado completo</p>
-                <p className="text-xs text-gray-500">El paciente desaparece de tu lista. Solo el terapeuta receptor lo verá.</p>
+                <p className="text-xs text-gray-500">El {w.user} desaparece de tu lista. Solo el {w.pro} receptor lo verá.</p>
               </div>
             </label>
             <label className="flex items-start gap-3 cursor-pointer group">
@@ -202,7 +205,7 @@ export default function TransferirPacientePage() {
               />
               <div>
                 <p className="text-sm font-medium text-gray-800">Traslado compartido</p>
-                <p className="text-xs text-gray-500">Ambos terapeutas tendrán acceso al paciente y su historial.</p>
+                <p className="text-xs text-gray-500">Ambos {w.pros} tendrán acceso al {w.user} y su historial.</p>
               </div>
             </label>
           </div>
@@ -230,13 +233,13 @@ export default function TransferirPacientePage() {
             {/* Origen → Receptor */}
             <div className="flex items-start gap-3">
               <div className="flex-1 bg-amber-50 border border-amber-100 rounded-xl p-3">
-                <p className="text-xs font-semibold text-amber-700 mb-1">PACIENTE</p>
+                <p className="text-xs font-semibold text-amber-700 mb-1">{w.User.toUpperCase()}</p>
                 <p className="text-sm font-medium text-gray-800">{preview.paciente.nombre}</p>
                 <p className="text-xs text-gray-500 truncate">{preview.paciente.email}</p>
               </div>
               <div className="flex items-center pt-6 text-gray-400 text-xl">→</div>
               <div className="flex-1 bg-green-50 border border-green-100 rounded-xl p-3">
-                <p className="text-xs font-semibold text-green-700 mb-1">TERAPEUTA RECEPTOR</p>
+                <p className="text-xs font-semibold text-green-700 mb-1">{w.Pro.toUpperCase()} RECEPTOR</p>
                 <p className="text-sm font-medium text-gray-800">{preview.receptor.nombre}</p>
                 <p className="text-xs text-gray-500 truncate">{preview.receptor.email}</p>
               </div>
@@ -262,8 +265,8 @@ export default function TransferirPacientePage() {
             {/* Modalidad elegida */}
             <div className={`rounded-xl p-3 text-sm ${modalidad === 'completo' ? 'bg-red-50 text-red-700' : 'bg-blue-50 text-blue-700'}`}>
               {modalidad === 'completo'
-                ? '⚠️ Traslado completo: el paciente desaparecerá de tu lista activa después de confirmar.'
-                : 'ℹ️ Traslado compartido: seguirás viendo al paciente en tu lista junto con el nuevo terapeuta.'}
+                ? `⚠️ Traslado completo: el ${w.user} desaparecerá de tu lista activa después de confirmar.`
+                : `ℹ️ Traslado compartido: seguirás viendo al ${w.user} en tu lista junto con el nuevo ${w.pro}.`}
             </div>
 
             {error && (
@@ -296,24 +299,24 @@ export default function TransferirPacientePage() {
           <h2 className="text-lg font-bold text-gray-800">¡Traslado completado!</h2>
           <p className="text-sm text-gray-500">
             {exitoModalidad === 'completo'
-              ? `Todo el expediente fue trasladado al terapeuta receptor. El paciente ya no aparece en tu lista activa.`
-              : `El expediente fue copiado al terapeuta receptor. Ambos tienen acceso al paciente.`}
+              ? `Todo el expediente fue trasladado al ${w.pro} receptor. El ${w.user} ya no aparece en tu lista activa.`
+              : `El expediente fue copiado al ${w.pro} receptor. Ambos tienen acceso al ${w.user}.`}
           </p>
           <p className="text-xs text-gray-400">
-            El paciente puede seguir usando AVI con su mismo correo y contraseña sin ningún cambio.
+            El {w.user} puede seguir usando AVI con su mismo correo y contraseña sin ningún cambio.
           </p>
           <div className="flex gap-3 justify-center pt-2">
             <button
               onClick={() => { router.push('/therapist/patients'); router.refresh() }}
               className="px-5 py-2.5 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 transition-colors"
             >
-              Ir a Mis pacientes
+              Ir a Mis {w.Users}
             </button>
             <button
               onClick={reiniciar}
               className="px-5 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
             >
-              Transferir otro paciente
+              Transferir otro {w.user}
             </button>
           </div>
         </div>

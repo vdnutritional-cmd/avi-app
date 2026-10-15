@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useTerminologiaMenu } from '../TerminologiaMenu'
 
 type Preview = {
   origen:  { email: string; tieneNotaInicial: boolean; fechaNota: string | null }
@@ -13,6 +14,8 @@ type Preview = {
 type Paso = 'formulario' | 'preview' | 'exito'
 
 export default function FusionarPacientePage() {
+  // Palabra del menú del terapeuta (Inventario de Terminología, página 8)
+  const w = useTerminologiaMenu()
   const [emailOrigen, setEmailOrigen]   = useState('')
   const [emailDestino, setEmailDestino] = useState('')
   const [preview, setPreview]           = useState<Preview | null>(null)
@@ -67,11 +70,11 @@ export default function FusionarPacientePage() {
       {/* Cabecera */}
       <div>
         <Link href="/therapist/patients" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">
-          ← Mis pacientes
+          ← Mis {w.Users}
         </Link>
-        <h1 className="mt-3 text-xl font-bold text-gray-900">Fusionar cuentas de paciente</h1>
+        <h1 className="mt-3 text-xl font-bold text-gray-900">Fusionar cuentas de {w.user}</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Copia la nota inicial y las sesiones presenciales de una cuenta temporal a la cuenta real del paciente.
+          Copia la nota inicial y las sesiones presenciales de una cuenta temporal a la cuenta real del {w.user}.
           La cuenta temporal quedará archivada y dejará de aparecer en tu lista.
         </p>
       </div>
@@ -101,14 +104,14 @@ export default function FusionarPacientePage() {
 
           <div className="space-y-1">
             <label className="block text-sm font-medium text-gray-700">
-              Correo de la cuenta <span className="text-green-600 font-semibold">real del paciente</span>
-              <span className="text-xs font-normal text-gray-400 ml-1">(la que creó el paciente)</span>
+              Correo de la cuenta <span className="text-green-600 font-semibold">real del {w.user}</span>
+              <span className="text-xs font-normal text-gray-400 ml-1">(la que creó el {w.user})</span>
             </label>
             <input
               type="email"
               value={emailDestino}
               onChange={e => { setEmailDestino(e.target.value); setError('') }}
-              placeholder="correo.real@paciente.com"
+              placeholder="correo.real@ejemplo.com"
               className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300"
             />
           </div>
@@ -174,7 +177,7 @@ export default function FusionarPacientePage() {
 
             {/* Qué pasará con la temporal */}
             <p className="text-xs text-gray-400 border-t border-gray-50 pt-3">
-              Después de la fusión, la cuenta <strong>{preview.origen.email}</strong> quedará archivada y desaparecerá de tu lista de pacientes activos.
+              Después de la fusión, la cuenta <strong>{preview.origen.email}</strong> quedará archivada y desaparecerá de tu lista de {w.users} activos.
             </p>
           </div>
 
@@ -214,7 +217,7 @@ export default function FusionarPacientePage() {
               href="/therapist/patients"
               className="px-5 py-2.5 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 transition-colors"
             >
-              Ir a Mis pacientes
+              Ir a Mis {w.Users}
             </Link>
             <button
               onClick={reiniciar}

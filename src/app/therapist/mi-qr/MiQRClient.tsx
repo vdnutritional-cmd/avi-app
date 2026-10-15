@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTerminologiaMenu } from '../TerminologiaMenu'
 
 interface Props {
   therapistName: string
@@ -10,6 +11,8 @@ interface Props {
 const BASE_URL = 'https://go.avi-app.com.mx'
 
 export default function MiQRClient({ therapistName, token }: Props) {
+  // Palabra del menú del terapeuta (Inventario de Terminología, página 8)
+  const w = useTerminologiaMenu()
   const registroUrl = `${BASE_URL}/registro-consultorio?t=${token}`
   const qrImageUrl  = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=10&data=${encodeURIComponent(registroUrl)}`
 
@@ -44,7 +47,7 @@ export default function MiQRClient({ therapistName, token }: Props) {
       <div>
         <h1 className="text-2xl font-bold text-gray-800">Mi código QR de registro</h1>
         <p className="text-gray-500 text-sm mt-1">
-          Muéstrale este QR a tus pacientes para que se registren en AVI vinculados a tu consulta.
+          Muéstrale este QR a tus {w.users} para que se registren en AVI vinculados a tu consulta.
         </p>
       </div>
 
@@ -60,7 +63,7 @@ export default function MiQRClient({ therapistName, token }: Props) {
         />
         <div className="text-center">
           <p className="font-semibold text-gray-800 text-sm">{therapistName}</p>
-          <p className="text-xs text-gray-400 mt-0.5">AVI · Registro de pacientes</p>
+          <p className="text-xs text-gray-400 mt-0.5">AVI · Registro de {w.users}</p>
         </div>
       </div>
 
@@ -68,8 +71,8 @@ export default function MiQRClient({ therapistName, token }: Props) {
       <div className="bg-indigo-50 border border-indigo-200 rounded-2xl px-5 py-4 space-y-2">
         <p className="text-sm font-semibold text-indigo-800">¿Cómo usarlo?</p>
         <ol className="text-sm text-indigo-700 space-y-1 list-decimal list-inside leading-relaxed">
-          <li>Muestra este QR a tu paciente desde tu teléfono o imprímelo.</li>
-          <li>El paciente lo escanea con la cámara de su teléfono.</li>
+          <li>Muestra este QR a tu {w.user} desde tu teléfono o imprímelo.</li>
+          <li>El {w.user} lo escanea con la cámara de su teléfono.</li>
           <li>Llena el formulario y su cuenta queda vinculada automáticamente a ti.</li>
           <li>También puedes enviarle el enlace directo por WhatsApp.</li>
         </ol>
@@ -109,7 +112,7 @@ export default function MiQRClient({ therapistName, token }: Props) {
       </div>
 
       <p className="text-xs text-gray-400 text-center leading-relaxed">
-        Este código es único para tu consulta. No lo compartas con personas que no sean tus pacientes.
+        Este código es único para tu consulta. No lo compartas con personas que no sean tus {w.users}.
       </p>
     </div>
   )
