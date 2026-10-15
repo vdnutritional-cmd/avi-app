@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Lock } from 'lucide-react'
+import { terminos, TERMINOLOGIA_SIN_EMPRESA, type Terminologia } from '@/lib/terminologia'
 
 // ──────────────────────────────────────────────
 // Types
@@ -173,6 +174,8 @@ interface Props {
   initialData?: Record<string, any> | null
   /** Si true, todos los campos quedan deshabilitados y el botón Guardar se oculta. */
   readOnly?: boolean
+  /** Palabras de esta persona (Inventario de Terminología, página 5) */
+  terminologia?: Terminologia
 }
 
 // ──────────────────────────────────────────────
@@ -220,7 +223,8 @@ function parseRow(row: Record<string, any>): DatosGeneralesData {
 // ──────────────────────────────────────────────
 // Main component
 // ──────────────────────────────────────────────
-export default function DatosGeneralesTab({ patientId, therapistId, patientEmail, initialData, readOnly = false }: Props) {
+export default function DatosGeneralesTab({ patientId, therapistId, patientEmail, initialData, readOnly = false, terminologia = TERMINOLOGIA_SIN_EMPRESA }: Props) {
+  const w = terminos(terminologia)
   const [data, setData] = useState<DatosGeneralesData>(datosVacios())
   const [saved, setSaved] = useState<DatosGeneralesData>(datosVacios())
   const [loading, setLoading] = useState(true)
@@ -373,12 +377,12 @@ export default function DatosGeneralesTab({ patientId, therapistId, patientEmail
       {readOnly && (
         <div className="flex items-center gap-2 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-700">
           <Lock size={14} className="shrink-0" />
-          <span>Solo lectura — activa un plan para editar los datos de este asesorado.</span>
+          <span>Solo lectura — activa un plan para editar los datos de este {w.user}.</span>
         </div>
       )}
 
       {/* Datos del Asesorado */}
-      <SectionCard title="Datos del Asesorado">
+      <SectionCard title={`Datos del ${w.User}`}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <Label>Nombre completo</Label>
@@ -386,7 +390,7 @@ export default function DatosGeneralesTab({ patientId, therapistId, patientEmail
               value={data.asesorado_nombre}
               onChange={v => set('asesorado_nombre', v)}
               maxLength={80}
-              placeholder="Nombre completo del asesorado"
+              placeholder={`Nombre completo del ${w.user}`}
             />
           </div>
           <div>
@@ -677,7 +681,7 @@ export default function DatosGeneralesTab({ patientId, therapistId, patientEmail
 
           {/* ¿Ha recibido asesoría anteriormente? */}
           <div>
-            <Label>¿Ha recibido asesoría de esta Institución anteriormente?</Label>
+            <Label>¿Ha recibido {w.serv} de esta Institución anteriormente?</Label>
             <div className="flex gap-6 mt-2">
               {['Sí', 'No'].map(op => (
                 <label key={op} className="flex items-center gap-2 cursor-pointer">
@@ -704,14 +708,14 @@ export default function DatosGeneralesTab({ patientId, therapistId, patientEmail
                 value={data.info_asesoria_con_quien}
                 onChange={v => set('info_asesoria_con_quien', v)}
                 maxLength={80}
-                placeholder="Nombre del terapeuta o asesor"
+                placeholder={`Nombre del ${w.pro}`}
               />
             </div>
           )}
 
           {/* ¿Por qué eligió esta Institución? */}
           <div>
-            <Label>¿Por qué eligió esta Institución para su acompañamiento terapéutico/emocional?</Label>
+            <Label>¿Por qué eligió esta Institución para su acompañamiento en {w.serv}-emocional?</Label>
             <textarea
               value={data.info_razon_eleccion}
               onChange={e => set('info_razon_eleccion', e.target.value)}

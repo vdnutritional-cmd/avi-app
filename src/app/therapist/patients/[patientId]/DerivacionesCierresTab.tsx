@@ -2,10 +2,13 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { terminos, TERMINOLOGIA_SIN_EMPRESA, type Terminologia } from '@/lib/terminologia'
 
 interface Props {
   patientId: string
   therapistId: string
+  /** Palabras de esta persona (Inventario de Terminología, página 5) */
+  terminologia?: Terminologia
 }
 
 interface DerivacionesCierresData {
@@ -89,7 +92,8 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
   )
 }
 
-export default function DerivacionesCierresTab({ patientId, therapistId }: Props) {
+export default function DerivacionesCierresTab({ patientId, therapistId, terminologia = TERMINOLOGIA_SIN_EMPRESA }: Props) {
+  const w = terminos(terminologia)
   const [data, setData]                     = useState<DerivacionesCierresData>(DEFAULT_DATA)
   const [loading, setLoading]               = useState(true)
   const [saving, setSaving]                 = useState(false)
@@ -266,7 +270,7 @@ export default function DerivacionesCierresTab({ patientId, therapistId }: Props
           <FieldLabel>Asistencia al seguimiento</FieldLabel>
           <Pregunta>
             En caso de Derivación ¿consideras que se requiere una <strong>ASISTENCIA AL SEGUIMIENTO</strong>?
-            esto es, darle seguimiento como acompañamiento terapéutico al caso durante la derivación y/o después de ella.
+            esto es, darle seguimiento como acompañamiento al caso durante la derivación y/o después de ella.
           </Pregunta>
           <PillSelector
             options={['No aplica', 'SI', 'NO']}
@@ -279,7 +283,7 @@ export default function DerivacionesCierresTab({ patientId, therapistId }: Props
         <div className="space-y-2">
           <FieldLabel>Atención especializada</FieldLabel>
           <Pregunta>
-            ¿Requieres derivar al asesorado o paciente a una <strong>ATENCIÓN ESPECIALIZADA</strong> como
+            ¿Requieres derivar al {w.user} a una <strong>ATENCIÓN ESPECIALIZADA</strong> como
             una clínica de salud?
           </Pregunta>
           <PillSelector
@@ -321,7 +325,7 @@ export default function DerivacionesCierresTab({ patientId, therapistId }: Props
         <div className="space-y-2">
           <FieldLabel>Percepción de alivio</FieldLabel>
           <Pregunta>
-            ¿Consideras que a tu asesorado o paciente ya lo puedes dar de alta para seguir solo con las
+            ¿Consideras que a tu {w.user} ya lo puedes dar de alta para seguir solo con las
             herramientas que le has dado?
           </Pregunta>
           <PillSelector
@@ -334,11 +338,11 @@ export default function DerivacionesCierresTab({ patientId, therapistId }: Props
         {/* sensacion_paciente_final — solo cuando percepcion_alivio = SI */}
         {data.percepcion_alivio === 'SI' && (
           <div className="bg-primary-50 border border-primary-100 rounded-2xl px-5 py-5 space-y-4">
-            <FieldLabel>Sensación del paciente al cierre</FieldLabel>
+            <FieldLabel>Sensación del {w.user} al cierre</FieldLabel>
             <Pregunta>
               <em>
-                "Considerando que ya te ves mucho mejor que cuando iniciaste tu proceso de Acompañamiento
-                Terapéutico, por favor responde: Del 1 al 10 me puedes indicar por favor ¿Cómo te sientes en
+                "Considerando que ya te ves mucho mejor que cuando iniciaste tu proceso de Acompañamiento,
+                por favor responde: Del 1 al 10 me puedes indicar por favor ¿Cómo te sientes en
                 este momento?, donde 1 es pésimo (muy muy mal), y 10 es excelente."
               </em>
             </Pregunta>
@@ -363,7 +367,7 @@ export default function DerivacionesCierresTab({ patientId, therapistId }: Props
                 <div className="flex items-center gap-2 text-sm text-primary-700 bg-primary-100
                                 border border-primary-200 rounded-xl px-4 py-2.5">
                   <span>⏳</span>
-                  <span>Cuestionario enviado — esperando respuesta del paciente</span>
+                  <span>Cuestionario enviado — esperando respuesta del {w.user}</span>
                 </div>
               ) : (
                 <button
@@ -372,7 +376,7 @@ export default function DerivacionesCierresTab({ patientId, therapistId }: Props
                   className="w-full py-2.5 px-4 bg-primary-600 hover:bg-primary-700 text-white text-sm
                              font-semibold rounded-xl transition-colors disabled:opacity-50"
                 >
-                  {enviandoCuest ? 'Enviando...' : '📩 Enviar cuestionario al paciente'}
+                  {enviandoCuest ? 'Enviando...' : `📩 Enviar cuestionario al ${w.user}`}
                 </button>
               )
             )}
@@ -384,7 +388,7 @@ export default function DerivacionesCierresTab({ patientId, therapistId }: Props
           <FieldLabel>Cambio de funcionamiento</FieldLabel>
           <Pregunta>
             ¿Consideras que ya no está funcionando tu acompañamiento y debes modificar las herramientas
-            que funcionen mejor para el asesorado o paciente?
+            que funcionen mejor para el {w.user}?
           </Pregunta>
           <PillSelector
             options={['NO', 'SI']}
@@ -409,7 +413,7 @@ export default function DerivacionesCierresTab({ patientId, therapistId }: Props
                 Marcar como abandono
               </p>
               <p className="text-xs text-gray-400 leading-snug mt-0.5">
-                Se activa automáticamente cuando el paciente pierde acceso a AVI por inactividad.
+                Se activa automáticamente cuando el {w.user} pierde acceso a AVI por inactividad.
                 También puedes activarlo manualmente.
               </p>
             </div>
@@ -418,7 +422,7 @@ export default function DerivacionesCierresTab({ patientId, therapistId }: Props
             <div className="flex items-center gap-2 text-sm text-primary-700 bg-primary-50
                             border border-primary-200 rounded-xl px-4 py-2.5 mt-1">
               <span>⚠️</span>
-              <span>Este paciente está marcado como abandono del proceso.</span>
+              <span>Este {w.user} está marcado como abandono del proceso.</span>
             </div>
           )}
         </div>

@@ -60,6 +60,8 @@ export default function PatientChatPage() {
   const [terminologia, setTerminologia] = useState<Terminologia>(TERMINOLOGIA_SIN_EMPRESA)
   const terminologiaRef = useRef<Terminologia>(TERMINOLOGIA_SIN_EMPRESA)
   const pro = terminos(terminologia).pro
+  // La pantalla espera la primera respuesta para no mostrar un instante "terapeuta" a un Asesorado
+  const [terminologiaLista, setTerminologiaLista] = useState(false)
 
   // Acceso y sesiones AVI disponibles (la regla vive en el servidor)
   useEffect(() => {
@@ -76,6 +78,7 @@ export default function PatientChatPage() {
         // Se marca de entrada lo que eligió la última vez (si aún no lo eligió en este inicio de sesión)
         if (!leerModoElegido() && (estado.ultimoModo === 'hablada' || estado.ultimoModo === 'escrita')) setModo(estado.ultimoModo)
       } catch { /* sin conexión: el servidor vuelve a revisar al iniciar la sesión */ }
+      finally { setTerminologiaLista(true) }
     }
     checkSesionesAvi()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -246,11 +249,11 @@ export default function PatientChatPage() {
     const alto = el.scrollHeight + (el.offsetHeight - el.clientHeight)   // + marco
     el.style.height = `${Math.min(alto, 112)}px`
     el.style.overflowY = alto > 112 ? 'auto' : 'hidden'
-  }, [texto])
+  }, [texto, terminologiaLista])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  }, [messages, terminologiaLista])
 
   // Cierre por abandono SOLO si la página se descarga de verdad (cerrar pestaña/app).
   // Ya no se cierra al bloquear la pantalla o cambiar de app: las sesiones que
@@ -730,6 +733,14 @@ export default function PatientChatPage() {
     if (appState === 'idle') startRecording()
     else if (appState === 'recording') stopRecording()
     else if (appState === 'speaking') stopAudio()
+  }
+
+  if (!terminologiaLista) {
+    return (
+      <div className="flex justify-center py-24">
+        <span className="w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
   }
 
   // ── Acceso suspendido ────────────────────────────────────────────────────────

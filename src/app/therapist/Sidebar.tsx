@@ -59,7 +59,7 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
       <aside
         className={`
           fixed md:sticky top-0 left-0 h-screen z-50
-          w-64 bg-white border-r border-gray-100 flex flex-col
+          w-72 bg-white border-r border-gray-100 flex flex-col
           transition-transform duration-200
           ${open ? 'translate-x-0' : '-translate-x-full'}
           md:translate-x-0
@@ -122,7 +122,7 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
             {/* Reportes terapéuticos — desktop: página dedicada · móvil: panel deslizante */}
             <Link
               href="/therapist/reportes"
-              className="hidden md:flex items-center gap-3 px-3 py-2 rounded-xl text-gray-600
+              className="hidden md:flex items-center gap-2.5 px-3 py-2 rounded-xl text-gray-600
                          hover:bg-primary-50 hover:text-primary-700 transition-colors text-sm"
               onClick={closeSidebar}
             >
@@ -134,7 +134,7 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
                 window.dispatchEvent(new CustomEvent('avi:openReportes'))
                 closeSidebar()
               }}
-              className="md:hidden w-full flex items-center gap-3 px-3 py-2 rounded-xl text-gray-600
+              className="md:hidden w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-gray-600
                          hover:bg-primary-50 hover:text-primary-700 transition-colors text-sm"
             >
               <span>🖨️</span>
@@ -230,7 +230,7 @@ function NavLink({ href, icon, label, onClose, bold = false }: {
     <Link
       href={href}
       onClick={onClose}
-      className="flex items-center gap-3 px-3 py-2 rounded-xl text-gray-600
+      className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-gray-600
                  hover:bg-primary-50 hover:text-primary-700 transition-colors text-sm"
     >
       <span>{icon}</span>
@@ -249,7 +249,7 @@ function NavGroup({ name, label, icon, isOpen, onToggle, children, accent = fals
     <div>
       <button
         onClick={onToggle}
-        className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl
+        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl
                    hover:bg-primary-50 hover:text-primary-700 transition-colors text-sm
                    ${accent ? 'text-primary-600 font-semibold' : 'text-gray-600'}`}
         aria-expanded={isOpen}
@@ -264,7 +264,7 @@ function NavGroup({ name, label, icon, isOpen, onToggle, children, accent = fals
         </svg>
       </button>
       {isOpen && (
-        <div className="mt-1 ml-4 pl-3 border-l border-gray-100 space-y-1">
+        <div className="mt-1 ml-3 pl-2 border-l border-gray-100 space-y-1">
           {children}
         </div>
       )}
@@ -287,7 +287,7 @@ function PlanInfo({ status, patientSlots, tier }: { status: string | null; patie
   const display = planText ? `${planText} · ${statusText}` : statusText
 
   return (
-    <div className="flex items-start gap-3 px-3 py-2 text-sm text-gray-500">
+    <div className="flex items-start gap-2.5 px-3 py-2 text-sm text-gray-500">
       <span>📋</span>
       <div>
         <p className="text-gray-400 text-xs leading-tight mb-0.5">Características del plan:</p>

@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { getAccesoTerapeuta, accesoDePaciente, type AccesoTerapeuta } from '@/lib/acceso-paciente'
+import { terminos, TERMINOLOGIA_SIN_EMPRESA, type Terminologia } from '@/lib/terminologia'
 import {
   User, FolderOpen, MessageSquare, FileText, Calendar, Search,
   ArrowRightCircle, Users, Heart, ClipboardList, Activity,
@@ -134,6 +135,25 @@ export default function PatientDetailPage() {
   const [editingEmpresa, setEditingEmpresa] = useState(false)
   const [empresasList, setEmpresasList] = useState<{ id: string; nombre: string }[]>([])
   const [selectedEmpresaId, setSelectedEmpresaId] = useState<string>('')
+
+  // Palabras de esta persona (su empresa; sin empresa, "Cómo me nombran") y del menú del
+  // terapeuta — Inventario de Terminología, página 5. Se recargan al cambiarle la empresa.
+  // El perfil espera la primera respuesta para no mostrar un instante "Paciente" a un Asesorado.
+  const [terminologia, setTerminologia] = useState<{ persona: Terminologia; terapeuta: Terminologia }>({
+    persona: TERMINOLOGIA_SIN_EMPRESA, terapeuta: TERMINOLOGIA_SIN_EMPRESA,
+  })
+  const [terminologiaLista, setTerminologiaLista] = useState(false)
+  useEffect(() => {
+    let cancelado = false
+    fetch(`/api/therapist/terminologia-persona?patientId=${encodeURIComponent(patientId)}`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (d && !cancelado) setTerminologia({ persona: d.persona, terapeuta: d.terapeuta }) })
+      .catch(() => {})
+      .finally(() => { if (!cancelado) setTerminologiaLista(true) })
+    return () => { cancelado = true }
+  }, [patientId, empresaId])
+  const w = terminos(terminologia.persona)
+  const wMenu = terminos(terminologia.terapeuta)
   const [savingEmpresa, setSavingEmpresa] = useState(false)
 
   const [analyzing, setAnalyzing] = useState(false)
@@ -433,7 +453,7 @@ export default function PatientDetailPage() {
   async function saveSessionNote() {
     const hayContenido = newSessionObjetivo.trim() || newSessionDesarrollo.trim() || newSessionNotes.trim()
     if (!hayContenido) return
-    if (!therapistId) { alert('Error: sesión de terapeuta no encontrada. Recarga la página.'); return }
+    if (!therapistId) { alert('Error: no se encontró tu sesión. Recarga la página.'); return }
     setSavingSession(true)
     try {
       const supabase = createClient()
@@ -635,7 +655,7 @@ export default function PatientDetailPage() {
     </button>
   )
 
-  const BLOQUEO_MSG = 'Paciente sin cobertura activa — contrata un plan para acceder'
+  const BLOQUEO_MSG = `${w.User} sin cobertura activa — contrata un plan para acceder`
 
   const esencialItems: SidebarItem[] = [
     { id: 'datos-generales',      Icon: User,             label: 'Datos generales' },
@@ -679,6 +699,14 @@ export default function PatientDetailPage() {
   }
 
   const activeGroup = esencialTabIds.includes(activeTab) ? 'AVI-Esencial' : 'AVI-Clínico'
+
+  if (!terminologiaLista) {
+    return (
+      <div className="flex justify-center py-24">
+        <span className="w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
 
   return (
     <>
@@ -743,7 +771,7 @@ export default function PatientDetailPage() {
         <div>
           <button onClick={() => router.push('/therapist/patients')}
             className="text-sm text-gray-400 hover:text-gray-600 mb-2 flex items-center gap-1">
-            ← Mis pacientes
+            ← Mis {wMenu.Users}
           </button>
 
           {/* Nombre editable */}
@@ -888,16 +916,16 @@ export default function PatientDetailPage() {
           <div className="w-16 h-16 bg-amber-100 rounded-2xl flex items-center justify-center mb-4">
             <Lock size={28} className="text-amber-600" />
           </div>
-          <h3 className="text-lg font-semibold text-gray-800 mb-2">Paciente sin cobertura activa</h3>
+          <h3 className="text-lg font-semibold text-gray-800 mb-2">{w.User} sin cobertura activa</h3>
           <p className="text-gray-500 text-sm max-w-sm mb-1">
             {acceso?.tienePlan ? (
-              <>Este asesorado <strong>no está asociado a ningún convenio institucional</strong> y ya alcanzaste el cupo de {acceso.indepSlots} pacientes independientes de tu plan ({acceso.indepCount} registrados).</>
+              <>Este {w.user} <strong>no está asociado a ningún convenio institucional</strong> y ya alcanzaste el cupo de {acceso.indepSlots} {w.users} independientes de tu plan ({acceso.indepCount} registrados).</>
             ) : (
-              <>Este asesorado <strong>no está asociado a ningún convenio institucional</strong> y no tienes un plan que cubra pacientes fuera de convenio.</>
+              <>Este {w.user} <strong>no está asociado a ningún convenio institucional</strong> y no tienes un plan que cubra {w.users} fuera de convenio.</>
             )}
           </p>
           <p className="text-gray-400 text-sm max-w-sm mb-6">
-            Para acceder a todos sus módulos AVI, contrata un plan Esencial o Clínico que cubra pacientes sin convenio, o asigna este asesorado a una empresa en convenio.
+            Para acceder a todos sus módulos AVI, contrata un plan Esencial o Clínico que cubra {w.users} sin convenio, o asigna este {w.user} a una empresa en convenio.
           </p>
           <a
             href="/pricing"
@@ -906,7 +934,7 @@ export default function PatientDetailPage() {
             Ver planes →
           </a>
           <p className="mt-3 text-xs text-gray-400">
-            Solo están disponibles los Datos generales del asesorado (lectura).
+            Solo están disponibles los Datos generales del {w.user} (lectura).
           </p>
         </div>
       )}
@@ -919,6 +947,7 @@ export default function PatientDetailPage() {
           patientEmail={profile?.email ?? null}
           initialData={expedienteRow}
           readOnly={pacienteBlockeado}
+          terminologia={terminologia.persona}
         />
       )}
 
@@ -939,7 +968,7 @@ export default function PatientDetailPage() {
           {patterns.length === 0 ? (
             <div className="text-center py-16 text-gray-400">
               <p className="text-4xl mb-3">💬</p>
-              <p>Este paciente aún no tiene sesiones registradas con AVI.</p>
+              <p>Este {w.user} aún no tiene sesiones registradas con AVI.</p>
             </div>
           ) : patterns.map(p => (
             <div key={p.id} className="bg-white rounded-2xl border border-gray-100 p-5 space-y-3">
@@ -1044,7 +1073,7 @@ export default function PatientDetailPage() {
                 <textarea
                   value={newSessionDesarrollo}
                   onChange={e => setNewSessionDesarrollo(e.target.value)}
-                  placeholder="Describe el desarrollo de la sesión: temas abordados, dinámica, técnicas aplicadas, reacciones del paciente..."
+                  placeholder={`Describe el desarrollo de la sesión: temas abordados, dinámica, técnicas aplicadas, reacciones del ${w.user}...`}
                   rows={6}
                   className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-700
                              focus:outline-none focus:ring-2 focus:ring-primary-300 leading-relaxed resize-none"
@@ -1100,7 +1129,7 @@ export default function PatientDetailPage() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                   <label className="text-xs font-semibold text-gray-600">
-                    5. Recursos personales del paciente
+                    5. Recursos personales del {w.user}
                   </label>
                   <button
                     type="button"
@@ -1119,7 +1148,7 @@ export default function PatientDetailPage() {
                 <textarea
                   value={newSessionRecursos}
                   onChange={e => setNewSessionRecursos(e.target.value)}
-                  placeholder="Presiona 'Generar recursos personales' para que AVI identifique los recursos del paciente, o escribe directamente aquí."
+                  placeholder={`Presiona 'Generar recursos personales' para que AVI identifique los recursos del ${w.user}, o escribe directamente aquí.`}
                   rows={4}
                   className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-700
                              focus:outline-none focus:ring-2 focus:ring-teal-300 leading-relaxed resize-none"
@@ -1159,7 +1188,7 @@ export default function PatientDetailPage() {
             <div className="text-center py-12 text-gray-400">
               <p className="text-4xl mb-3">📋</p>
               <p>Aún no hay sesiones presenciales registradas.</p>
-              <p className="text-sm mt-1">Agrega las notas de cada sesión que tengas con el paciente.</p>
+              <p className="text-sm mt-1">Agrega las notas de cada sesión que tengas con el {w.user}.</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -1214,7 +1243,7 @@ export default function PatientDetailPage() {
                     )}
                     {s.session_recursos && (
                       <div>
-                        <p className="text-xs font-semibold text-teal-600 uppercase tracking-wide mb-1">Recursos personales del paciente</p>
+                        <p className="text-xs font-semibold text-teal-600 uppercase tracking-wide mb-1">Recursos personales del {w.user}</p>
                         <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{s.session_recursos}</p>
                       </div>
                     )}
@@ -1337,7 +1366,7 @@ export default function PatientDetailPage() {
           <div className="space-y-2">
             <div>
               <p className="text-sm font-semibold text-gray-700">Frecuencia de las sesiones</p>
-              <p className="text-xs text-gray-400 mt-0.5">Cadencia acordada con el asesorado o paciente.</p>
+              <p className="text-xs text-gray-400 mt-0.5">Cadencia acordada con el {w.user}.</p>
             </div>
             <select
               value={frecuenciaConfig}
@@ -1355,9 +1384,9 @@ export default function PatientDetailPage() {
           {/* ── Sprint 4 VIII — Sensación inicial del paciente ── */}
           <div className="space-y-2">
             <div>
-              <p className="text-sm font-semibold text-gray-700">Sensación inicial del paciente</p>
+              <p className="text-sm font-semibold text-gray-700">Sensación inicial del {w.user}</p>
               <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">
-                Al comenzar la Sesión Inicial pregúntale a tu asesorado o paciente: <em>"Del 1 al 10 me puedes decir por favor ¿Cómo te sientes en este momento?, donde 1 es pésimo (muy muy mal), y 10 es excelente."</em>
+                Al comenzar la Sesión Inicial pregúntale a tu {w.user}: <em>"Del 1 al 10 me puedes decir por favor ¿Cómo te sientes en este momento?, donde 1 es pésimo (muy muy mal), y 10 es excelente."</em>
               </p>
             </div>
             <select
@@ -1380,13 +1409,13 @@ export default function PatientDetailPage() {
                 1. Desarrollo del caso
               </p>
               <p className="text-xs text-gray-400 mt-0.5">
-                Resumen de lo que nos platica el paciente: datos generales, contexto familiar, historia relevante.
+                Resumen de lo que nos platica el {w.user}: datos generales, contexto familiar, historia relevante.
               </p>
             </div>
             <textarea
               value={initialNote}
               onChange={e => setInitialNote(e.target.value)}
-              placeholder="Nombre, edad, estado civil, ocupación, composición familiar. Resumen de lo que el paciente relató en la primera consulta..."
+              placeholder={`Nombre, edad, estado civil, ocupación, composición familiar. Resumen de lo que el ${w.user} relató en la primera consulta...`}
               rows={6}
               className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-700
                          focus:outline-none focus:ring-2 focus:ring-primary-300 leading-relaxed resize-none"
@@ -1397,16 +1426,16 @@ export default function PatientDetailPage() {
           <div className="space-y-2">
             <div>
               <p className="text-sm font-semibold text-gray-700">
-                2. Motivo de consulta del paciente
+                2. Motivo de consulta del {w.user}
               </p>
               <p className="text-xs text-gray-400 mt-0.5">
-                Lo que el paciente dice que lo trajo a consulta, en sus propias palabras o parafraseado.
+                Lo que el {w.user} dice que lo trajo a consulta, en sus propias palabras o parafraseado.
               </p>
             </div>
             <textarea
               value={initialNoteMotivo}
               onChange={e => setInitialNoteMotivo(e.target.value)}
-              placeholder="&quot;Vine porque...&quot; — el problema o situación que el paciente identifica como la razón de buscar ayuda."
+              placeholder={`"Vine porque..." — el problema o situación que el ${w.user} identifica como la razón de buscar ayuda.`}
               rows={4}
               className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-700
                          focus:outline-none focus:ring-2 focus:ring-primary-300 leading-relaxed resize-none"
@@ -1420,13 +1449,13 @@ export default function PatientDetailPage() {
                 3. Motivo de consulta subyacente
               </p>
               <p className="text-xs text-gray-400 mt-0.5">
-                Lo que como Asesor o Terapeuta observas que realmente está ocurriendo — más allá de lo que el paciente presenta.
+                Lo que como {w.Pro} observas que realmente está ocurriendo — más allá de lo que el {w.user} presenta.
               </p>
             </div>
             <textarea
               value={initialNoteSubyacente}
               onChange={e => setInitialNoteSubyacente(e.target.value)}
-              placeholder="Observación clínica: el problema real que subyace al motivo declarado por el paciente (herida de apego, patrón relacional, dinámica familiar, etc.)."
+              placeholder={`Observación clínica: el problema real que subyace al motivo declarado por el ${w.user} (herida de apego, patrón relacional, dinámica familiar, etc.).`}
               rows={4}
               className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-700
                          focus:outline-none focus:ring-2 focus:ring-primary-300 leading-relaxed resize-none"
@@ -1486,7 +1515,7 @@ export default function PatientDetailPage() {
               { key: 'alianzas_destructivas',     titulo: 'Alianzas e interacciones destructivas',   desc: 'Coaliciones (unión de dos miembros contra un tercero) que rompen las jerarquías naturales de la familia.' },
               { key: 'ciclo_vital_no_resuelto',   titulo: 'Ciclo vital no resuelto',                 desc: 'Dificultades para transitar etapas evolutivas (nido vacío, adolescencia, jubilación).' },
               { key: 'lealtades_invisibles',      titulo: 'Lealtades invisibles',                    desc: 'Mandatos transgeneracionales no cuestionados.' },
-              { key: 'delegacion_sintoma',        titulo: 'Delegación del síntoma',                  desc: 'Un miembro (identificado como paciente) porta el conflicto de todo el sistema.' },
+              { key: 'delegacion_sintoma',        titulo: 'Delegación del síntoma',                  desc: `Un miembro (identificado como ${w.user}) porta el conflicto de todo el sistema.` },
             ]
             const FAM_PROTECCION = [
               { key: 'limites_claros',            titulo: 'Límites claros y flexibles',              desc: 'Reglas comprensibles que definen los roles de cada uno, permitiendo la cercanía emocional sin perder la autonomía individual.' },
@@ -1762,16 +1791,16 @@ export default function PatientDetailPage() {
             // ── FAMILIAR ──
             const FAM_RIESGO_TREC = [
               { key: 'creencias_fam_disfuncionales', titulo: 'Sistema de creencias familiares disfuncionales', desc: 'Reglas implícitas del tipo "en esta familia nunca se muestra debilidad."' },
-              { key: 'refuerzo_irracionalidad',      titulo: 'Refuerzo familiar de la irracionalidad',         desc: 'La familia valida o alimenta las creencias irracionales del paciente.' },
+              { key: 'refuerzo_irracionalidad',      titulo: 'Refuerzo familiar de la irracionalidad',         desc: `La familia valida o alimenta las creencias irracionales del ${w.user}.` },
               { key: 'exigencia_parental',           titulo: 'Alta exigencia parental / perfeccionismo',        desc: 'Estándares excesivamente altos transmitidos como expectativas incondicionales.' },
-              { key: 'invalidacion_emocional',       titulo: 'Invalidación emocional crónica',                 desc: 'Mensajes reiterados de que las emociones del paciente son exageradas o incorrectas.' },
+              { key: 'invalidacion_emocional',       titulo: 'Invalidación emocional crónica',                 desc: `Mensajes reiterados de que las emociones del ${w.user} son exageradas o incorrectas.` },
               { key: 'modelos_baja_tolerancia',      titulo: 'Modelos de rol con baja tolerancia a la frustración', desc: 'Padres o cuidadores que modelan reacciones catastróficas o evitativas.' },
               { key: 'estigma_familiar',             titulo: 'Estigma familiar hacia la terapia o las emociones', desc: 'Creencia de que buscar ayuda o expresar emociones es signo de debilidad.' },
             ]
             const FAM_PROTECCION_TREC = [
               { key: 'clima_cuestionamiento',        titulo: 'Clima familiar de cuestionamiento racional', desc: 'Conversaciones abiertas donde se debaten creencias e ideas.' },
               { key: 'modelos_autorregulacion',      titulo: 'Modelos parentales de autorregulación',      desc: 'Cuidadores que demuestran manejo emocional y resolución de problemas.' },
-              { key: 'apoyo_proceso_terapeutico',    titulo: 'Apoyo familiar ante el proceso terapéutico', desc: 'La familia refuerza la asistencia y los cambios trabajados en terapia.' },
+              { key: 'apoyo_proceso_terapeutico',    titulo: 'Apoyo familiar ante el proceso terapéutico', desc: `La familia refuerza la asistencia y los cambios trabajados en ${w.serv}.` },
               { key: 'flexibilidad_reglas_fam',      titulo: 'Flexibilidad en las reglas familiares',      desc: 'Capacidad de revisar y actualizar normas y expectativas según el contexto.' },
             ]
             // ── PAREJA ──
@@ -2319,6 +2348,7 @@ export default function PatientDetailPage() {
         <DerivacionesCierresTab
           patientId={patientId}
           therapistId={therapistId}
+          terminologia={terminologia.persona}
         />
       )}
 
