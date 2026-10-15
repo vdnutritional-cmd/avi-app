@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import type { Terminologia } from '@/lib/terminologia'
 import {
   imprimirHistoriaClinicaV2,
   imprimirNotaInicialDesdeReportes,
@@ -21,6 +22,8 @@ interface Props {
   patientId:   string
   therapistId: string
   patientName: string | null
+  /** Palabras de esta persona para los PDF (Inventario de Terminología, página 7) */
+  terminologia?: Terminologia
 }
 
 // ──────────────────────────────────────────────────────────
@@ -169,7 +172,7 @@ function IndexCard({
 // ──────────────────────────────────────────────────────────
 // Componente principal
 // ──────────────────────────────────────────────────────────
-export default function ImpresionesTab({ patientId, therapistId, patientName }: Props) {
+export default function ImpresionesTab({ patientId, therapistId, patientName, terminologia }: Props) {
   const [loadingData, setLoadingData] = useState(true)
   const [printing,    setPrinting]    = useState<string | null>(null)
 
@@ -318,7 +321,7 @@ export default function ImpresionesTab({ patientId, therapistId, patientName }: 
   }
 
   // ── headerOpts compartido ────────────────────────────────
-  const headerOpts = { terapeutaNombre, logoUrl, side: logoUrl ? 'logo' : 'name' } as const
+  const headerOpts = { terapeutaNombre, logoUrl, side: logoUrl ? 'logo' : 'name', terminologia } as const
 
   // ── Imprimir HC Original ─────────────────────────────────
   async function imprimirOriginal() {

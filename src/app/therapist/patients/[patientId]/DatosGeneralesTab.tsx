@@ -715,7 +715,7 @@ export default function DatosGeneralesTab({ patientId, therapistId, patientEmail
 
           {/* ¿Por qué eligió esta Institución? */}
           <div>
-            <Label>¿Por qué eligió esta Institución para su acompañamiento en {w.serv}-emocional?</Label>
+            <Label>¿Por qué eligió esta Institución para su acompañamiento en {w.serv} emocional?</Label>
             <textarea
               value={data.info_razon_eleccion}
               onChange={e => set('info_razon_eleccion', e.target.value)}

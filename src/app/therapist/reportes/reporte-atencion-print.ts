@@ -7,6 +7,7 @@ import {
   buildReportHeader,
   printHtmlViaIframe,
 } from '../patients/[patientId]/print-utils'
+import { terminos, TERMINOLOGIA_SIN_EMPRESA, type Terminologia } from '@/lib/terminologia'
 
 // ── Tipos ─────────────────────────────────────────────────────
 export interface SesionResumen {
@@ -32,6 +33,8 @@ export interface ReporteAtencionData {
   atencion_especializada:      string
   atencion_especializada_cual: string
   total_sesiones:              number
+  /** Palabras de la persona (Inventario de Terminología, página 7) */
+  terminologia?:               Terminologia
   terapeutaNombre:             string
   logoUrl:                     string | null
 }
@@ -43,14 +46,16 @@ export function imprimirReporteAtencion(data: ReporteAtencionData) {
     emociones, recursos, factores_riesgo, factores_proteccion,
     sesiones_resumenes, derivacion_tipos, atencion_especializada,
     atencion_especializada_cual, total_sesiones,
-    terapeutaNombre, logoUrl,
+    terapeutaNombre, logoUrl, terminologia,
   } = data
+  const w = terminos(terminologia ?? TERMINOLOGIA_SIN_EMPRESA)
 
   const encabezado = buildReportHeader({
     terapeutaNombre,
     logoUrl,
     side: logoUrl ? 'logo' : 'name',
     subtitle: 'Reporte de la Atención',
+    terminologia,
   })
 
   const listaFechas = (items: ItemFecha[]) =>
@@ -140,10 +145,10 @@ export function imprimirReporteAtencion(data: ReporteAtencionData) {
   ${encabezado}
   <div class="doc-title">
     <h1>Reporte de la Atención</h1>
-    <div class="sub">Reporte terapéutico integral</div>
+    <div class="sub">Reporte de ${w.Serv} integral</div>
   </div>
   <div class="meta">
-    <div><strong>Asesorado:</strong> ${paciente_nombre}</div>
+    <div><strong>${w.User}:</strong> ${paciente_nombre}</div>
     <div><strong>Total sesiones en el periodo:</strong> ${total_sesiones}</div>
   </div>
   <div class="section">
@@ -162,7 +167,7 @@ export function imprimirReporteAtencion(data: ReporteAtencionData) {
     ${listaFechas(emociones)}
   </div>
   <div class="section">
-    <div class="section-title"><span class="num">4.</span> Recursos Personales del Paciente</div>
+    <div class="section-title"><span class="num">4.</span> Recursos Personales del ${w.User}</div>
     ${listaFechas(recursos)}
   </div>
   <div class="section">
@@ -198,7 +203,7 @@ export function imprimirReporteAtencion(data: ReporteAtencionData) {
       <div class="firma-label">Elabora</div>
       <div class="firma-linea">
         <div class="firma-name">${terapeutaNombre}</div>
-        <div style="font-size:8.5pt;color:#666;">Nombre y firma del Terapeuta</div>
+        <div style="font-size:8.5pt;color:#666;">Nombre y firma del ${w.Pro}</div>
       </div>
     </div>
     <div class="firma-item">

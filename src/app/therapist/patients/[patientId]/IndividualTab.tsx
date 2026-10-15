@@ -213,8 +213,8 @@ export default function IndividualTab({ patientId, therapistId, patientName: _pa
         const rKeys: string[] = (tpRow?.[rColName] as { individual?: string[] } | null)?.individual ?? []
         const pKeys: string[] = (tpRow?.[pColName] as { individual?: string[] } | null)?.individual ?? []
 
-        const rItems = resolveFactores(schema, 'individual', 'riesgo', rKeys)
-        const pItems = resolveFactores(schema, 'individual', 'proteccion', pKeys)
+        const rItems = resolveFactores(schema, 'individual', 'riesgo', rKeys, terminologia)
+        const pItems = resolveFactores(schema, 'individual', 'proteccion', pKeys, terminologia)
 
         if (rItems.length > 0) {
           riesgoGroups.push({ schema, schemaLabel: SCHEMA_LABELS[schema] ?? schema, items: rItems })

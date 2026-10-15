@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { TERMINOLOGIA_SIN_EMPRESA, type Terminologia } from '@/lib/terminologia'
 import { resolveFactores, SCHEMA_LABELS, FactorGroup } from './factores-nota-inicial'
 
 // ── Datos clínicos ────────────────────────────────────────────────────────────
@@ -127,11 +128,16 @@ function RadioCard({ label, desc, tag, checked, onChange }: {
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
-interface Props { patientId: string; therapistId: string }
+interface Props {
+  patientId: string
+  therapistId: string
+  /** Palabras de esta persona (Inventario de Terminología, página 7: factores) */
+  terminologia?: Terminologia
+}
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function ParejaTab({ patientId, therapistId }: Props) {
+export default function ParejaTab({ patientId, therapistId, terminologia = TERMINOLOGIA_SIN_EMPRESA }: Props) {
   const [eros,       setEros]       = useState<string[]>([])
   const [philia,     setPhilia]     = useState<string[]>([])
   const [agape,      setAgape]      = useState<string[]>([])
@@ -237,8 +243,8 @@ export default function ParejaTab({ patientId, therapistId }: Props) {
         const rKeys: string[] = (tpRow?.[rColName] as { pareja?: string[] } | null)?.pareja ?? []
         const pKeys: string[] = (tpRow?.[pColName] as { pareja?: string[] } | null)?.pareja ?? []
 
-        const rItems = resolveFactores(schema, 'pareja', 'riesgo', rKeys)
-        const pItems = resolveFactores(schema, 'pareja', 'proteccion', pKeys)
+        const rItems = resolveFactores(schema, 'pareja', 'riesgo', rKeys, terminologia)
+        const pItems = resolveFactores(schema, 'pareja', 'proteccion', pKeys, terminologia)
 
         if (rItems.length > 0) {
           riesgoGroups.push({ schema, schemaLabel: SCHEMA_LABELS[schema] ?? schema, items: rItems })

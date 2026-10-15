@@ -374,8 +374,8 @@ export default function FamiliarTab({ patientId, therapistId, terminologia = TER
         const rKeys: string[] = (tpRow?.[rColName] as { familiar?: string[] } | null)?.familiar ?? []
         const pKeys: string[] = (tpRow?.[pColName] as { familiar?: string[] } | null)?.familiar ?? []
 
-        const rItems = resolveFactores(schema, 'familiar', 'riesgo', rKeys)
-        const pItems = resolveFactores(schema, 'familiar', 'proteccion', pKeys)
+        const rItems = resolveFactores(schema, 'familiar', 'riesgo', rKeys, terminologia)
+        const pItems = resolveFactores(schema, 'familiar', 'proteccion', pKeys, terminologia)
 
         if (rItems.length > 0) {
           riesgoGroups.push({ schema, schemaLabel: SCHEMA_LABELS[schema] ?? schema, items: rItems })

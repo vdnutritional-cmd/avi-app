@@ -139,6 +139,7 @@ export default function ExpedienteTab({ patientId, therapistId, patientEmail: _p
           patientId={patientId}
           therapistId={therapistId}
           patientName={patientName}
+          terminologia={terminologia}
         />
       )}
 
@@ -173,6 +174,7 @@ export default function ExpedienteTab({ patientId, therapistId, patientEmail: _p
         <ParejaTab
           patientId={patientId}
           therapistId={therapistId}
+          terminologia={terminologia}
         />
       )}
 

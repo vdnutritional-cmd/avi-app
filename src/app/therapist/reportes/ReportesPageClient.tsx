@@ -22,6 +22,7 @@ import {
 } from '../patients/[patientId]/print-utils'
 import { imprimirReporteAtencion, type ReporteAtencionData } from './reporte-atencion-print'
 import { createClient } from '@/lib/supabase/client'
+import { aplicarTerminologia, terminos, TERMINOLOGIA_SIN_EMPRESA, type Terminologia } from '@/lib/terminologia'
 
 // ── Tipos ─────────────────────────────────────────────────────
 type ReportId =
@@ -30,12 +31,16 @@ type ReportId =
 
 interface Empresa  { id: string; nombre: string; logo_url: string | null }
 interface Paciente { id: string; nombre: string; empresa_id: string | null; tier?: 'esencial' | 'clinico'; bloqueado?: boolean }
-interface Props    { tier: string | null; terapeutaNombre: string }
+interface Props    {
+  tier: string | null; terapeutaNombre: string
+  /** Palabra del menú del terapeuta: pantalla general (Inventario de Terminología, página 7) */
+  terminologia?: Terminologia
+}
 
 // ── Catálogos ─────────────────────────────────────────────────
 const ESENCIAL_ITEMS: { id: ReportId; label: string; desc: string }[] = [
-  { id: 'datos-generales',   label: 'Datos Generales',                       desc: 'Ficha del asesorado con genograma (1 hoja).' },
-  { id: 'nota-inicial',      label: 'Nota Inicial',                          desc: 'Primera consulta del paciente.' },
+  { id: 'datos-generales',   label: 'Datos Generales',                       desc: 'Ficha del <user> con genograma (1 hoja).' },
+  { id: 'nota-inicial',      label: 'Nota Inicial',                          desc: 'Primera consulta del <user>.' },
   { id: 'sesiones',          label: 'Sesiones presenciales',                 desc: 'Todas o una sesión específica.' },
   { id: 'analisis',          label: 'Análisis clínico y Propuesta técnica',  desc: 'Selecciona la fecha del análisis.' },
   { id: 'reporte-atencion',  label: 'Reporte de la Atención',                desc: 'Resumen integral de la atención (9 secciones).' },
@@ -50,7 +55,8 @@ const CLINICO_ITEMS: { id: ReportId; label: string }[] = [
 ]
 
 // ── Componente principal ──────────────────────────────────────
-export default function ReportesPageClient({ tier, terapeutaNombre }: Props) {
+export default function ReportesPageClient({ tier, terapeutaNombre, terminologia = TERMINOLOGIA_SIN_EMPRESA }: Props) {
+  const w = terminos(terminologia)
 
   // Estado general
   const [loaded,            setLoaded]            = useState(false)
@@ -233,8 +239,8 @@ export default function ReportesPageClient({ tier, terapeutaNombre }: Props) {
   }
 
   async function generarReporteAtencion() {
-    if (!pid) { setErrorRA('Selecciona un paciente primero.'); return }
-    if (sesiones.length === 0) { setErrorRA('Este paciente no tiene sesiones registradas.'); return }
+    if (!pid) { setErrorRA(`Selecciona un ${w.user} primero.`); return }
+    if (sesiones.length === 0) { setErrorRA(`Este ${w.user} no tiene sesiones registradas.`); return }
     let dateFrom: string, dateTo: string
     if (raOpt === 'all') {
       dateFrom = sesiones[0].date; dateTo = sesiones[sesiones.length - 1].date
@@ -298,7 +304,7 @@ export default function ReportesPageClient({ tier, terapeutaNombre }: Props) {
               d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
           </svg>
           <p className="text-sm font-medium text-gray-400">Selecciona un reporte del menú izquierdo</p>
-          <p className="text-xs text-gray-300 mt-1">y elige un paciente para imprimir</p>
+          <p className="text-xs text-gray-300 mt-1">y elige un {w.user} para imprimir</p>
         </div>
       )
     }
@@ -313,7 +319,7 @@ export default function ReportesPageClient({ tier, terapeutaNombre }: Props) {
         <div>
           <h2 className="text-lg font-bold text-gray-800">{info?.label}</h2>
           {'desc' in (info ?? {}) && (info as { desc?: string }).desc && (
-            <p className="text-sm text-gray-400 mt-0.5">{(info as { desc?: string }).desc}</p>
+            <p className="text-sm text-gray-400 mt-0.5">{aplicarTerminologia((info as { desc?: string }).desc ?? '', terminologia)}</p>
           )}
           {locked && (
             <div className="mt-3 flex items-center gap-2 text-sm text-amber-600 bg-amber-50 border border-amber-200 px-3 py-2 rounded-xl">
@@ -353,7 +359,7 @@ export default function ReportesPageClient({ tier, terapeutaNombre }: Props) {
               {analisisFechas.map(a => <option key={a.id} value={a.id}>{a.label}</option>)}
             </select>
             {pid && !loadingAnal && analisisFechas.length === 0 && (
-              <p className="text-xs text-gray-400">Sin análisis generados para este paciente.</p>
+              <p className="text-xs text-gray-400">Sin análisis generados para este {w.user}.</p>
             )}
           </div>
         )}
@@ -371,7 +377,7 @@ export default function ReportesPageClient({ tier, terapeutaNombre }: Props) {
               {sesiones.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
             </select>
             {pid && !loadingSes && sesiones.length === 0 && (
-              <p className="text-xs text-gray-400">Este paciente no tiene sesiones registradas.</p>
+              <p className="text-xs text-gray-400">Este {w.user} no tiene sesiones registradas.</p>
             )}
             {errorRA && <p className="text-xs text-red-500">{errorRA}</p>}
           </div>
@@ -401,7 +407,7 @@ export default function ReportesPageClient({ tier, terapeutaNombre }: Props) {
         )}
 
         {!pid && (
-          <p className="text-xs text-gray-400">Selecciona un paciente en el panel izquierdo para continuar.</p>
+          <p className="text-xs text-gray-400">Selecciona un {w.user} en el panel izquierdo para continuar.</p>
         )}
       </div>
     )
@@ -454,18 +460,18 @@ export default function ReportesPageClient({ tier, terapeutaNombre }: Props) {
 
             {/* 2. Paciente — filtrado según empresa elegida */}
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-1">Paciente</label>
+              <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-1">{w.User}</label>
               <select
                 value={pid}
                 onChange={e => handlePacienteChange(e.target.value)}
                 disabled={empresas.length > 0 && selectedEmpresaId === ''}
                 className="w-full border border-gray-200 rounded-xl px-2.5 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-300 disabled:opacity-40"
               >
-                <option value="">— Elige un paciente —</option>
+                <option value="">— Elige un {w.user} —</option>
                 {pacientesVisibles.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
               </select>
               {empresas.length > 0 && selectedEmpresaId !== '' && pacientesVisibles.length === 0 && (
-                <p className="text-xs text-gray-400 px-1">Sin pacientes en este contexto.</p>
+                <p className="text-xs text-gray-400 px-1">Sin {w.users} en este contexto.</p>
               )}
             </div>
 

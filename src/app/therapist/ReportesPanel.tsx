@@ -22,6 +22,7 @@ import {
   type DGPreloaded,
 } from './patients/[patientId]/print-utils'
 import { createClient } from '@/lib/supabase/client'
+import { terminos, TERMINOLOGIA_SIN_EMPRESA, type Terminologia } from '@/lib/terminologia'
 import { imprimirReporteAtencion, type ReporteAtencionData } from './reportes/reporte-atencion-print'
 
 // ── Tipos ─────────────────────────────────────────────────────
@@ -35,6 +36,8 @@ interface Paciente { id: string; nombre: string; tier?: 'esencial' | 'clinico'; 
 interface Props {
   tier:            string | null
   terapeutaNombre: string
+  /** Palabra del menú del terapeuta: pantalla general (Inventario de Terminología, página 7) */
+  terminologia?:   Terminologia
 }
 
 // ── Catálogos ─────────────────────────────────────────────────
@@ -55,7 +58,8 @@ const CLINICO_ITEMS: { id: ReportId; label: string }[] = [
 ]
 
 // ── Componente ────────────────────────────────────────────────
-export default function ReportesPanel({ tier, terapeutaNombre }: Props) {
+export default function ReportesPanel({ tier, terapeutaNombre, terminologia = TERMINOLOGIA_SIN_EMPRESA }: Props) {
+  const w = terminos(terminologia)
   const [open,      setOpen]      = useState(false)
   const [loaded,    setLoaded]    = useState(false)
   const [empresas,  setEmpresas]  = useState<Empresa[]>([])
@@ -212,8 +216,8 @@ export default function ReportesPanel({ tier, terapeutaNombre }: Props) {
   }
 
   async function generarReporteAtencion() {
-    if (!pid) { setErrorRA('Selecciona un paciente primero.'); return }
-    if (sesiones.length === 0) { setErrorRA('Este paciente no tiene sesiones registradas.'); return }
+    if (!pid) { setErrorRA(`Selecciona un ${w.user} primero.`); return }
+    if (sesiones.length === 0) { setErrorRA(`Este ${w.user} no tiene sesiones registradas.`); return }
     let dateFrom: string, dateTo: string
     if (raOpt === 'all') {
       dateFrom = sesiones[0].date; dateTo = sesiones[sesiones.length - 1].date
@@ -300,14 +304,14 @@ export default function ReportesPanel({ tier, terapeutaNombre }: Props) {
           {/* Selectores de paciente y encabezado */}
           <div className="px-3 pt-3 pb-2 space-y-3">
             <div className="space-y-1">
-              <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest px-1">Paciente</label>
+              <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest px-1">{w.User}</label>
               <select
                 value={pid}
                 onChange={e => handlePacienteChange(e.target.value)}
                 className="w-full border border-gray-200 rounded-xl px-2.5 py-2 text-sm bg-white
                            focus:outline-none focus:ring-2 focus:ring-primary-300"
               >
-                <option value="">— Elige un paciente —</option>
+                <option value="">— Elige un {w.user} —</option>
                 {pacientes.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
               </select>
             </div>
@@ -392,7 +396,7 @@ export default function ReportesPanel({ tier, terapeutaNombre }: Props) {
                       {analisisFechas.map(a => <option key={a.id} value={a.id}>{a.label}</option>)}
                     </select>
                     {pid && !loadingAnal && analisisFechas.length === 0 && (
-                      <p className="text-[10px] text-gray-400">Sin análisis generados para este paciente.</p>
+                      <p className="text-[10px] text-gray-400">Sin análisis generados para este {w.user}.</p>
                     )}
                   </div>
                 )}
@@ -412,7 +416,7 @@ export default function ReportesPanel({ tier, terapeutaNombre }: Props) {
                     </select>
                     {errorRA && <p className="text-xs text-red-500">{errorRA}</p>}
                     {pid && !loadingSes && sesiones.length === 0 && (
-                      <p className="text-[10px] text-gray-400">Este paciente no tiene sesiones registradas.</p>
+                      <p className="text-[10px] text-gray-400">Este {w.user} no tiene sesiones registradas.</p>
                     )}
                   </div>
                 )}

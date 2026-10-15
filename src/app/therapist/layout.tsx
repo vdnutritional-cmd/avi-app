@@ -114,6 +114,7 @@ export default async function TherapistLayout({ children }: { children: React.Re
         <ReportesPanel
           tier={subscription?.tier ?? null}
           terapeutaNombre={profile?.full_name ?? profile?.email ?? user.email ?? 'Terapeuta'}
+          terminologia={terminologia}
         />
       </div>
     </InactivityGuard>

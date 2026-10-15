@@ -6,7 +6,12 @@
 //
 // Uso: FamiliarTab, ParejaTab e IndividualTab los importan para mostrar
 // los factores activos seleccionados por el terapeuta en la Nota Inicial.
+//
+// Las descripciones usan <user>/<serv> (Inventario de Terminología, páginas 5 y 7):
+// resolveFactores() las devuelve con la palabra de la persona.
 // ─────────────────────────────────────────────────────────────────────────────
+
+import { aplicarTerminologia, TERMINOLOGIA_SIN_EMPRESA, type Terminologia } from '@/lib/terminologia'
 
 export interface FactorItem {
   key:    string
@@ -70,7 +75,7 @@ export const FAM_RIESGO_TFS: FactorItem[] = [
   { key: 'alianzas_destructivas',     titulo: 'Alianzas e interacciones destructivas',   desc: 'Coaliciones (unión de dos miembros contra un tercero) que rompen las jerarquías naturales de la familia.' },
   { key: 'ciclo_vital_no_resuelto',   titulo: 'Ciclo vital no resuelto',                 desc: 'Dificultades para transitar etapas evolutivas (nido vacío, adolescencia, jubilación).' },
   { key: 'lealtades_invisibles',      titulo: 'Lealtades invisibles',                    desc: 'Mandatos transgeneracionales no cuestionados.' },
-  { key: 'delegacion_sintoma',        titulo: 'Delegación del síntoma',                  desc: 'Un miembro (identificado como paciente) porta el conflicto de todo el sistema.' },
+  { key: 'delegacion_sintoma',        titulo: 'Delegación del síntoma',                  desc: 'Un miembro (identificado como <user>) porta el conflicto de todo el sistema.' },
 ]
 
 export const FAM_PROTECCION_TFS: FactorItem[] = [
@@ -125,9 +130,9 @@ export const IND_PROTECCION_TREC: FactorItem[] = [
 
 export const FAM_RIESGO_TREC: FactorItem[] = [
   { key: 'creencias_fam_disfuncionales', titulo: 'Sistema de creencias familiares disfuncionales', desc: 'Reglas implícitas del tipo "en esta familia nunca se muestra debilidad."' },
-  { key: 'refuerzo_irracionalidad',      titulo: 'Refuerzo familiar de la irracionalidad',         desc: 'La familia valida o alimenta las creencias irracionales del paciente.' },
+  { key: 'refuerzo_irracionalidad',      titulo: 'Refuerzo familiar de la irracionalidad',         desc: 'La familia valida o alimenta las creencias irracionales del <user>.' },
   { key: 'exigencia_parental',           titulo: 'Alta exigencia parental / perfeccionismo',        desc: 'Estándares excesivamente altos transmitidos como expectativas incondicionales.' },
-  { key: 'invalidacion_emocional',       titulo: 'Invalidación emocional crónica',                 desc: 'Mensajes reiterados de que las emociones del paciente son exageradas o incorrectas.' },
+  { key: 'invalidacion_emocional',       titulo: 'Invalidación emocional crónica',                 desc: 'Mensajes reiterados de que las emociones del <user> son exageradas o incorrectas.' },
   { key: 'modelos_baja_tolerancia',      titulo: 'Modelos de rol con baja tolerancia a la frustración', desc: 'Padres o cuidadores que modelan reacciones catastróficas o evitativas.' },
   { key: 'estigma_familiar',             titulo: 'Estigma familiar hacia la terapia o las emociones', desc: 'Creencia de que buscar ayuda o expresar emociones es signo de debilidad.' },
 ]
@@ -135,7 +140,7 @@ export const FAM_RIESGO_TREC: FactorItem[] = [
 export const FAM_PROTECCION_TREC: FactorItem[] = [
   { key: 'clima_cuestionamiento',        titulo: 'Clima familiar de cuestionamiento racional', desc: 'Conversaciones abiertas donde se debaten creencias e ideas.' },
   { key: 'modelos_autorregulacion',      titulo: 'Modelos parentales de autorregulación',      desc: 'Cuidadores que demuestran manejo emocional y resolución de problemas.' },
-  { key: 'apoyo_proceso_terapeutico',    titulo: 'Apoyo familiar ante el proceso terapéutico', desc: 'La familia refuerza la asistencia y los cambios trabajados en terapia.' },
+  { key: 'apoyo_proceso_terapeutico',    titulo: 'Apoyo familiar ante el proceso terapéutico', desc: 'La familia refuerza la asistencia y los cambios trabajados en <serv>.' },
   { key: 'flexibilidad_reglas_fam',      titulo: 'Flexibilidad en las reglas familiares',      desc: 'Capacidad de revisar y actualizar normas y expectativas según el contexto.' },
 ]
 
@@ -253,13 +258,17 @@ const LOOKUP: Record<string, Record<CaseType, { riesgo: FactorItem[]; proteccion
   },
 }
 
-/** Dado un schema, tipo de caso y array de keys activos, devuelve los FactorItem seleccionados. */
+/** Dado un schema, tipo de caso y array de keys activos, devuelve los FactorItem seleccionados
+ *  (descripciones con la palabra de la persona; sin terminología → paciente/terapia). */
 export function resolveFactores(
   schema: string,
   caseType: CaseType,
   tipo: 'riesgo' | 'proteccion',
   activeKeys: string[],
+  terminologia: Terminologia = TERMINOLOGIA_SIN_EMPRESA,
 ): FactorItem[] {
   const pool = LOOKUP[schema]?.[caseType]?.[tipo] ?? []
-  return pool.filter(f => activeKeys.includes(f.key))
+  return pool
+    .filter(f => activeKeys.includes(f.key))
+    .map(f => ({ ...f, desc: aplicarTerminologia(f.desc, terminologia) }))
 }

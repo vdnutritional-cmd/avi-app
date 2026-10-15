@@ -14,6 +14,8 @@ import {
   SCHEMA_RIESGO_COL,
   SCHEMA_PROTECCION_COL,
 } from '@/app/therapist/patients/[patientId]/factores-nota-inicial'
+import { terminos } from '@/lib/terminologia'
+import { getTerminologiaPersona } from '@/lib/terminologia-paciente'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 
@@ -90,7 +92,9 @@ export async function POST(req: NextRequest) {
     admin.from('profiles').select('full_name').eq('id', therapistId).single(),
   ])
 
-  const pacienteNombre  = perfil?.full_name ?? 'Paciente'
+  // Palabras de la persona (Inventario de Terminología, página 7)
+  const terminologia    = await getTerminologiaPersona(admin, therapistId, patient_id)
+  const pacienteNombre  = perfil?.full_name ?? terminos(terminologia).User
   const terapeutaNombre = terapeutaProfile?.full_name ?? '—'
 
   // ── 2. Sección 1: Motivo de consulta ────────────────────────────────────────
@@ -132,7 +136,7 @@ export async function POST(req: NextRequest) {
           : {}
       const keys: string[] = obj[caseType] ?? []
       if (!keys.length) continue
-      const items = resolveFactores(schema, caseType, tipo, keys)
+      const items = resolveFactores(schema, caseType, tipo, keys, terminologia)
       if (!items.length) continue
       grupos.push({ esquema: SCHEMA_LABELS[schema], items: items.map(f => f.titulo) })
     }
@@ -234,5 +238,6 @@ Responde EXCLUSIVAMENTE con JSON válido, sin texto adicional antes ni después:
     atencion_especializada:      atencionEsp,
     atencion_especializada_cual: atencionEspCual,
     total_sesiones:        sesionesFiltradas.length,
+    terminologia,
   })
 }

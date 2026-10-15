@@ -10,6 +10,21 @@ import {
   SCHEMA_RIESGO_COL,
   SCHEMA_PROTECCION_COL,
 } from './factores-nota-inicial'
+import { terminos, normalizarTerminologia, TERMINOLOGIA_SIN_EMPRESA, type Terminologia } from '@/lib/terminologia'
+
+/**
+ * Palabras de la persona para el PDF (Inventario de Terminología, página 7):
+ * las de headerOpts si ya vienen; si no, se piden al servidor (su empresa; sin empresa, "Cómo me nombran").
+ */
+async function terminologiaDelReporte(patientId: string | null, headerOpts?: Partial<ReportHeaderOptions>): Promise<Terminologia> {
+  if (headerOpts?.terminologia) return headerOpts.terminologia
+  if (!patientId) return TERMINOLOGIA_SIN_EMPRESA
+  try {
+    const r = await fetch(`/api/therapist/terminologia-persona?patientId=${encodeURIComponent(patientId)}`)
+    if (r.ok) return normalizarTerminologia((await r.json()).persona)
+  } catch { /* sin conexión: palabras por defecto */ }
+  return TERMINOLOGIA_SIN_EMPRESA
+}
 
 // ──────────────────────────────────────────────────────────
 // Constantes clínicas
@@ -194,6 +209,8 @@ export async function imprimirHistoriaClinica(
   isOriginal = false,
 ) {
   const supabase = createClient()
+  const t = await terminologiaDelReporte(patientId)
+  const w = terminos(t)
 
   const [expedienteRes, terapeutaRes, patientRes] = await Promise.all([
     supabase.from('patient_expediente').select('*').eq('therapist_id', therapistId).eq('patient_id', patientId).maybeSingle(),
@@ -224,7 +241,7 @@ export async function imprimirHistoriaClinica(
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Historia Clínica — ${patientName ?? 'Paciente'}</title>
+  <title>Historia Clínica — ${patientName ?? w.User}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     @page { margin: 2.2cm 2.5cm; }
@@ -349,12 +366,12 @@ export async function imprimirHistoriaClinica(
 
   <div class="header">
     <h1>Historia Clínica Inicial y Prediagnóstico</h1>
-    <div class="subtitle">Asesor/Terapeuta: ${terapeutaNombre || '—'}</div>
+    <div class="subtitle">${w.Pro}: ${terapeutaNombre || '—'}</div>
     ${isOriginal ? `<div class="badge-original">★ VERSIÓN ORIGINAL AVI — generada automáticamente</div>` : ''}
   </div>
 
   <div class="meta">
-    <div><strong>Consultante:</strong> ${patientName ?? '—'}</div>
+    <div><strong>${w.User}:</strong> ${patientName ?? '—'}</div>
     <div><strong>Fecha de elaboración:</strong> ${fechaHoy}</div>
   </div>
 
@@ -364,7 +381,7 @@ export async function imprimirHistoriaClinica(
     ${field('Tipo de caso', dg?.tipo_caso)}
 
     <div class="subsection" style="margin-top:8pt;">
-      <div class="subsection-title">Datos del Asesorado</div>
+      <div class="subsection-title">Datos del ${w.User}</div>
       <div class="grid-2">
         ${field('Nombre', dg?.asesorado_nombre)}
         ${field('Sexo', dg?.asesorado_sexo)}
@@ -483,7 +500,7 @@ export async function imprimirHistoriaClinica(
       <div class="firma-label">Elabora</div>
       <div class="firma-linea">
         <div class="firma-name">${terapeutaNombre}</div>
-        <div style="font-size:8.5pt;color:#666;">Nombre y firma del Terapeuta</div>
+        <div style="font-size:8.5pt;color:#666;">Nombre y firma del ${w.Pro}</div>
       </div>
     </div>
     <div class="firma-item">
@@ -657,6 +674,8 @@ export async function imprimirNotaInicial(
   headerOpts?: Partial<ReportHeaderOptions>,
 ) {
   const supabase = createClient()
+  const t = await terminologiaDelReporte(null, headerOpts)
+  const w = terminos(t)
   const { data: terapeutaRow } = await supabase
     .from('profiles')
     .select('full_name')
@@ -678,7 +697,7 @@ export async function imprimirNotaInicial(
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Entrevista Inicial — ${patientName ?? 'Paciente'}</title>
+  <title>Entrevista Inicial — ${patientName ?? w.User}</title>
   <style>${sharedCSS()}
     .section, .section-break-before {
       page-break-inside: auto !important;
@@ -697,12 +716,12 @@ export async function imprimirNotaInicial(
     </button>
   </div>
 
-  ${buildReportHeader({ terapeutaNombre, logoUrl: headerOpts?.logoUrl ?? null, side: headerOpts?.side ?? 'name', subtitle: 'Registro de Entrevista Inicial (Nota Inicial)' })}
+  ${buildReportHeader({ terapeutaNombre, terminologia: t, logoUrl: headerOpts?.logoUrl ?? null, side: headerOpts?.side ?? 'name', subtitle: 'Registro de Entrevista Inicial (Nota Inicial)' })}
 
   <!-- Asesorado -->
   <div class="pre-header">
     <div class="pre-header-row">
-      <span><strong>Asesorado/a:</strong> ${patientName ?? '—'}</span>
+      <span><strong>${w.User}:</strong> ${patientName ?? '—'}</span>
     </div>
   </div>
 
@@ -729,7 +748,7 @@ export async function imprimirNotaInicial(
 
   <!-- 2. Motivo de consulta del paciente -->
   <div class="section">
-    <div class="section-title"><span class="num">2.</span> Motivo de consulta del paciente</div>
+    <div class="section-title"><span class="num">2.</span> Motivo de consulta del ${w.user}</div>
     ${data.initial_note_motivo?.trim()
       ? `<div class="section-body">${data.initial_note_motivo.trim()}</div>`
       : '<p class="empty">Sin registrar</p>'
@@ -764,7 +783,7 @@ export async function imprimirNotaInicial(
   ${data.sensacion_paciente_inicial ? `
   <!-- 6. Sensación inicial del paciente -->
   <div class="section">
-    <div class="section-title"><span class="num">6.</span> Sensación inicial del paciente</div>
+    <div class="section-title"><span class="num">6.</span> Sensación inicial del ${w.user}</div>
     <div class="section-body">${data.sensacion_paciente_inicial.replace(/\n/g, '<br>')}</div>
   </div>` : ''}
 
@@ -803,6 +822,8 @@ export async function imprimirBitacoraSesiones(
   headerOpts?: Partial<ReportHeaderOptions>,
 ) {
   const supabase = createClient()
+  const t = await terminologiaDelReporte(null, headerOpts)
+  const w = terminos(t)
   const { data: terapeutaRow } = await supabase
     .from('profiles')
     .select('full_name')
@@ -848,7 +869,7 @@ export async function imprimirBitacoraSesiones(
           ${campoHTML(1, 'Objetivo de la sesión / Seguimiento',              s.session_objetivo)}
           ${campoHTML(2, 'Desarrollo de la sesión / Intervención realizada', s.session_desarrollo)}
           ${campoHTML(3, 'Emociones identificadas',                          s.session_emociones)}
-          ${campoHTML(4, 'Recursos personales del paciente',                 s.session_recursos)}
+          ${campoHTML(4, `Recursos personales del ${w.user}`,                 s.session_recursos)}
           ${campoHTML(5, 'Observaciones particulares / Acuerdos / Tareas',   s.notes)}
         </div>
       </div>`
@@ -858,7 +879,7 @@ export async function imprimirBitacoraSesiones(
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Bitácora de Asesoría — ${patientName ?? 'Paciente'}</title>
+  <title>Bitácora de ${w.Serv} — ${patientName ?? w.User}</title>
   <style>${sharedCSS()}</style>
 </head>
 <body>
@@ -869,19 +890,19 @@ export async function imprimirBitacoraSesiones(
     </button>
   </div>
 
-  ${buildReportHeader({ terapeutaNombre, logoUrl: headerOpts?.logoUrl ?? null, side: headerOpts?.side ?? 'name', subtitle: 'Bitácora de Sesiones Presenciales' })}
+  ${buildReportHeader({ terapeutaNombre, terminologia: t, logoUrl: headerOpts?.logoUrl ?? null, side: headerOpts?.side ?? 'name', subtitle: 'Bitácora de Sesiones Presenciales' })}
 
   <!-- Asesorado y período -->
   <div class="pre-header">
     <div class="pre-header-row">
-      <span><strong>Asesorado/a:</strong> ${patientName ?? '—'}</span>
+      <span><strong>${w.User}:</strong> ${patientName ?? '—'}</span>
       <span><strong>Período:</strong> ${periodo}</span>
     </div>
   </div>
 
   <!-- Título -->
   <div class="header">
-    <h1>Bitácora de Asesoría</h1>
+    <h1>Bitácora de ${w.Serv}</h1>
     <div class="subtitle">(Sesiones presenciales)</div>
   </div>
 
@@ -914,6 +935,8 @@ export async function imprimirReporteValorativo(
   headerOpts?: Partial<ReportHeaderOptions>,
 ) {
   const supabase = createClient()
+  const t = await terminologiaDelReporte(patientId, headerOpts)
+  const w = terminos(t)
 
   const [expedienteRes, notaRes, terapeutaRes, patientRes] = await Promise.all([
     supabase.from('patient_expediente')
@@ -1176,7 +1199,7 @@ export async function imprimirReporteValorativo(
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Reporte Valorativo — ${patientName ?? 'Paciente'}</title>
+  <title>Reporte Valorativo — ${patientName ?? w.User}</title>
   <style>
     ${sharedCSS()}
 
@@ -1223,13 +1246,13 @@ export async function imprimirReporteValorativo(
     </button>
   </div>
 
-  ${buildReportHeader({ terapeutaNombre, logoUrl: headerOpts?.logoUrl ?? null, side: headerOpts?.side ?? 'name', subtitle: 'Reporte Valorativo' })}
+  ${buildReportHeader({ terapeutaNombre, terminologia: t, logoUrl: headerOpts?.logoUrl ?? null, side: headerOpts?.side ?? 'name', subtitle: 'Reporte Valorativo' })}
 
   <!-- Pre-header -->
   <div class="pre-header">
     <div class="pre-header-row">
-      <span><strong>Asesorado:</strong> ${patientName ?? '—'}</span>
-      <span><strong>Asesor/Terapeuta:</strong> ${terapeutaNombre}</span>
+      <span><strong>${w.User}:</strong> ${patientName ?? '—'}</span>
+      <span><strong>${w.Pro}:</strong> ${terapeutaNombre}</span>
     </div>
     <div class="pre-header-row">
       <span><strong>Tipo de caso:</strong> ${(dg?.tipo_caso as string) || '—'}</span>
@@ -1245,7 +1268,7 @@ export async function imprimirReporteValorativo(
 
   <!-- Meta -->
   <div class="meta">
-    <div><strong>Consultante:</strong> ${patientName ?? '—'}</div>
+    <div><strong>${w.User}:</strong> ${patientName ?? '—'}</div>
     <div><strong>Fecha de elaboración:</strong> ${fechaHoy}</div>
   </div>
 
@@ -1253,7 +1276,7 @@ export async function imprimirReporteValorativo(
   <div class="section">
     <div class="section-title"><span class="num">I.</span> Datos Generales</div>
 
-    <div class="subsection-title">Datos del Asesorado</div>
+    <div class="subsection-title">Datos del ${w.User}</div>
     <div class="dg-grid">
       ${f('Nombre',             dg?.asesorado_nombre)}
       ${f('Sexo',               dg?.asesorado_sexo)}
@@ -1295,7 +1318,7 @@ export async function imprimirReporteValorativo(
   <div class="section">
     <div class="section-title"><span class="num">III.</span> Motivo de Consulta</div>
 
-    <div class="subsection-title" style="margin-top:0;">Motivo de consulta del paciente</div>
+    <div class="subsection-title" style="margin-top:0;">Motivo de consulta del ${w.user}</div>
     ${textBlock(nota?.initial_note_motivo)}
 
     <div class="subsection-title" style="margin-top:10pt;">Motivo de consulta subyacente</div>
@@ -1317,7 +1340,7 @@ export async function imprimirReporteValorativo(
       <div class="firma-label">Elabora</div>
       <div class="firma-linea">
         <div class="firma-name">${terapeutaNombre}</div>
-        <div style="font-size:8.5pt;color:#666;">Nombre y firma del Terapeuta</div>
+        <div style="font-size:8.5pt;color:#666;">Nombre y firma del ${w.Pro}</div>
       </div>
     </div>
     <div class="firma-item">
@@ -1361,6 +1384,8 @@ export async function imprimirHistoriaClinicaV2(
   headerOpts?: Partial<ReportHeaderOptions>,
 ) {
   const supabase = createClient()
+  const t = await terminologiaDelReporte(patientId, headerOpts)
+  const w = terminos(t)
 
   const [expedienteRes, terapeutaRes, patientRes] = await Promise.all([
     supabase.from('patient_expediente').select('*').eq('therapist_id', therapistId).eq('patient_id', patientId).maybeSingle(),
@@ -1408,7 +1433,7 @@ export async function imprimirHistoriaClinicaV2(
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Historia Clínica — ${patientName ?? 'Paciente'}</title>
+  <title>Historia Clínica — ${patientName ?? w.User}</title>
   <style>
     ${sharedCSS()}
 
@@ -1434,12 +1459,12 @@ export async function imprimirHistoriaClinicaV2(
     </button>
   </div>
 
-  ${buildReportHeader({ terapeutaNombre, logoUrl: headerOpts?.logoUrl ?? null, side: headerOpts?.side ?? 'name', subtitle: 'Historia Clínica' })}
+  ${buildReportHeader({ terapeutaNombre, terminologia: t, logoUrl: headerOpts?.logoUrl ?? null, side: headerOpts?.side ?? 'name', subtitle: 'Historia Clínica' })}
 
   <div class="pre-header">
     <div class="pre-header-row">
-      <span><strong>Asesorado:</strong> ${patientName ?? '—'}</span>
-      <span><strong>Asesor/Terapeuta:</strong> ${terapeutaNombre}</span>
+      <span><strong>${w.User}:</strong> ${patientName ?? '—'}</span>
+      <span><strong>${w.Pro}:</strong> ${terapeutaNombre}</span>
     </div>
     <div class="pre-header-row">
       <span><strong>Tipo de caso:</strong> ${tipoCaso}</span>
@@ -1454,7 +1479,7 @@ export async function imprimirHistoriaClinicaV2(
   </div>
 
   <div class="meta">
-    <div><strong>Consultante:</strong> ${patientName ?? '—'}</div>
+    <div><strong>${w.User}:</strong> ${patientName ?? '—'}</div>
     <div><strong>Fecha de elaboración:</strong> ${fechaHoy}</div>
   </div>
 
@@ -1462,7 +1487,7 @@ export async function imprimirHistoriaClinicaV2(
   <div class="section">
     <div class="section-title">Datos Generales</div>
 
-    <div class="subsection-title">Datos del Asesorado</div>
+    <div class="subsection-title">Datos del ${w.User}</div>
     <div class="dg-grid">
       ${dgField('Nombre', dg?.asesorado_nombre)}
       ${dgField('Sexo', dg?.asesorado_sexo)}
@@ -1532,7 +1557,7 @@ export async function imprimirHistoriaClinicaV2(
       <div class="firma-label">Elabora</div>
       <div class="firma-linea">
         <div class="firma-name">${terapeutaNombre}</div>
-        <div style="font-size:8.5pt;color:#666;">Nombre y firma del Terapeuta</div>
+        <div style="font-size:8.5pt;color:#666;">Nombre y firma del ${w.Pro}</div>
       </div>
     </div>
     <div class="firma-item">
@@ -1561,6 +1586,8 @@ export async function imprimirReporteProceso(
   headerOpts?: Partial<ReportHeaderOptions>,
 ) {
   const supabase = createClient()
+  const t = await terminologiaDelReporte(patientId, headerOpts)
+  const w = terminos(t)
 
   // Fetch de datos en paralelo
   const [expedienteRes, notaRes, terapeutaRes, patientRes, subsecuenteRes] = await Promise.all([
@@ -1641,7 +1668,7 @@ export async function imprimirReporteProceso(
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Reporte de Proceso — ${patientName ?? 'Paciente'}</title>
+  <title>Reporte de Proceso — ${patientName ?? w.User}</title>
   <style>
     ${sharedCSS()}
     /* Flujo continuo sin huecos */
@@ -1681,12 +1708,12 @@ export async function imprimirReporteProceso(
     </button>
   </div>
 
-  ${buildReportHeader({ terapeutaNombre, logoUrl: headerOpts?.logoUrl ?? null, side: headerOpts?.side ?? 'name', subtitle: 'Reporte de Proceso' })}
+  ${buildReportHeader({ terapeutaNombre, terminologia: t, logoUrl: headerOpts?.logoUrl ?? null, side: headerOpts?.side ?? 'name', subtitle: 'Reporte de Proceso' })}
 
   <div class="pre-header">
     <div class="pre-header-row">
-      <span><strong>Asesorado:</strong> ${patientName ?? '—'}</span>
-      <span><strong>Asesor/Terapeuta:</strong> ${terapeutaNombre}</span>
+      <span><strong>${w.User}:</strong> ${patientName ?? '—'}</span>
+      <span><strong>${w.Pro}:</strong> ${terapeutaNombre}</span>
     </div>
     <div class="pre-header-row">
       <span><strong>Tipo de caso:</strong> ${(dg?.tipo_caso as string) || '—'}</span>
@@ -1700,12 +1727,12 @@ export async function imprimirReporteProceso(
   </div>
 
   <div class="meta">
-    <div><strong>Consultante:</strong> ${patientName ?? '—'}</div>
+    <div><strong>${w.User}:</strong> ${patientName ?? '—'}</div>
     <div><strong>Fecha de elaboración:</strong> ${fechaHoy}</div>
   </div>
 
   ${sectionBlock('I', 'Datos Generales', `
-    <div class="subsection-title">Datos del Asesorado</div>
+    <div class="subsection-title">Datos del ${w.User}</div>
     <div class="dg-grid">
       ${f('Nombre',              dg?.asesorado_nombre)}
       ${f('Sexo',                dg?.asesorado_sexo)}
@@ -1751,7 +1778,7 @@ export async function imprimirReporteProceso(
       <div class="firma-label">Elabora</div>
       <div class="firma-linea">
         <div class="firma-name">${terapeutaNombre}</div>
-        <div style="font-size:8.5pt;color:#666;">Nombre y firma del Terapeuta</div>
+        <div style="font-size:8.5pt;color:#666;">Nombre y firma del ${w.Pro}</div>
       </div>
     </div>
     <div class="firma-item">
@@ -1780,6 +1807,8 @@ export async function imprimirIntegracionPlan(
   headerOpts?: Partial<ReportHeaderOptions>,
 ) {
   const supabase = createClient()
+  const t = await terminologiaDelReporte(patientId, headerOpts)
+  const w = terminos(t)
 
   const [expedienteRes, notaRes, terapeutaRes, patientRes, analysesRes] = await Promise.all([
     supabase.from('patient_expediente')
@@ -1872,7 +1901,7 @@ export async function imprimirIntegracionPlan(
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Integración y Plan de Intervención — ${patientName ?? 'Paciente'}</title>
+  <title>Integración y Plan de Intervención — ${patientName ?? w.User}</title>
   <style>
     ${sharedCSS()}
     /* Flujo continuo: sin saltos ni huecos entre secciones */
@@ -1909,12 +1938,12 @@ export async function imprimirIntegracionPlan(
     </button>
   </div>
 
-  ${buildReportHeader({ terapeutaNombre, logoUrl: headerOpts?.logoUrl ?? null, side: headerOpts?.side ?? 'name', subtitle: 'Integración y Plan de Intervención' })}
+  ${buildReportHeader({ terapeutaNombre, terminologia: t, logoUrl: headerOpts?.logoUrl ?? null, side: headerOpts?.side ?? 'name', subtitle: 'Integración y Plan de Intervención' })}
 
   <div class="pre-header">
     <div class="pre-header-row">
-      <span><strong>Asesorado:</strong> ${patientName ?? '—'}</span>
-      <span><strong>Asesor/Terapeuta:</strong> ${terapeutaNombre}</span>
+      <span><strong>${w.User}:</strong> ${patientName ?? '—'}</span>
+      <span><strong>${w.Pro}:</strong> ${terapeutaNombre}</span>
     </div>
     <div class="pre-header-row">
       <span><strong>Tipo de caso:</strong> ${(dg?.tipo_caso as string) || '—'}</span>
@@ -1928,12 +1957,12 @@ export async function imprimirIntegracionPlan(
   </div>
 
   <div class="meta">
-    <div><strong>Consultante:</strong> ${patientName ?? '—'}</div>
+    <div><strong>${w.User}:</strong> ${patientName ?? '—'}</div>
     <div><strong>Fecha de elaboración:</strong> ${fechaHoy}</div>
   </div>
 
   ${sectionBlock('I', 'Datos Generales', `
-    <div class="subsection-title">Datos del Asesorado</div>
+    <div class="subsection-title">Datos del ${w.User}</div>
     <div class="dg-grid">
       ${f('Nombre',              dg?.asesorado_nombre)}
       ${f('Sexo',                dg?.asesorado_sexo)}
@@ -1959,7 +1988,7 @@ export async function imprimirIntegracionPlan(
     ${hijosHTML}` : ''}
   `)}
 
-  ${sectionBlock('II', 'Motivos de Consulta del Paciente',
+  ${sectionBlock('II', `Motivos de Consulta del ${w.User}`,
     textBlock(nota?.initial_note_motivo))}
 
   ${sectionBlock('III', 'Motivos de Consulta Subyacente',
@@ -1992,7 +2021,7 @@ export async function imprimirIntegracionPlan(
       <div class="firma-label">Elabora</div>
       <div class="firma-linea">
         <div class="firma-name">${terapeutaNombre}</div>
-        <div style="font-size:8.5pt;color:#666;">Nombre y firma del Terapeuta</div>
+        <div style="font-size:8.5pt;color:#666;">Nombre y firma del ${w.Pro}</div>
       </div>
     </div>
     <div class="firma-item">
@@ -2025,6 +2054,8 @@ export interface ReportHeaderOptions {
   subtitle?: string
   /** Quién imprime, si no es el terapeuta (ej. Persona Institucional). Default: terapeutaNombre */
   impresoPor?: string
+  /** Palabras de la persona del reporte (<Pro> del encabezado). Default: paciente/terapeuta */
+  terminologia?: Terminologia
 }
 
 /**
@@ -2063,7 +2094,7 @@ export function buildReportHeader(opts: ReportHeaderOptions): string {
         </div>
       </div>
       <div style="text-align:right;font-size:7.5pt;color:#555;line-height:1.6;">
-        <div><strong>Terapeuta:</strong> ${terapeutaNombre}</div>
+        <div><strong>${terminos(opts.terminologia ?? TERMINOLOGIA_SIN_EMPRESA).Pro}:</strong> ${terapeutaNombre}</div>
       </div>
     </div>
     <!-- separador post-header -->
@@ -2080,6 +2111,8 @@ export function buildReportHeader(opts: ReportHeaderOptions): string {
 /** Carga Nota Inicial y la imprime sin necesitar datos pre-cargados. */
 export async function imprimirNotaInicialDesdeReportes(patientId: string, headerOpts?: Partial<ReportHeaderOptions>) {
   const supabase = createClient()
+  const t = await terminologiaDelReporte(patientId, headerOpts)
+  const w = terminos(t)
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return
 
@@ -2107,7 +2140,7 @@ export async function imprimirNotaInicialDesdeReportes(patientId: string, header
       .maybeSingle(),
   ])
 
-  if (!rel) { alert('No se encontró la Nota Inicial de este paciente.'); return }
+  if (!rel) { alert(`No se encontró la Nota Inicial de este ${w.user}.`); return }
 
   // ── Resolver tipo de caso ─────────────────────────────────────────────────
   const tipoCasoStr = (expediente?.tipo_caso as string | null) ?? ''
@@ -2137,7 +2170,7 @@ export async function imprimirNotaInicialDesdeReportes(patientId: string, header
           : {}
       const keys: string[] = obj[caseType] ?? []
       if (!keys.length) continue
-      const items = resolveFactores(schema, caseType, tipo, keys)
+      const items = resolveFactores(schema, caseType, tipo, keys, t)
       if (!items.length) continue
       parts.push(
         `<div class="factor-schema">${SCHEMA_LABELS[schema]}</div>` +
@@ -2168,7 +2201,7 @@ export async function imprimirNotaInicialDesdeReportes(patientId: string, header
     sensacion_paciente_inicial: (rel.sensacion_paciente_inicial as string | null) ?? null,
     factoresRiesgoHtml:         factoresRiesgoHtml     || undefined,
     factoresProteccionHtml:     factoresProteccionHtml || undefined,
-  }, headerOpts)
+  }, { ...headerOpts, terminologia: t })
 }
 
 /** Carga sesiones presenciales y las imprime. sessionId = undefined → todas. */
@@ -2178,6 +2211,7 @@ export async function imprimirSesionesDesdeReportes(
   headerOpts?: Partial<ReportHeaderOptions>,
 ) {
   const supabase = createClient()
+  const t = await terminologiaDelReporte(patientId, headerOpts)
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return
 
@@ -2207,7 +2241,7 @@ export async function imprimirSesionesDesdeReportes(
     is_virtual:         (s.is_virtual       as boolean) ?? false,
   }))
 
-  await imprimirBitacoraSesiones(user.id, profile?.full_name ?? null, sesiones, headerOpts)
+  await imprimirBitacoraSesiones(user.id, profile?.full_name ?? null, sesiones, { ...headerOpts, terminologia: t })
 }
 
 /** Carga un análisis Consúltame por ID y abre ventana de impresión. */
@@ -2217,6 +2251,8 @@ export async function imprimirAnalisisDesdeReportes(
   headerOpts?: Partial<ReportHeaderOptions>,
 ) {
   const supabase = createClient()
+  const t = await terminologiaDelReporte(patientId, headerOpts)
+  const w = terminos(t)
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return
 
@@ -2229,7 +2265,7 @@ export async function imprimirAnalisisDesdeReportes(
 
   if (!analysis) { alert('No se encontró el análisis.'); return }
 
-  const pacienteNombre  = profile?.full_name ?? 'Paciente'
+  const pacienteNombre  = profile?.full_name ?? w.User
   const terapeutaNombre = terapeutaProfile?.full_name ?? '—'
   const fecha = new Date((analysis.created_at as string)).toLocaleDateString('es-MX', {
     day: 'numeric', month: 'long', year: 'numeric',
@@ -2275,11 +2311,11 @@ export async function imprimirAnalisisDesdeReportes(
   </style>
 </head>
 <body>
-  ${buildReportHeader({ terapeutaNombre, logoUrl: headerOpts?.logoUrl ?? null, side: headerOpts?.side ?? 'name', subtitle: 'Análisis Clínico y Propuesta Técnica' })}
+  ${buildReportHeader({ terapeutaNombre, terminologia: t, logoUrl: headerOpts?.logoUrl ?? null, side: headerOpts?.side ?? 'name', subtitle: 'Análisis Clínico y Propuesta Técnica' })}
 
   <!-- Asesorado y fecha de análisis -->
   <div class="meta" style="margin-bottom:8pt;">
-    <span><strong>Asesorado/a:</strong> ${pacienteNombre}</span>
+    <span><strong>${w.User}:</strong> ${pacienteNombre}</span>
     <span style="font-size:8.5pt;color:#666;">Análisis generado: ${fecha}</span>
   </div>
 
@@ -2287,12 +2323,6 @@ export async function imprimirAnalisisDesdeReportes(
   <div class="doc-title">
     <h1>Análisis Clínico y Propuesta Técnica</h1>
     <div class="sub">Consúltame AVI</div>
-  </div>
-
-  <!-- Meta -->
-  <div class="meta">
-    <span><strong>Paciente:</strong> ${pacienteNombre}</span>
-    <span><strong>Terapeuta:</strong> ${terapeutaNombre}</span>
   </div>
 
   <!-- Contenido del análisis -->
@@ -2435,6 +2465,8 @@ export async function imprimirDatosGeneralesDesdeReportes(
     patientEmail    = pacienteRes.data?.email ?? ''
   }
 
+  const t = await terminologiaDelReporte(patientId, headerOpts)
+  const w = terminos(t)
   const fechaHoy        = new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })
 
   const v = (val: string | null | undefined) => val?.trim() || '—'
@@ -2580,11 +2612,11 @@ export async function imprimirDatosGeneralesDesdeReportes(
     </button>
   </div>
 
-  ${buildReportHeader({ terapeutaNombre, logoUrl: headerOpts?.logoUrl ?? null, side: headerOpts?.side ?? 'name', subtitle: 'Registro clínico — Datos generales del asesorado' })}
+  ${buildReportHeader({ terapeutaNombre, terminologia: t, logoUrl: headerOpts?.logoUrl ?? null, side: headerOpts?.side ?? 'name', subtitle: `Registro clínico — Datos generales del ${w.user}` })}
 
   <!-- 1. Datos del asesorado -->
   <div class="section">
-    <div class="sec-header">Datos del asesorado</div>
+    <div class="sec-header">Datos del ${w.user}</div>
     <div class="sec-body">
       <div class="grid2" style="margin-bottom:4pt;">
         <div class="field">
@@ -2690,11 +2722,11 @@ export async function imprimirDatosGeneralesDesdeReportes(
     <div class="sec-header">Información General</div>
     <div class="sec-body">
       <div class="field" style="margin-bottom:3pt;">
-        <div class="flabel">¿Ha recibido asesoría de esta Institución anteriormente?</div>
+        <div class="flabel">¿Ha recibido ${w.serv} de esta Institución anteriormente?</div>
         <div class="fvalue" style="font-size:10px;">${infoAsesoriaAnterior}</div>
       </div>
       <div class="field" style="margin-bottom:3pt;">
-        <div class="flabel">¿Por qué eligió esta Institución para su acompañamiento terapéutico/emocional?</div>
+        <div class="flabel">¿Por qué eligió esta Institución para su acompañamiento en ${w.serv} emocional?</div>
         <div class="fvalue" style="font-size:10px;min-height:14pt;white-space:pre-wrap;">${v(dg?.info_razon_eleccion)}</div>
       </div>
       <div class="field">
@@ -2714,13 +2746,13 @@ export async function imprimirDatosGeneralesDesdeReportes(
     <div class="firma-item">
       <div class="firma-line">
         <div style="font-size:8.5pt;font-weight:bold;color:#333;">${v(dg?.asesorado_nombre)}</div>
-        <div>Nombre y firma del Asesorado</div>
+        <div>Nombre y firma del ${w.User}</div>
       </div>
     </div>
     <div class="firma-item">
       <div class="firma-line">
         <div style="font-size:8.5pt;font-weight:bold;color:#333;">${terapeutaNombre}</div>
-        <div>Nombre y firma del Terapeuta</div>
+        <div>Nombre y firma del ${w.Pro}</div>
       </div>
     </div>
   </div>
