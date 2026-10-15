@@ -118,7 +118,8 @@ src/app/
     │   ├── reporte-asesorias/      Estadísticas mensuales
     │   ├── fusionar-paciente/
     │   ├── transferir-paciente/
-    │   └── paciente-empresa/
+    │   ├── paciente-empresa/
+    │   └── terminologia-persona/   { persona, terapeuta }: palabras para el perfil de una persona
     ├── patient/
     │   ├── contacto/route.ts       Contacto del paciente para la bienvenida (empresa o terapeuta)
     │   ├── sesiones-avi/route.ts   Sesiones AVI disponibles + ultimoModo (hablada/escrita)
@@ -435,7 +436,9 @@ Por cuestión legal (instituciones Sin Fines de Lucro no pueden usar "paciente")
 - **Persona con empresa:** la de su empresa (bienvenida, chat, y lo que ve el terapeuta dentro de ella). **Sin empresa:** "Cómo me nombran" del terapeuta (`/therapist/configuracion/terminologia`).
 - **Menú y pantallas generales del terapeuta:** una sola palabra; "asesorado" si alguna empresa suya (o su elección) lo es. Nunca "pacientes/asesorados".
 - **Logo:** se imprime en 140 × 48 px; medida recomendada 360 × 144 px (2.5 : 1), sin márgenes.
-- Aplicado hasta la página 3 del inventario (Bienvenida, Habla, cuestionario, menú, Dashboard).
+- Aplicado hasta la página 5 del inventario (Bienvenida, Habla, cuestionario, menú, Dashboard, Mis pacientes, Asignación a Institución, Perfil AVI-ESENCIAL).
+- Pantallas cliente: la palabra llega del servidor (`/api/patient/sesiones-avi`, `/api/therapist/terminologia-persona`); la pantalla espera la respuesta para no mostrar un instante la palabra equivocada.
+- Pendiente: `factores-nota-inicial.ts` (factores en la impresión y en AVI-CLÍNICO) sigue con "paciente"; va con las páginas de AVI-CLÍNICO y Reportes/PDF.
 
 ## SaaS Controller — información vs. acción
 
@@ -577,7 +580,7 @@ npm run build
 - **Último commit Sprint 12 Companion:** `dd614c6`
 - **Último commit fixes Stripe CONVENIO + contacto por empresa:** `9f5ee22` (06 oct 2026)
 - **Respaldo del 10 oct:** `89cfffc` — Control de Planes, motivo de bloqueo, terapeuta desactivado, Admin › Terapeutas Temporal/Permanente
-- **Último commit respaldado:** `ac31736` (14 oct 2026) — Alta/Baja de <Pros> por la empresa; antes `bb25486` terminología (Configuración Admin, Cómo me nombran, inventario 1–3)
+- **Último commit respaldado:** `3810766` (14 oct 2026) — inventario página 5 (Perfil AVI-ESENCIAL), chat sin instante "terapeuta", menú lateral de 288 px; antes `43a59c2` inventario página 4, `3d2494d` Paquetes en CONVENIO con una sola empresa (WhatsApp de solicitudes, migración `20261014c`), `ac31736` Alta/Baja de <Pros> por la empresa y `bb25486` terminología (Configuración Admin, Cómo me nombran, inventario 1–3)
 - **Respaldo del 13 oct:** `15ebffb` — nombres: SaaS Controller, Configuración AVI, Administración, niveles
 - **Respaldo anterior:** `69954cd` (12 oct 2026) — chat AVI (tiempos, caché real 1h+5m, base personalista, política de sesiones, modo escrito, retomar sesión, sesiones anteriores), Administración Institucional AVI, transferir paciente seguro
 - Confirmar el deploy: `vercel ls` / `vercel inspect go.avi-app.com.mx` (CLI con sesión en la Mac)
