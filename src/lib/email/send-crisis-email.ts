@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { resend, EMAIL_FROM } from './index'
+import { terminos } from '@/lib/terminologia'
+import { getTerminologiaPersona } from '@/lib/terminologia-paciente'
 
 interface CrisisEmailParams {
   patientId: string
@@ -47,15 +49,18 @@ export async function sendCrisisEmail({ patientId, sessionId }: CrisisEmailParam
     return
   }
 
+  // Palabra de esta persona: la de su empresa o "Cómo me nombran" (Inventario de Terminología, 17.3–17.4)
+  const w = terminos(await getTerminologiaPersona(supabase, relation.therapist_id, patientId))
+
   const patientUrl = `${process.env.NEXT_PUBLIC_APP_URL}/therapist/patients/${patientId}`
-  const therapistName = therapist.full_name ?? 'Terapeuta'
+  const therapistName = therapist.full_name ?? w.Pro
 
   // 4. Enviar email
   const { error } = await resend.emails.send({
     from: EMAIL_FROM,
     to: therapist.email,
     subject: `⚠️ Crisis detectada — ${patientName}`,
-    html: crisisEmailHtml({ patientName, therapistName, patientUrl, sessionId }),
+    html: crisisEmailHtml({ patientName, therapistName, patientUrl, sessionId, w }),
   })
 
   if (error) {
@@ -73,11 +78,13 @@ function crisisEmailHtml({
   therapistName,
   patientUrl,
   sessionId,
+  w,
 }: {
   patientName: string
   therapistName: string
   patientUrl: string
   sessionId: string
+  w: ReturnType<typeof terminos>
 }) {
   return `<!DOCTYPE html>
 <html lang="es">
@@ -124,7 +131,7 @@ function crisisEmailHtml({
               </p>
               <p style="margin:0 0 20px;font-size:15px;color:#6b7280;line-height:1.6;">
                 AVI identificó señales de crisis durante la conversación con <strong>${patientName}</strong>.
-                Te recomendamos revisar la sesión y contactar a tu paciente a la brevedad.
+                Te recomendamos revisar la sesión y contactar a tu ${w.user} a la brevedad.
               </p>
 
               <!-- Botón CTA -->
@@ -133,7 +140,7 @@ function crisisEmailHtml({
                   <td style="background:#7c3aed;border-radius:10px;">
                     <a href="${patientUrl}"
                        style="display:inline-block;padding:13px 28px;font-size:14px;font-weight:600;color:#ffffff;text-decoration:none;">
-                      Ver perfil del paciente →
+                      Ver perfil del ${w.user} →
                     </a>
                   </td>
                 </tr>
