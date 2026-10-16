@@ -1,6 +1,7 @@
 'use client'
 
 import { Fragment, useState } from 'react'
+import { terminos, type Terminologia } from '@/lib/terminologia'
 
 // Administración Institucional AVI — "Terapeutas registrados": cada terapeuta una
 // vez, con sus empresas una debajo de otra (+ "Sin empresa" si tiene pacientes
@@ -17,7 +18,8 @@ export interface TerapeutaCombinado {
   pacientes: { id: string; nombre: string; empresa: string }[]
 }
 
-export default function TerapeutasSinRepetirTabla({ terapeutas }: { terapeutas: TerapeutaCombinado[] }) {
+export default function TerapeutasSinRepetirTabla({ terapeutas, terminologia }: { terapeutas: TerapeutaCombinado[]; terminologia: Terminologia }) {
+  const w = terminos(terminologia)
   const [open, setOpen] = useState(false)
   const [abiertos, setAbiertos] = useState<Set<string>>(new Set())
   const toggle = (id: string) => setAbiertos(prev => {
@@ -31,8 +33,8 @@ export default function TerapeutasSinRepetirTabla({ terapeutas }: { terapeutas: 
     <div className="bg-white border border-primary-100 rounded-2xl shadow-sm overflow-hidden">
       <button onClick={() => setOpen(v => !v)} className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors">
         <h3 className="font-semibold text-primary-700 text-sm flex items-center gap-2 flex-wrap text-left">
-          Terapeutas registrados
-          <span className="text-primary-400 font-normal">({terapeutas.length}) · pacientes de todas sus actividades</span>
+          {w.Pros} registrados
+          <span className="text-primary-400 font-normal">({terapeutas.length}) · {w.users} de todas sus actividades</span>
           <span className="text-gray-400 font-normal">(solo AVI Administración)</span>
           {huerfanos > 0 && (
             <span className="inline-flex items-center gap-1 bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded-full">
@@ -47,18 +49,18 @@ export default function TerapeutasSinRepetirTabla({ terapeutas }: { terapeutas: 
 
       {open && (
         terapeutas.length === 0 ? (
-          <p className="px-5 py-6 text-sm text-gray-400 text-center border-t border-gray-50">No hay terapeutas registrados.</p>
+          <p className="px-5 py-6 text-sm text-gray-400 text-center border-t border-gray-50">No hay {w.pros} registrados.</p>
         ) : (
           <div className="overflow-x-auto border-t border-gray-50">
             <table className="w-full text-sm">
               <thead className="bg-gray-50">
                 <tr className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
                   <th className="w-6" />
-                  <th className="text-left px-3 py-3">Terapeuta</th>
+                  <th className="text-left px-3 py-3">{w.Pro}</th>
                   <th className="text-left px-3 py-3">Empresa(s)</th>
                   <th className="text-left px-3 py-3 hidden sm:table-cell">Teléfono</th>
                   <th className="text-left px-3 py-3 hidden lg:table-cell">Correo</th>
-                  <th className="text-right px-5 py-3">Pac. activos</th>
+                  <th className="text-right px-5 py-3">{w.Users} activos</th>
                 </tr>
               </thead>
               <tbody>
@@ -103,7 +105,7 @@ export default function TerapeutasSinRepetirTabla({ terapeutas }: { terapeutas: 
                             <table className="w-full text-sm max-w-lg">
                               <thead>
                                 <tr className="text-xs text-gray-400">
-                                  <th className="text-left font-medium pb-1 pr-4">Paciente activo</th>
+                                  <th className="text-left font-medium pb-1 pr-4">{w.User} activo</th>
                                   <th className="text-left font-medium pb-1">Empresa</th>
                                 </tr>
                               </thead>

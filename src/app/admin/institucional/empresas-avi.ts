@@ -1,7 +1,7 @@
 // Administración Institucional AVI — empresas disponibles y selección común
 // (la selección viaja en ?empresaIds= entre Panel, Reporte General y Reporte por Terapeuta).
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { normalizarTerminologia, type Terminologia } from '@/lib/terminologia'
+import { normalizarTerminologia, terminologiaComun, type Terminologia } from '@/lib/terminologia'
 
 export interface EmpresaAVI { id: string; nombre: string; logo_url: string | null; terminologia: Terminologia }
 
@@ -24,7 +24,7 @@ export async function cargarEmpresasAVI(admin: SupabaseClient<any, any, any>): P
 
 /** Una sola palabra para varias empresas: 'asesorado' si alguna lo es (misma política que el menú del terapeuta) */
 export function palabraDeEmpresas(empresas: { terminologia: Terminologia }[]): Terminologia {
-  return empresas.some(e => e.terminologia === 'asesorado') ? 'asesorado' : 'paciente'
+  return terminologiaComun(empresas.map(e => e.terminologia))
 }
 
 /**

@@ -6,7 +6,7 @@
 // SaaS Controller en AVI Administración. Guarda vía /api/institucional/empresa-config.
 // ─────────────────────────────────────────────────────────────
 import { useRef, useState } from 'react'
-import { TERMINOLOGIA_OPCIONES, normalizarTerminologia, type Terminologia } from '@/lib/terminologia'
+import { TERMINOLOGIA_OPCIONES, normalizarTerminologia, terminos, type Terminologia } from '@/lib/terminologia'
 
 export interface EmpresaConfig {
   id: string
@@ -44,6 +44,9 @@ export default function ConfiguracionEmpresas({ empresas }: { empresas: EmpresaC
 }
 
 function TarjetaEmpresa({ empresa, abierta }: { empresa: EmpresaConfig; abierta: boolean }) {
+  // Palabra de esta empresa (Inventario de Terminología, página 12): cambia en cuanto se elige otra
+  const [terminologia, setTerminologia] = useState<Terminologia>(normalizarTerminologia(empresa.terminologia))
+  const w = terminos(terminologia)
   return (
     <details open={abierta} className="group bg-white border border-gray-200 rounded-2xl overflow-hidden">
       <summary className="flex items-center justify-between px-5 py-4 cursor-pointer list-none hover:bg-gray-50">
@@ -53,20 +56,21 @@ function TarjetaEmpresa({ empresa, abierta }: { empresa: EmpresaConfig; abierta:
         </svg>
       </summary>
       <div className="px-5 pb-5 space-y-5 border-t border-gray-100 pt-4">
-        <TerminologiaEmpresa empresa={empresa} />
+        <TerminologiaEmpresa empresa={empresa} actual={terminologia} setActual={setTerminologia} />
         <TelefonoEmpresa empresa={empresa} campo="telefono" titulo="Teléfono de contacto"
           explicacion={'Lo ve la persona en la bienvenida de AVI ("Para cualquier otro apoyo, contacta a…") y AVI lo usa en el chat para invitarla a llamar.'} />
         <TelefonoEmpresa empresa={empresa} campo="telefono_solicitudes" titulo="WhatsApp para solicitudes de alta"
-          explicacion={'Debe tener WhatsApp. Ahí te llegan las solicitudes de los terapeutas que quieren participar en tu empresa (botón "Solicita acceso a la empresa" de Planes y precios). Después los das de alta en Alta/Baja.'} />
-        <LogoEmpresa empresa={empresa} />
+          explicacion={`Debe tener WhatsApp. Ahí te llegan las solicitudes de los ${w.pros} que quieren participar en tu empresa (botón "Solicita acceso a la empresa" de Planes y precios). Después los das de alta en Alta/Baja.`} />
+        <LogoEmpresa empresa={empresa} w={w} />
       </div>
     </details>
   )
 }
 
 // ── Terminología ─────────────────────────────────────────────
-function TerminologiaEmpresa({ empresa }: { empresa: EmpresaConfig }) {
-  const [actual, setActual] = useState<Terminologia>(normalizarTerminologia(empresa.terminologia))
+function TerminologiaEmpresa({ empresa, actual, setActual }: {
+  empresa: EmpresaConfig; actual: Terminologia; setActual: (t: Terminologia) => void
+}) {
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
 
@@ -163,7 +167,7 @@ function MarcoReporte({ src }: { src: string | null }) {
   )
 }
 
-function LogoEmpresa({ empresa }: { empresa: EmpresaConfig }) {
+function LogoEmpresa({ empresa, w }: { empresa: EmpresaConfig; w: ReturnType<typeof terminos> }) {
   const [logoUrl, setLogoUrl] = useState(empresa.logo_url)
   const [nuevo, setNuevo] = useState<{ file: File; url: string; avisos: string[] } | null>(null)
   const [saving, setSaving] = useState(false)
@@ -210,7 +214,7 @@ function LogoEmpresa({ empresa }: { empresa: EmpresaConfig }) {
   }
 
   async function quitar() {
-    if (!confirm(`¿Quitar el logo de ${empresa.nombre}? Los reportes saldrán con el nombre del terapeuta.`)) return
+    if (!confirm(`¿Quitar el logo de ${empresa.nombre}? Los reportes saldrán con el nombre del ${w.pro}.`)) return
     setSaving(true); setErr('')
     try {
       await enviar({ method: 'DELETE' }, `?empresa_id=${encodeURIComponent(empresa.id)}`)
@@ -224,7 +228,7 @@ function LogoEmpresa({ empresa }: { empresa: EmpresaConfig }) {
     <section className="space-y-3 border-t border-gray-100 pt-4">
       <h3 className="text-sm font-semibold text-gray-800">Logo</h3>
       <p className="text-xs text-gray-500 leading-relaxed">
-        Sale en el encabezado de los reportes impresos de los terapeutas de esta empresa.
+        Sale en el encabezado de los reportes impresos de los {w.pros} de esta empresa.
         Para que se vea bien: <strong>horizontal, de {RECOMENDADO.ancho} × {RECOMENDADO.alto} px</strong> (proporción 2.5 : 1),
         recortado sin espacio en blanco alrededor, de preferencia PNG con fondo transparente. PNG, JPG o WebP, máximo 2 MB.
       </p>

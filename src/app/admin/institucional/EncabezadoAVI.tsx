@@ -2,13 +2,13 @@ import Link from 'next/link'
 import { Suspense } from 'react'
 import SelectorEmpresasAVI from './SelectorEmpresasAVI'
 import { palabraDeEmpresas, type EmpresaAVI } from './empresas-avi'
-import { terminos } from '@/lib/terminologia'
+import { aplicarTerminologia } from '@/lib/terminologia'
 
 // Encabezado común: título, pestañas (conservan empresas y mes) y selector de empresas.
 const SECCIONES = [
   { href: '/admin/institucional',                   label: 'Panel de Control' },
   { href: '/admin/institucional/reporte-general',   label: 'Reporte General' },
-  { href: '/admin/institucional/reporte-terapeuta', label: 'Reporte por Terapeuta' },
+  { href: '/admin/institucional/reporte-terapeuta', label: 'Reporte por <Pro>' },
   { href: '/admin/institucional/configuracion',     label: 'Configuración Admin' },
   { href: '/admin/institucional/alta-baja',         label: 'Alta/Baja de <Pros>' },
 ] as const
@@ -45,7 +45,7 @@ export default function EncabezadoAVI({ actual, empresas, selectedIds, mes }: {
                 : 'bg-white border-gray-200 text-gray-600 hover:border-primary-300 hover:text-primary-700'
             }`}
           >
-            {s.label.replace('<Pros>', terminos(palabraDeEmpresas(empresas)).Pros)}
+            {aplicarTerminologia(s.label, palabraDeEmpresas(empresas))}
           </Link>
         ))}
       </nav>

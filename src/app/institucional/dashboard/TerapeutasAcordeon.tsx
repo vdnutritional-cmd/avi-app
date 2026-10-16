@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { terminos, type Terminologia } from '@/lib/terminologia'
 
 interface PacienteItem { id: string; nombre: string }
 
@@ -15,7 +16,13 @@ interface TerapeutaRow {
   pacientesActivos: number
 }
 
-export default function TerapeutasAcordeon({ terapeutas }: { terapeutas: TerapeutaRow[] }) {
+// terminologia: la común de las empresas (encabezado); terminologias: la de cada empresa, por nombre (detalle)
+export default function TerapeutasAcordeon({ terapeutas, terminologia, terminologias }: {
+  terapeutas: TerapeutaRow[]
+  terminologia: Terminologia
+  terminologias: Record<string, Terminologia>
+}) {
+  const w = terminos(terminologia)
   const [open, setOpen] = useState(false)
   // Filas expandidas por clave "empresa|index"
   const [openRows, setOpenRows] = useState<Set<string>>(new Set())
@@ -46,7 +53,7 @@ export default function TerapeutasAcordeon({ terapeutas }: { terapeutas: Terapeu
                    hover:bg-gray-50 transition-colors"
       >
         <h3 className="font-semibold text-primary-700 text-sm flex items-center gap-2">
-          Terapeutas por Empresa{' '}
+          {w.Pros} por Empresa{' '}
           <span className="text-primary-400 font-normal">({terapeutas.length})</span>
           {huerfanosTotal > 0 && (
             <span className="inline-flex items-center gap-1 bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded-full">
@@ -66,18 +73,18 @@ export default function TerapeutasAcordeon({ terapeutas }: { terapeutas: Terapeu
       {open && (
         terapeutas.length === 0 ? (
           <p className="px-5 py-6 text-sm text-gray-400 text-center border-t border-gray-50">
-            No hay terapeutas registrados todavía.
+            No hay {w.pros} registrados todavía.
           </p>
         ) : (
           <table className="w-full text-sm border-t border-gray-50">
             <thead className="bg-gray-50">
               <tr>
                 <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-6"></th>
-                <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Terapeuta</th>
+                <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">{w.Pro}</th>
                 <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide hidden md:table-cell">Empresa</th>
                 <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide hidden sm:table-cell">Teléfono</th>
                 <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide hidden lg:table-cell">Correo</th>
-                <th className="text-right px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Pac. activos</th>
+                <th className="text-right px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">{w.Users} activos</th>
               </tr>
             </thead>
             <tbody>
@@ -98,6 +105,7 @@ export default function TerapeutasAcordeon({ terapeutas }: { terapeutas: Terapeu
                   {/* Filas de terapeutas */}
                   {group.rows.map((t, i) => {
                     const rowKey = `${group.empresa}|${i}`
+                    const we = terminos(terminologias[t.empresa] ?? terminologia)
                     const isOpen = openRows.has(rowKey)
                     const hasDetail = t.pacientes.length > 0
 
@@ -155,14 +163,14 @@ export default function TerapeutasAcordeon({ terapeutas }: { terapeutas: Terapeu
                               {/* Alerta huérfano */}
                               {t.isHuerfano && (
                                 <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-800 leading-relaxed">
-                                  <div className="font-bold mb-1">⚠️ Este terapeuta ya no opera con {t.empresa}</div>
+                                  <div className="font-bold mb-1">⚠️ Este {we.pro} ya no opera con {t.empresa}</div>
                                   <div>
-                                    Aún tiene <strong>{t.pacientes.length}</strong> paciente{t.pacientes.length !== 1 ? 's' : ''} activo{t.pacientes.length !== 1 ? 's' : ''} sin nuevo terapeuta asignado.
-                                    Es necesario que el terapeuta inicie sesión en AVI y transfiera sus pacientes desde{' '}
-                                    <strong>Registro de pacientes → Transferir paciente a otro terapeuta</strong>.
+                                    Aún tiene <strong>{t.pacientes.length}</strong> {t.pacientes.length !== 1 ? `${we.users} activos` : `${we.user} activo`} sin nuevo {we.pro} asignado.
+                                    Es necesario que el {we.pro} inicie sesión en AVI y transfiera sus {we.users} desde{' '}
+                                    <strong>Registro de {we.users} → Transferir {we.user} a otro {we.pro}</strong>.
                                   </div>
                                   <div className="mt-2 text-red-700 text-xs">
-                                    Contactar al terapeuta:{' '}
+                                    Contactar al {we.pro}:{' '}
                                     {t.email && <span className="font-medium">{t.email}</span>}
                                     {t.telefono && <span className="font-medium"> · {t.telefono}</span>}
                                   </div>
@@ -171,7 +179,7 @@ export default function TerapeutasAcordeon({ terapeutas }: { terapeutas: Terapeu
 
                               {/* Lista de pacientes */}
                               <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                                Pacientes activos en {t.empresa}
+                                {we.Users} activos en {t.empresa}
                               </div>
                               <ul className="space-y-1">
                                 {t.pacientes.map((pac) => (

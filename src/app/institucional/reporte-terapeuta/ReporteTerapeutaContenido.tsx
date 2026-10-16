@@ -47,7 +47,9 @@ export default async function ReporteTerapeutaContenido({ empresas, piNombre, ba
     .filter(id => empresas.some(e => e.id === id))
   const empresasActuales = empresas.filter(e => selectedIds.includes(e.id))
   // PDF de la estadística: palabra de las empresas elegidas (Inventario 13.16)
-  const terminologia = await getTerminologiaEmpresas(admin, selectedIds)
+  // Sin empresas elegidas: la de todas las suyas (título y filtros, Inventario página 12)
+  const terminologia = await getTerminologiaEmpresas(admin, selectedIds.length > 0 ? selectedIds : empresas.map(e => e.id))
+  const w = terminos(terminologia)
 
   // ── Validar mes antes de cualquier early return ────────────────────────────
   const now = new Date()
@@ -87,11 +89,11 @@ export default async function ReporteTerapeutaContenido({ empresas, piNombre, ba
     return (
       <div className="max-w-3xl space-y-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Reporte por Terapeuta</h1>
-          <p className="text-gray-500 mt-1 text-sm">Selecciona una o más empresas y el terapeuta para generar el reporte.</p>
+          <h1 className="text-2xl font-bold text-gray-900">Reporte por {w.Pro}</h1>
+          <p className="text-gray-500 mt-1 text-sm">Selecciona una o más empresas y el {w.pro} para generar el reporte.</p>
         </div>
         <FiltrosReporte
-          basePath={basePath}
+          basePath={basePath} terminologia={terminologia}
           ocultarEmpresas={ocultarSelectorEmpresas}
           empresas={empresas}
           terapeutas={[]}
@@ -127,11 +129,11 @@ export default async function ReporteTerapeutaContenido({ empresas, piNombre, ba
   if (therapistIds.length === 0) {
     return (
       <div className="max-w-3xl space-y-8">
-        <div><h1 className="text-2xl font-bold text-gray-900">Reporte por Terapeuta</h1></div>
-        <FiltrosReporte basePath={basePath} ocultarEmpresas={ocultarSelectorEmpresas}
+        <div><h1 className="text-2xl font-bold text-gray-900">Reporte por {w.Pro}</h1></div>
+        <FiltrosReporte basePath={basePath} terminologia={terminologia} ocultarEmpresas={ocultarSelectorEmpresas}
           empresas={empresas} terapeutas={terapeutas} empresaIdsSelected={selectedIds} terapeutaId={terapeutaId}
           tipo={tipo} pid={pid} mes={mesKey} pacientes={[]} />
-        <p className="text-sm text-gray-400 text-center py-8">No hay terapeutas registrados en las empresas seleccionadas.</p>
+        <p className="text-sm text-gray-400 text-center py-8">No hay {w.pros} registrados en las empresas seleccionadas.</p>
       </div>
     )
   }
@@ -414,6 +416,7 @@ function renderPage({
 
   const prevMes = mesAnteriorStr(year, month)
   const nextMes = mesSiguienteStr(year, month)
+  const w = terminos(terminologia)
   const tipoLabel = tipo === 'activos' ? 'activos' : tipo === 'inactivos' ? 'inactivos' : 'activos + inactivos'
 
   const baseNavParams = (m: string) => {
@@ -428,21 +431,21 @@ function renderPage({
   const empresasParaLogo = empresasActuales
 
   const terapeutaLabel = terapeutaId === 'all'
-    ? `Total ${terminos(terminologia).pros}`
+    ? `Total ${w.pros}`
     : (terapeutas.find(t => t.id === terapeutaId)?.nombre || terapeutas.find(t => t.id === terapeutaId)?.email || terapeutaId)
 
   return (
     <div className="max-w-3xl space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Reporte por Terapeuta</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Reporte por {w.Pro}</h1>
         <p className="text-gray-500 mt-1 text-sm">
-          {empresasActuales.map(e => e.nombre).join(' + ') || '—'} · {terapeutaLabel} · pacientes {tipoLabel}
+          {empresasActuales.map(e => e.nombre).join(' + ') || '—'} · {terapeutaLabel} · {w.users} {tipoLabel}
         </p>
       </div>
 
       {/* Filtros */}
       <FiltrosReporte
-        basePath={basePath}
+        basePath={basePath} terminologia={terminologia}
         ocultarEmpresas={ocultarSelectorEmpresas}
         empresas={empresas}
         terapeutas={terapeutas}
@@ -473,7 +476,7 @@ function renderPage({
           <SectionTitle destacado>Sesiones por institución</SectionTitle>
           <div className="flex items-center justify-between px-5 py-3 bg-gray-50 border border-dashed border-gray-200 rounded-xl text-sm">
             <div>
-              <span className="text-gray-600 font-medium">Pacientes sin Convenio</span>
+              <span className="text-gray-600 font-medium">{w.Users} sin Convenio</span>
               <span className="ml-2 text-xs text-gray-400">(referencia — no incluidos en totales del convenio)</span>
             </div>
             <div className="flex items-center gap-3 text-gray-600 shrink-0">
@@ -491,7 +494,7 @@ function renderPage({
             <SectionTitle>Resumen del periodo</SectionTitle>
             <div className="grid grid-cols-2 gap-3">
               <KpiCard label="Cantidad de sesiones" value={totalSesiones} accent />
-              <KpiCard label="Personas atendidas" value={personasAtendidas} sub="Pacientes únicos con al menos 1 sesión" />
+              <KpiCard label="Personas atendidas" value={personasAtendidas} sub={`${w.Users} únicos con al menos 1 sesión`} />
             </div>
           </section>
 
@@ -502,7 +505,7 @@ function renderPage({
             {sinConvenioSesiones > 0 && (
               <div className="flex items-center justify-between px-5 py-3 bg-gray-50 border border-dashed border-gray-200 rounded-xl text-sm">
                 <div>
-                  <span className="text-gray-600 font-medium">Pacientes sin Convenio</span>
+                  <span className="text-gray-600 font-medium">{w.Users} sin Convenio</span>
                   <span className="ml-2 text-xs text-gray-400">(referencia — no incluidos en totales del convenio)</span>
                 </div>
                 <div className="flex items-center gap-3 text-gray-600 shrink-0">
@@ -517,7 +520,7 @@ function renderPage({
           {motivoEntries.length > 0 && (
             <section className="space-y-3">
               <SectionTitle>Motivo de consulta</SectionTitle>
-              <TableSimple rows={motivoEntries.slice(0, 10).map(([k, v]) => [k, String(v)])} headers={['Tipo de caso / Problemática', 'Pacientes']} />
+              <TableSimple rows={motivoEntries.slice(0, 10).map(([k, v]) => [k, String(v)])} headers={['Tipo de caso / Problemática', w.Users]} />
             </section>
           )}
 
@@ -553,7 +556,7 @@ function renderPage({
           </section>
 
           <section className="space-y-3">
-            <SectionTitle>Satisfacción del asesorado <span className="ml-1 text-xs font-normal text-gray-400 normal-case">todos los activos ({totalActivos})</span></SectionTitle>
+            <SectionTitle>Satisfacción del {w.user} <span className="ml-1 text-xs font-normal text-gray-400 normal-case">todos los activos ({totalActivos})</span></SectionTitle>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <ScoreCard title="Calificación inicial" dist={distInicial} total={totalActivos} />
               <ScoreCard title="Calificación final"   dist={distFinal}   total={totalActivos} />
@@ -562,10 +565,10 @@ function renderPage({
 
           {calificaciones.length > 0 && (
             <section className="space-y-3">
-              <SectionTitle>Calificación inicial y final por paciente</SectionTitle>
+              <SectionTitle>Calificación inicial y final por {w.user}</SectionTitle>
               <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
                 <table className="w-full text-sm">
-                  <thead><tr className="bg-gray-50"><th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Paciente</th><th className="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Cal. Inicial</th><th className="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Cal. Final</th></tr></thead>
+                  <thead><tr className="bg-gray-50"><th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{w.User}</th><th className="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Cal. Inicial</th><th className="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Cal. Final</th></tr></thead>
                   <tbody className="divide-y divide-gray-50">
                     {calificaciones.map(c => (
                       <tr key={c.pid} className="hover:bg-gray-50">
@@ -600,7 +603,7 @@ function renderPage({
               abandono={abandono}
               atenEspecializada={atenEspecializada}
               calificaciones={calificaciones}
-              reportTitle="Reporte por Terapeuta"
+              reportTitle={`Reporte por ${w.Pro}`}
               impresoPor={piNombre}
             />
           </div>

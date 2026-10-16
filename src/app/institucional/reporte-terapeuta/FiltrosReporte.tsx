@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useEffect, useState, useTransition } from 'react'
+import { terminos, type Terminologia } from '@/lib/terminologia'
 
 // Mismo selector de empresas que el Reporte Institucional General (checkboxes +
 // "Seleccionar todas"), más el filtro de terapeuta.
@@ -21,13 +22,16 @@ interface FiltrosReporteProps {
   pacientes: { id: string; nombre: string }[]
   /** AVI Administración: las empresas se eligen en el selector de arriba */
   ocultarEmpresas?: boolean
+  /** Palabra de las empresas (Inventario de Terminología, página 12) */
+  terminologia: Terminologia
 }
 
 export default function FiltrosReporte({
   basePath, empresas, terapeutas,
   empresaIdsSelected, terapeutaId, tipo, pid, mes,
-  pacientes, ocultarEmpresas = false,
+  pacientes, ocultarEmpresas = false, terminologia,
 }: FiltrosReporteProps) {
+  const w = terminos(terminologia)
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
 
@@ -141,13 +145,13 @@ export default function FiltrosReporte({
         <div className="flex flex-wrap gap-3 items-end">
           {/* Dropdown terapeuta */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-gray-400 font-medium uppercase tracking-wide">Terapeuta</label>
+            <label className="text-xs text-gray-400 font-medium uppercase tracking-wide">{w.Pro}</label>
             <select
               value={terapeutaId}
               onChange={e => nav({ terapeutaId: e.target.value, pid: 'all' })}
               className={selectClass}
             >
-              <option value="all">Total terapeutas</option>
+              <option value="all">Total {w.pros}</option>
               {terapeutas.map(t => (
                 <option key={t.id} value={t.id}>{t.nombre || t.email}</option>
               ))}
@@ -156,7 +160,7 @@ export default function FiltrosReporte({
 
           {/* Toggle tipo */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-gray-400 font-medium uppercase tracking-wide">Estatus pacientes</label>
+            <label className="text-xs text-gray-400 font-medium uppercase tracking-wide">Estatus {w.users}</label>
             <div className="flex rounded-xl border border-gray-200 overflow-hidden bg-white text-sm">
               {(['activos', 'inactivos', 'total'] as const).map(t => (
                 <button
@@ -182,13 +186,13 @@ export default function FiltrosReporte({
           {/* Dropdown paciente */}
           {pacientes.length > 0 && (
             <div className="flex flex-col gap-1">
-              <label className="text-xs text-gray-400 font-medium uppercase tracking-wide">Paciente</label>
+              <label className="text-xs text-gray-400 font-medium uppercase tracking-wide">{w.User}</label>
               <select
                 value={pid}
                 onChange={e => nav({ pid: e.target.value })}
                 className={selectClass}
               >
-                <option value="all">Total pacientes</option>
+                <option value="all">Total {w.users}</option>
                 {pacientes.map(p => (
                   <option key={p.id} value={p.id}>{p.nombre}</option>
                 ))}

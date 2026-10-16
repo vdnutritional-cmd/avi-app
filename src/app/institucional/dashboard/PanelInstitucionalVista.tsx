@@ -5,12 +5,15 @@ import Link from 'next/link'
 import TerapeutasAcordeon from './TerapeutasAcordeon'
 import type { TerapeutaRow } from './cargar-panel'
 import { nombreNivel } from '@/lib/niveles-institucionales'
+import { terminos, terminologiaComun, type Terminologia } from '@/lib/terminologia'
 
 export interface EmpresaBlock {
   empresaId: string
   empresaNombre: string
   empresaLogoUrl: string | null
   nivel: 'N1' | 'N2' | 'N3'
+  /** Palabra de la empresa (Inventario de Terminología, página 12) */
+  terminologia: Terminologia
   terapeutas: TerapeutaRow[]
 }
 
@@ -64,6 +67,9 @@ export default function PanelInstitucionalVista({ empresaBlocks, permisos, hrefR
   hrefReporteGeneral: string
   hrefReporteTerapeuta: string
 }) {
+  // Acordeón y tarjetas de reportes juntan empresas: 'asesorado' si alguna lo es
+  const w = terminos(terminologiaComun(empresaBlocks.map(b => b.terminologia)))
+  const terminologias = Object.fromEntries(empresaBlocks.map(b => [b.empresaNombre, b.terminologia]))
   return (
     <div className="space-y-8">
 
@@ -94,6 +100,7 @@ export default function PanelInstitucionalVista({ empresaBlocks, permisos, hrefR
       {/* ── Bloque por empresa ─────────────────────────────────────────────── */}
       {empresaBlocks.map((bloque) => {
         const total = bloque.terapeutas.reduce((s, t) => s + t.pacientesActivos, 0)
+        const wb = terminos(bloque.terminologia)
         return (
           <section key={bloque.empresaId} className="space-y-4">
             {/* Encabezado de empresa — solo si hay más de una */}
@@ -118,7 +125,7 @@ export default function PanelInstitucionalVista({ empresaBlocks, permisos, hrefR
                   {bloque.terapeutas.length}
                 </span>
                 <span className="text-xs font-semibold text-green-700 uppercase tracking-wide mt-1">
-                  Terapeutas
+                  {wb.Pros}
                 </span>
               </div>
               {/* Morado — Pacientes activos */}
@@ -127,7 +134,7 @@ export default function PanelInstitucionalVista({ empresaBlocks, permisos, hrefR
                   {total}
                 </span>
                 <span className="text-xs font-semibold text-primary-700 uppercase tracking-wide mt-1">
-                  Pacientes activos
+                  {wb.Users} activos
                 </span>
               </div>
             </div>
@@ -140,7 +147,7 @@ export default function PanelInstitucionalVista({ empresaBlocks, permisos, hrefR
       {(() => {
         const allTerapeutas = empresaBlocks.flatMap(b => b.terapeutas)
         return allTerapeutas.length > 0
-          ? <TerapeutasAcordeon terapeutas={allTerapeutas} />
+          ? <TerapeutasAcordeon terapeutas={allTerapeutas} terminologia={terminologiaComun(empresaBlocks.map(b => b.terminologia))} terminologias={terminologias} />
           : null
       })()}
 
@@ -152,7 +159,7 @@ export default function PanelInstitucionalVista({ empresaBlocks, permisos, hrefR
         {permisos.reporteGeneral ? (
           <SeccionActiva
             titulo="Reporte General"
-            descripcion="Estadística agregada de todos los terapeutas de la empresa: sesiones, derivaciones y satisfacción."
+            descripcion={`Estadística agregada de todos los ${w.pros} de la empresa: sesiones, derivaciones y satisfacción.`}
             href={hrefReporteGeneral}
           />
         ) : (
@@ -162,12 +169,12 @@ export default function PanelInstitucionalVista({ empresaBlocks, permisos, hrefR
         {/* Reporte por terapeuta (solo N1) */}
         {permisos.reporteTerapeuta ? (
           <SeccionActiva
-            titulo="Reporte por terapeuta"
-            descripcion="Estadística de sesiones, motivos, derivaciones y satisfacción por terapeuta y empresa."
+            titulo={`Reporte por ${w.pro}`}
+            descripcion={`Estadística de sesiones, motivos, derivaciones y satisfacción por ${w.pro} y empresa.`}
             href={hrefReporteTerapeuta}
           />
         ) : (
-          <SeccionBloqueada titulo="Reporte por terapeuta" />
+          <SeccionBloqueada titulo={`Reporte por ${w.pro}`} />
         )}
       </div>
 

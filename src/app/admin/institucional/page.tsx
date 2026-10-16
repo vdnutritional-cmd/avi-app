@@ -12,7 +12,7 @@ import { cargarTelefonos, cargarTerapeutasEmpresa } from '@/app/institucional/da
 import PanelInstitucionalVista, { type EmpresaBlock } from '@/app/institucional/dashboard/PanelInstitucionalVista'
 import EncabezadoAVI from './EncabezadoAVI'
 import ResumenCombinadoAVI from './ResumenCombinadoAVI'
-import { cargarEmpresasAVI, cargarIndependientes, resolverSeleccion, SIN_EMPRESA } from './empresas-avi'
+import { cargarEmpresasAVI, cargarIndependientes, palabraDeEmpresas, resolverSeleccion, SIN_EMPRESA } from './empresas-avi'
 
 export const dynamic = 'force-dynamic'
 
@@ -42,6 +42,7 @@ export default async function AdminInstitucionalPanelPage({
       empresaNombre: e.nombre,
       empresaLogoUrl: e.logo_url,
       nivel: 'N1' as const,
+      terminologia: e.terminologia,
       terapeutas: await cargarTerapeutasEmpresa(admin, e.id, e.nombre, whatsappMap),
     }))
   )
@@ -58,14 +59,14 @@ export default async function AdminInstitucionalPanelPage({
           <p className="text-sm text-gray-400 text-center py-8">Selecciona una o más empresas.</p>
         ) : empresaBlocks.length === 0 ? (
           // Solo "Sin empresa": no hay Terapeutas por Empresa ni Resumen; solo la lista de terapeutas
-          <ResumenCombinadoAVI empresaBlocks={[]} independientes={independientes} telefonos={whatsappMap} />
+          <ResumenCombinadoAVI empresaBlocks={[]} independientes={independientes} telefonos={whatsappMap} terminologia={palabraDeEmpresas(seleccionadas)} />
         ) : (
           <PanelInstitucionalVista
             empresaBlocks={empresaBlocks}
             permisos={{ reporteGeneral: true, reporteTerapeuta: true }}
             hrefReporteGeneral={`/admin/institucional/reporte-general?${qs.toString()}`}
             hrefReporteTerapeuta={`/admin/institucional/reporte-terapeuta?${qs.toString()}`}
-            antesDeReportes={<ResumenCombinadoAVI empresaBlocks={empresaBlocks} independientes={independientes} telefonos={whatsappMap} />}
+            antesDeReportes={<ResumenCombinadoAVI empresaBlocks={empresaBlocks} independientes={independientes} telefonos={whatsappMap} terminologia={palabraDeEmpresas(seleccionadas)} />}
           />
         )}
       </div>

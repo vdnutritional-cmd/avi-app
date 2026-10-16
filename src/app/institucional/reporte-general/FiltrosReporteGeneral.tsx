@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useEffect, useState, useTransition } from 'react'
+import { terminos, type Terminologia } from '@/lib/terminologia'
 
 interface Empresa { id: string; nombre: string }
 
@@ -15,11 +16,14 @@ interface Props {
   pacientes: { id: string; nombre: string }[]
   /** AVI Administración: las empresas se eligen en el selector de arriba */
   ocultarEmpresas?: boolean
+  /** Palabra de las empresas (Inventario de Terminología, página 12) */
+  terminologia: Terminologia
 }
 
 export default function FiltrosReporteGeneral({
-  basePath, empresas, empresaIdsSelected, tipo, pid, mes, pacientes, ocultarEmpresas = false,
+  basePath, empresas, empresaIdsSelected, tipo, pid, mes, pacientes, ocultarEmpresas = false, terminologia,
 }: Props) {
+  const w = terminos(terminologia)
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
 
@@ -134,7 +138,7 @@ export default function FiltrosReporteGeneral({
         <div className="flex flex-wrap gap-3 items-end">
           {/* Toggle tipo */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-gray-400 font-medium uppercase tracking-wide">Estatus pacientes</label>
+            <label className="text-xs text-gray-400 font-medium uppercase tracking-wide">Estatus {w.users}</label>
             <div className="flex rounded-xl border border-gray-200 overflow-hidden bg-white text-sm">
               {(['activos', 'inactivos', 'total'] as const).map(t => (
                 <button
@@ -160,13 +164,13 @@ export default function FiltrosReporteGeneral({
           {/* Dropdown paciente */}
           {pacientes.length > 0 && (
             <div className="flex flex-col gap-1">
-              <label className="text-xs text-gray-400 font-medium uppercase tracking-wide">Paciente</label>
+              <label className="text-xs text-gray-400 font-medium uppercase tracking-wide">{w.User}</label>
               <select
                 value={pid}
                 onChange={e => nav({ pid: e.target.value })}
                 className={selectClass}
               >
-                <option value="all">Total pacientes</option>
+                <option value="all">Total {w.users}</option>
                 {pacientes.map(p => (
                   <option key={p.id} value={p.id}>{p.nombre}</option>
                 ))}

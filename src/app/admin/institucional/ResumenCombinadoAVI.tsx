@@ -6,11 +6,14 @@
 import type { EmpresaBlock } from '@/app/institucional/dashboard/PanelInstitucionalVista'
 import type { TerapeutaIndependientes } from './empresas-avi'
 import TerapeutasSinRepetirTabla, { type TerapeutaCombinado } from './TerapeutasSinRepetirTabla'
+import { terminos, type Terminologia } from '@/lib/terminologia'
 
 const SIN_EMPRESA_LABEL = 'Sin empresa'
 
-export default function ResumenCombinadoAVI({ empresaBlocks, independientes, telefonos }: {
+export default function ResumenCombinadoAVI({ empresaBlocks, independientes, telefonos, terminologia }: {
   empresaBlocks: EmpresaBlock[]
+  /** Palabra de las empresas elegidas: 'asesorado' si alguna lo es (Inventario, página 12) */
+  terminologia: Terminologia
   /** null = "Sin empresa" no está seleccionado */
   independientes: TerapeutaIndependientes[] | null
   telefonos: Map<string, string>
@@ -62,6 +65,7 @@ export default function ResumenCombinadoAVI({ empresaBlocks, independientes, tel
   const totalPacientes = bloques.reduce((n, b) => n + b.terapeutas.reduce((m, t) => m + t.pacientesActivos, 0), 0)
   const sumaTerapeutasPorEmpresa = bloques.reduce((n, b) => n + b.terapeutas.length, 0)
   const terapeutasConEmpresa = conEmpresa.length
+  const w = terminos(terminologia)
 
   return (
     <div className="space-y-8">
@@ -78,8 +82,8 @@ export default function ResumenCombinadoAVI({ empresaBlocks, independientes, tel
               <thead className="bg-gray-50 text-xs text-gray-500">
                 <tr>
                   <th className="text-left font-semibold px-5 py-3">Empresa</th>
-                  <th className="text-center font-semibold px-3 py-3">Terapeutas</th>
-                  <th className="text-center font-semibold px-3 py-3">Pacientes activos</th>
+                  <th className="text-center font-semibold px-3 py-3">{w.Pros}</th>
+                  <th className="text-center font-semibold px-3 py-3">{w.Users} activos</th>
                 </tr>
               </thead>
               <tbody>
@@ -102,15 +106,15 @@ export default function ResumenCombinadoAVI({ empresaBlocks, independientes, tel
           </div>
           {sumaTerapeutasPorEmpresa > terapeutasConEmpresa && (
             <p className="text-xs text-gray-400">
-              El total de terapeutas ({terapeutasConEmpresa}) cuenta a cada terapeuta una sola vez; la suma por empresa
-              ({sumaTerapeutasPorEmpresa}) es mayor porque hay terapeutas en más de una empresa.
+              El total de {w.pros} ({terapeutasConEmpresa}) cuenta a cada {w.pro} una sola vez; la suma por empresa
+              ({sumaTerapeutasPorEmpresa}) es mayor porque hay {w.pros} en más de una empresa.
             </p>
           )}
         </section>
       )}
 
       {/* Terapeutas: una vez cada uno, empresas en una columna, pacientes combinados */}
-      <TerapeutasSinRepetirTabla terapeutas={terapeutas} />
+      <TerapeutasSinRepetirTabla terapeutas={terapeutas} terminologia={terminologia} />
 
     </div>
   )

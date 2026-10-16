@@ -200,7 +200,7 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
                 <NavLink href="/institucional/reporte-general"   icon="📊" label="Reporte General" onClose={closeSidebar} />
               )}
               {canReporteTerapeuta && (
-                <NavLink href="/institucional/reporte-terapeuta" icon="👤" label="Reporte por Terapeuta"         onClose={closeSidebar} />
+                <NavLink href="/institucional/reporte-terapeuta" icon="👤" label={`Reporte por ${w.Pro}`}         onClose={closeSidebar} />
               )}
               {canConfiguracion && (
                 <NavLink href="/institucional/configuracion"   icon="⚙️" label="Configuración Admin"           onClose={closeSidebar} />

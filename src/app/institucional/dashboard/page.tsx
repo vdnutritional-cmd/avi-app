@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import PanelInstitucionalVista, { type EmpresaBlock } from './PanelInstitucionalVista'
 import { permisosPI } from '@/lib/niveles-institucionales'
 import { cargarTelefonos, cargarTerapeutasEmpresa } from './cargar-panel'
+import { normalizarTerminologia } from '@/lib/terminologia'
 
 // ── Página ─────────────────────────────────────────────────────────────────────
 export default async function InstitucionalDashboardPage() {
@@ -17,7 +18,7 @@ export default async function InstitucionalDashboardPage() {
   // .maybeSingle() falla cuando hay más de una fila; usamos array.
   const { data: piRecords } = await admin
     .from('convenio_personas_institucionales')
-    .select('nivel, opera_como_terapeuta, empresa_id, convenio_empresas(nombre, logo_url)')
+    .select('nivel, opera_como_terapeuta, empresa_id, convenio_empresas(nombre, logo_url, terminologia)')
     .eq('therapist_id', user.id)
     .eq('is_active', true)
 
@@ -30,14 +31,14 @@ export default async function InstitucionalDashboardPage() {
   const empresaBlocks: EmpresaBlock[] = await Promise.all(
     piRecords.map(async (pi) => {
       const empresaId = pi.empresa_id as string
-      const empresaData = pi.convenio_empresas as { nombre?: string; logo_url?: string | null } | null
+      const empresaData = pi.convenio_empresas as { nombre?: string; logo_url?: string | null; terminologia?: string | null } | null
       const empresaNombre  = empresaData?.nombre   ?? 'Empresa'
       const empresaLogoUrl = empresaData?.logo_url ?? null
       const nivel = pi.nivel as 'N1' | 'N2' | 'N3'
 
       const terapeutas = await cargarTerapeutasEmpresa(admin, empresaId, empresaNombre, whatsappMap)
 
-      return { empresaId, empresaNombre, empresaLogoUrl, nivel, terapeutas }
+      return { empresaId, empresaNombre, empresaLogoUrl, nivel, terminologia: normalizarTerminologia(empresaData?.terminologia), terapeutas }
     })
   )
 

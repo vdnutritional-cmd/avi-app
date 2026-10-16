@@ -48,6 +48,11 @@ export function normalizarTerminologia(valor: unknown): Terminologia {
   return valor === 'paciente' || valor === 'asesorado' ? valor : TERMINOLOGIA_DEFAULT
 }
 
+/** Una sola palabra para varias empresas: 'asesorado' si alguna lo es (sin ninguna: 'paciente') */
+export function terminologiaComun(lista: Terminologia[]): Terminologia {
+  return lista.includes('asesorado') ? 'asesorado' : 'paciente'
+}
+
 /** Las 12 palabras de una terminología */
 export function terminos(t: unknown): Record<Variable, string> {
   return DICCIONARIO[normalizarTerminologia(t)]
