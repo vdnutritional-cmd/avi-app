@@ -20,7 +20,7 @@ export default function HomePage() {
             AVI
           </h1>
           <p className="text-lg text-gray-600">
-            Acompañamiento Virtual Integral para el bienestar emocional
+            Acompañamiento Virtual Interactivo para el bienestar emocional
           </p>
         </div>
 

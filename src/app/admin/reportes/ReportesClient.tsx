@@ -82,7 +82,7 @@ function PrintHeader({ title }: { title: string }) {
       <div className="flex items-start justify-between">
         <div>
           <p className="print-avi-title font-bold text-purple-700 tracking-tight">AVI</p>
-          <p className="print-avi-sub text-gray-400">Acompañamiento Virtual Integral</p>
+          <p className="print-avi-sub text-gray-400">Acompañamiento Virtual Interactivo</p>
         </div>
         <div className="text-right">
           <p className="print-report-title font-semibold text-gray-700">{title}</p>

@@ -72,7 +72,7 @@ function resetEmailHtml({ resetLink }: { resetLink: string }) {
           <tr>
             <td style="background:#7c3aed;padding:28px 32px;text-align:center;">
               <p style="margin:0;font-size:28px;font-weight:700;color:#ffffff;letter-spacing:-0.5px;">AVI</p>
-              <p style="margin:6px 0 0;font-size:13px;color:#ddd6fe;">Acompañamiento Virtual Integral</p>
+              <p style="margin:6px 0 0;font-size:13px;color:#ddd6fe;">Acompañamiento Virtual Interactivo</p>
             </td>
           </tr>
 
