@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { terminos } from '@/lib/terminologia'
 import { getTerminologiaTerapeuta } from '@/lib/terminologia-paciente'
@@ -7,8 +8,10 @@ import Link from 'next/link'
 export default async function TherapistDashboardPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
+  // El layout también redirige, pero la página se renderiza en paralelo: sin sesión no debe consultar nada
+  if (!user) redirect('/auth/login')
   // Palabras según las personas del terapeuta (Inventario de Terminología, página 3)
-  const w = terminos(user ? await getTerminologiaTerapeuta(createAdminClient(), user.id) : null)
+  const w = terminos(await getTerminologiaTerapeuta(createAdminClient(), user.id))
 
   const now = new Date()
   const mesInicio = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
@@ -25,29 +28,29 @@ export default async function TherapistDashboardPage() {
     supabase
       .from('therapist_patients')
       .select('*', { count: 'exact', head: true })
-      .eq('therapist_id', user!.id)
+      .eq('therapist_id', user.id)
       .eq('is_active', true),
     supabase
       .from('authorization_codes')
       .select('*', { count: 'exact', head: true })
-      .eq('therapist_id', user!.id)
+      .eq('therapist_id', user.id)
       .eq('is_active', true)
       .is('used_by', null),
     supabase
       .from('subscriptions')
       .select('status, plan, patient_slots')
-      .eq('therapist_id', user!.id)
+      .eq('therapist_id', user.id)
       .single(),
     supabase
       .from('therapist_session_notes')
       .select('is_pro_bono')
-      .eq('therapist_id', user!.id)
+      .eq('therapist_id', user.id)
       .gte('session_date', mesInicio)
       .lt('session_date', mesFin),
     supabase
       .from('therapist_patients')
       .select('initial_note_pro_bono')
-      .eq('therapist_id', user!.id)
+      .eq('therapist_id', user.id)
       .not('initial_note', 'is', null)
       .not('initial_note_date', 'is', null)
       .gte('initial_note_date', mesInicio)
@@ -55,7 +58,7 @@ export default async function TherapistDashboardPage() {
     supabase
       .from('profiles')
       .select('therapy_profile')
-      .eq('id', user!.id)
+      .eq('id', user.id)
       .single(),
   ])
 

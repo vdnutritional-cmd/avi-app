@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { terminos } from '@/lib/terminologia'
 import { getTerminologiaTerapeuta } from '@/lib/terminologia-paciente'
@@ -26,7 +27,9 @@ export default async function AsesoriasPage({
   const { mes } = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const w = terminos(await getTerminologiaTerapeuta(createAdminClient(), user!.id))
+  // El layout también redirige, pero la página se renderiza en paralelo: sin sesión no debe consultar nada
+  if (!user) redirect('/auth/login')
+  const w = terminos(await getTerminologiaTerapeuta(createAdminClient(), user.id))
 
   // Mes a mostrar (default: mes actual)
   const now = new Date()
@@ -41,7 +44,7 @@ export default async function AsesoriasPage({
   const { data: sesiones } = await supabase
     .from('therapist_session_notes')
     .select('session_date, is_pro_bono, is_virtual')
-    .eq('therapist_id', user!.id)
+    .eq('therapist_id', user.id)
     .gte('session_date', mesInicio)
     .lt('session_date', mesFin)
     .order('session_date', { ascending: true })
@@ -51,7 +54,7 @@ export default async function AsesoriasPage({
   const { data: notasIniciales } = await supabase
     .from('therapist_patients')
     .select('initial_note_date, initial_note_pro_bono, initial_note_virtual')
-    .eq('therapist_id', user!.id)
+    .eq('therapist_id', user.id)
     .neq('status', 'archived')
     .not('initial_note', 'is', null)
     .not('initial_note_date', 'is', null)
@@ -94,14 +97,14 @@ export default async function AsesoriasPage({
     supabase
       .from('therapist_session_notes')
       .select('session_date, is_pro_bono')
-      .eq('therapist_id', user!.id)
+      .eq('therapist_id', user.id)
       .gte('session_date', seisMesesAtras)
       .lt('session_date', mesInicio)
       .order('session_date', { ascending: true }),
     supabase
       .from('therapist_patients')
       .select('initial_note_date, initial_note_pro_bono')
-      .eq('therapist_id', user!.id)
+      .eq('therapist_id', user.id)
       .neq('status', 'archived')
       .not('initial_note', 'is', null)
       .not('initial_note_date', 'is', null)

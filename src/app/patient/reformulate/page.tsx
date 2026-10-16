@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
 
 /**
  * Pantalla REFORMULA — muestra las reformulaciones de todas las sesiones.
@@ -7,11 +8,13 @@ import { createClient } from '@/lib/supabase/server'
 export default async function ReformulatePage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
+  // El layout también redirige, pero la página se renderiza en paralelo: sin sesión no debe consultar nada
+  if (!user) redirect('/auth/login')
 
   const { data: patterns } = await supabase
     .from('patterns')
     .select('reformulation, summary, predominant_emotions, created_at')
-    .eq('patient_id', user!.id)
+    .eq('patient_id', user.id)
     .not('reformulation', 'is', null)
     .order('created_at', { ascending: false })
     .limit(20)

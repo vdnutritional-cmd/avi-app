@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import Link from 'next/link'
@@ -34,14 +35,16 @@ async function togglePaciente(formData: FormData) {
 export default async function TherapistPatientsPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
+  // El layout también redirige, pero la página se renderiza en paralelo: sin sesión no debe consultar nada
+  if (!user) redirect('/auth/login')
   // Palabras de las pantallas generales del terapeuta (Inventario de Terminología, página 4)
-  const w = terminos(await getTerminologiaTerapeuta(createAdminClient(), user!.id))
+  const w = terminos(await getTerminologiaTerapeuta(createAdminClient(), user.id))
 
   // Gate: el terapeuta debe haber configurado su enfoque terapéutico
   const { data: profileData } = await supabase
     .from('profiles')
     .select('therapy_profile')
-    .eq('id', user!.id)
+    .eq('id', user.id)
     .single()
 
   if (!profileData?.therapy_profile) {
@@ -68,7 +71,7 @@ export default async function TherapistPatientsPage() {
   const { data: relations } = await supabase
     .from('therapist_patients')
     .select('patient_id, is_active, created_at, initial_note_virtual, initial_note_pro_bono, status')
-    .eq('therapist_id', user!.id)
+    .eq('therapist_id', user.id)
     .neq('status', 'archived')
     .order('created_at', { ascending: false })
 

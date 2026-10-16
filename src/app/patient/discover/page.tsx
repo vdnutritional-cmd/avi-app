@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
 import { formatDate } from '@/lib/utils'
 
 /**
@@ -8,11 +9,13 @@ import { formatDate } from '@/lib/utils'
 export default async function DiscoverPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
+  // El layout también redirige, pero la página se renderiza en paralelo: sin sesión no debe consultar nada
+  if (!user) redirect('/auth/login')
 
   const { data: patterns } = await supabase
     .from('patterns')
     .select('*')
-    .eq('patient_id', user!.id)
+    .eq('patient_id', user.id)
     .order('created_at', { ascending: false })
     .limit(20)
 
