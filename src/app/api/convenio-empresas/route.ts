@@ -5,12 +5,15 @@
 //
 // GET /api/convenio-empresas?codeId=<authorization_codes.id>
 // Registro de paciente con código: solo las empresas activas del
-// terapeuta dueño del código (igual que el registro por QR).
+// terapeuta dueño del código (igual que el registro por QR), y la palabra
+// de su menú para los avisos de código usado o vencido (Inventario, 15.13).
+// Con el código usado no devuelve empresas, pero sí la palabra.
 // ─────────────────────────────────────────────────────────────
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getEmpresasDeTerapeuta } from '@/lib/empresas-terapeuta'
+import { getTerminologiaTerapeuta } from '@/lib/terminologia-paciente'
 
 export async function GET(req: NextRequest) {
   const codeId = req.nextUrl.searchParams.get('codeId')
@@ -22,8 +25,10 @@ export async function GET(req: NextRequest) {
       .select('therapist_id, is_active, used_by')
       .eq('id', codeId)
       .maybeSingle()
-    if (!code || !code.is_active || code.used_by) return NextResponse.json({ empresas: [] })
-    return NextResponse.json({ empresas: await getEmpresasDeTerapeuta(admin, code.therapist_id) })
+    if (!code) return NextResponse.json({ empresas: [], terminologia: null })
+    const terminologia = await getTerminologiaTerapeuta(admin, code.therapist_id)
+    if (!code.is_active || code.used_by) return NextResponse.json({ empresas: [], terminologia })
+    return NextResponse.json({ empresas: await getEmpresasDeTerapeuta(admin, code.therapist_id), terminologia })
   }
 
   const supabase = createClient(

@@ -9,6 +9,7 @@
 // Solo servidor (service role).
 // ─────────────────────────────────────────────────────────────
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { terminos, type Terminologia } from './terminologia'
 
 export interface CuentaExistente {
   userId: string
@@ -42,12 +43,16 @@ export async function buscarCuentaPorEmail(
   return null
 }
 
-/** Mensaje para un registro de paciente cuyo correo ya existe; null si el correo está libre. */
+/**
+ * Mensaje para un registro de paciente cuyo correo ya existe; null si el correo está libre.
+ * `terminologia`: la palabra de la persona que se registra (Inventario de Terminología, 15.11).
+ */
 export async function mensajeEmailPacienteExistente(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   admin: SupabaseClient<any, any, any>,
   email: string,
   therapistId: string,
+  terminologia: Terminologia,
 ): Promise<string | null> {
   const cuenta = await buscarCuentaPorEmail(admin, email)
   if (!cuenta) return null
@@ -64,7 +69,8 @@ export async function mensajeEmailPacienteExistente(
     .limit(1)
     .maybeSingle()
 
+  const w = terminos(terminologia)
   return vinculo
-    ? 'Este correo ya está registrado como paciente de este terapeuta. Inicia sesión con tu correo y contraseña.'
-    : 'Este correo ya está registrado con otro terapeuta de AVI. Para cambiarlo de terapeuta, solicita una transferencia.'
+    ? `Este correo ya está registrado como ${w.user} de este ${w.pro}. Inicia sesión con tu correo y contraseña.`
+    : `Este correo ya está registrado con otro ${w.pro} de AVI. Para cambiarlo de ${w.pro}, solicita una transferencia.`
 }

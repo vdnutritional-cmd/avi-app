@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { z } from 'zod'
 import { isValidAuthCode } from '@/lib/utils'
+import { terminos, TERMINOLOGIA_SIN_EMPRESA, type Terminologia } from '@/lib/terminologia'
 
 const schema = z.object({
   code: z.string().length(8, 'El código tiene 8 caracteres'),
@@ -53,14 +54,18 @@ export default function RegisterWithCodePage() {
       return
     }
 
-    if (!data.is_active || data.used_by) {
-      setError('Este código ya fue utilizado. Pide uno nuevo a tu terapeuta.')
-      setLoading(false)
-      return
-    }
-
-    if (new Date(data.expires_at) < new Date()) {
-      setError('Este código ha expirado. Pide un nuevo código a tu terapeuta.')
+    // Código usado o vencido: el aviso lleva la palabra del menú de su terapeuta (Inventario, 15.13)
+    const usado = !data.is_active || !!data.used_by
+    const vencido = new Date(data.expires_at) < new Date()
+    if (usado || vencido) {
+      const terminologia = await fetch(`/api/convenio-empresas?codeId=${encodeURIComponent(data.id)}`)
+        .then(r => r.json())
+        .then((d: { terminologia?: Terminologia | null }) => d.terminologia ?? TERMINOLOGIA_SIN_EMPRESA)
+        .catch(() => TERMINOLOGIA_SIN_EMPRESA)
+      const w = terminos(terminologia)
+      setError(usado
+        ? `Este código ya fue utilizado. Pide uno nuevo a tu ${w.pro}.`
+        : `Este código ha expirado. Pide un nuevo código a tu ${w.pro}.`)
       setLoading(false)
       return
     }
@@ -160,7 +165,7 @@ export default function RegisterWithCodePage() {
             <div className="text-center space-y-2">
               <p className="text-2xl">🔑</p>
               <p className="text-gray-600 text-sm">
-                Tu terapeuta te proporcionó un código de 8 caracteres para acceder a AVI.
+                Tu terapeuta o asesor te proporcionó un código de 8 caracteres para acceder a AVI.
               </p>
             </div>
             <div className="space-y-1">

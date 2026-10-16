@@ -73,7 +73,7 @@ export default function RegisterPage() {
       const check = await checkRes.json().catch(() => ({})) as { exists?: boolean; esTerapeuta?: boolean }
       if (check.exists) {
         setError(check.esTerapeuta
-          ? 'Ya hay un terapeuta registrado con este correo electrónico. Usa otro correo para tu registro.'
+          ? 'Ya hay una persona registrada con este correo electrónico. Usa otro correo para tu registro.'
           : 'Este correo ya está registrado en AVI. Usa otro correo para tu registro.')
         setLoading(false)
         return
@@ -129,7 +129,7 @@ export default function RegisterPage() {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <Link href="/" className="text-3xl font-bold text-primary-700">AVI</Link>
-          <p className="text-gray-500 mt-2">Registro de terapeuta</p>
+          <p className="text-gray-500 mt-2">Registro de terapeuta o asesor</p>
         </div>
 
         <form onSubmit={handleSubmit} className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 space-y-5">
@@ -216,7 +216,7 @@ export default function RegisterPage() {
           <button type="submit" disabled={loading}
             className="w-full py-3 bg-primary-600 text-white rounded-xl font-semibold
                        hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-            {loading ? 'Creando cuenta…' : 'Crear cuenta de terapeuta'}
+            {loading ? 'Creando cuenta…' : 'Crear cuenta de terapeuta o asesor'}
           </button>
 
           <p className="text-xs text-gray-400 text-center">Al registrarte, aceptas los términos de uso de AVI.</p>

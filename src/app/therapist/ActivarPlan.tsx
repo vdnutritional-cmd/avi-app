@@ -15,9 +15,11 @@ import {
   calcUnitPrice,
   type PlanTier,
 } from '@/lib/stripe/plans'
+import { terminos, type Terminologia } from '@/lib/terminologia'
 
 // ── Tabla comparativa de funciones ────────────────────────────
-function FeatureTable() {
+function FeatureTable({ terminologia }: { terminologia: Terminologia }) {
+  const w = terminos(terminologia)
   const [openSections, setOpenSections] = useState<Set<number>>(new Set())
 
   function toggleSection(n: number) {
@@ -48,15 +50,15 @@ function FeatureTable() {
               </td>
             </tr>
             {[
-              'Registro y selección de pacientes',
-              'Códigos de acceso para pacientes',
-              'Chat AVI acompañamiento (pacientes)',
-              'Resumen de sesiones AVI (por paciente)',
+              `Registro y selección de ${w.users}`,
+              `Códigos de acceso para ${w.users}`,
+              `Chat AVI acompañamiento (${w.users})`,
+              `Resumen de sesiones AVI (por ${w.user})`,
               'Registro de entrevista inicial',
               'Registro de sesiones presenciales',
               'Análisis clínico del caso (incluye propuesta 10 sesiones)',
               'Tipo de sesión presencial',
-              'Reporte de asesorías/terapias',
+              `Reporte de ${w.servs}`,
             ].map(f => (
               <tr key={f} className="hover:bg-gray-50 transition-colors">
                 <td className="px-3 py-0.5 text-gray-700">• {f}</td>
@@ -243,7 +245,7 @@ function CheckoutButton({
 }
 
 // ── Componente principal ───────────────────────────────────────
-export default function ActivarPlan({ therapistName }: { therapistName: string }) {
+export default function ActivarPlan({ therapistName, terminologia }: { therapistName: string; terminologia: Terminologia }) {
   const router = useRouter()
   const [tier, setTier] = useState<PlanTier>('esencial')
   const [customSlots, setCustomSlots] = useState(3)
@@ -314,7 +316,7 @@ export default function ActivarPlan({ therapistName }: { therapistName: string }
       <main className="flex-1 max-w-4xl mx-auto w-full px-6 pb-16 space-y-10">
 
         {/* ── Tabla comparativa ── */}
-        <FeatureTable />
+        <FeatureTable terminologia={terminologia} />
 
         {/* ── Selector de tier ── */}
         <div className="flex justify-center">
@@ -417,7 +419,7 @@ export default function ActivarPlan({ therapistName }: { therapistName: string }
             <div>
               <h2 className="text-base font-bold mb-1">Paquetes en CONVENIO</h2>
               <p className="text-purple-200 text-xs">
-                Exclusivo para Asesores activos que participan en empresas en CONVENIO.
+                Exclusivo para Terapeutas y Asesores activos que participan en empresas en CONVENIO.
               </p>
             </div>
             {empresas.length > 0 && (

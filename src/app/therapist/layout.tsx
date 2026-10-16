@@ -80,11 +80,11 @@ export default async function TherapistLayout({ children }: { children: React.Re
 
   // ── Gate: sin plan activo NI empresa CONVENIO activa → pantalla de activación ──
   const hasPlan = !!subscription && ACTIVE_STATUSES.includes(subscription.status)
-  if (!hasPlan && !hasEmpresaActiva) {
-    return <ActivarPlan therapistName={profile?.full_name ?? ''} />
-  }
-
   const terminologia = await getTerminologiaTerapeuta(admin, user.id)
+
+  if (!hasPlan && !hasEmpresaActiva) {
+    return <ActivarPlan therapistName={profile?.full_name ?? ''} terminologia={terminologia} />
+  }
 
   return (
     <InactivityGuard>

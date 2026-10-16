@@ -155,7 +155,7 @@ function LoginForm() {
 
         <div className="mt-6 text-center space-y-2 text-sm">
           <p className="text-gray-500">
-            ¿Eres terapeuta y no tienes cuenta?{' '}
+            ¿Eres terapeuta o asesor y no tienes cuenta?{' '}
             <Link href="/auth/register" className="text-primary-600 font-medium hover:underline">Regístrate</Link>
           </p>
           <p className="text-gray-500">

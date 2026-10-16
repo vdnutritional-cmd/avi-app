@@ -26,9 +26,10 @@ export default function HomePage() {
 
         {/* Descripción */}
         <p className="text-gray-500 text-sm leading-relaxed">
-          Una plataforma que conecta a terapeutas con sus pacientes, apoyando
-          el proceso terapéutico entre sesiones con base en el personalismo y
-          la terapia familiar.
+          Una app que conecta a terapeutas y asesores con las personas que
+          acompañan de forma virtual e interactiva; y orienta al terapeuta o
+          asesor a elaborar sus sesiones, bajo el enfoque terapéutico que desee,
+          así como a documentar sus sesiones bajo la normatividad vigente.
         </p>
 
         {/* Botones de acceso */}
@@ -45,7 +46,7 @@ export default function HomePage() {
             className="w-full py-3 px-6 bg-white text-primary-600 border-2 border-primary-200
                        rounded-2xl font-semibold hover:bg-primary-50 transition-colors text-center"
           >
-            Soy terapeuta — Registrarme
+            Soy terapeuta o asesor — Registrarme
           </Link>
           {MOSTRAR_CODIGO_ACCESO && (
             <Link

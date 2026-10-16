@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { checkPassword } from '@/lib/password-strength'
 import PasswordStrengthBar from '@/components/PasswordStrengthBar'
+import { terminos, TERMINOLOGIA_SIN_EMPRESA, type Terminologia } from '@/lib/terminologia'
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
 interface Hijo { nombre: string; edad: string; ocupacion: string; vive_en_casa: string }
@@ -49,15 +50,6 @@ const ESTADOS_MEXICO = [
   'Tlaxcala', 'Veracruz de Ignacio de la Llave', 'Yucatán', 'Zacatecas',
 ]
 
-const BASE_STEPS = [
-  { id: 'cuenta',      label: 'Cuenta'      },
-  { id: 'asesorado',   label: 'Asesorado'   },
-  { id: 'contacto',    label: 'Contacto'    },
-  { id: 'pareja',      label: 'Pareja'      },
-  { id: 'hijos',       label: 'Hijos'       },
-  { id: 'salud',       label: 'Salud'       },
-  { id: 'institucion', label: 'Institución' },
-]
 
 // ── Componentes de campo ─────────────────────────────────────────────────────
 function Field({ label, children, optional }: { label: string; children: React.ReactNode; optional?: boolean }) {
@@ -102,22 +94,32 @@ function RegistroConsultorioForm() {
   const [cerrando,   setCerrando]   = useState<false | 'salir' | 'avi'>(false)
 
   // Empresa (convenio)
-  const [empresas,  setEmpresas]  = useState<{ id: string; nombre: string }[]>([])
+  const [empresas,  setEmpresas]  = useState<{ id: string; nombre: string; terminologia: Terminologia }[]>([])
   const [empresaId, setEmpresaId] = useState('')
+  const [terminologiaPropia, setTerminologiaPropia] = useState<Terminologia>(TERMINOLOGIA_SIN_EMPRESA)
 
-  // Steps dinámicos: insertar 'Empresa' entre 'Cuenta' y 'Asesorado' si hay ≥2 empresas
-  const steps = empresas.length >= 2
-    ? [
-        { id: 'cuenta',      label: 'Cuenta'      },
-        { id: 'empresa',     label: 'Empresa'     },
-        { id: 'asesorado',   label: 'Asesorado'   },
-        { id: 'contacto',    label: 'Contacto'    },
-        { id: 'pareja',      label: 'Pareja'      },
-        { id: 'hijos',       label: 'Hijos'       },
-        { id: 'salud',       label: 'Salud'       },
-        { id: 'institucion', label: 'Institución' },
-      ]
-    : BASE_STEPS
+  // Palabra de la persona (Inventario de Terminología, página 11): la de su empresa;
+  // sin empresa, "Cómo me nombran" del terapeuta. Con ≥2 empresas, la elegida en el
+  // paso Empresa; antes de elegir, 'asesorado' si alguna lo es (como el menú del terapeuta).
+  const empresaElegida = empresas.length === 1 ? empresas[0] : empresas.find(e => e.id === empresaId)
+  const terminologia: Terminologia = empresaElegida
+    ? empresaElegida.terminologia
+    : empresas.length === 0
+      ? terminologiaPropia
+      : empresas.some(e => e.terminologia === 'asesorado') ? 'asesorado' : 'paciente'
+  const w = terminos(terminologia)
+
+  // Steps dinámicos: insertar 'Empresa' entre 'Cuenta' y los datos de la persona si hay ≥2 empresas
+  const steps = [
+    { id: 'cuenta',      label: 'Cuenta'      },
+    ...(empresas.length >= 2 ? [{ id: 'empresa', label: 'Empresa' }] : []),
+    { id: 'asesorado',   label: w.User        },
+    { id: 'contacto',    label: 'Contacto'    },
+    { id: 'pareja',      label: 'Pareja'      },
+    { id: 'hijos',       label: 'Hijos'       },
+    { id: 'salud',       label: 'Salud'       },
+    { id: 'institucion', label: 'Institución' },
+  ]
 
   // Cerrar sesión del paciente recién registrado en cuanto se muestra la pantalla de éxito
   useEffect(() => {
@@ -132,7 +134,11 @@ function RegistroConsultorioForm() {
       .then(r => r.json())
       .then(d => {
         if (d.error) setTokenInvalido(true)
-        else { setTherapistName(d.therapistName); setEmpresas(d.empresas ?? []) }
+        else {
+          setTherapistName(d.therapistName)
+          setEmpresas(d.empresas ?? [])
+          if (d.terminologiaPropia) setTerminologiaPropia(d.terminologiaPropia)
+        }
       })
       .catch(() => setTokenInvalido(true))
   }, [token])
@@ -229,7 +235,7 @@ function RegistroConsultorioForm() {
         <div className="text-5xl">🔗</div>
         <h2 className="text-xl font-bold text-gray-800">Código no válido</h2>
         <p className="text-gray-500 text-sm leading-relaxed">
-          Este código de registro no existe. Pide a tu terapeuta que te muestre el QR correcto.
+          Este código de registro no existe. Pide a tu terapeuta o asesor que te muestre el QR correcto.
         </p>
         <Link href="/auth/login" className="text-primary-600 text-sm hover:underline">Iniciar sesión</Link>
       </div>
@@ -363,7 +369,7 @@ function RegistroConsultorioForm() {
 
           {/* ── Paso: Asesorado ── */}
           {steps[step]?.id === 'asesorado' && <>
-            <h2 className="text-base font-semibold text-gray-800">Datos del asesorado</h2>
+            <h2 className="text-base font-semibold text-gray-800">Datos del {w.user}</h2>
             <Field label="Nombre(s)">
               <input type="text" value={nombres} onChange={e => setNombres(e.target.value)}
                 placeholder="María" className={inputCls} />
@@ -572,7 +578,7 @@ function RegistroConsultorioForm() {
             </p>
 
             {/* Pregunta 1: asesoria anterior */}
-            <Field label="¿Ha recibido asesoría de esta Institución anteriormente?">
+            <Field label={`¿Ha recibido ${w.serv} de esta Institución anteriormente?`}>
               <div className="flex gap-4 pt-1">
                 {['Sí', 'No'].map(op => (
                   <label key={op} className="flex items-center gap-2 cursor-pointer">
@@ -598,7 +604,7 @@ function RegistroConsultorioForm() {
                   type="text"
                   value={dg.info_asesoria_con_quien}
                   onChange={e => setField('info_asesoria_con_quien', e.target.value)}
-                  placeholder="Nombre del terapeuta o asesor"
+                  placeholder={`Nombre del ${w.pro}`}
                   className={inputCls}
                 />
               </Field>

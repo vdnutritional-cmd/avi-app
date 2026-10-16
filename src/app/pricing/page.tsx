@@ -16,10 +16,12 @@ import {
   type PlanTier,
 } from '@/lib/stripe/plans'
 import SponsorsSection from '@/components/SponsorsSection'
+import { terminos, TERMINOLOGIA_SIN_EMPRESA, type Terminologia } from '@/lib/terminologia'
 
 // Sesión de quien compra: la compra o el código se asignan SIEMPRE a la cuenta con sesión.
 // undefined = cargando · null = sin sesión
-type Sesion = { nombre: string; email: string; role: string | null } | null | undefined
+// terminologia: la palabra de quien tiene sesión (Inventario de Terminología, página 11)
+type Sesion = { nombre: string; email: string; role: string | null; terminologia: Terminologia | null } | null | undefined
 const SesionContext = createContext<Sesion>(undefined)
 const LOGIN_PRICING = '/auth/login?redirect=/pricing'
 
@@ -39,9 +41,14 @@ export default function PricingPage() {
     const supabase = createClient()
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) { setSesion(null); return }
-      const { data: perfil } = await supabase
-        .from('profiles').select('full_name, role').eq('id', user.id).maybeSingle()
-      setSesion({ nombre: perfil?.full_name ?? '', email: user.email ?? '', role: perfil?.role ?? null })
+      const [{ data: perfil }, terminologia] = await Promise.all([
+        supabase.from('profiles').select('full_name, role').eq('id', user.id).maybeSingle(),
+        fetch('/api/auth/terminologia')
+          .then(r => r.json())
+          .then((d: { terminologia?: Terminologia | null }) => d.terminologia ?? null)
+          .catch(() => null),
+      ])
+      setSesion({ nombre: perfil?.full_name ?? '', email: user.email ?? '', role: perfil?.role ?? null, terminologia })
     })
   }, [])
 
@@ -79,6 +86,8 @@ export default function PricingPage() {
     : CLINICO_PLANS.filter(p => p.type === 'paid')
   const valoraPlans = isEsencial ? ESENCIAL_VALORA_PLANS : CLINICO_VALORA_PLANS
   const unitPlanId  = isEsencial ? 'esencial_unit' : 'clinico_unit'
+  // Tabla de funciones: la palabra de quien tiene sesión; sin sesión, la de personas sin empresa
+  const w = terminos(sesion?.terminologia ?? TERMINOLOGIA_SIN_EMPRESA)
 
   return (
     <SesionContext.Provider value={sesion}>
@@ -88,7 +97,7 @@ export default function PricingPage() {
         <Link href="/" className="text-2xl font-bold text-purple-700">AVI</Link>
         <h1 className="mt-6 text-4xl font-bold text-gray-900">Planes y precios</h1>
         <p className="mt-3 text-lg text-gray-500 max-w-xl mx-auto">
-          Solo los terapeutas pagan. Los pacientes siempre acceden gratis.
+          Solo los terapeutas y asesores pagan. Los pacientes o asesorados siempre acceden gratis.
           Cancela o cambia de plan en cualquier momento.
         </p>
 
@@ -96,7 +105,7 @@ export default function PricingPage() {
         {sesion === null && (
           <div className="mt-6 max-w-xl mx-auto bg-white border border-purple-200 rounded-2xl px-5 py-4 text-sm text-gray-700">
             <p>
-              Para contratar un plan o activar un código, <strong>inicia sesión con tu cuenta de terapeuta</strong>.
+              Para contratar un plan o activar un código, <strong>inicia sesión con tu cuenta de terapeuta o asesor</strong>.
               Así la compra queda asignada a tu cuenta.
             </p>
             <div className="mt-3 flex justify-center gap-3">
@@ -117,7 +126,7 @@ export default function PricingPage() {
         )}
         {sesion && sesion.role !== 'therapist' && (
           <p className="mt-6 max-w-xl mx-auto text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-2xl px-5 py-3">
-            Los planes son para terapeutas. Tu acceso a AVI como paciente es gratuito.{' '}
+            Los planes son para {w.pros}. Tu acceso a AVI como {w.user} es gratuito.{' '}
             <button onClick={cerrarSesion} className="underline">Cerrar sesión</button>
           </p>
         )}
@@ -147,15 +156,15 @@ export default function PricingPage() {
                     </td>
                   </tr>
                   {[
-                    'Registro y selección de pacientes',
-                    'Códigos de acceso para pacientes',
-                    'Chat AVI acompañamiento (pacientes)',
-                    'Resumen de sesiones AVI (por paciente)',
+                    `Registro y selección de ${w.users}`,
+                    `Códigos de acceso para ${w.users}`,
+                    `Chat AVI acompañamiento (${w.users})`,
+                    `Resumen de sesiones AVI (por ${w.user})`,
                     'Registro de entrevista inicial',
                     'Registro de sesiones presenciales',
                     'Análisis clínico del caso (incluye propuesta 10 sesiones)',
                     'Tipo de sesión presencial',
-                    'Reporte de asesorías/terapias',
+                    `Reporte de ${w.servs}`,
                   ].map(f => (
                     <tr key={f} className="hover:bg-gray-50 transition-colors">
                       <td className="px-3 py-0.5 text-gray-700">• {f}</td>
@@ -385,7 +394,7 @@ export default function PricingPage() {
             <div>
               <h2 className="text-xl font-bold mb-1">Paquetes en CONVENIO</h2>
               <p className="text-purple-200 text-sm">
-                Exclusivo para Asesores activos que participan en empresas en CONVENIO.
+                Exclusivo para Terapeutas y Asesores activos que participan en empresas en CONVENIO.
               </p>
             </div>
             {empresas.length > 0 && (
@@ -490,7 +499,7 @@ export default function PricingPage() {
         <section className="text-center border border-dashed border-gray-200 rounded-2xl p-8">
           <h2 className="text-lg font-semibold text-gray-700 mb-2">Empresas que Transforman Vidas</h2>
           <p className="text-sm text-gray-500 max-w-lg mx-auto mb-4">
-            AVI cuenta con patrocinios que permiten ofrecer acceso gratuito a Asesorados (pacientes).
+            AVI cuenta con patrocinios que permiten ofrecer acceso gratuito a Pacientes y Asesorados.
             ¿Te gustaría apoyar?
           </p>
           <a
@@ -559,7 +568,7 @@ function CheckoutButton({
     } else if (data.error) {
       setError(data.error)
     } else {
-      setError('Inicia sesión como terapeuta para suscribirte.')
+      setError('Inicia sesión como terapeuta o asesor para suscribirte.')
     }
   }
 

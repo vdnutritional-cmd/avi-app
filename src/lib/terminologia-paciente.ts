@@ -37,6 +37,11 @@ export async function terminologiaDeVinculo(
     : getTerminologiaPropia(db, vinculo.therapist_id)
 }
 
+/** Persona que se registra (QR o código) con su terapeuta y, si la hay, su empresa */
+export async function getTerminologiaRegistro(db: Db, therapistId: string, empresaId: string | null): Promise<Terminologia> {
+  return terminologiaDeVinculo(db, { therapist_id: therapistId, empresa_id: empresaId })
+}
+
 /** Lo que ve un paciente: su vínculo activo más reciente */
 export async function getTerminologiaPaciente(db: Db, patientId: string): Promise<Terminologia> {
   const { data: vinculos } = await db

@@ -3,6 +3,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getEmpresasDeTerapeuta } from '@/lib/empresas-terapeuta'
 import { mensajeEmailPacienteExistente } from '@/lib/registro-email'
 import { createClient } from '@/lib/supabase/server'
+import { getTerminologiaPropia, getTerminologiaRegistro } from '@/lib/terminologia-paciente'
+import { normalizarTerminologia } from '@/lib/terminologia'
 
 /**
  * POST /api/auth/registro-consultorio
@@ -35,8 +37,20 @@ export async function POST(req: NextRequest) {
     )
   }
 
+  // ── 1a. Empresa de la persona ─────────────────────────────────────────────
+  // Si no se envió empresa_id explícita, intentar auto-asignar si el terapeuta
+  // tiene exactamente 1 empresa activa asignada.
+  // La empresa solo se acepta si es una empresa CONVENIO activa del propio terapeuta.
+  const empresasTerapeuta = await getEmpresasDeTerapeuta(admin, therapistProfile.id)
+  let resolvedEmpresaId: string | null =
+    empresa_id && empresasTerapeuta.some(e => e.id === empresa_id) ? empresa_id : null
+  if (!resolvedEmpresaId && !empresa_id && empresasTerapeuta.length === 1) {
+    resolvedEmpresaId = empresasTerapeuta[0].id
+  }
+
   // ── 1b. El correo no debe existir (no se revela con qué terapeuta está un paciente) ──
-  const yaExiste = await mensajeEmailPacienteExistente(admin, email, therapistProfile.id)
+  const terminologia = await getTerminologiaRegistro(admin, therapistProfile.id, resolvedEmpresaId)
+  const yaExiste = await mensajeEmailPacienteExistente(admin, email, therapistProfile.id, terminologia)
   if (yaExiste) return NextResponse.json({ error: yaExiste }, { status: 409 })
 
   // ── 2. Crear usuario en Supabase Auth ─────────────────────────────────────
@@ -69,17 +83,7 @@ export async function POST(req: NextRequest) {
     whatsapp_phone: datosGenerales.contacto_telefono ?? '',
   })
 
-  // ── 4. Vincular paciente con terapeuta ────────────────────────────────────
-  // Si no se envió empresa_id explícita, intentar auto-asignar si el terapeuta
-  // tiene exactamente 1 empresa activa asignada.
-  // La empresa solo se acepta si es una empresa CONVENIO activa del propio terapeuta.
-  const empresasTerapeuta = await getEmpresasDeTerapeuta(admin, therapistProfile.id)
-  let resolvedEmpresaId: string | null =
-    empresa_id && empresasTerapeuta.some(e => e.id === empresa_id) ? empresa_id : null
-  if (!resolvedEmpresaId && !empresa_id && empresasTerapeuta.length === 1) {
-    resolvedEmpresaId = empresasTerapeuta[0].id
-  }
-
+  // ── 4. Vincular paciente con terapeuta (empresa resuelta en 1a) ────────────
   await admin.from('therapist_patients').insert({
     therapist_id: therapistProfile.id,
     patient_id:   patientId,
@@ -149,7 +153,9 @@ export async function POST(req: NextRequest) {
 
 /**
  * GET /api/auth/registro-consultorio?t=TOKEN
- * Valida el token y devuelve el nombre del terapeuta.
+ * Valida el token y devuelve el nombre del terapeuta, sus empresas y las palabras
+ * del registro (Inventario de Terminología, página 11): cada empresa con la suya y
+ * `terminologiaPropia` ("Cómo me nombran") para quien no tiene empresa.
  */
 export async function GET(req: NextRequest) {
   const token = req.nextUrl.searchParams.get('t')
@@ -170,13 +176,14 @@ export async function GET(req: NextRequest) {
   // Obtener empresas activas del terapeuta para el paso de selección
   const { data: empresaRels } = await admin
     .from('therapist_empresa')
-    .select('empresa_id, convenio_empresas(nombre)')
+    .select('empresa_id, convenio_empresas(nombre, terminologia)')
     .eq('therapist_id', data.id)
 
   const empresas = (empresaRels ?? []).map(r => {
-    const e = r.convenio_empresas as { nombre?: string } | null
-    return { id: r.empresa_id as string, nombre: e?.nombre ?? '' }
+    const e = r.convenio_empresas as { nombre?: string; terminologia?: string | null } | null
+    return { id: r.empresa_id as string, nombre: e?.nombre ?? '', terminologia: normalizarTerminologia(e?.terminologia) }
   })
 
-  return NextResponse.json({ therapistName: data.full_name, empresas })
+  const terminologiaPropia = await getTerminologiaPropia(admin, data.id)
+  return NextResponse.json({ therapistName: data.full_name, empresas, terminologiaPropia })
 }

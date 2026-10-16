@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getEmpresasDeTerapeuta } from '@/lib/empresas-terapeuta'
 import { mensajeEmailPacienteExistente } from '@/lib/registro-email'
+import { getTerminologiaRegistro } from '@/lib/terminologia-paciente'
 
 /**
  * POST /api/auth/confirm-patient
@@ -32,7 +33,12 @@ export async function POST(req: NextRequest) {
     const therapistId = codeRow.therapist_id as string
 
     // 1. El correo no debe existir (no se revela con qué terapeuta está un paciente)
-    const yaExiste = await mensajeEmailPacienteExistente(admin, email, therapistId)
+    //    El mensaje usa la palabra de la persona: la de su empresa o "Cómo me nombran"
+    //    La empresa solo se acepta si es una empresa CONVENIO activa del propio terapeuta
+    const empresasTerapeuta = empresaId ? await getEmpresasDeTerapeuta(admin, therapistId) : []
+    const empresaValida = empresaId && empresasTerapeuta.some(e => e.id === empresaId) ? empresaId : null
+    const terminologia = await getTerminologiaRegistro(admin, therapistId, empresaValida)
+    const yaExiste = await mensajeEmailPacienteExistente(admin, email, therapistId, terminologia)
     if (yaExiste) return NextResponse.json({ error: yaExiste }, { status: 409 })
 
     // 2. Crear usuario con email ya confirmado usando SDK admin
@@ -68,10 +74,6 @@ export async function POST(req: NextRequest) {
 
     // 3. Vincular paciente con terapeuta (incluye empresa si el paciente seleccionó una)
     if (therapistId) {
-      // La empresa solo se acepta si es una empresa CONVENIO activa del propio terapeuta
-      const empresasTerapeuta = empresaId ? await getEmpresasDeTerapeuta(admin, therapistId) : []
-      const empresaValida = empresaId && empresasTerapeuta.some(e => e.id === empresaId) ? empresaId : null
-
       const { error: linkError } = await admin
         .from('therapist_patients')
         .insert({

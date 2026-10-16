@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getTerminologiaTerapeuta } from '@/lib/terminologia-paciente'
+import { terminos } from '@/lib/terminologia'
 
 const MAX_ATTEMPTS = 5
 const WINDOW_MINUTES = 15
@@ -130,8 +132,10 @@ export async function POST(req: NextRequest) {
       // Con PI activa sigue el flujo normal (MFA + rol 'institucional' más abajo)
       if (!piActivo || piActivo.length === 0) {
         await supabase.auth.signOut()
+        // La palabra de su menú (Inventario de Terminología, 15.4)
+        const w = terminos(await getTerminologiaTerapeuta(admin, data.user.id))
         return NextResponse.json(
-          { error: 'Tu cuenta de terapeuta está desactivada. Si crees que es un error, contacta a AVI por WhatsApp al 33 1883 0312.' },
+          { error: `Tu cuenta de ${w.pro} está desactivada. Si crees que es un error, contacta a AVI por WhatsApp al 33 1883 0312.` },
           { status: 403 }
         )
       }
