@@ -1,6 +1,6 @@
 # AVI Therapy Companion App — Contexto para Claude Code
 
-> **Versión:** 1.0 (cerrada) · **Actualizado:** 15 octubre 2026  
+> **Versión:** 1.0 (cerrada) · **Actualizado:** 16 octubre 2026  
 > Este archivo es el punto de entrada para cualquier sesión de Claude Code en este proyecto.  
 > Léelo completo antes de modificar cualquier archivo.
 
@@ -436,7 +436,7 @@ Por cuestión legal (instituciones Sin Fines de Lucro no pueden usar "paciente")
 - **Persona con empresa:** la de su empresa (bienvenida, chat, y lo que ve el terapeuta dentro de ella). **Sin empresa:** "Cómo me nombran" del terapeuta (`/therapist/configuracion/terminologia`).
 - **Menú y pantallas generales del terapeuta:** una sola palabra; "asesorado" si alguna empresa suya (o su elección) lo es. Nunca "pacientes/asesorados".
 - **Logo:** se imprime en 140 × 48 px; medida recomendada 360 × 144 px (2.5 : 1), sin márgenes.
-- Aplicado hasta la página 10 del inventario (Bienvenida, Habla, cuestionario, menú, Dashboard, Mis pacientes, Asignación a Institución, Perfil AVI-ESENCIAL y AVI-CLÍNICO, Reportes y PDF, Registro de pacientes, Información: Mis Asesorías, Mi estadística, Auditorías, Tutoriales, Configuración: Política de baja). "Activar plan" y Planes y precios van juntas en la página de páginas públicas, con texto fijo.
+- Aplicado hasta la página 11 del inventario (Login, registro y páginas públicas: texto fijo "terapeuta o asesor"; QR y código con la palabra de la persona/terapeuta; `/api/auth/terminologia` para Planes y precios; Bienvenida, Habla, cuestionario, menú, Dashboard, Mis pacientes, Asignación a Institución, Perfil AVI-ESENCIAL y AVI-CLÍNICO, Reportes y PDF, Registro de pacientes, Información: Mis Asesorías, Mi estadística, Auditorías, Tutoriales, Configuración: Política de baja). "Activar plan" y Planes y precios van juntas en la página de páginas públicas, con texto fijo.
 - PDF de estadística (`PrintEstadisticasButton`, prop `terminologia`): en Mi estadística la del menú; en Administración `getTerminologiaEmpresas()` (asesorado si alguna empresa elegida lo es). `useTerminologiaMenuValor()` da la terminología misma para `buildReportHeader`.
 - **Pantallas cliente generales del terapeuta:** `useTerminologiaMenu()` (`src/app/therapist/TerminologiaMenu.tsx`); el `layout` reparte la palabra del menú con `TerminologiaMenuProvider`. Pantallas servidor: `getTerminologiaTerapeuta()`. En el perfil, la palabra de la persona llega de `page.tsx` a cada pestaña por la prop `terminologia` (también vía `ExpedienteTab`).
 - Pantallas cliente: la palabra llega del servidor (`/api/patient/sesiones-avi`, `/api/therapist/terminologia-persona`); la pantalla espera la respuesta para no mostrar un instante la palabra equivocada.
@@ -583,7 +583,7 @@ npm run build
 - **Último commit Sprint 12 Companion:** `dd614c6`
 - **Último commit fixes Stripe CONVENIO + contacto por empresa:** `9f5ee22` (06 oct 2026)
 - **Respaldo del 10 oct:** `89cfffc` — Control de Planes, motivo de bloqueo, terapeuta desactivado, Admin › Terapeutas Temporal/Permanente
-- **Último commit respaldado:** `56cd09b` (15 oct 2026) — inventario página 10 (Política de baja); antes `bd5ff80` página 9 (Información), Reporte por período con encabezado común e iframe, subtítulos quitados en HC/Valorativo/Integración/Proceso; antes `d9d1879` página 8 (Registro de pacientes), `848c5be` logo en reportes AVI-CLÍNICO del teléfono, `3593675` página 7 (Reportes y PDF), `1526016` página 6 (Perfil AVI-CLÍNICO), `3810766` página 5, chat sin instante "terapeuta", menú lateral de 288 px; `43a59c2` inventario página 4, `3d2494d` Paquetes en CONVENIO con una sola empresa (WhatsApp de solicitudes, migración `20261014c`), `ac31736` Alta/Baja de <Pros> por la empresa y `bb25486` terminología (Configuración Admin, Cómo me nombran, inventario 1–3)
+- **Último commit respaldado:** `5e85f0f` (16 oct 2026) — inventario página 11 (login, registro y páginas públicas); antes `56cd09b` página 10 (Política de baja); antes `bd5ff80` página 9 (Información), Reporte por período con encabezado común e iframe, subtítulos quitados en HC/Valorativo/Integración/Proceso; antes `d9d1879` página 8 (Registro de pacientes), `848c5be` logo en reportes AVI-CLÍNICO del teléfono, `3593675` página 7 (Reportes y PDF), `1526016` página 6 (Perfil AVI-CLÍNICO), `3810766` página 5, chat sin instante "terapeuta", menú lateral de 288 px; `43a59c2` inventario página 4, `3d2494d` Paquetes en CONVENIO con una sola empresa (WhatsApp de solicitudes, migración `20261014c`), `ac31736` Alta/Baja de <Pros> por la empresa y `bb25486` terminología (Configuración Admin, Cómo me nombran, inventario 1–3)
 - **Respaldo del 13 oct:** `15ebffb` — nombres: SaaS Controller, Configuración AVI, Administración, niveles
 - **Respaldo anterior:** `69954cd` (12 oct 2026) — chat AVI (tiempos, caché real 1h+5m, base personalista, política de sesiones, modo escrito, retomar sesión, sesiones anteriores), Administración Institucional AVI, transferir paciente seguro
 - Confirmar el deploy: `vercel ls` / `vercel inspect go.avi-app.com.mx` (CLI con sesión en la Mac)
