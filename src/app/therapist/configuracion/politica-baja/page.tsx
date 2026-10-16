@@ -4,8 +4,10 @@ export const dynamic = 'force-dynamic'
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { useTerminologiaMenu } from '../../TerminologiaMenu'
 
 export default function PoliticaBajaPage() {
+  const w = useTerminologiaMenu()
   const [politicaBaja, setPoliticaBaja] = useState<'auto' | 'off'>('auto')
   const [loading, setLoading]   = useState(true)
   const [saving, setSaving]     = useState(false)
@@ -60,9 +62,9 @@ export default function PoliticaBajaPage() {
     <div className="max-w-lg mx-auto px-4 py-8 space-y-6">
       {/* Encabezado */}
       <div>
-        <h1 className="text-xl font-bold text-gray-800">Política de baja de un paciente</h1>
+        <h1 className="text-xl font-bold text-gray-800">Política de baja de un {w.user}</h1>
         <p className="text-sm text-gray-400 mt-1">
-          Configura cómo AVI gestiona el bloqueo de pacientes inactivos.
+          Configura cómo AVI gestiona el bloqueo de {w.users} inactivos.
         </p>
       </div>
 
@@ -72,7 +74,7 @@ export default function PoliticaBajaPage() {
           <div>
             <p className="text-sm font-semibold text-gray-800">Bloqueo automático por inactividad</p>
             <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">
-              Cuando está activado, AVI bloquea automáticamente a los pacientes que no
+              Cuando está activado, AVI bloquea automáticamente a los {w.users} que no
               han tenido actividad según la frecuencia de sesiones configurada en su Nota Inicial.
             </p>
           </div>
@@ -117,8 +119,8 @@ export default function PoliticaBajaPage() {
               </div>
             </div>
             <p className="text-xs text-primary-500 pt-1 leading-relaxed">
-              La frecuencia se configura en la <strong>Nota Inicial</strong> de cada paciente.
-              El cron revisa diariamente a las 03:00 CDMX.
+              La frecuencia se configura en la <strong>Nota Inicial</strong> de cada {w.user}.
+              AVI revisa diariamente a las 03:00 CDMX.
             </p>
           </div>
         )}
@@ -126,8 +128,8 @@ export default function PoliticaBajaPage() {
         {politicaBaja === 'off' && (
           <div className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
             <p className="text-xs text-gray-500 leading-relaxed">
-              El bloqueo automático está <strong>desactivado</strong>. Tus pacientes no serán
-              bloqueados por inactividad. Puedes bloquearlos manualmente desde la lista de pacientes
+              El bloqueo automático está <strong>desactivado</strong>. Tus {w.users} no serán
+              bloqueados por inactividad. Puedes bloquearlos manualmente desde la lista de {w.users}
               con el botón <strong>🚫 Bloquear</strong>.
             </p>
           </div>
@@ -139,8 +141,8 @@ export default function PoliticaBajaPage() {
         <p className="text-sm font-semibold text-gray-800">🚫 Bloqueo manual</p>
         <p className="text-xs text-gray-400 leading-relaxed">
           Independientemente de esta configuración, siempre puedes bloquear o reactivar
-          a cualquier paciente desde <strong>Mis pacientes</strong> usando el botón correspondiente
-          en la tarjeta del paciente.
+          a cualquier {w.user} desde <strong>Mis {w.Users}</strong> usando el botón correspondiente
+          en la tarjeta del {w.user}.
         </p>
       </div>
 
