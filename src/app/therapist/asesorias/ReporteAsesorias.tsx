@@ -1,8 +1,14 @@
 'use client'
 
 import { useState } from 'react'
+import { useTerminologiaMenu, useTerminologiaMenuValor } from '../TerminologiaMenu'
+import { buildReportHeader, printHtmlViaIframe } from '@/app/therapist/patients/[patientId]/print-utils'
+import type { Terminologia } from '@/lib/terminologia'
+
+type Palabras = ReturnType<typeof useTerminologiaMenu>
 
 type Entry = { nombre: string; fecha: string }
+type Empresa = { id: string; nombre: string; logo_url: string | null }
 
 interface ReporteData {
   terapeutaNombre: string
@@ -24,10 +30,12 @@ function Bloque({
   titulo,
   color,
   entries,
+  w,
 }: {
   titulo: string
   color: string
   entries: Entry[]
+  w: Palabras
 }) {
   if (entries.length === 0) return null
   return (
@@ -41,7 +49,7 @@ function Bloque({
             <tr className="bg-gray-50 text-left">
               <th className="px-3 py-2 font-medium text-gray-400 text-xs uppercase tracking-wide w-8">#</th>
               <th className="px-5 py-2 font-medium text-gray-500 text-xs uppercase tracking-wide">Fecha</th>
-              <th className="px-5 py-2 font-medium text-gray-500 text-xs uppercase tracking-wide">Asesorado</th>
+              <th className="px-5 py-2 font-medium text-gray-500 text-xs uppercase tracking-wide">{w.User}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
@@ -59,7 +67,8 @@ function Bloque({
   )
 }
 
-function imprimirReporte(data: ReporteData) {
+// PDF con el mismo encabezado, CSS base e impresión por iframe que los demás reportes
+function imprimirReporte(data: ReporteData, w: Palabras, terminologia: Terminologia, logoUrl: string | null) {
   const formatFechaCorta = (iso: string) => {
     const [y, m, d] = iso.split('-').map(Number)
     return new Date(y, m - 1, d).toLocaleDateString('es-MX', {
@@ -70,113 +79,80 @@ function imprimirReporte(data: ReporteData) {
   const filas = (entries: Entry[]) =>
     entries.map((e, i) => `
       <tr>
-        <td style="padding:8px 10px; color:#aaa; font-size:11px; font-weight:600; text-align:right; width:28px;">${i + 1}</td>
-        <td style="padding:8px 12px; color:#555; text-transform:capitalize;">${formatFecha(e.fecha)}</td>
-        <td style="padding:8px 12px; font-weight:500; color:#222;">${e.nombre}</td>
+        <td style="padding:4px 10px; color:#999; text-align:right; width:28px;">${i + 1}</td>
+        <td style="padding:4px 10px; text-transform:capitalize;">${formatFecha(e.fecha)}</td>
+        <td style="padding:4px 10px;">${e.nombre}</td>
       </tr>
     `).join('')
 
-  const bloque = (titulo: string, color: string, entries: Entry[]) =>
+  const bloque = (titulo: string, entries: Entry[]) =>
     entries.length === 0 ? '' : `
-      <div style="margin-bottom:28px;">
-        <div style="display:inline-block; font-size:11px; font-weight:700; text-transform:uppercase;
-                    letter-spacing:.06em; padding:4px 12px; border-radius:999px; margin-bottom:10px;
-                    background:${color === 'green' ? '#d1fae5' : color === 'blue' ? '#dbeafe' : '#fde68a'};
-                    color:${color === 'green' ? '#065f46' : color === 'blue' ? '#1e40af' : '#92400e'};">
-          ${titulo} — ${entries.length}
-        </div>
-        <table width="100%" style="border-collapse:collapse; font-size:13px; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden;">
-          <thead>
-            <tr style="background:#f9fafb;">
-              <th style="padding:8px 10px; text-align:right; font-size:11px; color:#9ca3af; width:28px;">#</th>
-              <th style="padding:8px 12px; text-align:left; font-size:11px; color:#6b7280; text-transform:uppercase; letter-spacing:.05em;">Fecha</th>
-              <th style="padding:8px 12px; text-align:left; font-size:11px; color:#6b7280; text-transform:uppercase; letter-spacing:.05em;">Asesorado</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${filas(entries)}
-          </tbody>
-        </table>
-      </div>
+      <h2>${titulo} — ${entries.length}</h2>
+      <table>
+        <thead><tr><th style="text-align:right;width:28px;">#</th><th>Fecha</th><th>${w.User}</th></tr></thead>
+        <tbody>${filas(entries)}</tbody>
+      </table>
     `
 
   const total = data.presencialesFacturables.length + data.virtualesFacturables.length + data.proBono.length
   const totalFacturables = data.presencialesFacturables.length + data.virtualesFacturables.length
 
+  const header = buildReportHeader({
+    terapeutaNombre: data.terapeutaNombre,
+    terminologia,
+    logoUrl,
+    side: logoUrl ? 'logo' : 'name',
+    subtitle: `Reporte de ${w.Servs} · ${formatFechaCorta(data.desde)} — ${formatFechaCorta(data.hasta)}`,
+  })
+
   const html = `<!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <title>Reporte de Asesorías — ${data.terapeutaNombre}</title>
+  <meta charset="UTF-8"/>
+  <title>Reporte de ${w.Servs} — ${data.terapeutaNombre}</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Inter', -apple-system, sans-serif; background: #fff; color: #111; padding: 40px; max-width: 800px; margin: 0 auto; }
-    @media print {
-      body { padding: 20px; }
-      button { display: none !important; }
-    }
+    @page { size: letter; margin: 1cm 1.8cm 1.2cm; }
+    html, body { margin: 0 !important; padding: 0 !important; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 9pt; color: #1a1a1a; line-height: 1.3; }
+    h2 { font-size: 10.5pt; font-weight: 700; color: #2d3a8c; margin: 14px 0 6px; border-bottom: 1.5px solid #dde3ee; padding-bottom: 3px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 9.5pt; }
+    th { background: #f5f5f5; padding: 5px 10px; text-align: left; font-weight: 600; color: #555; font-size: 8.5pt; text-transform: uppercase; letter-spacing: 0.04em; }
+    td { border-bottom: 1px solid #f0f0f0; }
+    .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 8px; }
+    .kpi { background: #eef1f9; border: 1px solid #dde3ee; border-radius: 6px; padding: 10px 14px; }
+    .kpi-label { font-size: 8.5pt; color: #5060a4; margin-bottom: 2px; }
+    .kpi-value { font-size: 18pt; font-weight: 700; color: #2d3a8c; }
+    .footer { border-top: 0.5pt solid #dde3ee; margin-top: 14px; padding-top: 3pt; text-align: center; font-size: 6.5pt; color: #aaa; }
+    @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
   </style>
 </head>
 <body>
-  <!-- Encabezado -->
-  <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:32px; padding-bottom:20px; border-bottom:2px solid #7c3aed;">
-    <div>
-      <div style="font-size:22px; font-weight:700; color:#7c3aed; letter-spacing:-.01em;">AVI</div>
-      <div style="font-size:11px; color:#9ca3af; margin-top:2px;">Asesoría Virtual Interactiva</div>
-    </div>
-    <div style="text-align:right;">
-      <div style="font-size:14px; font-weight:600; color:#374151;">Reporte de Asesorías</div>
-      <div style="font-size:13px; color:#6b7280; margin-top:2px;">${data.terapeutaNombre}</div>
-      <div style="font-size:12px; color:#9ca3af; margin-top:4px;">
-        ${formatFechaCorta(data.desde)} — ${formatFechaCorta(data.hasta)}
-      </div>
-    </div>
+
+  ${header}
+
+  <h2>Resumen del periodo</h2>
+  <div class="grid3">
+    <div class="kpi"><div class="kpi-label">Total</div><div class="kpi-value">${total}</div></div>
+    <div class="kpi"><div class="kpi-label">Facturables</div><div class="kpi-value">${totalFacturables}</div></div>
+    <div class="kpi"><div class="kpi-label">Pro-Bono</div><div class="kpi-value">${data.proBono.length}</div></div>
   </div>
 
-  <!-- Resumen -->
-  <div style="display:flex; gap:16px; margin-bottom:32px;">
-    <div style="flex:1; background:#f5f3ff; border-radius:12px; padding:14px 18px; text-align:center;">
-      <div style="font-size:24px; font-weight:700; color:#7c3aed;">${total}</div>
-      <div style="font-size:11px; color:#6d28d9; text-transform:uppercase; letter-spacing:.05em; margin-top:2px;">Total</div>
-    </div>
-    <div style="flex:1; background:#d1fae5; border-radius:12px; padding:14px 18px; text-align:center;">
-      <div style="font-size:24px; font-weight:700; color:#059669;">${totalFacturables}</div>
-      <div style="font-size:11px; color:#065f46; text-transform:uppercase; letter-spacing:.05em; margin-top:2px;">Facturables</div>
-    </div>
-    <div style="flex:1; background:#fef3c7; border-radius:12px; padding:14px 18px; text-align:center;">
-      <div style="font-size:24px; font-weight:700; color:#d97706;">${data.proBono.length}</div>
-      <div style="font-size:11px; color:#92400e; text-transform:uppercase; letter-spacing:.05em; margin-top:2px;">Pro-Bono</div>
-    </div>
-  </div>
+  ${bloque('Presenciales Facturables', data.presencialesFacturables)}
+  ${bloque('Virtuales Facturables', data.virtualesFacturables)}
+  ${bloque('Pro-Bono', data.proBono)}
 
-  <!-- Bloques -->
-  ${bloque('Presenciales Facturables', 'green', data.presencialesFacturables)}
-  ${bloque('Virtuales Facturables', 'blue', data.virtualesFacturables)}
-  ${bloque('Pro-Bono', 'amber', data.proBono)}
+  <div class="footer">AVI Therapy Companion · avi-app.com.mx</div>
 
-  <!-- Pie -->
-  <div style="margin-top:40px; padding-top:16px; border-top:1px solid #e5e7eb; font-size:11px; color:#9ca3af; display:flex; justify-content:space-between;">
-    <span>AVI — Asesoría Virtual Interactiva</span>
-    <span>Generado el ${new Date().toLocaleDateString('es-MX', { day:'numeric', month:'long', year:'numeric' })}</span>
-  </div>
-
-  <div style="text-align:center; margin-top:24px;">
-    <button onclick="window.print()" style="background:#7c3aed; color:#fff; border:none; border-radius:8px; padding:10px 24px; font-size:14px; font-weight:600; cursor:pointer;">
-      Imprimir / Guardar PDF
-    </button>
-  </div>
 </body>
 </html>`
 
-  const win = window.open('', '_blank')
-  if (win) {
-    win.document.write(html)
-    win.document.close()
-  }
+  printHtmlViaIframe(html)
 }
 
 export default function ReporteAsesorias() {
+  const w = useTerminologiaMenu()
+  const terminologia = useTerminologiaMenuValor()
   const today = new Date().toISOString().split('T')[0]
   const firstOfMonth = today.slice(0, 7) + '-01'
 
@@ -185,6 +161,25 @@ export default function ReporteAsesorias() {
   const [loading, setLoading] = useState(false)
   const [error, setError]   = useState('')
   const [data, setData]     = useState<ReporteData | null>(null)
+  const [logos, setLogos]   = useState<Empresa[] | null>(null)   // modal: más de una empresa con logo
+
+  // Igual que Mi estadística: con más de un logo se elige con cuál imprimir
+  async function imprimir() {
+    if (!data) return
+    let empresas: Empresa[] = []
+    try {
+      const r = await fetch('/api/therapist/reportes-init')
+      if (r.ok) empresas = ((await r.json()).empresas ?? []) as Empresa[]
+    } catch { /* sin logo */ }
+    const conLogo = empresas.filter(e => e.logo_url)
+    if (conLogo.length > 1) setLogos(conLogo)
+    else imprimirReporte(data, w, terminologia, conLogo[0]?.logo_url ?? null)
+  }
+
+  function imprimirCon(logoUrl: string | null) {
+    setLogos(null)
+    if (data) imprimirReporte(data, w, terminologia, logoUrl)
+  }
 
   async function generar() {
     setLoading(true)
@@ -212,7 +207,7 @@ export default function ReporteAsesorias() {
   return (
     <div className="mt-10 border-t border-gray-100 pt-10">
       <h2 className="text-lg font-semibold text-gray-800 mb-1">Reporte por período</h2>
-      <p className="text-sm text-gray-500 mb-5">Detalle de asesorados atendidos en un intervalo de fechas, separado por tipo.</p>
+      <p className="text-sm text-gray-500 mb-5">Detalle de {w.users} atendidos en un intervalo de fechas, separado por tipo.</p>
 
       {/* Selector de fechas */}
       <div className="flex flex-wrap items-end gap-3 mb-6">
@@ -243,7 +238,7 @@ export default function ReporteAsesorias() {
         </button>
         {data && (
           <button
-            onClick={() => imprimirReporte(data)}
+            onClick={imprimir}
             className="px-5 py-2 border border-purple-300 text-purple-700 hover:bg-purple-50 rounded-lg text-sm font-semibold transition-colors"
           >
             🖨 Imprimir
@@ -275,22 +270,65 @@ export default function ReporteAsesorias() {
             titulo="Presenciales Facturables"
             color="bg-green-100 text-green-700"
             entries={data.presencialesFacturables}
+            w={w}
           />
           <Bloque
             titulo="Virtuales Facturables"
             color="bg-blue-100 text-blue-700"
             entries={data.virtualesFacturables}
+            w={w}
           />
           <Bloque
             titulo="Pro-Bono"
             color="bg-yellow-100 text-yellow-700"
             entries={data.proBono}
+            w={w}
           />
 
           {total === 0 && (
-            <p className="text-center text-gray-400 py-8">No hay asesorías registradas en este período.</p>
+            <p className="text-center text-gray-400 py-8">No hay {w.servs} registradas en este período.</p>
           )}
         </>
+      )}
+
+      {/* Modal de selección de logo (como en Mi estadística) */}
+      {logos && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-80 max-w-[90vw]">
+            <h3 className="text-sm font-semibold text-gray-800 mb-1">¿Con qué logo deseas imprimir?</h3>
+            <p className="text-xs text-gray-500 mb-4">Perteneces a más de una empresa CONVENIO.</p>
+            <div className="flex flex-col gap-2">
+              {logos.map(e => (
+                <button
+                  key={e.id}
+                  onClick={() => imprimirCon(e.logo_url)}
+                  className="flex items-center gap-3 px-3 py-2 rounded-xl border border-gray-200 hover:border-purple-400 hover:bg-purple-50 transition-colors text-left"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={e.logo_url!} alt={e.nombre} className="h-8 w-20 object-contain shrink-0" />
+                  <span className="text-sm text-gray-700 truncate">{e.nombre}</span>
+                </button>
+              ))}
+              <button
+                onClick={() => imprimirCon(null)}
+                className="flex items-center gap-3 px-3 py-2 rounded-xl border border-gray-200 hover:border-purple-400 hover:bg-purple-50 transition-colors text-left"
+              >
+                <div className="h-8 w-20 shrink-0 flex items-center justify-center bg-gray-100 rounded text-gray-400">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                </div>
+                <span className="text-sm text-gray-700">Sin logo (nombre del {w.pro})</span>
+              </button>
+            </div>
+            <button
+              onClick={() => setLogos(null)}
+              className="mt-4 w-full text-xs text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
       )}
     </div>
   )

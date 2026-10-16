@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import { useTerminologiaMenu } from '../TerminologiaMenu'
 
 export type AuditRow = {
   id: string
@@ -35,6 +36,7 @@ const OP_LABEL: Record<string, { label: string; cls: string }> = {
 }
 
 export default function AuditoriaTherapistClient({ logs, pacientes, desde: initDesde, hasta: initHasta }: Props) {
+  const w = useTerminologiaMenu()
   const router = useRouter()
 
   // Filtros cliente (op y tabla — aplican sobre los registros ya cargados)
@@ -69,7 +71,7 @@ export default function AuditoriaTherapistClient({ logs, pacientes, desde: initD
   }
 
   function exportarCSV() {
-    const headers = ['Fecha', 'Paciente', 'Operación', 'Recurso', 'Registro ID', 'Datos antes', 'Datos después']
+    const headers = ['Fecha', w.User, 'Operación', 'Recurso', 'Registro ID', 'Datos antes', 'Datos después']
     const rows = filtrados.map(l => {
       const pid = (l.datos_despues?.patient_id ?? l.datos_antes?.patient_id ?? '') as string
       return [
@@ -100,9 +102,9 @@ export default function AuditoriaTherapistClient({ logs, pacientes, desde: initD
       {/* Encabezado */}
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Auditorías información pacientes</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Auditorías información {w.users}</h1>
           <p className="text-sm text-gray-500 mt-1 max-w-xl">
-            Historial de cambios clínicos de tus pacientes registrado automáticamente (NOM-024-SSA3-2012).
+            Historial de cambios clínicos de tus {w.users} registrado automáticamente (NOM-024-SSA3-2012).
             Los registros están disponibles a partir del inicio del sistema de auditoría.
           </p>
         </div>
@@ -209,7 +211,7 @@ export default function AuditoriaTherapistClient({ logs, pacientes, desde: initD
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Fecha</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Paciente</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">{w.User}</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Operación</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Recurso</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Detalle</th>

@@ -96,7 +96,7 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
           {hasEmpresas ? (
             <NavGroup
               name="pacientes"
-              label={`Mis ${w.users}`}
+              label={`Mis ${w.Users}`}
               icon="👥"
               isOpen={openGroup === 'pacientes'}
               onToggle={() => toggleGroup('pacientes')}
@@ -105,7 +105,7 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
               <NavLink href="/therapist/asignacion-institucion"   icon="🏢" label="Asignación a Institución" onClose={closeSidebar} />
             </NavGroup>
           ) : (
-            <NavLink href="/therapist/patients" icon="👥" label={`Mis ${w.users}`} onClose={closeSidebar} />
+            <NavLink href="/therapist/patients" icon="👥" label={`Mis ${w.Users}`} onClose={closeSidebar} />
           )}
 
           {/* Bloque: Información */}
@@ -116,7 +116,7 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
             isOpen={openGroup === 'informacion'}
             onToggle={() => toggleGroup('informacion')}
           >
-            <NavLink href="/therapist/asesorias"   icon="📈" label={`Mis ${w.servs}`} onClose={closeSidebar} />
+            <NavLink href="/therapist/asesorias"   icon="📈" label={`Mis ${w.Servs}`} onClose={closeSidebar} />
             <NavLink href="/therapist/estadisticas" icon="📊" label="Mi estadística"                   onClose={closeSidebar} />
 
             {/* Reportes terapéuticos — desktop: página dedicada · móvil: panel deslizante */}

@@ -5,6 +5,8 @@ import { redirect } from 'next/navigation'
 import FiltrosEstadisticas from './FiltrosEstadisticas'
 import PrintEstadisticasButton from './PrintEstadisticasButton'
 import { institucionRowsDesde } from '@/lib/sesiones-por-institucion'
+import { terminos, type Terminologia } from '@/lib/terminologia'
+import { getTerminologiaTerapeuta } from '@/lib/terminologia-paciente'
 
 export const dynamic = 'force-dynamic'
 
@@ -52,6 +54,7 @@ export default async function EstadisticasPage({
 
   const admin       = createAdminClient()
   const therapistId = user.id
+  const terminologia = await getTerminologiaTerapeuta(admin, therapistId)
   const tipo        = (['activos', 'inactivos', 'total'].includes(tipoParam ?? '')
     ? tipoParam
     : 'activos') as Tipo
@@ -152,7 +155,7 @@ export default async function EstadisticasPage({
     if (pacienteIds.length === 0) {
       // Sin pacientes en scope → página vacía
       return renderPage({
-        year, month, mesKey, isCurrentMonth, tipo, pid,
+        year, month, mesKey, isCurrentMonth, tipo, pid, terminologia,
         terapeutaNombre, empresasParaLogo,
         todasLasSesiones: [], pacientesEnPeriodoIds: [],
         relaciones: [],
@@ -236,7 +239,7 @@ export default async function EstadisticasPage({
     : { data: [] }
 
   return renderPage({
-    year, month, mesKey, isCurrentMonth, tipo, pid,
+    year, month, mesKey, isCurrentMonth, tipo, pid, terminologia,
     terapeutaNombre, empresasParaLogo,
     todasLasSesiones, pacientesEnPeriodoIds,
     relaciones: relaciones ?? [],
@@ -259,6 +262,7 @@ interface RenderProps {
   isCurrentMonth: boolean
   tipo: Tipo
   pid: string
+  terminologia: Terminologia
   terapeutaNombre: string
   empresasParaLogo: { id: string; nombre: string; logo_url: string | null }[]
   todasLasSesiones: { patient_id: string; session_date: string; is_pro_bono: boolean }[]
@@ -274,7 +278,7 @@ interface RenderProps {
 }
 
 function renderPage({
-  year, month, mesKey, isCurrentMonth, tipo, pid,
+  year, month, mesKey, isCurrentMonth, tipo, pid, terminologia,
   terapeutaNombre, empresasParaLogo,
   todasLasSesiones, pacientesEnPeriodoIds,
   relaciones, derivacionesRows, expedientesRows,
@@ -282,6 +286,7 @@ function renderPage({
   countInactivos,
   empresaByPatient, nombreByPatient,
 }: RenderProps) {
+  const w = terminos(terminologia)
 
   // ── Dropdown: pacientes con sesiones en el mes, excluyendo archivados ──────
   const archivedSet = new Set(
@@ -402,7 +407,7 @@ function renderPage({
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Mi estadística</h1>
         <p className="text-gray-500 mt-1 text-sm">
-          Información clínica y operativa de tu práctica · pacientes {tipoLabel}
+          Información clínica y operativa de tu práctica · {w.users} {tipoLabel}
         </p>
       </div>
 
@@ -437,12 +442,13 @@ function renderPage({
           pid={pid}
           mes={mesKey}
           pacientes={pacientesParaDropdown}
+          w={w}
         />
       </div>
 
       {/* ── Sin sesiones ───────────────────────────────────────────────────── */}
       {totalSesiones === 0 && (
-        <EmptyCard text={`No hay sesiones registradas en ${nombreMesLargo(year, month)} para pacientes ${tipoLabel}${pid !== 'all' ? ' (paciente seleccionado)' : ''}.`} />
+        <EmptyCard text={`No hay sesiones registradas en ${nombreMesLargo(year, month)} para ${w.users} ${tipoLabel}${pid !== 'all' ? ` (${w.user} seleccionado)` : ''}.`} />
       )}
 
       {/* ── A. Resumen del periodo ─────────────────────────────────────────── */}
@@ -452,12 +458,12 @@ function renderPage({
           <div className="grid grid-cols-3 gap-3">
             <KpiCard label="Cantidad de sesiones" value={totalSesiones} accent />
             <KpiCard label="Personas atendidas" value={personasAtendidas}
-              sub="Pacientes únicos con al menos 1 sesión" />
+              sub={`${w.Users} únicos con al menos 1 sesión`} />
             <KpiCard
               label={
-                tipo === 'activos'   ? 'Total pacientes activos' :
-                tipo === 'inactivos' ? 'Total pacientes inactivos' :
-                                      'Total pacientes'
+                tipo === 'activos'   ? `Total ${w.users} activos` :
+                tipo === 'inactivos' ? `Total ${w.users} inactivos` :
+                                      'Activos + Inactivos'
               }
               value={
                 tipo === 'activos'   ? totalActivos :
@@ -517,7 +523,7 @@ function renderPage({
               <thead>
                 <tr className="bg-gray-50 text-left">
                   <th className="px-5 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide">Tipo de caso / Problemática</th>
-                  <th className="px-5 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide text-right">Pacientes</th>
+                  <th className="px-5 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide text-right">{w.Users}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
@@ -573,9 +579,9 @@ function renderPage({
       {/* ── E. Satisfacción del asesorado ──────────────────────────────────── */}
       <section className="space-y-3">
         <SectionTitle>
-          Satisfacción del asesorado
+          Satisfacción del {w.user}
           <span className="ml-2 text-xs font-normal text-gray-400 normal-case">
-            todos los pacientes activos ({totalActivos})
+            todos los {w.users} activos ({totalActivos})
           </span>
         </SectionTitle>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -605,15 +611,15 @@ function renderPage({
       {/* ── F. Calificación por paciente ───────────────────────────────────── */}
       {calificaciones.length > 0 && (
         <section className="space-y-3">
-          <SectionTitle>Calificación inicial y final por paciente</SectionTitle>
+          <SectionTitle>Calificación inicial y final por {w.user}</SectionTitle>
           <p className="text-xs text-gray-400">
-            Pacientes atendidos en {nombreMesLargo(year, month)} · {tipoLabel}
+            {w.Users} atendidos en {nombreMesLargo(year, month)} · {tipoLabel}
           </p>
           <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 text-left">
-                  <th className="px-5 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide">Paciente</th>
+                  <th className="px-5 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide">{w.User}</th>
                   <th className="px-5 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide text-center">Cal. Inicial</th>
                   <th className="px-5 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide text-center">Cal. Final</th>
                 </tr>
@@ -637,6 +643,7 @@ function renderPage({
         <div className="flex justify-end pt-2">
           <PrintEstadisticasButton
             terapeutaNombre={terapeutaNombre}
+            terminologia={terminologia}
             empresas={empresasParaLogo}
             mes={nombreMesLargo(year, month)}
             tipoLabel={tipoLabel}

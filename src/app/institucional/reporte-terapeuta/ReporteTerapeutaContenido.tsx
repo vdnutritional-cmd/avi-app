@@ -3,6 +3,8 @@ import Link from 'next/link'
 import FiltrosReporte from './FiltrosReporte'
 import PrintEstadisticasButton from '@/app/therapist/estadisticas/PrintEstadisticasButton'
 import { institucionRowsDesde } from '@/lib/sesiones-por-institucion'
+import { terminos, type Terminologia } from '@/lib/terminologia'
+import { getTerminologiaEmpresas } from '@/lib/terminologia-paciente'
 
 const TIPOS_DERIVACION = [
   'Psicólogo', 'Psiquiatra', 'Especialista en Adicciones',
@@ -44,6 +46,8 @@ export default async function ReporteTerapeutaContenido({ empresas, piNombre, ba
   const selectedIds = (empIdsParam ? empIdsParam.split(',').filter(Boolean) : empParam ? [empParam] : [])
     .filter(id => empresas.some(e => e.id === id))
   const empresasActuales = empresas.filter(e => selectedIds.includes(e.id))
+  // PDF de la estadística: palabra de las empresas elegidas (Inventario 13.16)
+  const terminologia = await getTerminologiaEmpresas(admin, selectedIds)
 
   // ── Validar mes antes de cualquier early return ────────────────────────────
   const now = new Date()
@@ -242,7 +246,7 @@ export default async function ReporteTerapeutaContenido({ empresas, piNombre, ba
 
   // pacienteIds ya excluye archivados para todos los tipos (activos/inactivos/total)
   if (!hayPacientes) {
-    return renderPage({ basePath, ocultarSelectorEmpresas,
+    return renderPage({ terminologia, basePath, ocultarSelectorEmpresas,
       year, month, mesKey, isCurrentMonth, tipo, pid, terapeutaId,
       piNombre, empresas, terapeutas, selectedIds, empresasActuales,
       todasLasSesiones: [], pacientesEnPeriodoIds: [],
@@ -284,7 +288,7 @@ export default async function ReporteTerapeutaContenido({ empresas, piNombre, ba
       : Promise.resolve({ data: [] }),
   ])
 
-  return renderPage({ basePath, ocultarSelectorEmpresas,
+  return renderPage({ terminologia, basePath, ocultarSelectorEmpresas,
     year, month, mesKey, isCurrentMonth, tipo, pid, terapeutaId,
     piNombre, empresas, terapeutas, selectedIds, empresasActuales,
     todasLasSesiones, pacientesEnPeriodoIds,
@@ -301,6 +305,7 @@ export default async function ReporteTerapeutaContenido({ empresas, piNombre, ba
 // ── Renderer ──────────────────────────────────────────────────────────────────
 
 interface RenderProps {
+  terminologia: Terminologia
   basePath: string
   ocultarSelectorEmpresas: boolean
   year: number; month: number; mesKey: string; isCurrentMonth: boolean
@@ -324,7 +329,7 @@ interface RenderProps {
 }
 
 function renderPage({
-  basePath, ocultarSelectorEmpresas,
+  terminologia, basePath, ocultarSelectorEmpresas,
   year, month, mesKey, isCurrentMonth, tipo, pid, terapeutaId,
   piNombre, empresas, terapeutas, selectedIds, empresasActuales,
   todasLasSesiones, pacientesEnPeriodoIds,
@@ -423,7 +428,7 @@ function renderPage({
   const empresasParaLogo = empresasActuales
 
   const terapeutaLabel = terapeutaId === 'all'
-    ? 'Total terapeutas'
+    ? `Total ${terminos(terminologia).pros}`
     : (terapeutas.find(t => t.id === terapeutaId)?.nombre || terapeutas.find(t => t.id === terapeutaId)?.email || terapeutaId)
 
   return (
@@ -577,6 +582,7 @@ function renderPage({
 
           <div className="flex justify-end pt-2">
             <PrintEstadisticasButton
+              terminologia={terminologia}
               terapeutaNombre={terapeutaLabel}
               empresas={empresasParaLogo}
               mes={nombreMesLargo(year, month)}

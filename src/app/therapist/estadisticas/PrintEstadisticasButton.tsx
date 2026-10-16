@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { buildReportHeader, printHtmlViaIframe } from '@/app/therapist/patients/[patientId]/print-utils'
+import { terminos, TERMINOLOGIA_SIN_EMPRESA, type Terminologia } from '@/lib/terminologia'
 
 // ── PrintEstadisticasButton — imprime estadísticas vía iframe (sin ventana emergente) (E3)
 // Si el terapeuta pertenece a múltiples empresas con logo, muestra un modal
@@ -15,6 +16,8 @@ interface Empresa {
 
 interface PrintEstadisticasProps {
   terapeutaNombre: string
+  // Palabra de quien imprime (Mi estadística: la del menú). Sin ella: paciente/terapeuta
+  terminologia?: Terminologia
   empresas: Empresa[]
   mes: string
   tipoLabel: string
@@ -38,6 +41,8 @@ interface PrintEstadisticasProps {
 }
 
 export default function PrintEstadisticasButton(props: PrintEstadisticasProps) {
+  const t = props.terminologia ?? TERMINOLOGIA_SIN_EMPRESA
+  const w = terminos(t)
   const [showModal, setShowModal] = useState(false)
 
   const empresasConLogo = props.empresas.filter(e => e.logo_url)
@@ -69,10 +74,11 @@ export default function PrintEstadisticasButton(props: PrintEstadisticasProps) {
 
     const header = buildReportHeader({
       terapeutaNombre,
+      terminologia: t,
       impresoPor: nombreImpresion,
       logoUrl,
       side: logoUrl ? 'logo' : 'name',
-      subtitle: `${reportTitle} · Pacientes ${tipoLabel} · ${mes}`,
+      subtitle: `${reportTitle} · ${w.Users} ${tipoLabel} · ${mes}`,
     })
 
     const inst = institucionRows.map(r =>
@@ -134,9 +140,9 @@ export default function PrintEstadisticasButton(props: PrintEstadisticasProps) {
   </div>
 
   ${tipoAsesoriaRows.length > 0 ? `
-  <h3 style="font-size:9pt;font-weight:600;color:#777;text-transform:uppercase;letter-spacing:0.04em;margin:16px 0 4px;">Tipo de asesoría por terapeuta</h3>
+  <h3 style="font-size:9pt;font-weight:600;color:#777;text-transform:uppercase;letter-spacing:0.04em;margin:16px 0 4px;">Tipo de ${w.serv} por ${w.pro}</h3>
   <table>
-    <thead><tr><th>Terapeuta</th><th style="text-align:right;">Total</th><th style="text-align:right;">Virtuales</th><th style="text-align:right;">Presenciales</th><th style="text-align:right;">Pro-Bono</th><th style="text-align:right;">Facturables</th></tr></thead>
+    <thead><tr><th>${w.Pro}</th><th style="text-align:right;">Total</th><th style="text-align:right;">Virtuales</th><th style="text-align:right;">Presenciales</th><th style="text-align:right;">Pro-Bono</th><th style="text-align:right;">Facturables</th></tr></thead>
     <tbody>${tipoRows}
       <tr style="font-weight:700;background:#f5f5f5;"><td style="padding:5px 10px;">Total</td><td style="padding:5px 10px;text-align:right;">${tipoTot.total}</td><td style="padding:5px 10px;text-align:right;">${tipoTot.virtuales}</td><td style="padding:5px 10px;text-align:right;">${tipoTot.presenciales}</td><td style="padding:5px 10px;text-align:right;">${tipoTot.proBono}</td><td style="padding:5px 10px;text-align:right;">${tipoTot.facturables}</td></tr>
     </tbody>
@@ -154,7 +160,7 @@ export default function PrintEstadisticasButton(props: PrintEstadisticasProps) {
   ${motivoEntries.length > 0 ? `
   <h2>Motivos de consulta más frecuentes</h2>
   <table>
-    <thead><tr><th>Motivo / Tipo de caso</th><th style="text-align:right;">Pacientes</th></tr></thead>
+    <thead><tr><th>Motivo / Tipo de caso</th><th style="text-align:right;">${w.Users}</th></tr></thead>
     <tbody>${motivos}</tbody>
   </table>` : ''}
 
@@ -169,14 +175,14 @@ export default function PrintEstadisticasButton(props: PrintEstadisticasProps) {
   <h2>Cierres</h2>
   <div style="margin-top:6px;">
     <div class="metric-row"><span>Cambio en funcionamiento</span><strong>${cambioFunc}</strong></div>
-    <div class="metric-row"><span>Percepción de alivio del paciente</span><strong>${percepcionAlivio}</strong></div>
+    <div class="metric-row"><span>Percepción de alivio del ${w.user}</span><strong>${percepcionAlivio}</strong></div>
     <div class="metric-row"><span>Abandonos</span><strong>${abandono}</strong></div>
   </div>
 
   ${calificaciones.length > 0 ? `
-  <h2>Calificaciones por paciente</h2>
+  <h2>Calificaciones por ${w.user}</h2>
   <table>
-    <thead><tr><th>Paciente</th><th style="text-align:center;">Cal. Inicial</th><th style="text-align:center;">Cal. Final</th></tr></thead>
+    <thead><tr><th>${w.User}</th><th style="text-align:center;">Cal. Inicial</th><th style="text-align:center;">Cal. Final</th></tr></thead>
     <tbody>${calTable}</tbody>
   </table>` : ''}
 
@@ -229,7 +235,7 @@ export default function PrintEstadisticasButton(props: PrintEstadisticasProps) {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
                 </div>
-                <span className="text-sm text-gray-700">Sin logo (nombre del terapeuta)</span>
+                <span className="text-sm text-gray-700">Sin logo (nombre del {w.pro})</span>
               </button>
             </div>
 

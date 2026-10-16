@@ -1,4 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { terminos } from '@/lib/terminologia'
+import { getTerminologiaTerapeuta } from '@/lib/terminologia-paciente'
 import Link from 'next/link'
 import ReporteAsesorias from './ReporteAsesorias'
 
@@ -23,6 +26,7 @@ export default async function AsesoriasPage({
   const { mes } = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
+  const w = terminos(await getTerminologiaTerapeuta(createAdminClient(), user!.id))
 
   // Mes a mostrar (default: mes actual)
   const now = new Date()
@@ -132,7 +136,7 @@ export default async function AsesoriasPage({
       {/* Header */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Mis asesorías</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Mis {w.Servs}</h1>
           <p className="text-gray-500 mt-1 text-sm">Estadísticas mensuales por jornada y tipo</p>
         </div>
         {/* Navegador de meses */}
@@ -162,7 +166,7 @@ export default async function AsesoriasPage({
       {/* Tarjetas resumen */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {[
-          { label: 'Total asesorías', value: total, sub: nombreMes(year, month), accent: true },
+          { label: `Total ${w.servs}`, value: total, sub: nombreMes(year, month), accent: true },
           { label: 'Entre semana', value: totalEb, sub: 'Lun – Vie (presencial)' },
           { label: 'Fin de semana', value: totalFs, sub: 'Sáb – Dom (presencial)' },
           { label: 'Virtuales', value: totalVirt, sub: 'Cualquier día' },
@@ -233,7 +237,7 @@ export default async function AsesoriasPage({
         <div className="text-center py-10 text-gray-400">
           <p className="text-4xl mb-3">📊</p>
           <p>No hay sesiones registradas en {nombreMes(year, month)}.</p>
-          <p className="text-sm mt-1">Las sesiones presenciales aparecen aquí al registrarlas en el perfil de cada paciente.</p>
+          <p className="text-sm mt-1">Las sesiones presenciales aparecen aquí al registrarlas en el perfil de cada {w.user}.</p>
         </div>
       )}
 

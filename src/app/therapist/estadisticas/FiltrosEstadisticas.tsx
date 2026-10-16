@@ -1,15 +1,17 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
+import type { Variable } from '@/lib/terminologia'
 
 interface Props {
   tipo: 'activos' | 'inactivos' | 'total'
   pid: string
   mes: string
   pacientes: { id: string; nombre: string }[]
+  w: Record<Variable, string>
 }
 
-export default function FiltrosEstadisticas({ tipo, pid, mes, pacientes }: Props) {
+export default function FiltrosEstadisticas({ tipo, pid, mes, pacientes, w }: Props) {
   const router = useRouter()
 
   function navTo(overrides: Record<string, string>) {
@@ -60,7 +62,7 @@ export default function FiltrosEstadisticas({ tipo, pid, mes, pacientes }: Props
         className="text-sm border border-gray-200 rounded-xl px-3 py-2 text-gray-700
                    bg-white focus:outline-none focus:ring-2 focus:ring-primary-300 min-w-[200px]"
       >
-        <option value="all">Total pacientes</option>
+        <option value="all">Total {w.users}</option>
         {pacientes.map(p => (
           <option key={p.id} value={p.id}>{p.nombre}</option>
         ))}

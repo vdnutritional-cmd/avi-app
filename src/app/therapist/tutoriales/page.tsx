@@ -1,3 +1,8 @@
+import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { terminos } from '@/lib/terminologia'
+import { getTerminologiaTerapeuta } from '@/lib/terminologia-paciente'
+
 const VIDEOS = [
   // ── Videos cortos (sin número de tutorial) ───────────────────────────────
   {
@@ -46,12 +51,15 @@ const VIDEOS = [
   // Aquí se irán agregando más videos
 ]
 
-export default function TutorialesPage() {
+export default async function TutorialesPage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  const w = terminos(user ? await getTerminologiaTerapeuta(createAdminClient(), user.id) : null)
   return (
     <div className="space-y-8 max-w-5xl">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Consejos prácticos y Tutoriales</h1>
-        <p className="text-gray-500 mt-1">Videos de capacitación para terapeutas AVI</p>
+        <p className="text-gray-500 mt-1">Videos de capacitación para {w.pros} AVI</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">

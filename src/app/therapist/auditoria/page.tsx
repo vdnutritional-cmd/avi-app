@@ -2,6 +2,8 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import AuditoriaTherapistClient from './AuditoriaTherapistClient'
+import { terminos } from '@/lib/terminologia'
+import { getTerminologiaTerapeuta } from '@/lib/terminologia-paciente'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,6 +26,7 @@ export default async function TherapistAuditoriaPage({
   if (!user) redirect('/auth/login')
 
   const admin = createAdminClient()
+  const w = terminos(await getTerminologiaTerapeuta(admin, user.id))
 
   // 1. Patient IDs del terapeuta (activos + inactivos — la auditoría cubre todo)
   const { data: relations } = await admin
@@ -39,7 +42,7 @@ export default async function TherapistAuditoriaPage({
         <div className="text-4xl">🔍</div>
         <h2 className="text-lg font-semibold text-gray-700">Sin registros de auditoría</h2>
         <p className="text-sm text-gray-400">
-          Aún no tienes pacientes vinculados o no hay registros clínicos en el sistema de auditoría.
+          Aún no tienes {w.users} vinculados o no hay registros clínicos en el sistema de auditoría.
         </p>
       </div>
     )

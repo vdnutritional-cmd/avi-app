@@ -79,3 +79,10 @@ export async function getTerminologiaTerapeuta(db: Db, therapistId: string): Pro
   const { data: empresas } = await db.from('convenio_empresas').select('terminologia').in('id', empresaIds)
   return (empresas ?? []).some(e => normalizarTerminologia(e.terminologia) === 'asesorado') ? 'asesorado' : propia
 }
+
+/** Reportes de Administración (una o varias empresas): 'asesorado' si alguna lo es */
+export async function getTerminologiaEmpresas(db: Db, empresaIds: string[]): Promise<Terminologia> {
+  if (empresaIds.length === 0) return normalizarTerminologia(null)
+  const { data: empresas } = await db.from('convenio_empresas').select('terminologia').in('id', empresaIds)
+  return (empresas ?? []).some(e => normalizarTerminologia(e.terminologia) === 'asesorado') ? 'asesorado' : 'paciente'
+}

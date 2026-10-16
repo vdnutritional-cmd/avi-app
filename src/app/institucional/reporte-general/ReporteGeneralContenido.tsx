@@ -5,6 +5,8 @@ import Link from 'next/link'
 import FiltrosReporteGeneral from './FiltrosReporteGeneral'
 import PrintEstadisticasButton from '@/app/therapist/estadisticas/PrintEstadisticasButton'
 import { institucionRowsDesde } from '@/lib/sesiones-por-institucion'
+import { terminos, type Terminologia } from '@/lib/terminologia'
+import { getTerminologiaEmpresas } from '@/lib/terminologia-paciente'
 
 const TIPOS_DERIVACION = ['Psicólogo', 'Psiquiatra', 'Especialista en Adicciones', 'Ginecólogo', 'Urólogo', 'Otro Médico de la salud']
 
@@ -42,6 +44,8 @@ export default async function ReporteGeneralContenido({ empresas, piNombre, base
   const selectedIds = (empIdsParam ? empIdsParam.split(',').filter(Boolean) : [])
     .filter(id => empresas.some(e => e.id === id))
   const empresasActuales = empresas.filter(e => selectedIds.includes(e.id))
+  // PDF de la estadística: palabra de las empresas elegidas (Inventario 13.16)
+  const terminologia = await getTerminologiaEmpresas(admin, selectedIds)
 
   // ── Validar mes antes de cualquier early return ────────────────────────────
   const now = new Date()
@@ -212,7 +216,7 @@ export default async function ReporteGeneralContenido({ empresas, piNombre, base
 
   // pacienteIds ya excluye archivados para todos los tipos (activos/inactivos/total)
   if (!hayPacientes) {
-    return renderPage({ basePath, ocultarSelectorEmpresas, year, month, mesKey, isCurrentMonth, tipo, pid, piNombre, empresas, selectedIds, empresasActuales, todasLasSesiones: [], pacientesEnPeriodoIds: [], relaciones: [], derivacionesRows: [], expedientesRows: [], todosActivosRows: [], derivActivosRows: [], empresaByPatient, nombreByPatient, sinConvenioSesiones, sinConvenioPersonas, tipoAsesoriaRows: [] })
+    return renderPage({ terminologia, basePath, ocultarSelectorEmpresas, year, month, mesKey, isCurrentMonth, tipo, pid, piNombre, empresas, selectedIds, empresasActuales, todasLasSesiones: [], pacientesEnPeriodoIds: [], relaciones: [], derivacionesRows: [], expedientesRows: [], todosActivosRows: [], derivActivosRows: [], empresaByPatient, nombreByPatient, sinConvenioSesiones, sinConvenioPersonas, tipoAsesoriaRows: [] })
   }
 
   type SesionRow = { patient_id: string; session_date: string; is_pro_bono: boolean }
@@ -268,7 +272,7 @@ export default async function ReporteGeneralContenido({ empresas, piNombre, base
       : Promise.resolve({ data: [] }),
   ])
 
-  return renderPage({ basePath, ocultarSelectorEmpresas,
+  return renderPage({ terminologia, basePath, ocultarSelectorEmpresas,
     year, month, mesKey, isCurrentMonth, tipo, pid,
     piNombre, empresas, selectedIds, empresasActuales,
     todasLasSesiones, pacientesEnPeriodoIds,
@@ -286,6 +290,7 @@ export default async function ReporteGeneralContenido({ empresas, piNombre, base
 // ── Renderer ──────────────────────────────────────────────────────────────────
 
 interface RenderProps {
+  terminologia: Terminologia
   basePath: string
   ocultarSelectorEmpresas: boolean
   year: number; month: number; mesKey: string; isCurrentMonth: boolean
@@ -309,7 +314,7 @@ interface RenderProps {
 }
 
 function renderPage({
-  basePath, ocultarSelectorEmpresas,
+  terminologia, basePath, ocultarSelectorEmpresas,
   year, month, mesKey, isCurrentMonth, tipo, pid,
   piNombre, empresas, selectedIds, empresasActuales,
   todasLasSesiones, pacientesEnPeriodoIds,
@@ -583,7 +588,8 @@ function renderPage({
 
           <div className="flex justify-end pt-2">
             <PrintEstadisticasButton
-              terapeutaNombre="Total terapeutas"
+              terminologia={terminologia}
+              terapeutaNombre={`Total ${terminos(terminologia).pros}`}
               empresas={empresasParaLogo}
               mes={nombreMesLargo(year, month)}
               tipoLabel={tipoLabel}

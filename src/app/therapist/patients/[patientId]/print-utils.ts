@@ -367,7 +367,7 @@ export async function imprimirHistoriaClinica(
   <div class="header">
     <h1>Historia Clínica Inicial y Prediagnóstico</h1>
     <div class="subtitle">${w.Pro}: ${terapeutaNombre || '—'}</div>
-    ${isOriginal ? `<div class="badge-original">★ VERSIÓN ORIGINAL AVI — generada automáticamente</div>` : ''}
+    ${isOriginal ? `<div class="badge-original">VERSIÓN ORIGINAL</div>` : ''}
   </div>
 
   <div class="meta">
@@ -1263,7 +1263,6 @@ export async function imprimirReporteValorativo(
   <!-- Título -->
   <div class="header">
     <h1>Reporte Valorativo</h1>
-    <div class="subtitle">Consultoría Fuentes</div>
   </div>
 
   <!-- Meta -->
@@ -1359,7 +1358,7 @@ export async function imprimirReporteValorativo(
 }
 
 // ──────────────────────────────────────────────────────────
-// Historia Clínica V2 — Modelo Personalista Bio-Psico-Social
+// Historia Clínica V2
 // ──────────────────────────────────────────────────────────
 
 export interface HistoriaClinicaV2 {
@@ -1474,8 +1473,7 @@ export async function imprimirHistoriaClinicaV2(
 
   <div class="header">
     <h1>Historia Clínica</h1>
-    <div class="subtitle">Modelo Personalista Bio-Psico-Social</div>
-    ${isOriginal ? `<div class="badge-original">★ VERSIÓN ORIGINAL AVI — generada automáticamente</div>` : ''}
+    ${isOriginal ? `<div class="badge-original">VERSIÓN ORIGINAL</div>` : ''}
   </div>
 
   <div class="meta">
@@ -1723,7 +1721,6 @@ export async function imprimirReporteProceso(
 
   <div class="header">
     <h1>Reporte de Proceso</h1>
-    <div class="subtitle">Consultoría Fuentes</div>
   </div>
 
   <div class="meta">
@@ -1953,7 +1950,6 @@ export async function imprimirIntegracionPlan(
 
   <div class="header">
     <h1>Integración y Plan de Intervención</h1>
-    <div class="subtitle">Consultoría Fuentes</div>
   </div>
 
   <div class="meta">

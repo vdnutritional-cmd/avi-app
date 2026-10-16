@@ -19,3 +19,8 @@ export function TerminologiaMenuProvider({ terminologia, children }: { terminolo
 export function useTerminologiaMenu() {
   return terminos(useContext(TerminologiaMenuContext))
 }
+
+/** La terminología misma ('paciente' | 'asesorado'), p. ej. para buildReportHeader */
+export function useTerminologiaMenuValor(): Terminologia {
+  return useContext(TerminologiaMenuContext)
+}
