@@ -15,7 +15,7 @@ export default function AdminSidebar({ email }: AdminSidebarProps) {
   const router = useRouter()
 
   // Acordeón "Configuración AVI": abierto si estás en una de sus páginas
-  const enConfiguracion = ['/admin/terapeutas', '/admin/convenio'].some(r => pathname.startsWith(r))
+  const enConfiguracion = ['/admin/terapeutas', '/admin/conversion-paciente', '/admin/convenio'].some(r => pathname.startsWith(r))
   const [configAbierta, setConfigAbierta] = useState(enConfiguracion)
   const [rutaPrevia, setRutaPrevia] = useState(pathname)
   if (rutaPrevia !== pathname) {
@@ -110,7 +110,8 @@ export default function AdminSidebar({ email }: AdminSidebarProps) {
           </button>
           {configAbierta && (
             <div className="ml-4 pl-2 border-l border-gray-100 space-y-1">
-              <NavLink href="/admin/terapeutas"       icon="👩‍⚕️" label="Terapeutas"              active={pathname.startsWith('/admin/terapeutas')}        onClose={closeSidebar} />
+              <NavLink href="/admin/terapeutas"       icon="👩‍⚕️" label="Terapeutas registrados" active={pathname.startsWith('/admin/terapeutas')}        onClose={closeSidebar} />
+              <NavLink href="/admin/conversion-paciente" icon="🔄" label="Conversión de paciente a terapeuta" active={pathname.startsWith('/admin/conversion-paciente')} onClose={closeSidebar} />
               <NavLink href="/admin/convenio"         icon="🔑" label="Códigos CONVENIO"         active={pathname.startsWith('/admin/convenio') && !pathname.startsWith('/admin/convenio-empresas')} onClose={closeSidebar} />
               <NavLink href="/admin/convenio-empresas" icon="🏢" label="Empresas en CONVENIO"   active={pathname.startsWith('/admin/convenio-empresas')} onClose={closeSidebar} />
             </div>
