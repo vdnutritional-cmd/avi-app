@@ -54,8 +54,9 @@ export async function GET(req: NextRequest) {
 // Body: { empresa_id, therapist_id | email, nivel, opera_como_terapeuta }
 // Con `email` se puede registrar a una persona que NO está asignada a la empresa
 // (17 oct 2026): debe tener cuenta de terapeuta/asesor en AVI, porque Administración
-// solo admite esas cuentas (institucional/layout.tsx). No la liga a la empresa
-// como terapeuta (therapist_empresa): solo le da acceso a Administración.
+// solo admite esas cuentas (institucional/layout.tsx). También queda asignada a la
+// empresa (therapist_empresa, como el alta de Alta/Baja) para que, si opera como
+// terapeuta, pueda ligar sus pacientes a esa empresa.
 export async function POST(req: NextRequest) {
   const user = await verifyAdmin()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -129,6 +130,17 @@ export async function POST(req: NextRequest) {
       ? `${therapistProfile.full_name || therapistProfile.email} ya es persona institucional de esta empresa`
       : error.message
     return NextResponse.json({ error: msg }, { status: 400 })
+  }
+
+  // Asignada a la empresa (si ya lo estaba, no cambia nada)
+  const { error: errEmpresa } = await admin.from('therapist_empresa').upsert(
+    { therapist_id, empresa_id },
+    { onConflict: 'therapist_id,empresa_id', ignoreDuplicates: true },
+  )
+  if (errEmpresa) {
+    return NextResponse.json({
+      error: `Quedó como persona institucional, pero no se pudo asignar a la empresa: ${errEmpresa.message}`,
+    }, { status: 500 })
   }
 
   return NextResponse.json({ persona: { ...data, nombre: therapistProfile.full_name, email: therapistProfile.email } })

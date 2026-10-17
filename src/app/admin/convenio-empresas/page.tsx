@@ -58,7 +58,7 @@ function PersonasInstitucionales({ empresa }: { empresa: Empresa }) {
   const [nivel,    setNivel]    = useState<'N1' | 'N2' | 'N3'>('N2')
   const [opera,    setOpera]    = useState(true)
 
-  // Alta por correo: persona que no está asignada a esta empresa (17 oct 2026)
+  // Alta por correo: persona que aún no está asignada a esta empresa; queda asignada (17 oct 2026)
   const [correo,      setCorreo]      = useState('')
   const [nivelCorreo, setNivelCorreo] = useState<'N1' | 'N2' | 'N3'>('N2')
   const [operaCorreo, setOperaCorreo] = useState(false)
@@ -155,19 +155,19 @@ function PersonasInstitucionales({ empresa }: { empresa: Empresa }) {
       >
         <span>{open ? '▾' : '▸'}</span>
         Personas Institucionales
-        {!open && personas.length === 0 && <span className="text-xs text-gray-400 font-normal">(sin registrar)</span>}
+        {!open && personas.length === 0 && <span className="text-xs text-gray-600 font-normal">(sin registrar)</span>}
         {!open && personas.length > 0 && <span className="text-xs bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-full font-semibold">{personas.length}/5</span>}
       </button>
 
       {open && (
         <div className="mt-3 space-y-4">
           {loading ? (
-            <p className="text-xs text-gray-400">Cargando…</p>
+            <p className="text-xs text-gray-600">Cargando…</p>
           ) : (
             <>
               {/* Lista de personas */}
               {personas.length === 0 ? (
-                <p className="text-xs text-gray-400 italic">Sin personas institucionales registradas.</p>
+                <p className="text-xs text-gray-600 italic">Sin personas institucionales registradas.</p>
               ) : (
                 <div className="space-y-2">
                   {personas.map(p => (
@@ -175,21 +175,21 @@ function PersonasInstitucionales({ empresa }: { empresa: Empresa }) {
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 min-w-0">
-                            <p className={`text-sm font-medium truncate ${p.is_active ? 'text-gray-800' : 'text-gray-400'}`}>{p.nombre}</p>
+                            <p className={`text-sm font-medium truncate ${p.is_active ? 'text-gray-800' : 'text-gray-500'}`}>{p.nombre}</p>
                             {!p.is_active && (
                               <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-red-600 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded">
                                 Desactivado
                               </span>
                             )}
                             {!terapeutas.some(t => t.id === p.therapist_id) && (
-                              <span className="shrink-0 text-[10px] font-semibold text-gray-500 bg-gray-100 border border-gray-200 px-1.5 py-0.5 rounded">
+                              <span className="shrink-0 text-[10px] font-semibold text-gray-600 bg-gray-100 border border-gray-200 px-1.5 py-0.5 rounded">
                                 No asignada a la empresa
                               </span>
                             )}
                           </div>
-                          <p className="text-xs text-gray-400 truncate">{p.email}</p>
+                          <p className="text-xs text-gray-600 truncate">{p.email}</p>
                         </div>
-                        <span className={`shrink-0 text-xs font-semibold border px-2 py-0.5 rounded-full ${p.is_active ? NIVEL_COLORS[p.nivel] : 'bg-gray-100 text-gray-400 border-gray-200'}`}>
+                        <span className={`shrink-0 text-xs font-semibold border px-2 py-0.5 rounded-full ${p.is_active ? NIVEL_COLORS[p.nivel] : 'bg-gray-100 text-gray-600 border-gray-200'}`}>
                           {nombreNivel(p.nivel)}
                         </span>
                       </div>
@@ -207,7 +207,7 @@ function PersonasInstitucionales({ empresa }: { empresa: Empresa }) {
                         {/* Toggle opera como terapeuta */}
                         <button
                           onClick={() => toggleOpera(p.id, !p.opera_como_terapeuta)}
-                          className={`text-xs px-2.5 py-1 rounded-lg border transition-colors ${p.opera_como_terapeuta ? 'bg-green-50 border-green-200 text-green-700' : 'bg-gray-50 border-gray-200 text-gray-500'}`}
+                          className={`text-xs px-2.5 py-1 rounded-lg border transition-colors ${p.opera_como_terapeuta ? 'bg-green-50 border-green-200 text-green-700' : 'bg-gray-50 border-gray-200 text-gray-600'}`}
                         >
                           {p.opera_como_terapeuta ? '✓ Opera como terapeuta' : '✕ Sin panel terapeuta'}
                         </button>
@@ -215,7 +215,7 @@ function PersonasInstitucionales({ empresa }: { empresa: Empresa }) {
                         <div className="ml-auto flex gap-2">
                           <button
                             onClick={() => toggleActivo(p.id, !p.is_active)}
-                            className={`text-xs transition-colors ${p.is_active ? 'text-gray-400 hover:text-gray-600' : 'font-semibold text-primary-600 hover:text-primary-700'}`}
+                            className={`text-xs transition-colors ${p.is_active ? 'text-gray-600 hover:text-gray-800' : 'font-semibold text-primary-600 hover:text-primary-700'}`}
                           >
                             {p.is_active ? 'Desactivar' : 'Activar'}
                           </button>
@@ -240,9 +240,9 @@ function PersonasInstitucionales({ empresa }: { empresa: Empresa }) {
                   </p>
 
                   {disponibles.length === 0 && terapeutas.length > 0 ? (
-                    <p className="text-xs text-gray-400 italic">Todos los terapeutas de esta empresa ya son personas institucionales.</p>
+                    <p className="text-xs text-gray-600 italic">Todos los terapeutas de esta empresa ya son personas institucionales.</p>
                   ) : terapeutas.length === 0 ? (
-                    <p className="text-xs text-gray-400 italic">Esta empresa no tiene terapeutas asignados. Asígnalos desde el panel de Terapeutas.</p>
+                    <p className="text-xs text-gray-600 italic">Esta empresa no tiene terapeutas asignados. Asígnalos desde el panel de Terapeutas.</p>
                   ) : (
                     <>
                       <select
@@ -258,7 +258,7 @@ function PersonasInstitucionales({ empresa }: { empresa: Empresa }) {
 
                       <div className="flex flex-wrap gap-3 items-center">
                         <div>
-                          <label className="text-xs text-gray-500 block mb-1">Nivel</label>
+                          <label className="text-xs text-gray-600 block mb-1">Nivel</label>
                           <select
                             value={nivel}
                             onChange={e => setNivel(e.target.value as 'N1' | 'N2' | 'N3')}
@@ -269,15 +269,15 @@ function PersonasInstitucionales({ empresa }: { empresa: Empresa }) {
                         </div>
 
                         <div>
-                          <label className="text-xs text-gray-500 block mb-1">¿Opera como terapeuta?</label>
+                          <label className="text-xs text-gray-600 block mb-1">¿Opera como terapeuta?</label>
                           <div className="flex gap-2">
                             <button
                               onClick={() => setOpera(true)}
-                              className={`text-sm px-3 py-2 rounded-xl border transition-colors ${opera ? 'bg-green-50 border-green-300 text-green-700 font-medium' : 'border-gray-200 text-gray-400'}`}
+                              className={`text-sm px-3 py-2 rounded-xl border transition-colors ${opera ? 'bg-green-50 border-green-300 text-green-700 font-medium' : 'border-gray-200 text-gray-600'}`}
                             >Sí</button>
                             <button
                               onClick={() => setOpera(false)}
-                              className={`text-sm px-3 py-2 rounded-xl border transition-colors ${!opera ? 'bg-red-50 border-red-300 text-red-700 font-medium' : 'border-gray-200 text-gray-400'}`}
+                              className={`text-sm px-3 py-2 rounded-xl border transition-colors ${!opera ? 'bg-red-50 border-red-300 text-red-700 font-medium' : 'border-gray-200 text-gray-600'}`}
                             >No</button>
                           </div>
                         </div>
@@ -302,11 +302,11 @@ function PersonasInstitucionales({ empresa }: { empresa: Empresa }) {
                 <div className="bg-white border border-indigo-100 rounded-xl p-3 space-y-3">
                   <div>
                     <p className="text-xs font-semibold text-indigo-700 uppercase tracking-wide">
-                      Agregar por correo (no asignada a la empresa)
+                      Agregar por correo
                     </p>
-                    <p className="text-xs text-gray-400 mt-1 leading-relaxed">
+                    <p className="text-xs text-gray-600 mt-1 leading-relaxed">
                       Para una persona que no está en la lista de arriba. Debe tener cuenta de terapeuta o asesor en AVI.
-                      No se asigna a la empresa como terapeuta: solo entra a Administración de esta empresa.
+                      También queda asignada a esta empresa, para que si opera como terapeuta pueda asignarle sus pacientes.
                     </p>
                   </div>
 
@@ -321,7 +321,7 @@ function PersonasInstitucionales({ empresa }: { empresa: Empresa }) {
 
                   <div className="flex flex-wrap gap-3 items-center">
                     <div>
-                      <label className="text-xs text-gray-500 block mb-1">Nivel</label>
+                      <label className="text-xs text-gray-600 block mb-1">Nivel</label>
                       <select
                         value={nivelCorreo}
                         onChange={e => setNivelCorreo(e.target.value as 'N1' | 'N2' | 'N3')}
@@ -332,15 +332,15 @@ function PersonasInstitucionales({ empresa }: { empresa: Empresa }) {
                     </div>
 
                     <div>
-                      <label className="text-xs text-gray-500 block mb-1">¿Opera como terapeuta?</label>
+                      <label className="text-xs text-gray-600 block mb-1">¿Opera como terapeuta?</label>
                       <div className="flex gap-2">
                         <button
                           onClick={() => setOperaCorreo(true)}
-                          className={`text-sm px-3 py-2 rounded-xl border transition-colors ${operaCorreo ? 'bg-green-50 border-green-300 text-green-700 font-medium' : 'border-gray-200 text-gray-400'}`}
+                          className={`text-sm px-3 py-2 rounded-xl border transition-colors ${operaCorreo ? 'bg-green-50 border-green-300 text-green-700 font-medium' : 'border-gray-200 text-gray-600'}`}
                         >Sí</button>
                         <button
                           onClick={() => setOperaCorreo(false)}
-                          className={`text-sm px-3 py-2 rounded-xl border transition-colors ${!operaCorreo ? 'bg-red-50 border-red-300 text-red-700 font-medium' : 'border-gray-200 text-gray-400'}`}
+                          className={`text-sm px-3 py-2 rounded-xl border transition-colors ${!operaCorreo ? 'bg-red-50 border-red-300 text-red-700 font-medium' : 'border-gray-200 text-gray-600'}`}
                         >No</button>
                       </div>
                     </div>
@@ -418,7 +418,7 @@ export default function ConvenioEmpresasPage() {
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Empresas en CONVENIO</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <p className="text-sm text-gray-600 mt-1">
           Las empresas activas aparecen en el dropdown de "Paquetes en CONVENIO" en la página de precios.
           Puedes cargar el logo de cada empresa y registrar sus personas institucionales.
         </p>
@@ -447,20 +447,20 @@ export default function ConvenioEmpresasPage() {
       {/* ── Empresas activas ── */}
       <div>
         <h2 className="text-base font-semibold text-gray-800 mb-1">Activas ({activas.length})</h2>
-        <p className="text-xs text-gray-500 mb-3">
+        <p className="text-xs text-gray-600 mb-3">
           La terminología, el teléfono de contacto y el logo los define cada empresa (Personas Institucionales User o
           Superuser) en Administración › Configuración Admin. Para apoyarlas: AVI Administración › Configuración Admin.
         </p>
         {loading ? (
-          <p className="text-sm text-gray-400">Cargando…</p>
+          <p className="text-sm text-gray-600">Cargando…</p>
         ) : activas.length === 0 ? (
-          <p className="text-sm text-gray-400">Sin empresas registradas aún.</p>
+          <p className="text-sm text-gray-600">Sin empresas registradas aún.</p>
         ) : (
           <div className="space-y-3">
             {activas.map(e => (
               <div key={e.id} className="bg-white border border-purple-100 rounded-xl px-4 py-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-800">{e.nombre}</span>
+                  <span className="text-sm font-semibold text-primary-700">{e.nombre}</span>
                   <button onClick={() => toggleActive(e.id, false)} className="text-xs text-red-400 hover:text-red-600 transition-colors">
                     Desactivar
                   </button>
@@ -479,7 +479,7 @@ export default function ConvenioEmpresasPage() {
           <div className="space-y-2">
             {inactivas.map(e => (
               <div key={e.id} className="flex items-center justify-between bg-white border border-gray-100 rounded-xl px-4 py-3 opacity-60">
-                <span className="text-sm text-gray-500">{e.nombre}</span>
+                <span className="text-sm font-semibold text-primary-700">{e.nombre}</span>
                 <button onClick={() => toggleActive(e.id, true)} className="text-xs text-purple-500 hover:text-purple-700 transition-colors">
                   Reactivar
                 </button>
