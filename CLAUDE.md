@@ -96,7 +96,7 @@ src/app/
 │   ├── ControlPlanesTabla.tsx      Tabla "Control de Planes y Contrataciones" (acordeones <details>, fila Total)
 │   ├── terapeutas/page.tsx         ACCIONES: Aprobar gratis permanente, Companion, tier, revocar, desactivar/reactivar
 │   ├── convenio/page.tsx           Códigos CONVENIO + logos de empresa
-│   ├── convenio-empresas/page.tsx  Agregar/activar empresa + Personas Institucionales (terminología, teléfono y logo: Configuración Admin)
+│   ├── convenio-empresas/page.tsx  Agregar/activar empresa + Personas Institucionales (de la empresa, o por correo aunque no esté asignada; terminología, teléfono y logo: Configuración Admin)
 │   ├── reportes/page.tsx
 │   └── auditoria/page.tsx
 
@@ -405,6 +405,8 @@ Se guardan como N1/N2/N3; en pantalla siempre se muestra el nombre (`NIVEL_NOMBR
 
 `opera_como_terapeuta` es independiente del nivel. Usar `permisosPI(niveles)` en el sidebar, las tarjetas y las páginas.
 
+Una Persona Institucional siempre es una cuenta `role='therapist'` (Administración no admite otras). Puede no estar asignada a la empresa (`therapist_empresa`): el SaaS Controller la agrega por correo en Empresas en CONVENIO (`POST /api/admin/personas-institucionales` con `email`).
+
 ### Otras librerías compartidas (`src/lib/`)
 | Archivo | Uso |
 |---|---|
@@ -580,6 +582,7 @@ npm run build
 - Convención de commits: `feat:`, `fix:`, `style:`, `chore:`, `refactor:`
 - Siempre `tsc --noEmit` antes de push
 - **Último commit V1.0:** `9ddb2e1`
+- **Después de V1.1:** `84c3b0d` (17 oct 2026) — Persona Institucional por correo aunque no esté asignada a la empresa
 - **Versión 1.1 cerrada el 16 oct 2026:** terminología Paciente/Asesorado en toda la app (inventario páginas 1–13; SaaS Controller sin cambio por decisión de José Luis). Último commit de código V1.1: `4333ad0`. Pendientes para V1.2 en `../AVI - Bitácora de Desarrollo.md`
 - **Último commit Sprint 12 Companion:** `dd614c6`
 - **Último commit fixes Stripe CONVENIO + contacto por empresa:** `9f5ee22` (06 oct 2026)
