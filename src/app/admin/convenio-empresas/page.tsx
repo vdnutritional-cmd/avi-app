@@ -379,6 +379,9 @@ export default function ConvenioEmpresasPage() {
   const [saving,  setSaving]    = useState(false)
   const [nombre,  setNombre]    = useState('')
   const [error,   setError]     = useState('')
+  // Empresas a mostrar (17 oct 2026, opción A de José Luis): al entrar, todas marcadas.
+  // Se guardan las DESMARCADAS: así una empresa nueva o reactivada aparece marcada sola.
+  const [ocultas, setOcultas] = useState<Set<string>>(new Set())
 
   // "Cargando…" solo la primera vez: al refrescar tras un cambio, la lista se queda en su lugar
   const fetchEmpresas = useCallback(async () => {
@@ -413,6 +416,17 @@ export default function ConvenioEmpresasPage() {
 
   const activas   = empresas.filter(e => e.is_active)
   const inactivas = empresas.filter(e => !e.is_active)
+  const activasAZ = [...activas].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
+  const visibles  = activas.filter(e => !ocultas.has(e.id))
+  const todas     = activas.length > 0 && visibles.length === activas.length
+
+  function toggleVisible(id: string) {
+    setOcultas(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
 
   return (
     <div className="space-y-8">
@@ -444,9 +458,47 @@ export default function ConvenioEmpresasPage() {
         {error && <p className="text-red-500 text-xs">{error}</p>}
       </div>
 
+      {/* ── Empresas a mostrar (mismo aspecto que el selector de AVI Administración) ── */}
+      {activas.length > 0 && (
+        <div className="bg-white border border-primary-100 rounded-2xl p-4 space-y-3">
+          <p className="text-xs text-gray-600 font-medium uppercase tracking-wide">Empresas a mostrar</p>
+
+          <label className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-primary-50 border border-primary-100 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={todas}
+              onChange={() => setOcultas(todas ? new Set(activas.map(e => e.id)) : new Set())}
+              className="accent-primary-600 w-4 h-4 shrink-0"
+            />
+            <span className="text-sm font-semibold text-primary-700">Todas las empresas</span>
+          </label>
+
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+            {activasAZ.map(e => {
+              const sel = !ocultas.has(e.id)
+              return (
+                <label
+                  key={e.id}
+                  className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border cursor-pointer transition-colors ${
+                    sel
+                      ? 'bg-primary-50 border-primary-200 text-primary-700'
+                      : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  <input type="checkbox" checked={sel} onChange={() => toggleVisible(e.id)} className="accent-primary-600 w-4 h-4 shrink-0" />
+                  <span className="text-sm font-medium leading-tight">{e.nombre}</span>
+                </label>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* ── Empresas activas ── */}
       <div>
-        <h2 className="text-base font-semibold text-gray-800 mb-1">Activas ({activas.length})</h2>
+        <h2 className="text-base font-semibold text-gray-800 mb-1">
+          Activas ({visibles.length === activas.length ? activas.length : `${visibles.length} de ${activas.length}`})
+        </h2>
         <p className="text-xs text-gray-600 mb-3">
           La terminología, el teléfono de contacto y el logo los define cada empresa (Personas Institucionales User o
           Superuser) en Administración › Configuración Admin. Para apoyarlas: AVI Administración › Configuración Admin.
@@ -455,9 +507,11 @@ export default function ConvenioEmpresasPage() {
           <p className="text-sm text-gray-600">Cargando…</p>
         ) : activas.length === 0 ? (
           <p className="text-sm text-gray-600">Sin empresas registradas aún.</p>
+        ) : visibles.length === 0 ? (
+          <p className="text-sm text-gray-600">Marca una o más empresas en "Empresas a mostrar" para verlas.</p>
         ) : (
           <div className="space-y-3">
-            {activas.map(e => (
+            {visibles.map(e => (
               <div key={e.id} className="bg-white border border-purple-100 rounded-xl px-4 py-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-semibold text-primary-700">{e.nombre}</span>
