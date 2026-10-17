@@ -578,6 +578,7 @@ npm run build
 
 ## Git workflow
 
+- **Antes de guardar y subir, José Luis revisa en http://localhost:3000** (`npm run dev`). Aplicar en local, decir qué revisar y **no hacer commit ni push hasta que lo autorice** — también fixes pequeños y este archivo (regla del 17 oct 2026)
 - Branch principal: `main` → auto-deploy a Vercel
 - Convención de commits: `feat:`, `fix:`, `style:`, `chore:`, `refactor:`
 - Siempre `tsc --noEmit` antes de push
