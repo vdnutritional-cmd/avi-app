@@ -405,7 +405,7 @@ Se guardan como N1/N2/N3; en pantalla siempre se muestra el nombre (`NIVEL_NOMBR
 
 `opera_como_terapeuta` es independiente del nivel. Usar `permisosPI(niveles)` en el sidebar, las tarjetas y las páginas.
 
-Una Persona Institucional siempre es una cuenta `role='therapist'` (Administración no admite otras). Puede no estar asignada a la empresa (`therapist_empresa`): el SaaS Controller la agrega por correo en Empresas en CONVENIO (`POST /api/admin/personas-institucionales` con `email`).
+Una Persona Institucional siempre es una cuenta `role='therapist'` (Administración no admite otras). El SaaS Controller también la agrega por correo en Empresas en CONVENIO aunque no estuviera asignada (`POST /api/admin/personas-institucionales` con `email`): queda asignada a la empresa (`therapist_empresa`), como en Alta/Baja.
 
 ### Otras librerías compartidas (`src/lib/`)
 | Archivo | Uso |
