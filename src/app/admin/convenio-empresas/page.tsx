@@ -58,6 +58,14 @@ function PersonasInstitucionales({ empresa }: { empresa: Empresa }) {
   const [nivel,    setNivel]    = useState<'N1' | 'N2' | 'N3'>('N2')
   const [opera,    setOpera]    = useState(true)
 
+  // Alta por correo: persona que no está asignada a esta empresa (17 oct 2026)
+  const [correo,      setCorreo]      = useState('')
+  const [nivelCorreo, setNivelCorreo] = useState<'N1' | 'N2' | 'N3'>('N2')
+  const [operaCorreo, setOperaCorreo] = useState(false)
+  const [savingCorreo, setSavingCorreo] = useState(false)
+  const [errCorreo,   setErrCorreo]   = useState('')
+  const [okCorreo,    setOkCorreo]    = useState('')
+
   const loadData = useCallback(async () => {
     setLoading(true)
     const [personasRes, terapeutasRes] = await Promise.all([
@@ -86,6 +94,24 @@ function PersonasInstitucionales({ empresa }: { empresa: Empresa }) {
     if (data.error) { setErr(data.error) }
     else { setSelectedTherapistId(''); await loadData() }
     setSaving(false)
+  }
+
+  async function agregarPorCorreo() {
+    const email = correo.trim().toLowerCase()
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setErrCorreo('Escribe un correo válido.'); return }
+    setSavingCorreo(true); setErrCorreo(''); setOkCorreo('')
+    const res = await fetch('/api/admin/personas-institucionales', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ empresa_id: empresa.id, email, nivel: nivelCorreo, opera_como_terapeuta: operaCorreo }),
+    })
+    const data = await res.json().catch(() => ({ error: 'No se pudo guardar.' }))
+    if (data.error) { setErrCorreo(data.error) }
+    else {
+      setOkCorreo(`Se registró a ${data.persona?.nombre || email} como ${nombreNivel(nivelCorreo)}.`)
+      setCorreo('')
+      await loadData()
+    }
+    setSavingCorreo(false)
   }
 
   async function cambiarNivel(id: string, nuevoNivel: string) {
@@ -153,6 +179,11 @@ function PersonasInstitucionales({ empresa }: { empresa: Empresa }) {
                             {!p.is_active && (
                               <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-red-600 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded">
                                 Desactivado
+                              </span>
+                            )}
+                            {!terapeutas.some(t => t.id === p.therapist_id) && (
+                              <span className="shrink-0 text-[10px] font-semibold text-gray-500 bg-gray-100 border border-gray-200 px-1.5 py-0.5 rounded">
+                                No asignada a la empresa
                               </span>
                             )}
                           </div>
@@ -263,6 +294,68 @@ function PersonasInstitucionales({ empresa }: { empresa: Empresa }) {
                   )}
 
                   {err && <p className="text-red-500 text-xs">{err}</p>}
+                </div>
+              )}
+
+              {/* Alta por correo: persona que no está asignada a esta empresa */}
+              {personas.length < 5 && (
+                <div className="bg-white border border-indigo-100 rounded-xl p-3 space-y-3">
+                  <div>
+                    <p className="text-xs font-semibold text-indigo-700 uppercase tracking-wide">
+                      Agregar por correo (no asignada a la empresa)
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1 leading-relaxed">
+                      Para una persona que no está en la lista de arriba. Debe tener cuenta de terapeuta o asesor en AVI.
+                      No se asigna a la empresa como terapeuta: solo entra a Administración de esta empresa.
+                    </p>
+                  </div>
+
+                  <input
+                    type="email"
+                    value={correo}
+                    onChange={e => { setCorreo(e.target.value); setErrCorreo(''); setOkCorreo('') }}
+                    onKeyDown={e => { if (e.key === 'Enter' && correo.trim()) agregarPorCorreo() }}
+                    placeholder="correo@ejemplo.com"
+                    className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  />
+
+                  <div className="flex flex-wrap gap-3 items-center">
+                    <div>
+                      <label className="text-xs text-gray-500 block mb-1">Nivel</label>
+                      <select
+                        value={nivelCorreo}
+                        onChange={e => setNivelCorreo(e.target.value as 'N1' | 'N2' | 'N3')}
+                        className="text-sm border border-gray-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                      >
+                        {Object.entries(NIVEL_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-xs text-gray-500 block mb-1">¿Opera como terapeuta?</label>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setOperaCorreo(true)}
+                          className={`text-sm px-3 py-2 rounded-xl border transition-colors ${operaCorreo ? 'bg-green-50 border-green-300 text-green-700 font-medium' : 'border-gray-200 text-gray-400'}`}
+                        >Sí</button>
+                        <button
+                          onClick={() => setOperaCorreo(false)}
+                          className={`text-sm px-3 py-2 rounded-xl border transition-colors ${!operaCorreo ? 'bg-red-50 border-red-300 text-red-700 font-medium' : 'border-gray-200 text-gray-400'}`}
+                        >No</button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={agregarPorCorreo}
+                    disabled={savingCorreo || !correo.trim()}
+                    className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors"
+                  >
+                    {savingCorreo ? 'Verificando…' : 'Verificar y agregar'}
+                  </button>
+
+                  {errCorreo && <p className="text-red-500 text-xs">{errCorreo}</p>}
+                  {okCorreo && <p className="text-green-700 text-xs">✓ {okCorreo}</p>}
                 </div>
               )}
 

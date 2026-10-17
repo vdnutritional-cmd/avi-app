@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { buscarCuentaPorEmail } from '@/lib/registro-email'
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? 'pepe.vargas.papa@gmail.com'
 const MAX_PERSONAS = 5
@@ -50,15 +51,20 @@ export async function GET(req: NextRequest) {
 }
 
 // ── POST /api/admin/personas-institucionales ──────────────────────────────────
-// Body: { empresa_id, therapist_id, nivel, opera_como_terapeuta }
+// Body: { empresa_id, therapist_id | email, nivel, opera_como_terapeuta }
+// Con `email` se puede registrar a una persona que NO está asignada a la empresa
+// (17 oct 2026): debe tener cuenta de terapeuta/asesor en AVI, porque Administración
+// solo admite esas cuentas (institucional/layout.tsx). No la liga a la empresa
+// como terapeuta (therapist_empresa): solo le da acceso a Administración.
 export async function POST(req: NextRequest) {
   const user = await verifyAdmin()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
-  const { empresa_id, therapist_id, nivel, opera_como_terapeuta } = body
+  const { empresa_id, nivel, opera_como_terapeuta, email } = body
+  let { therapist_id } = body
 
-  if (!empresa_id || !therapist_id || !nivel) {
+  if (!empresa_id || (!therapist_id && !email) || !nivel) {
     return NextResponse.json({ error: 'Faltan campos obligatorios' }, { status: 400 })
   }
   if (!['N1', 'N2', 'N3'].includes(nivel)) {
@@ -66,6 +72,22 @@ export async function POST(req: NextRequest) {
   }
 
   const admin = createAdminClient()
+
+  if (!therapist_id) {
+    const correo = String(email).trim().toLowerCase()
+    const cuenta = await buscarCuentaPorEmail(admin, correo)
+    if (!cuenta) {
+      return NextResponse.json({
+        error: `No hay ninguna cuenta en AVI con el correo ${correo}. Pídele que primero se registre como terapeuta o asesor en AVI.`,
+      }, { status: 404 })
+    }
+    if (cuenta.role !== 'therapist') {
+      return NextResponse.json({
+        error: `El correo ${correo} está registrado en AVI, pero no como terapeuta o asesor. Una Persona Institucional necesita una cuenta de terapeuta o asesor.`,
+      }, { status: 400 })
+    }
+    therapist_id = cuenta.userId
+  }
 
   // Validar que el therapist_id exista como terapeuta
   const { data: therapistProfile } = await admin
@@ -76,7 +98,9 @@ export async function POST(req: NextRequest) {
     .single()
 
   if (!therapistProfile) {
-    return NextResponse.json({ error: 'El terapeuta no existe o no tiene role=therapist' }, { status: 404 })
+    return NextResponse.json({ error: email
+      ? 'La cuenta de ese correo aún no termina su registro en AVI (sin perfil de terapeuta o asesor).'
+      : 'El terapeuta no existe o no tiene role=therapist' }, { status: 404 })
   }
 
   // Validar límite de 5 personas por empresa
@@ -102,7 +126,7 @@ export async function POST(req: NextRequest) {
 
   if (error) {
     const msg = error.message.includes('unique')
-      ? 'Este terapeuta ya es persona institucional de esta empresa'
+      ? `${therapistProfile.full_name || therapistProfile.email} ya es persona institucional de esta empresa`
       : error.message
     return NextResponse.json({ error: msg }, { status: 400 })
   }
