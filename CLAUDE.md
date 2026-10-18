@@ -438,7 +438,7 @@ Por cuestión legal (instituciones Sin Fines de Lucro no pueden usar "paciente")
 - **Empresa:** la define la Persona Institucional User/Superuser en **Administración › Configuración Admin** (`/institucional/configuracion`, también teléfono y logo). El superadmin, en AVI Administración › Configuración Admin. API `/api/institucional/empresa-config` (permiso por empresa, logo subido desde el servidor). Empresas en CONVENIO del SaaS Controller ya no lo hace.
 - **Persona con empresa:** la de su empresa (bienvenida, chat, y lo que ve el terapeuta dentro de ella). **Sin empresa:** "Cómo me nombran" del terapeuta (`/therapist/configuracion/terminologia`).
 - **Menú y pantallas generales del terapeuta:** una sola palabra; "asesorado" si alguna empresa suya (o su elección) lo es. Nunca "pacientes/asesorados".
-- **Logo:** se imprime en 140 × 48 px; medida recomendada 360 × 144 px (2.5 : 1), sin márgenes.
+- **Logo:** se imprime en 140 × 48 px; de preferencia horizontal. Configuración Admin recorta sola los márgenes al subirlo (en el navegador, PNG de máx. 1200 px) y tiene "✂︎ Quitar márgenes al logo actual"; avisa si es chico, vertical o muy alargado.
 - Aplicado hasta la página 13 del inventario (Correos y push: correo de crisis con la palabra de la persona; AVI = Acompañamiento Virtual **Interactivo**; Administración: palabra de la empresa; varias → `terminologiaComun()`; Login, registro y páginas públicas: texto fijo "terapeuta o asesor"; QR y código con la palabra de la persona/terapeuta; `/api/auth/terminologia` para Planes y precios; Bienvenida, Habla, cuestionario, menú, Dashboard, Mis pacientes, Asignación a Institución, Perfil AVI-ESENCIAL y AVI-CLÍNICO, Reportes y PDF, Registro de pacientes, Información: Mis Asesorías, Mi estadística, Auditorías, Tutoriales, Configuración: Política de baja). "Activar plan" y Planes y precios van juntas en la página de páginas públicas, con texto fijo.
 - PDF de estadística (`PrintEstadisticasButton`, prop `terminologia`): en Mi estadística la del menú; en Administración `getTerminologiaEmpresas()` (asesorado si alguna empresa elegida lo es). `useTerminologiaMenuValor()` da la terminología misma para `buildReportHeader`.
 - **Pantallas cliente generales del terapeuta:** `useTerminologiaMenu()` (`src/app/therapist/TerminologiaMenu.tsx`); el `layout` reparte la palabra del menú con `TerminologiaMenuProvider`. Pantallas servidor: `getTerminologiaTerapeuta()`. En el perfil, la palabra de la persona llega de `page.tsx` a cada pestaña por la prop `terminologia` (también vía `ExpedienteTab`).
@@ -584,7 +584,7 @@ npm run build
 - Convención de commits: `feat:`, `fix:`, `style:`, `chore:`, `refactor:`
 - Siempre `tsc --noEmit` antes de push
 - **Último commit V1.0:** `9ddb2e1`
-- **Después de V1.1:** `5a54e0d` (17 oct 2026) — Conversión de paciente a terapeuta y "Terapeutas registrados"; antes `9614fba` selector "Empresas a mostrar", `75dfc0b` Persona Institucional por correo asignada a la empresa, `84c3b0d` Persona Institucional por correo
+- **Después de V1.1:** `06b377f` (18 oct 2026) — recorte automático de márgenes del logo de empresa; antes `b11d44d` logo oficial en la página de inicio, `0e8ad84` protección de "No aprobar" y auditoría de accesos API, `5a54e0d` (17 oct) — Conversión de paciente a terapeuta y "Terapeutas registrados"; antes `9614fba` selector "Empresas a mostrar", `75dfc0b` Persona Institucional por correo asignada a la empresa, `84c3b0d` Persona Institucional por correo
 - **Versión 1.1 cerrada el 16 oct 2026:** terminología Paciente/Asesorado en toda la app (inventario páginas 1–13; SaaS Controller sin cambio por decisión de José Luis). Último commit de código V1.1: `4333ad0`. Pendientes para V1.2 en `../AVI - Bitácora de Desarrollo.md`
 - **Último commit Sprint 12 Companion:** `dd614c6`
 - **Último commit fixes Stripe CONVENIO + contacto por empresa:** `9f5ee22` (06 oct 2026)
@@ -596,6 +596,7 @@ npm run build
 - `npx next build` modifica `tsconfig.json` solo (jsx, `.next/dev/types`): regresarlo con `git checkout tsconfig.json` antes de hacer commit
 - `globals.css`: los colores por defecto usan `hsl(var(--foreground/--background))` — con `rgb()` el texto salía rojo
 - Migraciones nuevas: archivo en `supabase/migrations/AAAAMMDD_nombre.sql`; el SQL lo corre José Luis en Supabase SQL Editor **antes** de subir código que dependa de él
+- En localhost, `RESEND_API_KEY` de `.env.local` es un texto de ejemplo (`re_...`): los correos (recuperar contraseña, etc.) **no salen** y la pantalla igual dice "Revisa tu correo". Pedirlos desde producción
 - Al cerrar cada sesión: actualizar `../AVI - Bitácora de Desarrollo.md` (y el índice de `../AVI - SQL Migración Supabase.md` si hubo migración) y este archivo
 
 ---
