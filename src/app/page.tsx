@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import WhatsAppSupport from '@/components/WhatsAppSupport'
 import InstallBanner from '@/components/InstallBanner'
 
@@ -14,22 +15,31 @@ export default function HomePage() {
   return (
     <main className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-primary-50 via-white to-calm-50 px-4">
       <div className="max-w-md w-full text-center space-y-8">
-        {/* Logo / nombre */}
-        <div className="space-y-2">
-          <h1 className="text-5xl font-bold text-primary-700 tracking-tight">
-            AVI
+        {/* Logo oficial "AVI Therapy Companion" (imagen de José Luis, 18 oct 2026), recortado
+            sin márgenes y con fondo transparente: public/logo-avi-therapy-companion.png (1239 × 198) */}
+        <div className="space-y-3">
+          <h1 className="flex justify-center">
+            <Image
+              src="/logo-avi-therapy-companion.png"
+              alt="AVI Therapy Companion"
+              width={1239}
+              height={198}
+              priority
+              className="w-full max-w-[380px] h-auto"
+            />
           </h1>
           <p className="text-lg text-gray-600">
             Acompañamiento Virtual Interactivo para el bienestar emocional
           </p>
         </div>
 
-        {/* Descripción */}
-        <p className="text-gray-500 text-sm leading-relaxed">
-          Una app que conecta a terapeutas y asesores con las personas que
-          acompañan de forma virtual e interactiva; y orienta al terapeuta o
-          asesor a elaborar sus sesiones, bajo el enfoque terapéutico que desee,
-          así como a documentar sus sesiones bajo la normatividad vigente.
+        {/* Descripción: alineada a la izquierda (la página va centrada) */}
+        <p className="text-gray-500 text-sm leading-relaxed text-left">
+          AVI es una app virtual interactiva que acompaña terapéuticamente a
+          los pacientes entre sesiones. Además, facilita al
+          terapeuta la preparación de sus sesiones, de acuerdo con el enfoque
+          terapéutico elegido, y la documentación del proceso conforme a la
+          normatividad vigente.
         </p>
 
         {/* Botones de acceso */}
