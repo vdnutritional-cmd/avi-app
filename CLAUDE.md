@@ -94,6 +94,7 @@ src/app/
 │   ├── AdminSidebar.tsx            Sidebar admin (Volver a AVI + Cerrar sesión → `/`)
 │   ├── page.tsx                    Panel de Control AVI — SOLO INFORMATIVO (stats, pendientes, Control de Planes, pago caído, cumplimiento)
 │   ├── ControlPlanesTabla.tsx      Tabla "Control de Planes y Contrataciones" (acordeones <details>, fila Total)
+│   ├── conversion-paciente/page.tsx Conversión de paciente a terapeuta (misma cuenta; archiva vínculos, no borra nada)
 │   ├── terapeutas/page.tsx         ACCIONES: Aprobar gratis permanente, Companion, tier, revocar, desactivar/reactivar
 │   ├── convenio/page.tsx           Códigos CONVENIO + logos de empresa
 │   ├── convenio-empresas/page.tsx  Agregar/activar empresa + Personas Institucionales (de la empresa, o por correo aunque no esté asignada; terminología, teléfono y logo: Configuración Admin)
@@ -583,7 +584,7 @@ npm run build
 - Convención de commits: `feat:`, `fix:`, `style:`, `chore:`, `refactor:`
 - Siempre `tsc --noEmit` antes de push
 - **Último commit V1.0:** `9ddb2e1`
-- **Después de V1.1:** `84c3b0d` (17 oct 2026) — Persona Institucional por correo aunque no esté asignada a la empresa
+- **Después de V1.1:** `5a54e0d` (17 oct 2026) — Conversión de paciente a terapeuta y "Terapeutas registrados"; antes `9614fba` selector "Empresas a mostrar", `75dfc0b` Persona Institucional por correo asignada a la empresa, `84c3b0d` Persona Institucional por correo
 - **Versión 1.1 cerrada el 16 oct 2026:** terminología Paciente/Asesorado en toda la app (inventario páginas 1–13; SaaS Controller sin cambio por decisión de José Luis). Último commit de código V1.1: `4333ad0`. Pendientes para V1.2 en `../AVI - Bitácora de Desarrollo.md`
 - **Último commit Sprint 12 Companion:** `dd614c6`
 - **Último commit fixes Stripe CONVENIO + contacto por empresa:** `9f5ee22` (06 oct 2026)
