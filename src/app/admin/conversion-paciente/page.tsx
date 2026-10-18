@@ -52,7 +52,7 @@ export default function ConversionPacientePage() {
     }).then(r => r.json()).catch(() => ({ error: 'No se pudo convertir.' }))
     if (data.error) setErr(data.error)
     else {
-      setOk(`${data.nombre || previa.cuenta.email} ya es una cuenta de terapeuta. Entra con su mismo correo y contraseña; para darle un plan, búscalo en Terapeutas registrados.`)
+      setOk(`${data.nombre || previa.cuenta.email} ya es una cuenta de terapeuta. Entra con su mismo correo y contraseña.`)
       setPrevia(null); setCorreo(''); setEntendido(false)
     }
     setConvirtiendo(false)
@@ -87,7 +87,18 @@ export default function ConversionPacientePage() {
           </button>
         </div>
         {err && !previa && <p className="text-red-500 text-xs">{err}</p>}
-        {ok && <p className="text-green-700 text-sm">✓ {ok}</p>}
+        {ok && (
+          <div className="space-y-2">
+            <p className="text-green-700 text-sm">✓ {ok}</p>
+            <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-900 space-y-1.5">
+              <p className="font-semibold">Siguiente paso — aparecerá en Terapeutas registrados › Pendientes:</p>
+              <ul className="list-disc pl-5 space-y-1">
+                <li><strong>No uses &quot;No aprobar&quot;</strong>: elimina la cuenta de AVI. (Ya no aparece para cuentas convertidas.)</li>
+                <li>Para darle acceso: apruébale un plan ahí mismo, <strong>o</strong> asígnala a una empresa (Empresas en CONVENIO › Personas Institucionales › Agregar por correo, o Alta/Baja de la empresa): con una empresa activa entra sin plan.</li>
+              </ul>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── Vista previa y confirmación ── */}
@@ -138,7 +149,7 @@ export default function ConversionPacientePage() {
               )}
               {previa.sesionesAbiertas > 0 && <li>Sus sesiones abiertas con AVI se cierran con su resumen.</li>}
               <li>Su historial (expediente, sesiones y mensajes) <strong>se conserva</strong> en AVI; no se borra nada.</li>
-              <li>Entra con su mismo correo y contraseña, como terapeuta y sin plan: verá &quot;Activar plan&quot; o le apruebas uno en Terapeutas registrados.</li>
+              <li>Entra con su mismo correo y contraseña, como terapeuta y sin plan: aparecerá en Terapeutas registrados › Pendientes. Ahí apruébale un plan o asígnala a una empresa; <strong>no uses &quot;No aprobar&quot;</strong>, que elimina la cuenta.</li>
             </ul>
           </div>
 

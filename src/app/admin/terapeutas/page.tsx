@@ -134,10 +134,39 @@ async function revocarTerapeuta(formData: FormData) {
   revalidatePath('/admin/terapeutas')
 }
 
+// "No aprobar" ELIMINA la cuenta (y en cascada todo lo suyo). Solo se permite con una
+// cuenta nueva sin nada en AVI. Protegidas (17 oct 2026, tras eliminarse por error una
+// cuenta convertida de paciente): historial como paciente, empresa en CONVENIO,
+// Persona Institucional o pacientes propios. Para esas: Desactivar (NOM-024).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function motivosProteccion(supabase: any, ids: string[]): Promise<Map<string, string[]>> {
+  const motivos = new Map<string, string[]>()
+  if (ids.length === 0) return motivos
+  const agregar = (id: string, m: string) => {
+    const lista = motivos.get(id) ?? []
+    if (!lista.includes(m)) motivos.set(id, [...lista, m])
+  }
+  const [{ data: comoPaciente }, { data: sesiones }, { data: empresas }, { data: pis }, { data: propios }] = await Promise.all([
+    supabase.from('therapist_patients').select('patient_id').in('patient_id', ids),
+    supabase.from('sessions').select('patient_id').in('patient_id', ids).limit(1000),
+    supabase.from('therapist_empresa').select('therapist_id').in('therapist_id', ids),
+    supabase.from('convenio_personas_institucionales').select('therapist_id').in('therapist_id', ids),
+    supabase.from('therapist_patients').select('therapist_id').in('therapist_id', ids),
+  ])
+  for (const r of [...(comoPaciente ?? []), ...(sesiones ?? [])]) agregar(r.patient_id, 'tuvo historial como paciente en AVI')
+  for (const r of empresas ?? []) agregar(r.therapist_id, 'tiene empresa en CONVENIO')
+  for (const r of pis ?? []) agregar(r.therapist_id, 'es Persona Institucional')
+  for (const r of propios ?? []) agregar(r.therapist_id, 'tiene pacientes registrados')
+  return motivos
+}
+
 async function rechazarTerapeuta(formData: FormData) {
   'use server'
   const therapistId = formData.get('therapistId') as string
   const supabase = createAdminClient()
+  // Doble verificación en el servidor: nunca eliminar una cuenta protegida
+  const motivos = (await motivosProteccion(supabase, [therapistId])).get(therapistId)
+  if (motivos?.length) redirect('/admin/terapeutas?error=no-eliminar')
   // Elimina el usuario de auth (cascada borra el perfil)
   await supabase.auth.admin.deleteUser(therapistId)
   revalidatePath('/admin/terapeutas')
@@ -215,14 +244,14 @@ export default async function AdminTerapeutasPage({
   // Empresas asignadas por terapeuta
   const { data: therapistEmpresas } = await supabase
     .from('therapist_empresa')
-    .select('therapist_id, empresa_id, convenio_empresas(id, nombre)')
+    .select('therapist_id, empresa_id, convenio_empresas(id, nombre, is_active)')
 
-  // Mapa: therapistId → array de { empresa_id, nombre }
-  const empresasByTherapist = new Map<string, { empresa_id: string; nombre: string }[]>()
+  // Mapa: therapistId → array de { empresa_id, nombre, activa }
+  const empresasByTherapist = new Map<string, { empresa_id: string; nombre: string; activa: boolean }[]>()
   for (const row of therapistEmpresas ?? []) {
-    const nombre = (row.convenio_empresas as unknown as { nombre: string } | null)?.nombre ?? ''
+    const emp = row.convenio_empresas as unknown as { nombre: string; is_active?: boolean } | null
     if (!empresasByTherapist.has(row.therapist_id)) empresasByTherapist.set(row.therapist_id, [])
-    empresasByTherapist.get(row.therapist_id)!.push({ empresa_id: row.empresa_id, nombre })
+    empresasByTherapist.get(row.therapist_id)!.push({ empresa_id: row.empresa_id, nombre: emp?.nombre ?? '', activa: emp?.is_active === true })
   }
 
   // ── Datos de actividad ────────────────────────────────────────
@@ -318,6 +347,7 @@ export default async function AdminTerapeutasPage({
   const activosIds   = new Set(desactivados.map(t => t.id))
 
   const pendientes = (terapeutas ?? []).filter(t => !subMap.has(t.id) && !activosIds.has(t.id))
+  const proteccion = await motivosProteccion(supabase, pendientes.map(t => t.id))
   const aprobados  = (terapeutas ?? []).filter(t => {
     if (activosIds.has(t.id)) return false
     const s = subMap.get(t.id)
@@ -342,6 +372,12 @@ export default async function AdminTerapeutasPage({
           {errorParam === 'companion-fecha' ? 'La fecha de vencimiento debe ser posterior a hoy.'
             : errorParam === 'companion-datos' ? 'Elige el paquete Companion y la fecha de vencimiento.'
             : 'No se pudo asignar el Companion. Intenta de nuevo.'}
+        </div>
+      )}
+
+      {errorParam === 'no-eliminar' && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-sm text-red-700">
+          No se eliminó: esa cuenta tiene historial en AVI. Si no debe tener acceso, usa 🔒 Desactivar (no borra nada).
         </div>
       )}
 
@@ -411,6 +447,13 @@ export default async function AdminTerapeutasPage({
                   <p className="text-xs text-gray-400 mt-0.5">
                     Registro: {new Date(t.created_at).toLocaleDateString('es-MX')}
                   </p>
+                  {(empresasByTherapist.get(t.id) ?? []).map(e => (
+                    <p key={e.empresa_id} className={`mt-1.5 inline-block mr-2 text-xs font-semibold px-2 py-0.5 rounded-full border ${
+                      e.activa ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-gray-50 border-gray-200 text-gray-600'
+                    }`}>
+                      🏢 Con empresa: {e.nombre}{e.activa ? ' · entra sin plan' : ' · empresa inactiva'}
+                    </p>
+                  ))}
                   <CompanionForm therapistId={t.id} />
                 </div>
                 {/* Registro permanente: gratis aprobado por AVI (a la altura del bloque temporal) */}
@@ -443,13 +486,27 @@ export default async function AdminTerapeutasPage({
                       ✓ Aprobar
                     </button>
                   </form>
-                  {/* Botón rechazar con confirm */}
-                  <RejectTherapistButton
-                    therapistId={t.id}
-                    displayName={t.full_name ?? t.email ?? 'este terapeuta'}
-                    action={rechazarTerapeuta}
-                  />
+                  {/* "No aprobar" elimina la cuenta: solo para cuentas nuevas sin nada en AVI */}
+                  {proteccion.has(t.id) ? (
+                    <DesactivarTherapistButton
+                      therapistId={t.id}
+                      displayName={t.full_name ?? t.email ?? 'este terapeuta'}
+                      action={desactivarTerapeuta}
+                    />
+                  ) : (
+                    <RejectTherapistButton
+                      therapistId={t.id}
+                      displayName={t.full_name ?? t.email ?? 'este terapeuta'}
+                      action={rechazarTerapeuta}
+                    />
+                  )}
                 </div>
+                {proteccion.has(t.id) && (
+                  <p className="text-xs text-gray-600 mt-2 leading-relaxed">
+                    Sin &quot;No aprobar&quot; porque {proteccion.get(t.id)!.join(', ')}: eliminarla borraría su historial.
+                    Si no debe tener acceso, usa 🔒 Desactivar (no borra nada).
+                  </p>
+                )}
                 </div>
                 </div>
               </div>
