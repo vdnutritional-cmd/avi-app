@@ -492,6 +492,8 @@ Una sola tabla, `document_chunks` (pgvector, 1536). `scripts/index-fuentes.ts` i
 | `docs-personalismo` | **todos** los perfiles (base común) |
 
 - El enfoque del terapeuta (`profiles.therapy_profile`: `famsis`, `trec`, `cc` o combinaciones) filtra los chunks de los análisis. Se configura en `/therapist/configuracion/terapia`.
+- **Hasta 2 enfoques** (18 oct 2026, `8db7a04`): `retrieveChunksByProfile()` hace una búsqueda por enfoque + una de la base común (16 → 6 + 6 + 4; con uno, 12 + 4). Los libros de cada enfoque están en `ENFOQUES` / `LIBROS_BASE` de `retrieve-chunks.ts`: **al indexar un libro nuevo, agregarlo ahí**. Los prompts usan `instruccionEnfoque()` / `nombreEnfoques()` (con dos, la IA debe integrarlos).
+- **ConsultoriaFuentes ya no existe** (era el RAG original de julio): no volver a nombrarlo en prompts. Ciclo Vital, Procesos Familiares (Satir + Minuchin) y McMaster siguen por libro fijo (instrumentos de Familiar). La Historia Clínica no usa RAG.
 - `match_document_chunks` acepta `filter_profile` y `filter_books` (ILIKE por libro).
 - **Chat AVI del paciente:** no usa el perfil del terapeuta, sino `retrievePasajesPersonalismo()`: 3 pasajes de Wojtyla, Burgos, Buber, Teología del Cuerpo y El amor humano (sin Supervisión de Casos), sin nombres de autores.
 
@@ -584,7 +586,7 @@ npm run build
 - Convención de commits: `feat:`, `fix:`, `style:`, `chore:`, `refactor:`
 - Siempre `tsc --noEmit` antes de push
 - **Último commit V1.0:** `9ddb2e1`
-- **Después de V1.1:** `06b377f` (18 oct 2026) — recorte automático de márgenes del logo de empresa; antes `b11d44d` logo oficial en la página de inicio, `0e8ad84` protección de "No aprobar" y auditoría de accesos API, `5a54e0d` (17 oct) — Conversión de paciente a terapeuta y "Terapeutas registrados"; antes `9614fba` selector "Empresas a mostrar", `75dfc0b` Persona Institucional por correo asignada a la empresa, `84c3b0d` Persona Institucional por correo
+- **Después de V1.1:** `8db7a04` (18 oct 2026) — análisis con el enfoque terapéutico (uno o dos), sin ConsultoriaFuentes; antes `06b377f` — recorte automático de márgenes del logo de empresa; antes `b11d44d` logo oficial en la página de inicio, `0e8ad84` protección de "No aprobar" y auditoría de accesos API, `5a54e0d` (17 oct) — Conversión de paciente a terapeuta y "Terapeutas registrados"; antes `9614fba` selector "Empresas a mostrar", `75dfc0b` Persona Institucional por correo asignada a la empresa, `84c3b0d` Persona Institucional por correo
 - **Versión 1.1 cerrada el 16 oct 2026:** terminología Paciente/Asesorado en toda la app (inventario páginas 1–13; SaaS Controller sin cambio por decisión de José Luis). Último commit de código V1.1: `4333ad0`. Pendientes para V1.2 en `../AVI - Bitácora de Desarrollo.md`
 - **Último commit Sprint 12 Companion:** `dd614c6`
 - **Último commit fixes Stripe CONVENIO + contacto por empresa:** `9f5ee22` (06 oct 2026)
