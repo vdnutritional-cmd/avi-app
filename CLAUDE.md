@@ -157,6 +157,8 @@ El archivo más grande (~2300 líneas). Es un **client component** que maneja:
 - Tabs **AVI-Esencial:** `datos-generales`, `tipo-caso`, `sesiones`, `nota`, `presenciales`, `analisis`, `derivaciones-cierres`
 - Tabs **AVI-Clínico** (requiere `tier === 'clinico'`): `individual`, `familiar`, `pareja`, `prediagnostico`, `analisis-clinicos`, `cuestionarios`, `impresiones`
 
+- **Datos Generales** (`DatosGeneralesTab`) recibe `initialData` de `page.tsx` (se carga una vez): al guardar avisa con `onSaved` y solo manda los campos que cambiaron — si no, al volver a la pestaña se veían datos viejos y el siguiente guardado borraba lo anterior
+
 ### `src/app/therapist/layout.tsx`
 - Fetch de perfil, suscripción, membresía institucional
 - Gate: sin plan activo → `<ActivarPlan>`
@@ -587,7 +589,7 @@ npm run build
 - Convención de commits: `feat:`, `fix:`, `style:`, `chore:`, `refactor:`
 - Siempre `tsc --noEmit` antes de push
 - **Último commit V1.0:** `9ddb2e1`
-- **Después de V1.1:** `563f7f2` (18 oct 2026) — Plan del Expediente pegado por el servidor y Recordatorio = técnicas del Plan; antes `8db7a04` — análisis con el enfoque terapéutico (uno o dos), sin ConsultoriaFuentes; antes `06b377f` — recorte automático de márgenes del logo de empresa; antes `b11d44d` logo oficial en la página de inicio, `0e8ad84` protección de "No aprobar" y auditoría de accesos API, `5a54e0d` (17 oct) — Conversión de paciente a terapeuta y "Terapeutas registrados"; antes `9614fba` selector "Empresas a mostrar", `75dfc0b` Persona Institucional por correo asignada a la empresa, `84c3b0d` Persona Institucional por correo
+- **Después de V1.1:** `5ecbb89` (18 oct 2026) — Datos Generales guarda solo los campos cambiados; antes `563f7f2` — Plan del Expediente pegado por el servidor y Recordatorio = técnicas del Plan; antes `8db7a04` — análisis con el enfoque terapéutico (uno o dos), sin ConsultoriaFuentes; antes `06b377f` — recorte automático de márgenes del logo de empresa; antes `b11d44d` logo oficial en la página de inicio, `0e8ad84` protección de "No aprobar" y auditoría de accesos API, `5a54e0d` (17 oct) — Conversión de paciente a terapeuta y "Terapeutas registrados"; antes `9614fba` selector "Empresas a mostrar", `75dfc0b` Persona Institucional por correo asignada a la empresa, `84c3b0d` Persona Institucional por correo
 - **Versión 1.1 cerrada el 16 oct 2026:** terminología Paciente/Asesorado en toda la app (inventario páginas 1–13; SaaS Controller sin cambio por decisión de José Luis). Último commit de código V1.1: `4333ad0`. Pendientes para V1.2 en `../AVI - Bitácora de Desarrollo.md`
 - **Último commit Sprint 12 Companion:** `dd614c6`
 - **Último commit fixes Stripe CONVENIO + contacto por empresa:** `9f5ee22` (06 oct 2026)
