@@ -3,6 +3,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
 import { retrieveChunksFromBooks, retrieveChunksByProfile, instruccionEnfoque, nombreEnfoques } from '@/lib/rag/retrieve-chunks'
 import { logApiAccess } from '@/lib/audit/log-access'
+import { registrarUso } from '@/lib/ia/registrar-uso'
 import {
   calcularResultadoFAD,
   FAD_DIMENSION_LABELS,
@@ -90,6 +91,7 @@ export async function POST(request: NextRequest) {
         max_tokens: 1500,
         messages: [{ role: 'user', content: prompt }],
       })
+      registrarUso(`clinicos_${type}`, 'claude-sonnet-5', response.usage, { therapistId: user.id, patientId })
 
       const text = extractText(response.content)
       if (!text) return NextResponse.json({ error: 'No se pudo generar la descripción.' }, { status: 422 })
@@ -205,6 +207,7 @@ export async function POST(request: NextRequest) {
         max_tokens: 2000,
         messages: [{ role: 'user', content: prompt }],
       })
+      registrarUso(`clinicos_${type}`, 'claude-sonnet-5', response.usage, { therapistId: user.id, patientId })
 
       const text = extractText(response.content)
       console.log('[mcmaster_interpretacion] stop_reason:', response.stop_reason, '| chars:', text.length, '| svdMatch:', svdOk)
@@ -384,6 +387,7 @@ export async function POST(request: NextRequest) {
         max_tokens: 3500,
         messages: [{ role: 'user', content: prompt }],
       })
+      registrarUso(`clinicos_${type}`, 'claude-sonnet-5', response.usage, { therapistId: user.id, patientId })
 
       const text = extractText(response.content)
       console.log('[conclusiones] stop_reason:', response.stop_reason, '| chars:', text.length)
@@ -565,6 +569,7 @@ export async function POST(request: NextRequest) {
         max_tokens: 3500,
         messages: [{ role: 'user', content: prompt }],
       })
+      registrarUso(`clinicos_${type}`, 'claude-sonnet-5', response.usage, { therapistId: user.id, patientId })
 
       const text = extractText(response.content)
       console.log('[diagnostico_integrado] stop_reason:', response.stop_reason, '| chars:', text.length)
@@ -721,6 +726,7 @@ export async function POST(request: NextRequest) {
         max_tokens: 7000,
         messages: [{ role: 'user', content: prompt }],
       })
+      registrarUso(`clinicos_${type}`, 'claude-sonnet-5', response.usage, { therapistId: user.id, patientId })
 
       const text = extractText(response.content)
       console.log('[proceso_psicologico] stop_reason:', response.stop_reason, '| chars:', text.length)
@@ -775,6 +781,7 @@ export async function POST(request: NextRequest) {
         max_tokens: 1200,
         messages: [{ role: 'user', content: prompt }],
       })
+      registrarUso(`clinicos_${type}`, 'claude-sonnet-5', response.usage, { therapistId: user.id, patientId })
 
       const text = extractText(response.content)
       return NextResponse.json({ subsecuente: text || '(No se pudo generar el resumen)' })
@@ -875,6 +882,7 @@ export async function POST(request: NextRequest) {
         max_tokens: 1200,
         messages: [{ role: 'user', content: prompt }],
       })
+      registrarUso(`clinicos_${type}`, 'claude-sonnet-5', response.usage, { therapistId: user.id, patientId })
 
       const text = extractText(response.content)
       console.log('[pareja_areas] stop_reason:', response.stop_reason, '| chars:', text.length)

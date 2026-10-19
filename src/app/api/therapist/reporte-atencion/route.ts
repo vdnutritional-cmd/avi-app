@@ -16,6 +16,7 @@ import {
 } from '@/app/therapist/patients/[patientId]/factores-nota-inicial'
 import { terminos } from '@/lib/terminologia'
 import { getTerminologiaPersona } from '@/lib/terminologia-paciente'
+import { registrarUso } from '@/lib/ia/registrar-uso'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 
@@ -191,6 +192,7 @@ Responde EXCLUSIVAMENTE con JSON válido, sin texto adicional antes ni después:
         max_tokens: 2000,
         messages:   [{ role: 'user', content: prompt }],
       })
+      registrarUso('reporte_atencion', 'claude-haiku-4-5-20251001', resp.usage, { therapistId: user?.id, patientId: patient_id })
       const raw  = resp.content[0].type === 'text' ? resp.content[0].text : ''
       // Extraer JSON de forma robusta (Claude puede incluir backticks)
       const match = raw.match(/\{[\s\S]*\}/)

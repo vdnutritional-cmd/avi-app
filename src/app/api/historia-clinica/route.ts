@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
 import { logApiAccess } from '@/lib/audit/log-access'
+import { registrarUso } from '@/lib/ia/registrar-uso'
 
 export const maxDuration = 180
 
@@ -366,6 +367,7 @@ export async function POST(request: NextRequest) {
       max_tokens: 6000,
       messages: [{ role: 'user', content: prompt }],
     })
+    registrarUso(`historia_clinica_${type}`, 'claude-sonnet-5', response.usage, { therapistId: user.id, patientId })
 
     const raw = response.content.find(b => b.type === 'text')?.text?.trim() ?? ''
     console.log('[historia-clinica] type:', type, '| stop_reason:', response.stop_reason, '| chars:', raw.length)

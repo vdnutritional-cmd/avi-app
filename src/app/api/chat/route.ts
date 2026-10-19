@@ -10,6 +10,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { cerrarSesionesAbiertas } from '@/lib/cerrar-sesion-avi'
 import { retrievePasajesPersonalismo } from '@/lib/rag/retrieve-chunks'
 import { getEstadoSesionesAvi } from '@/lib/limite-sesiones-avi'
+import { registrarUso } from '@/lib/ia/registrar-uso'
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY!,
@@ -317,6 +318,8 @@ export async function POST(request: NextRequest) {
               controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`))
             }
           }
+
+          registrarUso('chat_avi', 'claude-haiku-4-5-20251001', (await stream.finalMessage()).usage, { patientId: user.id })
 
           // Detectar marcadores especiales de AVI
           const aviClosedSession = assistantMessage.includes('[SESION_TERMINADA]')

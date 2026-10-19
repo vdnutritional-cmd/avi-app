@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
 import { retrieveChunksByProfile, retrieveChunksFromBooks, instruccionEnfoque } from '@/lib/rag/retrieve-chunks'
+import { registrarUso } from '@/lib/ia/registrar-uso'
 
 export const maxDuration = 180
 
@@ -272,6 +273,7 @@ export async function POST(request: NextRequest) {
         max_tokens: 3000,
         messages: [{ role: 'user', content: prompt }],
       })
+      registrarUso(`expediente_${type}`, 'claude-sonnet-5', response.usage, { therapistId: user.id, patientId })
 
       const text = extractTextFromResponse(response.content)
       console.log('[antecedentes] stop_reason:', response.stop_reason, '| chars:', text.length)
@@ -302,9 +304,10 @@ export async function POST(request: NextRequest) {
 
       const response = await anthropic.messages.create({
         model: 'claude-sonnet-5',
-        max_tokens: 1500,
+        max_tokens: 3000,   // 19 oct 2026: con 1,500 la respuesta se cortaba a media frase
         messages: [{ role: 'user', content: prompt }],
       })
+      registrarUso(`expediente_${type}`, 'claude-sonnet-5', response.usage, { therapistId: user.id, patientId })
 
       const text = extractTextFromResponse(response.content)
       console.log('[sintomatologia] stop_reason:', response.stop_reason, '| chars:', text.length)
@@ -406,6 +409,7 @@ export async function POST(request: NextRequest) {
         tool_choice: { type: 'tool', name: 'guardar_prediagnostico' },
         messages: [{ role: 'user', content: prompt }],
       })
+      registrarUso(`expediente_${type}`, 'claude-sonnet-5', response.usage, { therapistId: user.id, patientId })
 
       console.log('[prediagnostico] stop_reason:', response.stop_reason, '| output_tokens:', response.usage?.output_tokens)
 
@@ -538,6 +542,7 @@ export async function POST(request: NextRequest) {
                 controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: chunk.delta.text })}\n\n`))
               }
             }
+            registrarUso(`expediente_${type}`, 'claude-sonnet-5', (await response.finalMessage()).usage, { therapistId: user.id, patientId })
 
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true })}\n\n`))
           } catch (error) {
@@ -604,6 +609,7 @@ export async function POST(request: NextRequest) {
         max_tokens: 600,
         messages: [{ role: 'user', content: prompt }],
       })
+      registrarUso(`expediente_${type}`, 'claude-sonnet-5', response.usage, { therapistId: user.id, patientId })
 
       const text = extractTextFromResponse(response.content)
       console.log('[ciclo_vital] stop_reason:', response.stop_reason, '| chars:', text.length)
@@ -669,6 +675,7 @@ export async function POST(request: NextRequest) {
         max_tokens: 600,
         messages: [{ role: 'user', content: prompt }],
       })
+      registrarUso(`expediente_${type}`, 'claude-sonnet-5', response.usage, { therapistId: user.id, patientId })
 
       const text = extractTextFromResponse(response.content)
       console.log('[procesos_familiares] stop_reason:', response.stop_reason, '| chars:', text.length)

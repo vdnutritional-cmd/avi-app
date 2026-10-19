@@ -16,6 +16,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { z } from 'zod'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { registrarUso } from '@/lib/ia/registrar-uso'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = SupabaseClient<any, any, any>
@@ -85,6 +86,8 @@ Todo en español. Sin introducción ni cierre formal.`
     max_tokens: 1024,
     messages: [{ role: 'user', content: prompt }],
   })
+
+  registrarUso('auto_analisis', 'claude-haiku-4-5-20251001', response.usage, { therapistId: relation.therapist_id, patientId })
 
   const content = response.content[0].type === 'text' ? response.content[0].text : ''
   if (!content) return
@@ -169,6 +172,8 @@ Responde ÚNICAMENTE con el JSON, sin explicaciones.`
       max_tokens: 1024,
       messages: [{ role: 'user', content: analysisPrompt }],
     })
+
+    registrarUso('patrones_cierre', 'claude-haiku-4-5-20251001', response.usage, { patientId })
 
     const rawText = response.content[0].type === 'text' ? response.content[0].text : ''
 

@@ -5,6 +5,7 @@ import { buildConsultamePrompt, crearInsertorPlan } from '@/lib/prompts/consulta
 import { retrieveChunksByProfile, buildRagQuery } from '@/lib/rag/retrieve-chunks'
 import { logApiAccess } from '@/lib/audit/log-access'
 import { getAccesoTerapeuta, accesoDePaciente } from '@/lib/acceso-paciente'
+import { registrarUso } from '@/lib/ia/registrar-uso'
 
 export const maxDuration = 300 // 5 minutos — el análisis clínico completo puede tardar
 
@@ -238,6 +239,7 @@ export async function POST(request: NextRequest) {
             }
           }
           insertor.terminar()
+          registrarUso('analisis_caso', 'claude-sonnet-5', (await response.finalMessage()).usage, { therapistId: user.id, patientId })
 
           console.log('[analysis] Stream completado. Chars generados:', fullContent.length)
 

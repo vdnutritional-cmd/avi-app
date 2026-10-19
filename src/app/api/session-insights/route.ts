@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
 import { retrieveChunksByProfile, nombreEnfoques } from '@/lib/rag/retrieve-chunks'
+import { registrarUso } from '@/lib/ia/registrar-uso'
 
 export const maxDuration = 60
 
@@ -65,6 +66,7 @@ export async function POST(request: NextRequest) {
         max_tokens: 600,
         messages: [{ role: 'user', content: prompt }],
       })
+      registrarUso(`insights_${type}`, 'claude-sonnet-4-6', response.usage, { therapistId: user.id, patientId })
 
       return NextResponse.json({ resultado: extractText(response.content) })
     }
@@ -142,6 +144,7 @@ export async function POST(request: NextRequest) {
         max_tokens: 700,
         messages: [{ role: 'user', content: prompt }],
       })
+      registrarUso(`insights_${type}`, 'claude-sonnet-4-6', response.usage, { therapistId: user.id, patientId })
 
       return NextResponse.json({ resultado: extractText(response.content) })
     }
