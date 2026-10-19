@@ -1,6 +1,6 @@
 # AVI Therapy Companion App — Contexto para Claude Code
 
-> **Versión:** 1.1 (cerrada el 16 oct 2026: terminología Paciente/Asesorado completa) · **Actualizado:** 16 octubre 2026  
+> **Versión:** 1.1 (cerrada el 16 oct 2026: terminología Paciente/Asesorado completa) · **Actualizado:** 18 octubre 2026  
 > Este archivo es el punto de entrada para cualquier sesión de Claude Code en este proyecto.  
 > Léelo completo antes de modificar cualquier archivo.
 
@@ -27,7 +27,7 @@ Módulos transversales: **SaaS Controller** (superadmin), **Administración** de
 | Base de datos | Supabase (PostgreSQL + pgvector + RLS) |
 | Auth | Supabase Auth (email/password + MFA TOTP) |
 | IA — chat paciente | Anthropic `claude-haiku-4-5-20251001` (también patrones y Reporte de la Atención) |
-| IA — análisis | `claude-sonnet-5` con RAG multi-perfil (expediente, HC, análisis clínicos); `claude-sonnet-4-6` en emociones/recursos de sesiones |
+| IA — análisis | `claude-sonnet-5` con RAG por Enfoque terapéutico, uno o dos (expediente, análisis clínicos; la HC no usa RAG); `claude-sonnet-4-6` en emociones/recursos de sesiones |
 | IA — embeddings | OpenAI `text-embedding-3-small` (1536) |
 | Voz | TTS **Amazon Polly** (Mia, es-MX) en `/api/voice/tts`; dictado con **Web Speech API** del navegador. ElevenLabs **no se usa** (`/api/voice/stt` es legado, sin llamadas). En sesión **escrita** no se usa voz |
 | Pagos | Stripe (checkout + webhooks) |
@@ -594,7 +594,7 @@ npm run build
 - **Último commit Sprint 12 Companion:** `dd614c6`
 - **Último commit fixes Stripe CONVENIO + contacto por empresa:** `9f5ee22` (06 oct 2026)
 - **Respaldo del 10 oct:** `89cfffc` — Control de Planes, motivo de bloqueo, terapeuta desactivado, Admin › Terapeutas Temporal/Permanente
-- **Último commit respaldado:** `4333ad0` (16 oct 2026) — páginas sin sesión redirigen al login (no usar `user!.id` en páginas: el layout se renderiza en paralelo); antes `10a34eb` inventario página 13 (correos y push), antes `57233fa` "Interactivo"; antes `da2e34e` página 12 (Administración); antes `5e85f0f` página 11 (login, registro y páginas públicas); antes `56cd09b` página 10 (Política de baja); antes `bd5ff80` página 9 (Información), Reporte por período con encabezado común e iframe, subtítulos quitados en HC/Valorativo/Integración/Proceso; antes `d9d1879` página 8 (Registro de pacientes), `848c5be` logo en reportes AVI-CLÍNICO del teléfono, `3593675` página 7 (Reportes y PDF), `1526016` página 6 (Perfil AVI-CLÍNICO), `3810766` página 5, chat sin instante "terapeuta", menú lateral de 288 px; `43a59c2` inventario página 4, `3d2494d` Paquetes en CONVENIO con una sola empresa (WhatsApp de solicitudes, migración `20261014c`), `ac31736` Alta/Baja de <Pros> por la empresa y `bb25486` terminología (Configuración Admin, Cómo me nombran, inventario 1–3)
+- **Último commit respaldado:** `866b13c` (18 oct 2026) — respaldo de la sesión del 18 oct en la Bitácora (logo con recorte, RAG por enfoque, Plan de 10 a 12 sesiones, Datos Generales); antes `4333ad0` (16 oct 2026) — páginas sin sesión redirigen al login (no usar `user!.id` en páginas: el layout se renderiza en paralelo); antes `10a34eb` inventario página 13 (correos y push), antes `57233fa` "Interactivo"; antes `da2e34e` página 12 (Administración); antes `5e85f0f` página 11 (login, registro y páginas públicas); antes `56cd09b` página 10 (Política de baja); antes `bd5ff80` página 9 (Información), Reporte por período con encabezado común e iframe, subtítulos quitados en HC/Valorativo/Integración/Proceso; antes `d9d1879` página 8 (Registro de pacientes), `848c5be` logo en reportes AVI-CLÍNICO del teléfono, `3593675` página 7 (Reportes y PDF), `1526016` página 6 (Perfil AVI-CLÍNICO), `3810766` página 5, chat sin instante "terapeuta", menú lateral de 288 px; `43a59c2` inventario página 4, `3d2494d` Paquetes en CONVENIO con una sola empresa (WhatsApp de solicitudes, migración `20261014c`), `ac31736` Alta/Baja de <Pros> por la empresa y `bb25486` terminología (Configuración Admin, Cómo me nombran, inventario 1–3)
 - **Respaldo del 13 oct:** `15ebffb` — nombres: SaaS Controller, Configuración AVI, Administración, niveles
 - **Respaldo anterior:** `69954cd` (12 oct 2026) — chat AVI (tiempos, caché real 1h+5m, base personalista, política de sesiones, modo escrito, retomar sesión, sesiones anteriores), Administración Institucional AVI, transferir paciente seguro
 - Confirmar el deploy: `vercel ls` / `vercel inspect go.avi-app.com.mx` (CLI con sesión en la Mac)
