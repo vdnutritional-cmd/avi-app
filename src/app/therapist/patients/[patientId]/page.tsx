@@ -948,6 +948,7 @@ export default function PatientDetailPage() {
           initialData={expedienteRow}
           readOnly={pacienteBlockeado}
           terminologia={terminologia.persona}
+          onSaved={cambios => setExpedienteRow(prev => ({ ...(prev ?? {}), ...cambios }))}
         />
       )}
 

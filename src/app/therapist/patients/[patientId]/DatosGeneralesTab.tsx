@@ -176,6 +176,9 @@ interface Props {
   readOnly?: boolean
   /** Palabras de esta persona (Inventario de Terminología, página 5) */
   terminologia?: Terminologia
+  /** Avisa al padre lo guardado, para que initialData no quede viejo al volver a esta pestaña */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  onSaved?: (cambios: Record<string, any>) => void
 }
 
 // ──────────────────────────────────────────────
@@ -223,7 +226,7 @@ function parseRow(row: Record<string, any>): DatosGeneralesData {
 // ──────────────────────────────────────────────
 // Main component
 // ──────────────────────────────────────────────
-export default function DatosGeneralesTab({ patientId, therapistId, patientEmail, initialData, readOnly = false, terminologia = TERMINOLOGIA_SIN_EMPRESA }: Props) {
+export default function DatosGeneralesTab({ patientId, therapistId, patientEmail, initialData, readOnly = false, terminologia = TERMINOLOGIA_SIN_EMPRESA, onSaved }: Props) {
   const w = terminos(terminologia)
   const [data, setData] = useState<DatosGeneralesData>(datosVacios())
   const [saved, setSaved] = useState<DatosGeneralesData>(datosVacios())
@@ -313,9 +316,7 @@ export default function DatosGeneralesTab({ patientId, therapistId, patientEmail
 
       // NOTE: tipo_caso is intentionally excluded — it is managed by ExpedienteTab.
       // Supabase upsert only updates the columns provided, so tipo_caso won't be overwritten.
-      const payload = {
-        therapist_id: tid,
-        patient_id: patientId,
+      const campos: Record<string, unknown> = {
         asesorado_nombre: data.asesorado_nombre || null,
         asesorado_sexo: data.asesorado_sexo || null,
         asesorado_edad: data.asesorado_edad || null,
@@ -342,8 +343,14 @@ export default function DatosGeneralesTab({ patientId, therapistId, patientEmail
         info_asesoria_con_quien: data.info_asesoria_con_quien || null,
         info_razon_eleccion: data.info_razon_eleccion || null,
         info_expectativas: data.info_expectativas || null,
-        updated_at: new Date().toISOString(),
       }
+
+      // Solo los campos que cambiaron (18 oct 2026): mandar todo el formulario borraba lo que
+      // se guardó en otro momento si la pantalla tenía datos viejos.
+      const cambios = Object.fromEntries(Object.entries(campos).filter(([k]) =>
+        JSON.stringify(data[k as keyof DatosGeneralesData]) !== JSON.stringify(saved[k as keyof DatosGeneralesData])
+      ))
+      const payload = { therapist_id: tid, patient_id: patientId, ...cambios, updated_at: new Date().toISOString() }
 
       const { error } = await supabase
         .from('patient_expediente')
@@ -355,6 +362,7 @@ export default function DatosGeneralesTab({ patientId, therapistId, patientEmail
       }
 
       setSaved({ ...data })
+      onSaved?.(cambios)
       setSaveOk(true)
       setTimeout(() => setSaveOk(false), 3000)
     } finally {
