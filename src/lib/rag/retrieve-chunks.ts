@@ -74,7 +74,7 @@ export function instruccionEnfoque(therapyProfile: string | null | undefined): s
   const lineas = [
     `ENFOQUE TERAPÉUTICO DEL TERAPEUTA: ${nombres}.`,
     `Fundamenta el análisis en las FUENTES CLÍNICAS proporcionadas: pasajes de ${ids.length > 1 ? 'esos enfoques' : 'ese enfoque'} y de la base común sobre la persona.`,
-    'Cada pasaje indica su fuente y su enfoque.',
+    'Cada pasaje indica su fuente y, si es de un enfoque, cuál. Al citar una técnica indica su autor o libro; nunca escribas "base común".',
   ]
   if (ids.length > 1) {
     lineas.push(
@@ -132,7 +132,8 @@ export async function retrieveChunksByProfile(
   const listas = porEnfoque.map((chunks, i) => chunks
     .filter(c => !vistos.has(c.id) && vistos.add(c.id))
     .map(c => ({ ...c, enfoque: ENFOQUES[ids[i]].nombre })))
-  listas.push(base.filter(c => !vistos.has(c.id)).map(c => ({ ...c, enfoque: 'Base común' })))
+  // La base común va sin etiqueta de enfoque (no se nombra en la app)
+  listas.push(base.filter(c => !vistos.has(c.id)).map(c => ({ ...c, enfoque: '' })))
 
   // Intercalados (1º de cada enfoque, 2º de cada enfoque…): si un prompt recorta las fuentes,
   // siguen llegando pasajes de todos los enfoques
@@ -141,14 +142,14 @@ export async function retrieveChunksByProfile(
     for (const lista of listas) if (lista[i]) intercalados.push(lista[i])
   }
 
-  const resumen = listas.map(l => `${l[0]?.enfoque ?? '—'}: ${l.length}`).join(' · ')
+  const resumen = listas.map((l, i) => `${i < ids.length ? ids[i] : 'base'}: ${l.length}`).join(' · ')
   if (intercalados.length === 0) {
     console.warn(`[RAG] Sin chunks para perfil: ${therapyProfile}`)
     return ''
   }
   console.log(`[RAG] ${intercalados.length} chunks — perfil: ${therapyProfile} (${resumen})`)
   return intercalados
-    .map(c => `### ${c.doc_name} — ${c.enfoque}\n\n${c.content}`)
+    .map(c => `### ${c.doc_name}${c.enfoque ? ` — ${c.enfoque}` : ''}\n\n${c.content}`)
     .join('\n\n---\n\n')
 }
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
-import { buildConsultamePrompt } from '@/lib/prompts/consultame-prompt'
+import { buildConsultamePrompt, crearInsertorPlan } from '@/lib/prompts/consultame-prompt'
 import { retrieveChunksByProfile, buildRagQuery } from '@/lib/rag/retrieve-chunks'
 import { logApiAccess } from '@/lib/audit/log-access'
 import { getAccesoTerapeuta, accesoDePaciente } from '@/lib/acceso-paciente'
@@ -212,9 +212,16 @@ export async function POST(request: NextRequest) {
     // ── Streaming SSE ─────────────────────────────────────────────────────────
     const encoder = new TextEncoder()
 
+    // Caso 'prediag-mayor': el Plan del Expediente lo pega el servidor (exacto), no la IA
+    const planExpediente = planDecision.tipo === 'prediag-mayor' ? planDecision.viasAccion.trim() : null
+
     const stream = new ReadableStream({
       async start(controller) {
         let fullContent = ''
+        const insertor = crearInsertorPlan(planExpediente, text => {
+          fullContent += text
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`))
+        })
         try {
           console.log('[analysis] Iniciando stream con Anthropic...')
           console.log('[analysis] Longitud del prompt:', prompt.length, 'chars')
@@ -227,11 +234,10 @@ export async function POST(request: NextRequest) {
 
           for await (const chunk of response) {
             if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
-              const text = chunk.delta.text
-              fullContent += text
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`))
+              insertor.agregar(chunk.delta.text)
             }
           }
+          insertor.terminar()
 
           console.log('[analysis] Stream completado. Chars generados:', fullContent.length)
 

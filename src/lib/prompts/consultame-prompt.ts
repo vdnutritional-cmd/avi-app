@@ -24,6 +24,53 @@ export interface ExpedienteResumen {
   prediag_guia:        string
 }
 
+// Marca donde el servidor pega el Plan de Intervención del Expediente (caso 'prediag-mayor').
+// La IA no lo copia: copiar ~7,000 caracteres "tal cual" no es confiable (18 oct 2026 se lo saltó).
+export const MARCA_PLAN_EXPEDIENTE = '[[PLAN_DEL_EXPEDIENTE]]'
+
+/**
+ * Pega el Plan del Expediente en el texto que llega en streaming: en la marca; si la IA no la
+ * escribe, antes del Recordatorio de técnicas; si tampoco, al final. Retiene unos caracteres
+ * por si la marca llega partida entre fragmentos. Sin plan (null) solo deja pasar el texto.
+ */
+export function crearInsertorPlan(plan: string | null, emitir: (text: string) => void) {
+  const ENCABEZADO_PLAN = '**PLAN: DIEZ SESIONES**'
+  const RECORDATORIO = '**RECORDATORIO DE TÉCNICAS**'
+  const RETENER = Math.max(MARCA_PLAN_EXPEDIENTE.length, RECORDATORIO.length)
+  let emitido = ''
+  let pendiente = ''
+  let pegado = !plan
+  const salir = (t: string) => { if (t) { emitido += t; emitir(t) } }
+  const conEncabezado = () => emitido.includes(ENCABEZADO_PLAN) ? `${plan}\n\n` : `${ENCABEZADO_PLAN}\n${plan}\n\n`
+
+  function procesar(final: boolean) {
+    if (!pegado) {
+      const iMarca = pendiente.indexOf(MARCA_PLAN_EXPEDIENTE)
+      const iRec   = pendiente.indexOf(RECORDATORIO)
+      if (iMarca >= 0) {
+        salir(pendiente.slice(0, iMarca)); salir(plan!)
+        pendiente = pendiente.slice(iMarca + MARCA_PLAN_EXPEDIENTE.length); pegado = true
+      } else if (iRec >= 0) {
+        salir(pendiente.slice(0, iRec)); salir(conEncabezado())
+        pendiente = pendiente.slice(iRec); pegado = true
+        console.warn('[analysis] La IA no escribió la marca del plan: se pegó antes del Recordatorio')
+      }
+    }
+    if (final) {
+      salir(pendiente); pendiente = ''
+      if (!pegado) { salir(`\n\n${conEncabezado()}`); pegado = true; console.warn('[analysis] Plan del Expediente pegado al final') }
+    } else if (pegado || pendiente.length > RETENER) {
+      const corte = pegado ? pendiente.length : pendiente.length - RETENER
+      salir(pendiente.slice(0, corte)); pendiente = pendiente.slice(corte)
+    }
+  }
+
+  return {
+    agregar(text: string) { pendiente += text; procesar(false) },
+    terminar() { procesar(true) },
+  }
+}
+
 export type PlanDecision =
   | { tipo: 'sin-prediag' }
   | { tipo: 'prediag-mayor'; viasAccion: string }
@@ -320,13 +367,13 @@ ${restricciones}`
 **PROPUESTA TÉCNICA**
 El Plan de Intervención que aparece a continuación ya fue definido en el Expediente para este caso. Basándote en él, redacta la propuesta técnica en 2-3 párrafos: cuál es el enfoque central, por qué es el más adecuado para ${patientName} y cómo acompañar al terapeuta en su implementación. Usa frases como "Te propondría...", "Sería valioso...".
 
-PLAN DE INTERVENCIÓN DEL EXPEDIENTE (fuente de la propuesta):
+PLAN DE INTERVENCIÓN DEL EXPEDIENTE (fuente de la propuesta y del Recordatorio de técnicas):
 ${planDecision.viasAccion}
 
 **PLAN: DIEZ SESIONES**
-Reproduce a continuación el Plan de Intervención del Expediente exactamente como aparece — no lo modifiques, no lo resumas, no lo amplíes:
+${MARCA_PLAN_EXPEDIENTE}
 
-${planDecision.viasAccion}`
+(Escribe el encabezado y, en la línea siguiente, la marca ${MARCA_PLAN_EXPEDIENTE} tal cual, sola: AVI la sustituye por el Plan de Intervención del Expediente. NO copies, resumas ni reescribas el plan.)`
     }
 
     // ── Clínico: Hay sesiones presenciales posteriores al prediagnóstico ──
@@ -427,7 +474,10 @@ Para cada persona relevante del sistema familiar: patrón de apego probable, her
 ${buildPlanInstructions()}
 
 **RECORDATORIO DE TÉCNICAS**
-Por cada técnica mencionada en el análisis: qué es, para qué sirve, cómo se aplica. Una entrada por técnica.
+Su objetivo es explicar las técnicas del PLAN: DIEZ SESIONES${planDecision.tipo === 'prediag-mayor' && tier !== 'esencial' ? ' (el Plan de Intervención del Expediente)' : ''}.
+Una entrada por CADA técnica del plan, en el orden de las sesiones y con el mismo nombre que tiene en el plan — no omitas ninguna (revisa hasta la última sesión). Si una técnica se repite en varias sesiones, una sola entrada.
+Agrega solo las técnicas de la Propuesta Técnica que no estén en el plan. No incluyas técnicas que no estén en el plan ni en la propuesta.
+Para cada una: qué es, para qué sirve, cómo se aplica.
 Formato: **Nombre (Autor):** explicación.
 Ejemplo: **Metáfora de la Olla (Satir):** Representa la autoestima como una olla — llena cuando uno se valora, vacía cuando no. Se trabaja pidiendo al consultante que describa qué tan llena está su olla hoy y qué la ha vaciado, para luego identificar juntos qué la puede ir llenando.
 
