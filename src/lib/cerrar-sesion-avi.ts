@@ -20,7 +20,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = SupabaseClient<any, any, any>
 
-// Auto-análisis ligero: sin ConsultoriaFuentes — solo nota inicial + patrones acumulados.
+// Auto-análisis ligero: sin RAG — solo nota inicial + patrones acumulados.
 // El análisis completo con fuentes se genera bajo demanda desde Consúltame.
 async function triggerAutoAnalysis(patientId: string, supabase: Db) {
   const { data: relation } = await supabase
@@ -132,7 +132,7 @@ export async function procesarCierreSesion(db: Db, sessionId: string, patientId:
       .map(m => `${m.role === 'user' ? 'PERSONA' : 'AVI'}: ${m.content}`)
       .join('\n\n')
 
-    const analysisPrompt = `Eres un analista clínico del marco ConsultoriaFuentes. Analiza la siguiente sesión de acompañamiento emocional y genera un resumen estructurado en JSON.
+    const analysisPrompt = `Eres un analista clínico. Analiza la siguiente sesión de acompañamiento emocional y genera un resumen estructurado en JSON.
 
 MARCO TEÓRICO — usa este vocabulario cuando aplique al caso:
 - Heridas emocionales: abandono, rechazo, humillación, traición, injusticia

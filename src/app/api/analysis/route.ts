@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ── RAG ConsultoriaFuentes ────────────────────────────────────────────────
+    // ── RAG del enfoque terapéutico del terapeuta ─────────────────────────────
     const lastInPerson = inPersonSessions.length > 0
       ? inPersonSessions[inPersonSessions.length - 1]
       : undefined
@@ -191,6 +191,7 @@ export async function POST(request: NextRequest) {
       sessionSummaries,
       inPersonSessions,
       fuentes,
+      therapyProfile,
       // Expediente básico (siempre, para compatibilidad)
       expediente: expedienteRow ? {
         antecedentes:        (expedienteRow as Record<string, string>).individual_antecedentes       ?? '',

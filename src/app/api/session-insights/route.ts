@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
-import { retrieveChunksByProfile } from '@/lib/rag/retrieve-chunks'
+import { retrieveChunksByProfile, nombreEnfoques } from '@/lib/rag/retrieve-chunks'
 
 export const maxDuration = 60
 
@@ -47,14 +47,14 @@ export async function POST(request: NextRequest) {
 
       const prompt = [
         'Eres un terapeuta clínico especializado. A continuación se describe el desarrollo de una sesión presencial.',
-        'Tu tarea es identificar y listar las emociones que el paciente manifiesta o subyacen en el relato, desde la perspectiva del enfoque terapéutico activo.',
+        `Tu tarea es identificar y listar las emociones que el paciente manifiesta o subyacen en el relato, desde la perspectiva del enfoque terapéutico activo: ${nombreEnfoques(therapyProfile)}.`,
         '',
         '## Desarrollo de la sesión',
         sessionDesarrollo,
         '',
         sessionObjetivo ? `## Objetivo de la sesión\n${sessionObjetivo}` : '',
         '',
-        fuentesTexto ? `## Referencia bibliográfica del enfoque\n${fuentesTexto.slice(0, 2000)}` : '',
+        fuentesTexto ? `## Referencia bibliográfica del enfoque (${nombreEnfoques(therapyProfile)})\n${fuentesTexto.slice(0, 8000)}` : '',
         '',
         'Redacta en párrafo breve o lista concisa las emociones identificadas en el paciente durante esta sesión.',
         'Sé clínico, preciso y directo. No repitas el relato; solo las emociones y su contexto mínimo.',
@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
         '',
         `## Observaciones / Acuerdos / Tareas de esta sesión\n${sessionObservaciones}`,
         '',
-        fuentesTexto ? `## Referencia bibliográfica del enfoque\n${fuentesTexto.slice(0, 2000)}` : '',
+        fuentesTexto ? `## Referencia bibliográfica del enfoque (${nombreEnfoques(therapyProfile)})\n${fuentesTexto.slice(0, 8000)}` : '',
         '',
         'Redacta en párrafo breve o lista concisa los recursos personales (capacidades, habilidades, apoyos, fortalezas, experiencias previas) con que cuenta el paciente para realizar las tareas y acuerdos descritos.',
         'Sé clínico, preciso y fundamentado en los datos del caso. No repitas los acuerdos; describe los recursos.',

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
-import { retrieveChunksByProfile, retrieveChunksFromBooks } from '@/lib/rag/retrieve-chunks'
+import { retrieveChunksByProfile, retrieveChunksFromBooks, instruccionEnfoque } from '@/lib/rag/retrieve-chunks'
 
 export const maxDuration = 180
 
@@ -318,7 +318,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ result: text })
     }
 
-    // ── PREDIAGNÓSTICO (5 bloques de información + RAG ConsultoriaFuentes) ───
+    // ── PREDIAGNÓSTICO (5 bloques de información + RAG del enfoque del terapeuta) ───
     if (type === 'prediagnostico') {
       // Bloque 1: Nota Inicial (ya disponible como notaInicial)
       // Bloque 2: Sesiones presenciales 1-3 seleccionadas por el terapeuta
@@ -326,7 +326,7 @@ export async function POST(request: NextRequest) {
       // Bloque 3: Últimas 3 sesiones AVI (ultimasAVI ya tiene máx. 3)
       // Bloque 4: Sub-sección según tipo de caso
       const subseccionTexto = buildSubseccionContexto(tipoCaso, expediente)
-      // Bloque 5: RAG ConsultoriaFuentes
+      // Bloque 5: RAG del enfoque terapéutico (uno o dos)
       const ragQuery = [notaInicial, sesPreTexto, subseccionTexto]
         .filter(Boolean).join('\n\n').slice(0, 6000)
       const therapyProfile = await getTherapyProfile()
@@ -336,6 +336,7 @@ export async function POST(request: NextRequest) {
       const prompt = [
         'Eres supervisor clínico con amplia experiencia en consulta.',
         'Elabora un prediagnóstico clínico del caso basándote EXCLUSIVAMENTE en la información proporcionada.',
+        instruccionEnfoque(therapyProfile),
         'Entrega el resultado ÚNICAMENTE con la herramienta guardar_prediagnostico, llenando sus 6 campos.',
         'Máximo 100 palabras por campo. Tu exposición debe ser completa y concluir dentro del límite — no truncues, sintetiza con criterio clínico.',
         'Escribe como lo haría un clínico experimentado: directo, profesional y accesible.',
@@ -356,7 +357,7 @@ export async function POST(request: NextRequest) {
         '  Es un diagnóstico presuntivo — fundamentado pero abierto a revisión.',
         '',
         '"areas_conflicto" — Áreas de conflicto (áreas afectadas):',
-        '  Identifica cuáles de las 4 áreas de trabajo de ConsultoriaFuentes están dañadas en este caso:',
+        '  Identifica cuáles de las 4 áreas de trabajo están dañadas en este caso:',
         '  (1) Comunicación, (2) Estructura, (3) Gestión emocional, (4) Límites.',
         '  Especifica cuáles están afectadas y en qué grado o manifestación concreta.',
         '',
@@ -372,12 +373,12 @@ export async function POST(request: NextRequest) {
         '',
         '"guia_accion" — Guía de acción o trabajo:',
         '  Indica los instrumentos de evaluación y modelos de intervención a aplicar. Ejemplos posibles:',
-        '  Genograma, Mc Master, FODA, Insatisfacción conyugal, u otros instrumentos de ConsultoriaFuentes.',
+        '  Genograma, Mc Master, FODA, Insatisfacción conyugal, u otros instrumentos del enfoque terapéutico del terapeuta.',
         '  Especifica también el enfoque: Consejería, Acompañamiento con características clínicas,',
         '  Psicoeducativo, Modelo de intervención específico, Desarrollo grupal, etc.',
         '  Justifica brevemente por qué ese enfoque es el más adecuado para este caso.',
         '',
-        ...(fuentesPrediag ? ['FUENTES CLÍNICAS (ConsultoriaFuentes):', fuentesPrediag, ''] : []),
+        ...(fuentesPrediag ? ['FUENTES CLÍNICAS (enfoque terapéutico del terapeuta):', fuentesPrediag, ''] : []),
         '── BLOQUE 1: NOTA INICIAL ──',
         notaInicial,
         ...(sesPreTexto ? ['', '── BLOQUE 2: SESIONES PRESENCIALES SELECCIONADAS ──', sesPreTexto] : ['', '── BLOQUE 2: SESIONES PRESENCIALES ── (ninguna seleccionada por el terapeuta)'] ),
@@ -440,7 +441,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ result: parsed })
     }
 
-    // ── VÍAS DE ACCIÓN — Plan 10 a 12 sesiones (streaming + RAG ConsultoriaFuentes) ──
+    // ── VÍAS DE ACCIÓN — Plan 10 a 12 sesiones (streaming + RAG del enfoque del terapeuta) ──
     if (type === 'vias-accion') {
       const sesPreTexto = buildSesionesPreTexto(sesionesPresenciales, sesiones_incluidas)
       const subseccionTexto = buildSubseccionContexto(tipoCaso, expediente)
@@ -462,12 +463,14 @@ export async function POST(request: NextRequest) {
       ].join('\n') : ''
 
       const prompt = [
-        'Eres supervisor clínico de ConsultoriaFuentes.',
+        'Eres supervisor clínico con amplia experiencia en consulta.',
         'Elabora el Plan de Intervención para este caso. El documento tiene DOS PARTES obligatorias.',
         '',
+        instruccionEnfoque(therapyProfile),
+        '',
         'RESTRICCIONES ABSOLUTAS — aplican a TODO el documento:',
-        '1. Usa EXCLUSIVAMENTE técnicas y enfoques de los documentos de ConsultoriaFuentes proporcionados.',
-        '   Si una técnica no aparece en esos documentos, NO la incluyas.',
+        '1. Usa EXCLUSIVAMENTE técnicas del enfoque terapéutico del terapeuta que aparezcan en las FUENTES CLÍNICAS proporcionadas.',
+        '   Si una técnica no aparece en esas fuentes, NO la incluyas.',
         '2. No incorpores ninguna práctica, filosofía o enfoque ajeno al contexto católico-cristiano.',
         '3. No incluyas ninguna práctica de la Nueva Era (meditación trascendental, chakras, reiki, astrología, visualizaciones energéticas, etc.) ni ningún sincretismo espiritual.',
         '4. No recurras a información externa a las fuentes. Si las fuentes no cubren algún punto, deja ese apartado más breve, pero no inventes técnicas.',
@@ -483,11 +486,11 @@ export async function POST(request: NextRequest) {
         '',
         '══ PARTE B — EN LO PARTICULAR (Plan de 10 a 12 sesiones) ══',
         'Desarrolla entre 10 y 12 sesiones con acciones específicas derivadas del Prediagnóstico.',
-        'Para cada sesión: objetivo clínico concreto, técnica específica de ConsultoriaFuentes, cómo aplicarla con este paciente, resultado esperado.',
+        'Para cada sesión: objetivo clínico concreto, técnica específica de las fuentes del enfoque, cómo aplicarla con este paciente, resultado esperado.',
         'Nada genérico — todo aplicado al caso particular.',
         '',
-        '── FUENTES CLÍNICAS (ConsultoriaFuentes — base exclusiva del plan) ──',
-        fuentes || '(Sin fragmentos recuperados — construye el plan únicamente con lo que conozcas de ConsultoriaFuentes)',
+        '── FUENTES CLÍNICAS (enfoque terapéutico del terapeuta — base exclusiva del plan) ──',
+        fuentes || '(Sin fragmentos recuperados — construye el plan solo con técnicas reconocidas del enfoque terapéutico indicado arriba)',
         '',
         '── BLOQUE 1: NOTA INICIAL ──',
         notaInicial,
@@ -506,7 +509,7 @@ export async function POST(request: NextRequest) {
         '**En lo particular**',
         '',
         '**Sesión [N] — [Objetivo principal]**',
-        'Técnica: [nombre y autor de ConsultoriaFuentes — una línea]',
+        'Técnica: [nombre de la técnica (autor — enfoque) — una línea]',
         '',
         'Aplicación: [2-3 oraciones concretas de cómo se aplica con este paciente]',
         'Meta: [una oración con el resultado esperado]',

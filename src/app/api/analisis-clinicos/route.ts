@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
-import { retrieveChunksFromBooks, retrieveRelevantChunks, retrieveChunksByProfile } from '@/lib/rag/retrieve-chunks'
+import { retrieveChunksFromBooks, retrieveChunksByProfile, instruccionEnfoque, nombreEnfoques } from '@/lib/rag/retrieve-chunks'
 import { logApiAccess } from '@/lib/audit/log-access'
 import {
   calcularResultadoFAD,
@@ -313,7 +313,7 @@ export async function POST(request: NextRequest) {
         .map(s => `  Sesión ${s.session_number}: ${s.notes ?? s.session_desarrollo ?? ''}`.slice(0, 300))
         .join('\n')
 
-      // ── 4. RAG: fuentes amplias de ConsultoríaFuentes ────
+      // ── 4. RAG: fuentes del enfoque terapéutico del terapeuta ────
       const ragQuery = [
         notaInicial.slice(0, 2000),
         cuantitativoTexto.slice(0, 500),
@@ -336,7 +336,8 @@ export async function POST(request: NextRequest) {
         : `No hay interpretaciones registradas para los análisis seleccionados (${analisisActivos}). Indica brevemente que el terapeuta aún no ha registrado interpretación.`
 
       const prompt = [
-        'Eres un supervisor clínico con amplio dominio en terapia familiar, sistémica y de pareja.',
+        `Eres un supervisor clínico con amplio dominio en ${nombreEnfoques(therapyProfile)}.`,
+        instruccionEnfoque(therapyProfile),
         '',
         '══ ANÁLISIS SELECCIONADOS (ÚNICOS QUE DEBES ANALIZAR) ══',
         analisisActivos,
@@ -363,7 +364,7 @@ export async function POST(request: NextRequest) {
         '- Sé específico sobre este caso, no genérico.',
         '- Si un análisis seleccionado no tiene datos suficientes, indícalo brevemente en esa sección.',
         '',
-        ...(fuentes ? ['── FUENTES TEÓRICAS (ConsultoríaFuentes) ──', fuentes, ''] : []),
+        ...(fuentes ? ['── FUENTES TEÓRICAS (enfoque terapéutico del terapeuta) ──', fuentes, ''] : []),
         '── CONTEXTO DEL CASO (solo para dar sentido clínico, NO para analizar otras dimensiones) ──',
         nombreAsesorado ? `Asesorado/a: ${nombreAsesorado}` : '',
         tipoCaso        ? `Tipo de caso: ${tipoCaso}`       : '',
@@ -545,11 +546,12 @@ export async function POST(request: NextRequest) {
         `como si el terapeuta estuviera presentando el caso ${tipoCaso} a un supervisor o institución.`,
         'NO incluyas historia clínica ni antecedentes generales.',
         `Concéntrate EXCLUSIVAMENTE en los datos de la sub-sección ${tipoCaso} del expediente.`,
-        'Analiza esos datos desde el marco teórico de ConsultoríaFuentes (fuentes proporcionadas).',
+        `Analiza esos datos desde el marco teórico de ${nombreEnfoques(therapyProfile)} (fuentes proporcionadas).`,
+        instruccionEnfoque(therapyProfile),
         'NO salgas de ese marco; fundamenta cada punto de análisis en las fuentes.',
         'Extensión: máximo 3 párrafos — concreto y directo.',
         '',
-        ...(fuentes ? ['── FUENTES TEÓRICAS (ConsultoríaFuentes) ──', fuentes, ''] : []),
+        ...(fuentes ? ['── FUENTES TEÓRICAS (enfoque terapéutico del terapeuta) ──', fuentes, ''] : []),
         '── DATOS DEL EXPEDIENTE ──',
         nombreAsesorado ? `Asesorado/a: ${nombreAsesorado}` : '',
         `Tipo de caso: ${tipoCaso}`,
@@ -689,7 +691,7 @@ export async function POST(request: NextRequest) {
         'Lista muy breve de los temas del Plan 10 Sesiones que aún no han sido trabajados en sesiones presenciales.',
         '',
         '### 6. Conclusiones',
-        'Escribe 2-3 oraciones de conclusión clínica, basadas en las fuentes de ConsultoríaFuentes proporcionadas.',
+        `Escribe 2-3 oraciones de conclusión clínica desde ${nombreEnfoques(therapyProfile)}, basadas en las fuentes proporcionadas.`,
         'Fundamenta en las fuentes. Conciso y específico sobre este caso.',
         '',
         'INSTRUCCIONES FINALES:',
@@ -698,7 +700,7 @@ export async function POST(request: NextRequest) {
         '- La tabla debe estar bien formateada en Markdown.',
         '- Sé específico sobre este caso; no uses frases genéricas.',
         '',
-        ...(fuentes ? ['── FUENTES (ConsultoríaFuentes) ──', fuentes, ''] : []),
+        ...(fuentes ? ['── FUENTES (enfoque terapéutico del terapeuta) ──', fuentes, ''] : []),
         '── DATOS DEL CASO ──',
         `Fecha Sesión inicial: ${fechaNotaStr}`,
         `Tipo de acompañamiento: ${tipoAcomp}`,
@@ -807,7 +809,7 @@ export async function POST(request: NextRequest) {
         rel.initial_note_premisas   ? `PREMISAS CLÍNICAS:\n${rel.initial_note_premisas}`      : '',
       ].filter(Boolean).join('\n\n') : '(Sin nota inicial registrada)'
 
-      // 2. RAG: fuentes de ConsultoríaFuentes sobre terapia de pareja
+      // 2. RAG: fuentes del enfoque terapéutico sobre terapia de pareja
       const ragQuery = [
         'EROS PHILIA ÁGAPE amor pareja disfuncional factores riesgo protección',
         eros.length          ? `EROS: ${eros.join(', ')}`               : '',
@@ -838,7 +840,8 @@ export async function POST(request: NextRequest) {
       // 4. Prompt con RAG
       const tieneFact = factoresRiesgo || factoresProteccion
       const prompt = [
-        'Eres un supervisor clínico especializado en terapia de pareja con enfoque en Personalismo, Satir y Gottman.',
+        `Eres un supervisor clínico especializado en terapia de pareja desde ${nombreEnfoques(therapyProfile)}.`,
+        instruccionEnfoque(therapyProfile),
         '',
         'A partir de los DATOS CLÍNICOS SELECCIONADOS (áreas EROS-PHILIA-ÁGAPE, tipo de amor, estructura',
         tieneFact ? 'y factores de riesgo/protección de la Nota Inicial)' : ')',
@@ -863,8 +866,8 @@ export async function POST(request: NextRequest) {
         '══ CONTEXTO DEL CASO (solo referencia) ══',
         notaInicial.slice(0, 2000),
         '',
-        '══ FUENTES CLÍNICAS (ConsultoríaFuentes) ══',
-        fuentesTexto.slice(0, 6000),
+        '══ FUENTES CLÍNICAS (enfoque terapéutico del terapeuta) ══',
+        fuentesTexto.slice(0, 12000),
       ].join('\n')
 
       const response = await anthropic.messages.create({

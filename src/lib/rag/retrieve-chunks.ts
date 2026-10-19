@@ -1,6 +1,8 @@
 /**
- * AVI — Recuperación RAG de ConsultoriaFuentes
+ * AVI — Recuperación RAG por enfoque terapéutico
  * Sprint 24: Multi-RAG con filtro por therapy_profile del terapeuta
+ * 18 oct 2026: búsqueda separada por enfoque (con dos enfoques, cada uno tiene su cupo)
+ * y nombre de los enfoques para los prompts. ConsultoriaFuentes (RAG original) ya no existe.
  */
 
 import OpenAI from 'openai'
@@ -15,8 +17,95 @@ function getSupabaseAdmin() {
   )
 }
 
-// ─── Función principal: filtra por perfil terapéutico del terapeuta ───────────
-// Usar en: /api/analysis, /api/patterns, /api/historia-clinica
+// ─── Enfoques terapéuticos y sus libros ──────────────────────────────────────
+// Mismos doc_name que genera scripts/index-fuentes.ts (carpetas docs-*).
+// Al indexar un libro nuevo en docs-familiar-sistemico / docs-trec / docs-cognitivo-conductual
+// / docs-personalismo, agregarlo aquí también.
+export const ENFOQUES: Record<string, { nombre: string; libros: string[] }> = {
+  famsis: {
+    nombre: 'Terapia Familiar Sistémica',
+    libros: [
+      'Tecnicas de Terapia Familiar Minuchin',
+      'Virginia Satir Relaciones Humanas Nucleo Familiar',
+      'El Ciclo Vital de La Familia',
+      'Apego Influencia Familia',
+      'GOTTMAN Conflictos de Pareja',
+      'Trabajo con Ninos',
+    ],
+  },
+  trec: {
+    nombre: 'Terapia Racional Emotivo-Conductual (TREC)',
+    libros: ['TREC Lega Caballo Ellis', 'Beck Manual TCC'],
+  },
+  cc: {
+    nombre: 'Terapia Cognitivo-Conductual (TCC)',
+    libros: ['Beck Manual TCC'],
+  },
+}
+
+// Base común de todos los enfoques (docs-personalismo). No se nombra en la app.
+const LIBROS_BASE = [
+  'Wojtyla Persona y Accion',
+  'Burgos Reconstruir La Persona Ensayos Personalistas',
+  'Buber Filosofia del Dialogo',
+  'Apuntes Teologia del Cuerpo',
+  'El amor Humano en el Plan divino',
+  'Supervision de Casos',
+]
+
+/** 'famsis_trec' → ['famsis', 'trec'] (solo enfoques conocidos; sin configurar → famsis) */
+export function enfoquesDe(therapyProfile: string | null | undefined): string[] {
+  const ids = (therapyProfile ?? '').split('_').filter(id => id in ENFOQUES)
+  return ids.length > 0 ? ids : ['famsis']
+}
+
+/** 'famsis_trec' → "Terapia Familiar Sistémica y Terapia Racional Emotivo-Conductual (TREC)" */
+export function nombreEnfoques(therapyProfile: string | null | undefined): string {
+  return enfoquesDe(therapyProfile).map(id => ENFOQUES[id].nombre).join(' y ')
+}
+
+/**
+ * Instrucción común para los prompts de análisis: con qué enfoque(s) trabajar.
+ * Con dos enfoques pide integrarlos, no quedarse con uno.
+ */
+export function instruccionEnfoque(therapyProfile: string | null | undefined): string {
+  const ids = enfoquesDe(therapyProfile)
+  const nombres = nombreEnfoques(therapyProfile)
+  const lineas = [
+    `ENFOQUE TERAPÉUTICO DEL TERAPEUTA: ${nombres}.`,
+    `Fundamenta el análisis en las FUENTES CLÍNICAS proporcionadas: pasajes de ${ids.length > 1 ? 'esos enfoques' : 'ese enfoque'} y de la base común sobre la persona.`,
+    'Cada pasaje indica su fuente y su enfoque.',
+  ]
+  if (ids.length > 1) {
+    lineas.push(
+      `El terapeuta eligió DOS enfoques. Intégralos: aplica ${ENFOQUES[ids[0]].nombre} y ${ENFOQUES[ids[1]].nombre} donde cada uno aporte al caso; no te quedes solo con uno.`
+    )
+  }
+  return lineas.join('\n')
+}
+
+type Chunk = { id: number; doc_name: string; content: string; similarity: number }
+
+async function buscar(embedding: number[], libros: string[], matchCount: number): Promise<Chunk[]> {
+  if (matchCount <= 0) return []
+  const { data, error } = await getSupabaseAdmin().rpc('match_document_chunks', {
+    query_embedding: embedding,
+    match_count:     matchCount,
+    min_similarity:  0.20,
+    filter_books:    libros,
+  })
+  if (error) {
+    console.error('[RAG] Error búsqueda semántica:', error.message)
+    return []
+  }
+  return (data ?? []) as Chunk[]
+}
+
+// ─── Función principal: fuentes del enfoque del terapeuta ─────────────────────
+// Usar en todos los análisis del terapeuta (/api/analysis, /api/expediente-analysis,
+// /api/analisis-clinicos, /api/session-insights).
+// Una búsqueda por enfoque + una de la base común: con dos enfoques, ninguno desplaza al otro
+// (antes, en famsis_trec, los 16 pasajes salían de Familiar Sistémica y ninguno de TREC).
 export async function retrieveChunksByProfile(
   caseContext: string,
   therapyProfile: string,   // 'famsis' | 'trec' | 'cc' | 'famsis_trec' | 'famsis_cc' | 'trec_cc'
@@ -26,28 +115,41 @@ export async function retrieveChunksByProfile(
     model: 'text-embedding-3-small',
     input: caseContext.slice(0, 8000),
   })
-  const queryEmbedding = embeddingResponse.data[0].embedding
+  const embedding = embeddingResponse.data[0].embedding
 
-  const supabase = getSupabaseAdmin()
-  const { data: chunks, error } = await supabase.rpc('match_document_chunks', {
-    query_embedding: queryEmbedding,
-    match_count:     matchCount,
-    min_similarity:  0.20,
-    filter_profile:  therapyProfile,
-  })
+  // Cupos: ~1/4 base común, el resto repartido por igual entre los enfoques
+  const ids = enfoquesDe(therapyProfile)
+  const cupoBase = Math.max(2, Math.round(matchCount / 4))
+  const cupoEnfoque = Math.max(2, Math.floor((matchCount - cupoBase) / ids.length))
 
-  if (error) {
-    console.error(`[RAG] Error búsqueda semántica (perfil: ${therapyProfile}):`, error.message)
-    return ''
+  const [base, ...porEnfoque] = await Promise.all([
+    buscar(embedding, LIBROS_BASE, cupoBase),
+    ...ids.map(id => buscar(embedding, ENFOQUES[id].libros, cupoEnfoque)),
+  ])
+
+  // Etiqueta de enfoque por pasaje (Beck pertenece a TREC y a TCC: queda en el primero)
+  const vistos = new Set<number>()
+  const listas = porEnfoque.map((chunks, i) => chunks
+    .filter(c => !vistos.has(c.id) && vistos.add(c.id))
+    .map(c => ({ ...c, enfoque: ENFOQUES[ids[i]].nombre })))
+  listas.push(base.filter(c => !vistos.has(c.id)).map(c => ({ ...c, enfoque: 'Base común' })))
+
+  // Intercalados (1º de cada enfoque, 2º de cada enfoque…): si un prompt recorta las fuentes,
+  // siguen llegando pasajes de todos los enfoques
+  const intercalados: (Chunk & { enfoque: string })[] = []
+  for (let i = 0; intercalados.length < listas.reduce((n, l) => n + l.length, 0); i++) {
+    for (const lista of listas) if (lista[i]) intercalados.push(lista[i])
   }
 
-  if (!chunks || chunks.length === 0) {
+  const resumen = listas.map(l => `${l[0]?.enfoque ?? '—'}: ${l.length}`).join(' · ')
+  if (intercalados.length === 0) {
     console.warn(`[RAG] Sin chunks para perfil: ${therapyProfile}`)
     return ''
   }
-
-  console.log(`[RAG] ${chunks.length} chunks — perfil: ${therapyProfile}`)
-  return formatChunks(chunks as { doc_name: string; content: string }[])
+  console.log(`[RAG] ${intercalados.length} chunks — perfil: ${therapyProfile} (${resumen})`)
+  return intercalados
+    .map(c => `### ${c.doc_name} — ${c.enfoque}\n\n${c.content}`)
+    .join('\n\n---\n\n')
 }
 
 // ─── Para analisis-clinicos: filtra por nombre de libro específico ────────────
@@ -81,37 +183,6 @@ export async function retrieveChunksFromBooks(
   }
 
   console.log(`[RAG] ${chunks.length} chunks de ${books.join(', ')}`)
-  return formatChunks(chunks as { doc_name: string; content: string }[])
-}
-
-// ─── Fallback sin filtro (compatibilidad con código legacy) ───────────────────
-export async function retrieveRelevantChunks(
-  caseContext: string,
-  matchCount = 16
-): Promise<string> {
-  const embeddingResponse = await openai.embeddings.create({
-    model: 'text-embedding-3-small',
-    input: caseContext.slice(0, 8000),
-  })
-  const queryEmbedding = embeddingResponse.data[0].embedding
-
-  const supabase = getSupabaseAdmin()
-  const { data: chunks, error } = await supabase.rpc('match_document_chunks', {
-    query_embedding: queryEmbedding,
-    match_count:     matchCount,
-    min_similarity:  0.20,
-  })
-
-  if (error) {
-    console.error('[RAG] Error en búsqueda semántica:', error.message)
-    return ''
-  }
-  if (!chunks || chunks.length === 0) {
-    console.warn('[RAG] Sin chunks relevantes encontrados')
-    return ''
-  }
-
-  console.log(`[RAG] ${chunks.length} chunks recuperados (sin filtro de perfil)`)
   return formatChunks(chunks as { doc_name: string; content: string }[])
 }
 

@@ -1,3 +1,5 @@
+import { enfoquesDe, instruccionEnfoque } from '@/lib/rag/retrieve-chunks'
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Tipos
 // ─────────────────────────────────────────────────────────────────────────────
@@ -57,6 +59,39 @@ const DIMENSIONES_LABELS: Record<string, string> = {
   espiritual: 'Espiritual',
   conductual: 'Conductual',
   fisico:     'Físico',
+}
+
+// Marco teórico del prompt según el enfoque del terapeuta (18 oct 2026).
+// Antes era fijo (el de Familiar Sistémica) para todos. La base común va siempre.
+const MARCO_BASE = [
+  '- Wojtyla / Burgos: personalismo, persona como ser unitario, autodeterminación, amor como don',
+  '- Buber: relación Yo-Tú, encuentro auténtico vs. uso del otro',
+]
+const MARCO_POR_ENFOQUE: Record<string, string[]> = {
+  famsis: [
+    '- Minuchin: holones, límites, jerarquías, triangulaciones, escenificación, mapa estructural',
+    '- Virginia Satir: olla de la autoestima, escultura familiar, comunicación no verbal, congruencia',
+    '- Bowlby / Ainsworth: apego seguro, ansioso, evitativo, desorganizado; heridas de apego',
+    '- Gabor Maté: origen emocional del síntoma, trauma, desconexión mente-cuerpo',
+    '- Gottman: cuatro jinetes, intentos de reparación, amistad y propósito compartido',
+    '- Heridas emocionales: abandono, rechazo, humillación, traición, injusticia',
+    '- Técnicas específicas: historieta de soluciones, el globo, línea del tiempo, escultura familiar, entre otras',
+  ],
+  trec: [
+    '- Ellis (TREC): modelo A-B-C-D-E, creencias irracionales (exigencias, catastrofismo, baja tolerancia a la frustración, condena), debate o disputa de creencias, aceptación incondicional de sí mismo y de los demás, tareas entre sesiones',
+    '- Beck (apoyo): pensamientos automáticos y reestructuración cognitiva',
+  ],
+  cc: [
+    '- Beck (TCC): pensamientos automáticos, distorsiones cognitivas, creencias centrales y esquemas, reestructuración cognitiva, registro de pensamientos, experimentos conductuales, activación conductual',
+  ],
+}
+
+function marcoTeorico(therapyProfile: string): string {
+  const lineas = [...MARCO_BASE]
+  for (const id of enfoquesDe(therapyProfile)) {
+    for (const l of MARCO_POR_ENFOQUE[id] ?? []) if (!lineas.includes(l)) lineas.push(l)
+  }
+  return lineas.join('\n')
 }
 
 function buildExpedienteClinicoBloque(exp: Record<string, unknown>): string {
@@ -191,13 +226,14 @@ export function buildConsultamePrompt(params: {
   }>
   inPersonSessions?: InPersonSession[]
   fuentes: string
+  therapyProfile: string
   expediente?: ExpedienteResumen
   expedienteClinico?: Record<string, unknown>
 }): string {
   const {
     tier, planDecision,
     patientName, initialNote, initialNoteMotivo, initialNoteSubyacente, initialNotePremisas,
-    sessionSummaries, inPersonSessions = [], fuentes, expediente, expedienteClinico,
+    sessionSummaries, inPersonSessions = [], fuentes, therapyProfile, expediente, expedienteClinico,
   } = params
 
   // ── Unificar sesiones AVI + Presenciales en orden cronológico ────────────
@@ -270,11 +306,11 @@ export function buildConsultamePrompt(params: {
     if (tier === 'esencial' || planDecision.tipo === 'sin-prediag') {
       return `
 **PROPUESTA TÉCNICA**
-Basándote en el análisis que acabas de realizar (Evaluación de Evolución, Resumen, Problemática, Interés, Apegos y Heridas) y en las fuentes de ConsultoriaFuentes, describe la técnica o enfoque que mejor encaja con este caso. Explica por qué esta y no otra, y cómo aplicarla concretamente con ${patientName} y su sistema. Usa frases como "Te propondría...", "Sería valioso explorar...", "Te invitaría a...". No recites el manual — aplícala al caso.
+Basándote en el análisis que acabas de realizar (Evaluación de Evolución, Resumen, Problemática, Interés, Apegos y Heridas) y en las fuentes clínicas del enfoque terapéutico, describe la técnica o enfoque que mejor encaja con este caso. Explica por qué esta y no otra, y cómo aplicarla concretamente con ${patientName} y su sistema. Usa frases como "Te propondría...", "Sería valioso explorar...", "Te invitaría a...". No recites el manual — aplícala al caso.
 ${restricciones}
 
 **PLAN: DIEZ SESIONES**
-Sesión por sesión: con quién, qué técnica (nombre y autor de ConsultoriaFuentes), cómo implementarla en este caso concreto. No digas solo "trabajar el apego" — di qué harías, qué preguntarías, qué esperarías lograr. Genera entre 10 y 12 sesiones completas.
+Sesión por sesión: con quién, qué técnica (nombre, autor y enfoque, tomada de las fuentes clínicas), cómo implementarla en este caso concreto. No digas solo "trabajar el apego" — di qué harías, qué preguntarías, qué esperarías lograr. Genera entre 10 y 12 sesiones completas.
 ${restricciones}`
     }
 
@@ -336,20 +372,14 @@ RESTRICCIONES ABSOLUTAS:
   }
 
   // ── Prompt final ──────────────────────────────────────────────────────────
-  return `Eres supervisor clínico de ConsultoriaFuentes. Tu función es orientar al terapeuta con precisión — nada de relleno. Di lo que importa con las palabras justas. Entre más digas con menos, mejor.
+  return `Eres supervisor clínico. Tu función es orientar al terapeuta con precisión — nada de relleno. Di lo que importa con las palabras justas. Entre más digas con menos, mejor.
+
+${instruccionEnfoque(therapyProfile)}
 
 Marco teórico que aplicas según lo que pida el caso (no los menciones todos, usa los que realmente aplican):
-- Wojtyla / Burgos: personalismo, persona como ser unitario, autodeterminación, amor como don
-- Minuchin: holones, límites, jerarquías, triangulaciones, escenificación, mapa estructural
-- Virginia Satir: olla de la autoestima, escultura familiar, comunicación no verbal, congruencia
-- Bowlby / Ainsworth: apego seguro, ansioso, evitativo, desorganizado; heridas de apego
-- Gabor Maté: origen emocional del síntoma, trauma, desconexión mente-cuerpo
-- Gottman: cuatro jinetes, intentos de reparación, amistad y propósito compartido
-- Buber: relación Yo-Tú, encuentro auténtico vs. uso del otro
-- Heridas emocionales: abandono, rechazo, humillación, traición, injusticia
-- Técnicas específicas: historieta de soluciones, el globo, línea del tiempo, escultura familiar, entre otras
+${marcoTeorico(therapyProfile)}
 
-Tus fuentes de referencia clínica (ConsultoriaFuentes) — úsalas, no las cites de forma genérica:
+Tus fuentes de referencia clínica (enfoque terapéutico del terapeuta) — úsalas, no las cites de forma genérica:
 === FUENTES ===
 ${fuentes}
 === FIN DE FUENTES ===
