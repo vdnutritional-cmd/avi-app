@@ -5,6 +5,7 @@ import { mensajeEmailPacienteExistente } from '@/lib/registro-email'
 import { createClient } from '@/lib/supabase/server'
 import { getTerminologiaPropia, getTerminologiaRegistro } from '@/lib/terminologia-paciente'
 import { normalizarTerminologia } from '@/lib/terminologia'
+import { CAMPOS_DOMICILIO, domicilioEnUnaLinea } from '@/lib/domicilio'
 
 /**
  * POST /api/auth/registro-consultorio
@@ -109,7 +110,9 @@ export async function POST(req: NextRequest) {
     asesorado_parroquia:        datosGenerales.asesorado_parroquia       ?? '',
     // Contacto
     contacto_telefono:          datosGenerales.contacto_telefono         ?? '',
-    contacto_domicilio:         datosGenerales.contacto_domicilio        ?? '',
+    // Domicilio en partes + completo en una línea (lo leen los PDF y los análisis)
+    ...Object.fromEntries(CAMPOS_DOMICILIO.map(c => [c, String(datosGenerales[c] ?? '').trim()])),
+    contacto_domicilio:         domicilioEnUnaLinea(datosGenerales),
     // Pareja
     pareja_nombre:              datosGenerales.pareja_nombre             ?? '',
     pareja_sexo:                datosGenerales.pareja_sexo               ?? '',

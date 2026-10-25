@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Lock } from 'lucide-react'
 import { terminos, TERMINOLOGIA_SIN_EMPRESA, type Terminologia } from '@/lib/terminologia'
+import { ESTADOS_MEXICO, PAISES, CAMPOS_DOMICILIO, domicilioVacio, domicilioEnUnaLinea, type Domicilio } from '@/lib/domicilio'
 
 // ──────────────────────────────────────────────
 // Types
@@ -15,7 +16,7 @@ interface Hijo {
   vive_en_casa: string
 }
 
-interface DatosGeneralesData {
+interface DatosGeneralesData extends Domicilio {
   // Datos del Asesorado
   asesorado_nombre: string
   asesorado_sexo: string
@@ -29,7 +30,7 @@ interface DatosGeneralesData {
   asesorado_parroquia: string
   // Datos de Contacto
   contacto_telefono: string
-  contacto_domicilio: string
+  contacto_domicilio: string   // completo en una línea (armado de las partes, o el texto de antes del 25 oct 2026)
   // Datos de la Pareja
   pareja_nombre: string
   pareja_sexo: string
@@ -65,6 +66,7 @@ const datosVacios = (): DatosGeneralesData => ({
   asesorado_parroquia: '',
   contacto_telefono: '',
   contacto_domicilio: '',
+  ...domicilioVacio(),
   pareja_nombre: '',
   pareja_sexo: '',
   pareja_edad: '',
@@ -206,6 +208,7 @@ function parseRow(row: Record<string, any>): DatosGeneralesData {
     asesorado_parroquia: row.asesorado_parroquia ?? '',
     contacto_telefono: row.contacto_telefono ?? '',
     contacto_domicilio: row.contacto_domicilio ?? '',
+    ...Object.fromEntries(CAMPOS_DOMICILIO.map(c => [c, row[c] ?? ''])) as Domicilio,
     pareja_nombre: row.pareja_nombre ?? '',
     pareja_sexo: row.pareja_sexo ?? '',
     pareja_edad: row.pareja_edad ?? '',
@@ -329,6 +332,7 @@ export default function DatosGeneralesTab({ patientId, therapistId, patientEmail
         asesorado_parroquia: data.asesorado_parroquia || null,
         contacto_telefono: data.contacto_telefono || null,
         contacto_domicilio: data.contacto_domicilio || null,
+        ...Object.fromEntries(CAMPOS_DOMICILIO.map(c => [c, (data[c] ?? '').trim() || null])),
         pareja_nombre: data.pareja_nombre || null,
         pareja_sexo: data.pareja_sexo || null,
         pareja_edad: data.pareja_edad || null,
@@ -350,6 +354,9 @@ export default function DatosGeneralesTab({ patientId, therapistId, patientEmail
       const cambios = Object.fromEntries(Object.entries(campos).filter(([k]) =>
         JSON.stringify(data[k as keyof DatosGeneralesData]) !== JSON.stringify(saved[k as keyof DatosGeneralesData])
       ))
+      // Si cambió alguna parte del domicilio, el domicilio completo se vuelve a armar
+      const domicilioCompleto = CAMPOS_DOMICILIO.some(c => c in cambios) ? domicilioEnUnaLinea(data) : null
+      if (domicilioCompleto !== null) cambios.contacto_domicilio = domicilioCompleto || null
       const payload = { therapist_id: tid, patient_id: patientId, ...cambios, updated_at: new Date().toISOString() }
 
       const { error } = await supabase
@@ -361,10 +368,15 @@ export default function DatosGeneralesTab({ patientId, therapistId, patientEmail
         return
       }
 
-      setSaved({ ...data })
+      const guardado = domicilioCompleto !== null ? { ...data, contacto_domicilio: domicilioCompleto } : { ...data }
+      setData(guardado)
+      setSaved(guardado)
       onSaved?.(cambios)
       setSaveOk(true)
       setTimeout(() => setSaveOk(false), 3000)
+    } catch (e) {
+      // Antes un error aquí no avisaba nada: el botón parecía no responder
+      alert(`Error al guardar los datos generales: ${e instanceof Error ? e.message : String(e)}`)
     } finally {
       setSaving(false)
     }
@@ -501,14 +513,48 @@ export default function DatosGeneralesTab({ patientId, therapistId, patientEmail
                          text-gray-400 bg-gray-50 cursor-not-allowed"
             />
           </div>
+        </div>
+
+        <h4 className="text-sm font-semibold text-gray-700 mt-5 mb-3">Domicilio</h4>
+        {/* Registrado antes del 25 oct 2026 en un solo campo: se muestra para pasarlo a las partes */}
+        {saved.contacto_domicilio && CAMPOS_DOMICILIO.every(c => c === 'domicilio_pais' || !saved[c]) && (
+          <p className="text-xs text-gray-500 bg-gray-50 border border-gray-100 rounded-xl px-3 py-2 mb-3">
+            Domicilio capturado antes en un solo campo: <span className="text-gray-700">{saved.contacto_domicilio}</span>
+            <br />Captúralo en los campos de abajo para poder filtrar por Municipio o Estado.
+          </p>
+        )}
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
           <div className="sm:col-span-2">
-            <Label>Domicilio</Label>
-            <TextInput
-              value={data.contacto_domicilio}
-              onChange={v => set('contacto_domicilio', v)}
-              maxLength={200}
-              placeholder="Calle, número, colonia, ciudad"
-            />
+            <Label>Calle</Label>
+            <TextInput value={data.domicilio_calle} onChange={v => set('domicilio_calle', v)} maxLength={100} placeholder="Ej. Av. Juárez" />
+          </div>
+          <div>
+            <Label>Número exterior</Label>
+            <TextInput value={data.domicilio_num_ext} onChange={v => set('domicilio_num_ext', v)} maxLength={15} placeholder="Ej. 123" />
+          </div>
+          <div>
+            <Label>Número interior</Label>
+            <TextInput value={data.domicilio_num_int} onChange={v => set('domicilio_num_int', v)} maxLength={15} placeholder="Ej. 4-B" />
+          </div>
+          <div className="sm:col-span-2">
+            <Label>Colonia</Label>
+            <TextInput value={data.domicilio_colonia} onChange={v => set('domicilio_colonia', v)} maxLength={80} placeholder="Ej. Centro" />
+          </div>
+          <div className="sm:col-span-2">
+            <Label>Municipio o Condado</Label>
+            <TextInput value={data.domicilio_municipio} onChange={v => set('domicilio_municipio', v)} maxLength={80} placeholder="Ej. Guadalajara" />
+          </div>
+          <div>
+            <Label>Código Postal</Label>
+            <TextInput value={data.domicilio_cp} onChange={v => set('domicilio_cp', v)} maxLength={10} placeholder="Ej. 44100" />
+          </div>
+          <div className="sm:col-span-2">
+            <Label>Estado</Label>
+            <SelectInput value={data.domicilio_estado} onChange={v => set('domicilio_estado', v)} options={ESTADOS_MEXICO} />
+          </div>
+          <div>
+            <Label>País</Label>
+            <SelectInput value={data.domicilio_pais} onChange={v => set('domicilio_pais', v)} options={PAISES} />
           </div>
         </div>
       </SectionCard>

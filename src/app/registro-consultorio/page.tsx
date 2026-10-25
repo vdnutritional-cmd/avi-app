@@ -6,15 +6,16 @@ import Link from 'next/link'
 import { checkPassword } from '@/lib/password-strength'
 import PasswordStrengthBar from '@/components/PasswordStrengthBar'
 import { terminos, TERMINOLOGIA_SIN_EMPRESA, type Terminologia } from '@/lib/terminologia'
+import { ESTADOS_MEXICO, PAISES, domicilioVacio, type Domicilio } from '@/lib/domicilio'
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
 interface Hijo { nombre: string; edad: string; ocupacion: string; vive_en_casa: string }
-interface DatosGenerales {
+interface DatosGenerales extends Domicilio {
   asesorado_nombre: string; asesorado_sexo: string; asesorado_edad: string
   asesorado_fecha_nacimiento: string; asesorado_lugar_nacimiento: string
   asesorado_estado_civil: string; asesorado_escolaridad: string
   asesorado_ocupacion: string; asesorado_religion: string; asesorado_parroquia: string
-  contacto_telefono: string; contacto_domicilio: string
+  contacto_telefono: string
   pareja_nombre: string; pareja_sexo: string; pareja_edad: string; pareja_fecha_nacimiento: string
   hijos: Hijo[]
   salud_padece_enfermedad: string; salud_ayuda_psicologica: string
@@ -31,7 +32,8 @@ const datosBlancos = (): DatosGenerales => ({
   asesorado_fecha_nacimiento: '', asesorado_lugar_nacimiento: '',
   asesorado_estado_civil: '', asesorado_escolaridad: '',
   asesorado_ocupacion: '', asesorado_religion: '', asesorado_parroquia: '',
-  contacto_telefono: '', contacto_domicilio: '',
+  contacto_telefono: '',
+  ...domicilioVacio(), domicilio_pais: 'México',
   pareja_nombre: '', pareja_sexo: '', pareja_edad: '', pareja_fecha_nacimiento: '',
   hijos: [hijoVacio()],
   salud_padece_enfermedad: '', salud_ayuda_psicologica: '',
@@ -40,15 +42,6 @@ const datosBlancos = (): DatosGenerales => ({
   info_razon_eleccion: '', info_expectativas: '',
 })
 
-const ESTADOS_MEXICO = [
-  'Aguascalientes', 'Baja California', 'Baja California Sur', 'Campeche',
-  'Chiapas', 'Chihuahua', 'Ciudad de México', 'Coahuila de Zaragoza',
-  'Colima', 'Durango', 'Estado de México', 'Guanajuato', 'Guerrero',
-  'Hidalgo', 'Jalisco', 'Michoacán de Ocampo', 'Morelos', 'Nayarit',
-  'Nuevo León', 'Oaxaca', 'Puebla', 'Querétaro', 'Quintana Roo',
-  'San Luis Potosí', 'Sinaloa', 'Sonora', 'Tabasco', 'Tamaulipas',
-  'Tlaxcala', 'Veracruz de Ignacio de la Llave', 'Yucatán', 'Zacatecas',
-]
 
 
 // ── Componentes de campo ─────────────────────────────────────────────────────
@@ -430,7 +423,7 @@ function RegistroConsultorioForm() {
             </Field>
             <div className="grid grid-cols-2 gap-3">
               <Field label="Religión" optional>
-                <select value={dg.asesorado_religion} onChange={e => setField('asesorado_religion', e.target.value)} className={selectCls}>
+                <select autoComplete="off" value={dg.asesorado_religion} onChange={e => setField('asesorado_religion', e.target.value)} className={selectCls}>
                   <option value="">Seleccionar</option>
                   {['Católica','Judía','Protestante (cualquier denominación)','Musulmana','Agnóstico/a','Ateo/a','Otra'].map(o => <option key={o}>{o}</option>)}
                 </select>
@@ -455,11 +448,55 @@ function RegistroConsultorioForm() {
                 onChange={e => setField('contacto_telefono', e.target.value)}
                 placeholder="3312345678" className={inputCls} />
             </Field>
-            <Field label="Domicilio" optional>
-              <input type="text" value={dg.contacto_domicilio}
-                onChange={e => setField('contacto_domicilio', e.target.value)}
-                placeholder="Calle, Colonia, Ciudad" className={inputCls} />
+            <p className="text-sm font-medium text-gray-700 pt-1">Domicilio</p>
+            <Field label="Calle">
+              <input type="text" value={dg.domicilio_calle} maxLength={100}
+                onChange={e => setField('domicilio_calle', e.target.value)}
+                placeholder="Av. Juárez" className={inputCls} />
             </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Número exterior">
+                <input type="text" value={dg.domicilio_num_ext} maxLength={15}
+                  onChange={e => setField('domicilio_num_ext', e.target.value)}
+                  placeholder="123" className={inputCls} />
+              </Field>
+              <Field label="Número interior">
+                <input type="text" value={dg.domicilio_num_int} maxLength={15}
+                  onChange={e => setField('domicilio_num_int', e.target.value)}
+                  placeholder="4-B" className={inputCls} />
+              </Field>
+            </div>
+            <Field label="Colonia">
+              <input type="text" value={dg.domicilio_colonia} maxLength={80}
+                onChange={e => setField('domicilio_colonia', e.target.value)}
+                placeholder="Centro" className={inputCls} />
+            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Municipio o Condado">
+                <input type="text" value={dg.domicilio_municipio} maxLength={80}
+                  onChange={e => setField('domicilio_municipio', e.target.value)}
+                  placeholder="Guadalajara" className={inputCls} />
+              </Field>
+              <Field label="Código Postal">
+                <input type="text" inputMode="numeric" value={dg.domicilio_cp} maxLength={10}
+                  onChange={e => setField('domicilio_cp', e.target.value)}
+                  placeholder="44100" className={inputCls} />
+              </Field>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Estado">
+                <select value={dg.domicilio_estado} onChange={e => setField('domicilio_estado', e.target.value)} className={selectCls}>
+                  <option value="">Seleccionar</option>
+                  {ESTADOS_MEXICO.map(est => <option key={est}>{est}</option>)}
+                </select>
+              </Field>
+              <Field label="País">
+                <select value={dg.domicilio_pais} onChange={e => setField('domicilio_pais', e.target.value)} className={selectCls}>
+                  <option value="">Seleccionar</option>
+                  {PAISES.map(p => <option key={p}>{p}</option>)}
+                </select>
+              </Field>
+            </div>
           </>}
 
           {/* ── Paso: Pareja ── */}
