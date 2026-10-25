@@ -1193,7 +1193,8 @@ export default function PatientDetailPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {sessionNotes.map(s => (
+              {/* La más reciente primero */}
+              {[...sessionNotes].sort((a, b) => b.session_number - a.session_number).map(s => (
                 <div key={s.id} className="bg-white rounded-2xl border border-gray-100 p-5 space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3 flex-wrap">
