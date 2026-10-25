@@ -3,7 +3,7 @@ import './globals.css'
 import SwRegistrar from './SwRegistrar'
 
 export const metadata: Metadata = {
-  title: 'AVI — Acompañamiento Integral',
+  title: 'AVI Therapy Companion',
   description: 'Plataforma terapéutica para consultores y consultantes',
   manifest: '/manifest.json',
   appleWebApp: {
