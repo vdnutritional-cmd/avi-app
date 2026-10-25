@@ -304,7 +304,7 @@ function RegistroConsultorioForm() {
 
         {/* Encabezado */}
         <div className="text-center">
-          <Link href="/" className="text-2xl font-bold text-primary-700">AVI</Link>
+          <Link href="/" className="text-2xl font-bold text-primary-700">AVI Therapy Companion</Link>
           <p className="text-gray-500 text-xs mt-1">Registro con <strong>{therapistName}</strong></p>
         </div>
 
@@ -430,9 +430,10 @@ function RegistroConsultorioForm() {
             </Field>
             <div className="grid grid-cols-2 gap-3">
               <Field label="Religión" optional>
-                <input type="text" value={dg.asesorado_religion}
-                  onChange={e => setField('asesorado_religion', e.target.value)}
-                  placeholder="Católica, Cristiana…" className={inputCls} />
+                <select value={dg.asesorado_religion} onChange={e => setField('asesorado_religion', e.target.value)} className={selectCls}>
+                  <option value="">Seleccionar</option>
+                  {['Católica','Judía','Protestante (cualquier denominación)','Musulmana','Agnóstico/a','Ateo/a','Otra'].map(o => <option key={o}>{o}</option>)}
+                </select>
               </Field>
               <Field label="Parroquia" optional>
                 <input type="text" value={dg.asesorado_parroquia}
