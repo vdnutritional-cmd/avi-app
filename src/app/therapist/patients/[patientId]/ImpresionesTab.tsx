@@ -215,8 +215,9 @@ export default function ImpresionesTab({ patientId, therapistId, patientName, te
       const emps: { id: string; nombre: string; logo_url: string | null }[] = initRes.empresas ?? []
       setEmpresas(emps)
       setTerapeutaNombre(terapeutaRes.data?.full_name ?? '')
-      const conLogo = emps.filter(e => e.logo_url)
-      setLogoUrl(conLogo[0]?.logo_url ?? null)
+      // Logo de la empresa del paciente (si no tiene empresa o logo, va el nombre del terapeuta)
+      const empresaId = (initRes.pacientesActivos ?? []).find((p: { id: string }) => p.id === patientId)?.empresa_id ?? null
+      setLogoUrl(emps.find(e => e.id === empresaId)?.logo_url ?? null)
 
       const [expedienteRes, notaRes, sesionesRes] = await Promise.all([
         supabase.from('patient_expediente')

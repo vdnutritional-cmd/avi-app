@@ -186,11 +186,14 @@ export function printHtmlViaIframe(html: string): void {
   doc.open()
   doc.write(html)
   doc.close()
-  // Dar tiempo a imágenes y fuentes para cargar antes de imprimir
-  setTimeout(() => {
+  // Esperar a que carguen las imágenes (logos), máx. 3 s, y dar tiempo a las fuentes antes de imprimir
+  const imagenes = Array.from(doc.images).filter(img => !img.complete)
+    .map(img => new Promise<void>(res => { img.onload = img.onerror = () => res() }))
+  const limite = new Promise<void>(res => setTimeout(res, 3000))
+  Promise.race([Promise.all(imagenes), limite]).then(() => setTimeout(() => {
     try { iframe.contentWindow?.print() } catch { /* noop */ }
     setTimeout(() => { try { document.body.removeChild(iframe) } catch { /* noop */ } }, 2000)
-  }, 400)
+  }, 400))
 }
 
 function field(label: string, value: string | null | undefined, fallback = '—') {
@@ -2046,7 +2049,7 @@ export interface ReportHeaderOptions {
   logoUrl?: string | null
   /** Qué mostrar a la derecha: logo de empresa o nombre del terapeuta */
   side?: 'logo' | 'name'
-  /** Subtítulo del reporte (aparece bajo "AVI Therapy Companion") */
+  /** Subtítulo del reporte (aparece bajo el logo de AVI) */
   subtitle?: string
   /** Quién imprime, si no es el terapeuta (ej. Persona Institucional). Default: terapeutaNombre */
   impresoPor?: string
@@ -2057,7 +2060,7 @@ export interface ReportHeaderOptions {
 /**
  * Genera el HTML del encabezado compartido de todos los reportes:
  * 1. Línea meta fina: fecha + "Reporte impreso por" (izq) / nombre o logo empresa (der)
- * 2. Bloque AVI: cuadro "AVI" + "AVI Therapy Companion" + subtítulo (izq) / Terapeuta (der)
+ * 2. Bloque AVI: logo de AVI según la terminología + subtítulo (izq) / Terapeuta (der)
  */
 export function buildReportHeader(opts: ReportHeaderOptions): string {
   const { terapeutaNombre, logoUrl, side = 'name', subtitle, impresoPor = terapeutaNombre } = opts
@@ -2065,6 +2068,13 @@ export function buildReportHeader(opts: ReportHeaderOptions): string {
   const date = new Date().toLocaleDateString('es-MX', {
     day: 'numeric', month: 'long', year: 'numeric',
   })
+
+  // Logo de AVI según la terminología: asesorado → "Acompañamiento Virtual Interactivo"; paciente → "Therapy Companion".
+  // URL absoluta: el reporte se imprime desde un iframe.
+  const origen = typeof window !== 'undefined' ? window.location.origin : ''
+  const logoAvi = (opts.terminologia ?? TERMINOLOGIA_SIN_EMPRESA) === 'asesorado'
+    ? { src: `${origen}/logo-avi-acompanamiento.png`, alt: 'AVI Acompañamiento Virtual Interactivo' }
+    : { src: `${origen}/logo-avi-companion.png`, alt: 'AVI Therapy Companion' }
 
   const rightContent =
     side === 'logo' && logoUrl
@@ -2083,10 +2093,9 @@ export function buildReportHeader(opts: ReportHeaderOptions): string {
     <!-- bloque AVI brand -->
     <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1.5pt solid #2d3a8c;padding-bottom:12pt;margin-bottom:0;">
       <div style="display:flex;align-items:center;gap:5pt;">
-        <div style="width:22pt;height:22pt;border-radius:4pt;background:#c026d3;color:#fff;font-size:7pt;font-weight:bold;letter-spacing:0.5pt;display:flex;align-items:center;justify-content:center;">AVI</div>
         <div>
-          <div style="font-size:11pt;font-weight:bold;color:#c026d3;">AVI Therapy Companion</div>
-          ${subtitle ? `<div style="font-size:7.5pt;color:#666;margin-top:0.5pt;">${subtitle}</div>` : ''}
+          <img src="${logoAvi.src}" alt="${logoAvi.alt}" style="height:22pt;width:auto;display:block;" />
+          ${subtitle ? `<div style="font-size:7.5pt;color:#666;margin-top:2pt;">${subtitle}</div>` : ''}
         </div>
       </div>
       <div style="text-align:right;font-size:7.5pt;color:#555;line-height:1.6;">

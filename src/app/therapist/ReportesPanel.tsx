@@ -31,7 +31,7 @@ type ReportId =
   | 'hc-original' | 'hc-actualizada' | 'valorativo' | 'integracion' | 'proceso'
 
 interface Empresa  { id: string; nombre: string; logo_url: string | null }
-interface Paciente { id: string; nombre: string; tier?: 'esencial' | 'clinico'; bloqueado?: boolean }
+interface Paciente { id: string; nombre: string; empresa_id?: string | null; tier?: 'esencial' | 'clinico'; bloqueado?: boolean }
 
 interface Props {
   tier:            string | null
@@ -111,8 +111,6 @@ export default function ReportesPanel({ tier, terapeutaNombre, terminologia = TE
         const emp: Empresa[] = data.empresas ?? []
         setEmpresas(emp)
         setPacientes(data.pacientesActivos ?? [])
-        const conLogo = emp.filter(e => e.logo_url)
-        setLogoUrl(conLogo[0]?.logo_url ?? null)
         setLoaded(true)
       })
       .catch(() => setLoaded(true))
@@ -126,6 +124,9 @@ export default function ReportesPanel({ tier, terapeutaNombre, terminologia = TE
     setDgCache(null)
     setSessionOpt('all'); setAnalisisOpt(''); setRaOpt('all')
     setSesiones([]); setAnalisisFechas([]); setErrorRA('')
+    // Logo de la empresa del paciente (si no tiene empresa o logo, va el nombre del terapeuta)
+    const empresaId = pacientes.find(x => x.id === p)?.empresa_id ?? null
+    setLogoUrl(empresas.find(e => e.id === empresaId)?.logo_url ?? null)
     if (!p) return
 
     // Pre-cargar expediente + nombre del paciente (fire-and-forget)
