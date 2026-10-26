@@ -1,17 +1,20 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
 import { useTerminologiaMenu } from '../TerminologiaMenu'
 
 type Preview = {
-  origen:  { email: string; tieneNotaInicial: boolean; fechaNota: string | null }
-  destino: { email: string; tieneNotaInicial: boolean; fechaNota: string | null }
+  origen:  { email: string; tieneNotaInicial: boolean; fechaNota: string | null; sesiones: number; tieneExpediente: boolean }
+  destino: { email: string; tieneNotaInicial: boolean; fechaNota: string | null; sesiones: number; tieneExpediente: boolean }
   sesionesPresenciales: number
   advertencias: string[]
 }
 
 type Paso = 'formulario' | 'preview' | 'exito'
+
+type Paciente = { id: string; nombre: string; email: string }
 
 export default function FusionarPacientePage() {
   // Palabra del menú del terapeuta (Inventario de Terminología, página 8)
@@ -22,6 +25,36 @@ export default function FusionarPacientePage() {
   const [paso, setPaso]                 = useState<Paso>('formulario')
   const [loading, setLoading]           = useState(false)
   const [error, setError]               = useState('')
+  const [pacientes, setPacientes]       = useState<Paciente[]>([])
+  const [loadingPacientes, setLoadingPacientes] = useState(true)
+
+  // Pacientes activos del terapeuta en orden alfabético (26 oct 2026: antes se escribían los
+  // correos a mano). Se vuelve a leer después de cada fusión: la temporal queda archivada.
+  const cargarPacientes = useCallback(async () => {
+    setLoadingPacientes(true)
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
+    const { data } = await supabase
+      .from('therapist_patients')
+      .select('patient_id, profiles!therapist_patients_patient_id_fkey(full_name, email)')
+      .eq('therapist_id', user.id)
+      .eq('is_active', true)
+      .eq('status', 'active')
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const lista: Paciente[] = (data ?? []).map((row: any) => {
+      const p = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles
+      return { id: row.patient_id, nombre: (p?.full_name ?? '').trim(), email: p?.email ?? '' }
+    })
+      .filter(p => p.email)   // la fusión identifica las cuentas por correo
+      .sort((a, b) => (a.nombre || a.email).localeCompare(b.nombre || b.email, 'es', { sensitivity: 'base' }))
+    setPacientes(lista)
+    setLoadingPacientes(false)
+  }, [])
+
+  useEffect(() => { cargarPacientes() }, [cargarPacientes])
 
   async function verPreview() {
     setError('')
@@ -54,6 +87,7 @@ export default function FusionarPacientePage() {
       return
     }
     setPaso('exito')
+    cargarPacientes()
   }
 
   function reiniciar() {
@@ -74,7 +108,8 @@ export default function FusionarPacientePage() {
         </Link>
         <h1 className="mt-3 text-xl font-bold text-gray-900">Fusionar cuentas de {w.user}</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Copia la nota inicial y las sesiones presenciales de una cuenta temporal a la cuenta real del {w.user}.
+          Pasa toda la información de una cuenta temporal a la cuenta real del {w.user}: nota inicial, datos generales,
+          expediente, sesiones presenciales, análisis y cuestionarios. Si la cuenta real ya tiene un dato, se respeta el suyo.
           La cuenta temporal quedará archivada y dejará de aparecer en tu lista.
         </p>
       </div>
@@ -84,15 +119,15 @@ export default function FusionarPacientePage() {
         <div className="bg-white rounded-2xl border border-gray-100 p-6 space-y-5 shadow-sm">
           <div className="space-y-1">
             <label className="block text-sm font-medium text-gray-700">
-              Correo de la cuenta <span className="text-amber-600 font-semibold">temporal</span>
+              Cuenta <span className="text-amber-600 font-semibold">temporal</span>
               <span className="text-xs font-normal text-gray-400 ml-1">(la que creaste tú)</span>
             </label>
-            <input
-              type="email"
+            <SelectPaciente
               value={emailOrigen}
-              onChange={e => { setEmailOrigen(e.target.value); setError('') }}
-              placeholder="cuenta.temporal@ejemplo.com"
-              className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300"
+              onChange={v => { setEmailOrigen(v); if (v === emailDestino) setEmailDestino(''); setError('') }}
+              pacientes={pacientes}
+              loading={loadingPacientes}
+              placeholder={`— Selecciona la cuenta temporal —`}
             />
           </div>
 
@@ -104,15 +139,15 @@ export default function FusionarPacientePage() {
 
           <div className="space-y-1">
             <label className="block text-sm font-medium text-gray-700">
-              Correo de la cuenta <span className="text-green-600 font-semibold">real del {w.user}</span>
+              Cuenta <span className="text-green-600 font-semibold">real del {w.user}</span>
               <span className="text-xs font-normal text-gray-400 ml-1">(la que creó el {w.user})</span>
             </label>
-            <input
-              type="email"
+            <SelectPaciente
               value={emailDestino}
-              onChange={e => { setEmailDestino(e.target.value); setError('') }}
-              placeholder="correo.real@ejemplo.com"
-              className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300"
+              onChange={v => { setEmailDestino(v); setError('') }}
+              pacientes={pacientes.filter(p => p.email !== emailOrigen)}
+              loading={loadingPacientes}
+              placeholder={`— Selecciona la cuenta real del ${w.user} —`}
             />
           </div>
 
@@ -143,11 +178,7 @@ export default function FusionarPacientePage() {
                 <p className="text-xs font-semibold text-amber-700 mb-0.5">CUENTA TEMPORAL (origen)</p>
                 <p className="text-sm text-gray-700 truncate">{preview.origen.email}</p>
                 <div className="mt-2 space-y-1 text-xs text-gray-500">
-                  {preview.origen.tieneNotaInicial
-                    ? <p>✓ Nota inicial {preview.origen.fechaNota ? `del ${new Date(preview.origen.fechaNota).toLocaleDateString('es-MX')}` : ''}</p>
-                    : <p className="text-gray-400">Sin nota inicial</p>
-                  }
-                  <p>✓ {preview.sesionesPresenciales} sesión{preview.sesionesPresenciales !== 1 ? 'es' : ''} presencial{preview.sesionesPresenciales !== 1 ? 'es' : ''}</p>
+                  <ResumenCuenta c={preview.origen} />
                 </div>
               </div>
               <div className="flex items-center pt-8 text-gray-400 text-xl">→</div>
@@ -155,11 +186,8 @@ export default function FusionarPacientePage() {
                 <p className="text-xs font-semibold text-green-700 mb-0.5">CUENTA REAL (destino)</p>
                 <p className="text-sm text-gray-700 truncate">{preview.destino.email}</p>
                 <div className="mt-2 space-y-1 text-xs text-gray-500">
-                  {preview.destino.tieneNotaInicial
-                    ? <p className="text-amber-600">Ya tiene nota inicial — se conservará la existente</p>
-                    : <p className="text-green-600">Recibirá la nota inicial</p>
-                  }
-                  <p className="text-green-600">Recibirá las sesiones presenciales</p>
+                  <ResumenCuenta c={preview.destino} />
+                  <p className="text-green-600 pt-1">Se respetan sus datos y recibe lo que le falte</p>
                 </div>
               </div>
             </div>
@@ -209,7 +237,7 @@ export default function FusionarPacientePage() {
           <div className="text-4xl">✅</div>
           <h2 className="text-lg font-bold text-gray-800">¡Fusión completada!</h2>
           <p className="text-sm text-gray-500">
-            La nota inicial y las sesiones presenciales de <strong>{emailOrigen}</strong> fueron copiadas a la cuenta de <strong>{emailDestino}</strong>.
+            La información de <strong>{emailOrigen}</strong> pasó a la cuenta de <strong>{emailDestino}</strong>.
             La cuenta temporal quedó archivada.
           </p>
           <div className="flex gap-3 justify-center pt-2">
@@ -230,4 +258,39 @@ export default function FusionarPacientePage() {
       )}
     </div>
   )
+}
+
+// Lista de pacientes activos: "Nombre (correo)"; el valor es el correo que usa la API
+function SelectPaciente({ value, onChange, pacientes, loading, placeholder }: {
+  value: string
+  onChange: (v: string) => void
+  pacientes: Paciente[]
+  loading: boolean
+  placeholder: string
+}) {
+  if (loading) return <p className="text-sm text-gray-400 py-2.5">Cargando…</p>
+  return (
+    <select
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 bg-white"
+    >
+      <option value="">{placeholder}</option>
+      {pacientes.map(p => (
+        <option key={p.id} value={p.email}>
+          {p.nombre ? `${p.nombre} (${p.email})` : p.email}
+        </option>
+      ))}
+    </select>
+  )
+}
+
+// Qué tiene una cuenta (vista previa de la fusión)
+function ResumenCuenta({ c }: { c: Preview['origen'] }) {
+  const fecha = c.fechaNota ? ` del ${new Date(c.fechaNota).toLocaleDateString('es-MX')}` : ''
+  return <>
+    <p className={c.tieneNotaInicial ? '' : 'text-gray-400'}>{c.tieneNotaInicial ? `✓ Nota inicial${fecha}` : 'Sin nota inicial'}</p>
+    <p className={c.tieneExpediente ? '' : 'text-gray-400'}>{c.tieneExpediente ? '✓ Datos generales / expediente' : 'Sin datos generales'}</p>
+    <p className={c.sesiones ? '' : 'text-gray-400'}>{c.sesiones ? `✓ ${c.sesiones} sesión${c.sesiones !== 1 ? 'es' : ''} presencial${c.sesiones !== 1 ? 'es' : ''}` : 'Sin sesiones presenciales'}</p>
+  </>
 }

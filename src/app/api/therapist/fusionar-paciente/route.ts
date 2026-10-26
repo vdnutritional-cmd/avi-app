@@ -2,17 +2,17 @@
 // /api/therapist/fusionar-paciente
 //
 // GET  ?emailOrigen=xxx&emailDestino=yyy
-//      → Vista previa: qué se copiará (nota inicial + sesiones presenciales)
+//      → Vista previa: qué tiene cada cuenta
 //
 // POST { emailOrigen, emailDestino }
-//      → Ejecuta la fusión:
-//        1. Copia nota inicial de origen → destino (si destino no la tiene)
-//        2. Reasigna sesiones presenciales de origen → destino
-//        3. Archiva el registro origen (status = 'archived')
+//      → Ejecuta la fusión con fusionarCuentas() (src/lib/fusionar-cuentas.ts):
+//        toda la información pasa a la real (campo por campo, respetando la real),
+//        sesiones presenciales juntas y numeradas por fecha; la temporal se archiva
 // ─────────────────────────────────────────────────────────────
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { fusionarCuentas } from '@/lib/fusionar-cuentas'
 
 // ── Helpers ───────────────────────────────────────────────────
 
@@ -68,25 +68,30 @@ export async function GET(req: NextRequest) {
   if (!tpDestino) return NextResponse.json({ error: `La cuenta ${emailDestino} no pertenece a tu lista de pacientes` }, { status: 404 })
   if (tpOrigen.status === 'archived') return NextResponse.json({ error: 'La cuenta de origen ya está archivada' }, { status: 400 })
 
-  // Contar sesiones presenciales del origen
-  const { count: sesionesCount } = await supabase
-    .from('therapist_session_notes')
-    .select('id', { count: 'exact', head: true })
-    .eq('therapist_id', user.id)
-    .eq('patient_id', origenId)
+  // Qué tiene cada cuenta
+  const resumen = async (patientId: string) => {
+    const contar = (tabla: string) => supabase.from(tabla)
+      .select('id', { count: 'exact', head: true })
+      .eq('therapist_id', user.id).eq('patient_id', patientId)
+    const [{ count: sesiones }, { count: expediente }] = await Promise.all([
+      contar('therapist_session_notes'), contar('patient_expediente'),
+    ])
+    return { sesiones: sesiones ?? 0, tieneExpediente: (expediente ?? 0) > 0 }
+  }
+  const [rO, rD] = await Promise.all([resumen(origenId), resumen(destinoId)])
 
   const preview = {
-    origen:  { email: emailOrigen,  id: origenId,  tieneNotaInicial: !!tpOrigen.initial_note,  fechaNota: tpOrigen.initial_note_date },
-    destino: { email: emailDestino, id: destinoId, tieneNotaInicial: !!tpDestino.initial_note, fechaNota: tpDestino.initial_note_date },
-    sesionesPresenciales: sesionesCount ?? 0,
+    origen:  { email: emailOrigen,  id: origenId,  tieneNotaInicial: !!tpOrigen.initial_note,  fechaNota: tpOrigen.initial_note_date,  ...rO },
+    destino: { email: emailDestino, id: destinoId, tieneNotaInicial: !!tpDestino.initial_note, fechaNota: tpDestino.initial_note_date, ...rD },
+    sesionesPresenciales: rO.sesiones,
     advertencias: [] as string[],
   }
 
-  if (!tpOrigen.initial_note && (sesionesCount ?? 0) === 0) {
-    preview.advertencias.push('La cuenta de origen no tiene nota inicial ni sesiones presenciales.')
+  if (!tpOrigen.initial_note && rO.sesiones === 0 && !rO.tieneExpediente) {
+    preview.advertencias.push('La cuenta temporal no tiene nota inicial, datos generales ni sesiones presenciales.')
   }
-  if (tpDestino.initial_note) {
-    preview.advertencias.push('La cuenta destino ya tiene una nota inicial — se conservará la del destino y se omitirá la del origen.')
+  if (rO.sesiones > 0 && rD.sesiones > 0) {
+    preview.advertencias.push(`Las ${rO.sesiones + rD.sesiones} sesiones presenciales de ambas cuentas se ordenarán por fecha y se numerarán de nuevo (la más antigua será la Sesión 1).`)
   }
 
   return NextResponse.json({ preview })
@@ -112,6 +117,9 @@ export async function POST(req: NextRequest) {
   if (!origenId || !destinoId) {
     return NextResponse.json({ error: 'No se encontraron los pacientes indicados' }, { status: 404 })
   }
+  if (origenId === destinoId) {
+    return NextResponse.json({ error: 'Las cuentas deben ser diferentes' }, { status: 400 })
+  }
 
   // Obtener registros completos
   const [{ data: tpOrigen }, { data: tpDestino }] = await Promise.all([
@@ -131,43 +139,10 @@ export async function POST(req: NextRequest) {
   if (!tpDestino) return NextResponse.json({ error: 'Cuenta destino no encontrada en tu lista' }, { status: 404 })
   if (tpOrigen.status === 'archived') return NextResponse.json({ error: 'La cuenta de origen ya está archivada' }, { status: 400 })
 
-  // ── 1. Copiar nota inicial (solo si destino no la tiene) ──
-  if (tpOrigen.initial_note && !tpDestino.initial_note) {
-    const notaFields: Record<string, unknown> = {}
-    // Campos de nota inicial — copiar todos los que vengan del origen
-    const NOTA_FIELDS = [
-      'initial_note', 'initial_note_date', 'initial_note_pro_bono', 'initial_note_virtual',
-      // campos estructurados (task #84)
-      'initial_note_motivo', 'initial_note_antecedentes', 'initial_note_red_apoyo',
-      // cualquier otro campo initial_note_* que exista
-    ]
-    for (const field of NOTA_FIELDS) {
-      if (tpOrigen[field] !== undefined && tpOrigen[field] !== null) {
-        notaFields[field] = tpOrigen[field]
-      }
-    }
-    if (Object.keys(notaFields).length > 0) {
-      await supabase.from('therapist_patients')
-        .update(notaFields)
-        .eq('therapist_id', user.id)
-        .eq('patient_id', destinoId)
-    }
+  try {
+    const resultado = await fusionarCuentas(adminClient, user.id, origenId, destinoId)
+    return NextResponse.json({ ok: true, resultado, mensaje: 'Fusión completada. La cuenta temporal quedó archivada.' })
+  } catch (e) {
+    return NextResponse.json({ error: `La fusión no terminó: ${e instanceof Error ? e.message : String(e)}` }, { status: 500 })
   }
-
-  // ── 2. Reasignar sesiones presenciales ────────────────────
-  await supabase.from('therapist_session_notes')
-    .update({ patient_id: destinoId })
-    .eq('therapist_id', user.id)
-    .eq('patient_id', origenId)
-
-  // ── 3. Archivar cuenta origen ─────────────────────────────
-  await supabase.from('therapist_patients')
-    .update({ status: 'archived', is_active: false })
-    .eq('therapist_id', user.id)
-    .eq('patient_id', origenId)
-
-  return NextResponse.json({
-    ok: true,
-    mensaje: 'Fusión completada. La cuenta de origen ha sido archivada.',
-  })
 }
