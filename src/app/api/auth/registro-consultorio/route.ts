@@ -15,7 +15,7 @@ import { CAMPOS_DOMICILIO, domicilioEnUnaLinea } from '@/lib/domicilio'
  */
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const { token, email, password, datosGenerales, empresa_id } = body
+  const { token, email, password, datosGenerales, empresa_id, sin_empresa } = body
 
   if (!token || !email || !password || !datosGenerales?.asesorado_nombre) {
     return NextResponse.json({ error: 'Datos incompletos' }, { status: 400 })
@@ -40,12 +40,12 @@ export async function POST(req: NextRequest) {
 
   // ── 1a. Empresa de la persona ─────────────────────────────────────────────
   // Si no se envió empresa_id explícita, intentar auto-asignar si el terapeuta
-  // tiene exactamente 1 empresa activa asignada.
+  // tiene exactamente 1 empresa activa asignada — salvo que la persona eligiera "Ninguna" (sin_empresa).
   // La empresa solo se acepta si es una empresa CONVENIO activa del propio terapeuta.
   const empresasTerapeuta = await getEmpresasDeTerapeuta(admin, therapistProfile.id)
   let resolvedEmpresaId: string | null =
     empresa_id && empresasTerapeuta.some(e => e.id === empresa_id) ? empresa_id : null
-  if (!resolvedEmpresaId && !empresa_id && empresasTerapeuta.length === 1) {
+  if (!resolvedEmpresaId && !empresa_id && !sin_empresa && empresasTerapeuta.length === 1) {
     resolvedEmpresaId = empresasTerapeuta[0].id
   }
 
@@ -185,7 +185,7 @@ export async function GET(req: NextRequest) {
   const empresas = (empresaRels ?? []).map(r => {
     const e = r.convenio_empresas as { nombre?: string; terminologia?: string | null } | null
     return { id: r.empresa_id as string, nombre: e?.nombre ?? '', terminologia: normalizarTerminologia(e?.terminologia) }
-  })
+  }).sort((a, b) => a.nombre.trim().localeCompare(b.nombre.trim(), 'es', { sensitivity: 'base' }))
 
   const terminologiaPropia = await getTerminologiaPropia(admin, data.id)
   return NextResponse.json({ therapistName: data.full_name, empresas, terminologiaPropia })

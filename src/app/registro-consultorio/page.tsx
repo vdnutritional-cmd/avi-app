@@ -25,6 +25,9 @@ interface DatosGenerales extends Domicilio {
   info_razon_eleccion: string; info_expectativas: string
 }
 
+// Opción "Ninguna" del paso Empresa: la persona es atención personal del terapeuta
+const SIN_EMPRESA = 'ninguna'
+
 const hijoVacio = (): Hijo => ({ nombre: '', edad: '', ocupacion: '', vive_en_casa: '' })
 
 const datosBlancos = (): DatosGenerales => ({
@@ -88,24 +91,25 @@ function RegistroConsultorioForm() {
 
   // Empresa (convenio)
   const [empresas,  setEmpresas]  = useState<{ id: string; nombre: string; terminologia: Terminologia }[]>([])
-  const [empresaId, setEmpresaId] = useState('')
+  const [empresaId, setEmpresaId] = useState('')   // id de la empresa, o SIN_EMPRESA (atención personal del terapeuta)
   const [terminologiaPropia, setTerminologiaPropia] = useState<Terminologia>(TERMINOLOGIA_SIN_EMPRESA)
 
   // Palabra de la persona (Inventario de Terminología, página 11): la de su empresa;
-  // sin empresa, "Cómo me nombran" del terapeuta. Con ≥2 empresas, la elegida en el
-  // paso Empresa; antes de elegir, 'asesorado' si alguna lo es (como el menú del terapeuta).
-  const empresaElegida = empresas.length === 1 ? empresas[0] : empresas.find(e => e.id === empresaId)
+  // sin empresa (o "Ninguna"), "Cómo me nombran" del terapeuta. Antes de elegir en el
+  // paso Empresa, 'asesorado' si alguna lo es (como el menú del terapeuta).
+  const empresaElegida = empresas.find(e => e.id === empresaId)
   const terminologia: Terminologia = empresaElegida
     ? empresaElegida.terminologia
-    : empresas.length === 0
+    : empresas.length === 0 || empresaId === SIN_EMPRESA
       ? terminologiaPropia
       : empresas.some(e => e.terminologia === 'asesorado') ? 'asesorado' : 'paciente'
   const w = terminos(terminologia)
 
-  // Steps dinámicos: insertar 'Empresa' entre 'Cuenta' y los datos de la persona si hay ≥2 empresas
+  // Steps dinámicos: insertar 'Empresa' entre 'Cuenta' y los datos de la persona si el terapeuta
+  // tiene empresas (26 oct 2026: también con una sola, para poder elegir "Ninguna")
   const steps = [
     { id: 'cuenta',      label: 'Cuenta'      },
-    ...(empresas.length >= 2 ? [{ id: 'empresa', label: 'Empresa' }] : []),
+    ...(empresas.length >= 1 ? [{ id: 'empresa', label: 'Empresa' }] : []),
     { id: 'asesorado',   label: w.User        },
     { id: 'contacto',    label: 'Contacto'    },
     { id: 'pareja',      label: 'Pareja'      },
@@ -129,7 +133,8 @@ function RegistroConsultorioForm() {
         if (d.error) setTokenInvalido(true)
         else {
           setTherapistName(d.therapistName)
-          setEmpresas(d.empresas ?? [])
+          setEmpresas([...(d.empresas ?? [])].sort((a: { nombre: string }, b: { nombre: string }) =>
+            a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' })))
           if (d.terminologiaPropia) setTerminologiaPropia(d.terminologiaPropia)
         }
       })
@@ -166,7 +171,7 @@ function RegistroConsultorioForm() {
       if (!pw.valid) return 'La contraseña no cumple los requisitos: ' + pw.errors.join(', ')
     }
     if (currentId === 'empresa') {
-      if (!empresaId) return 'Selecciona la empresa a la que perteneces'
+      if (!empresaId) return 'Selecciona la empresa a la que perteneces, o Ninguna'
     }
     if (currentId === 'asesorado') {
       if (!nombres.trim())   return 'El nombre es requerido'
@@ -203,7 +208,7 @@ function RegistroConsultorioForm() {
           token,
           email: email.trim().toLowerCase(),
           password,
-          ...(empresaId ? { empresa_id: empresaId } : {}),
+          ...(empresaId === SIN_EMPRESA ? { sin_empresa: true } : empresaId ? { empresa_id: empresaId } : {}),
           datosGenerales: {
             ...dg,
             asesorado_nombre: nombreCompleto,
@@ -339,7 +344,7 @@ function RegistroConsultorioForm() {
           {steps[step]?.id === 'empresa' && <>
             <h2 className="text-base font-semibold text-gray-800">Selecciona tu empresa</h2>
             <p className="text-xs text-gray-500 leading-relaxed">
-              Tu registro está asociado a más de una empresa convenio. Elige a cuál corresponde esta consulta.
+              Elige la empresa convenio a la que corresponde esta consulta. Si no vienes de ninguna empresa, elige <strong>Ninguna</strong>.
             </p>
             <div className="space-y-3 pt-1">
               {empresas.map(e => (
@@ -357,6 +362,19 @@ function RegistroConsultorioForm() {
                   {e.nombre}
                 </button>
               ))}
+              <button
+                type="button"
+                onClick={() => setEmpresaId(SIN_EMPRESA)}
+                className={`w-full text-left px-4 py-3.5 rounded-2xl border-2 transition-colors text-sm font-medium ${
+                  empresaId === SIN_EMPRESA
+                    ? 'border-primary-500 bg-primary-50 text-primary-800'
+                    : 'border-gray-200 bg-white text-gray-700 hover:border-primary-300'
+                }`}
+              >
+                {empresaId === SIN_EMPRESA && <span className="mr-2">✓</span>}
+                Ninguna
+                <span className="block text-xs font-normal text-gray-500 mt-0.5">Atención personal con {therapistName || `tu ${w.pro}`}</span>
+              </button>
             </div>
           </>}
 
@@ -449,21 +467,22 @@ function RegistroConsultorioForm() {
                 placeholder="3312345678" className={inputCls} />
             </Field>
             <p className="text-sm font-medium text-gray-700 pt-1">Domicilio</p>
-            <Field label="Calle">
-              <input type="text" value={dg.domicilio_calle} maxLength={100}
-                onChange={e => setField('domicilio_calle', e.target.value)}
-                placeholder="Av. Juárez" className={inputCls} />
-            </Field>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Número exterior">
-                <input type="text" value={dg.domicilio_num_ext} maxLength={15}
-                  onChange={e => setField('domicilio_num_ext', e.target.value)}
-                  placeholder="123" className={inputCls} />
+            {/* Calle ancha; números exterior e interior cortos (máx. 6 caracteres), en un solo renglón */}
+            <div className="grid grid-cols-[1fr_4.75rem_4.75rem] gap-2">
+              <Field label="Calle">
+                <input type="text" value={dg.domicilio_calle} maxLength={100}
+                  onChange={e => setField('domicilio_calle', e.target.value)}
+                  placeholder="Av. Juárez" className={inputCls} />
               </Field>
-              <Field label="Número interior">
-                <input type="text" value={dg.domicilio_num_int} maxLength={15}
+              <Field label="Núm. ext.">
+                <input type="text" value={dg.domicilio_num_ext} maxLength={6}
+                  onChange={e => setField('domicilio_num_ext', e.target.value)}
+                  placeholder="123" className={`${inputCls} !px-2.5`} />
+              </Field>
+              <Field label="Núm. int.">
+                <input type="text" value={dg.domicilio_num_int} maxLength={6}
                   onChange={e => setField('domicilio_num_int', e.target.value)}
-                  placeholder="4-B" className={inputCls} />
+                  placeholder="4-B" className={`${inputCls} !px-2.5`} />
               </Field>
             </div>
             <Field label="Colonia">

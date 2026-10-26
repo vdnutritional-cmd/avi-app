@@ -530,11 +530,11 @@ export default function DatosGeneralesTab({ patientId, therapistId, patientEmail
           </div>
           <div>
             <Label>Número exterior</Label>
-            <TextInput value={data.domicilio_num_ext} onChange={v => set('domicilio_num_ext', v)} maxLength={15} placeholder="Ej. 123" />
+            <TextInput value={data.domicilio_num_ext} onChange={v => set('domicilio_num_ext', v)} maxLength={6} placeholder="Ej. 123" />
           </div>
           <div>
             <Label>Número interior</Label>
-            <TextInput value={data.domicilio_num_int} onChange={v => set('domicilio_num_int', v)} maxLength={15} placeholder="Ej. 4-B" />
+            <TextInput value={data.domicilio_num_int} onChange={v => set('domicilio_num_int', v)} maxLength={6} placeholder="Ej. 4-B" />
           </div>
           <div className="sm:col-span-2">
             <Label>Colonia</Label>
