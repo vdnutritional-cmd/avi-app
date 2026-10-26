@@ -15,17 +15,17 @@ export default function HomePage() {
   return (
     <main className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-primary-50 via-white to-calm-50 px-4">
       <div className="max-w-md w-full text-center space-y-8">
-        {/* Logo oficial "AVI Therapy Companion" (imagen de José Luis, 18 oct 2026), recortado
-            sin márgenes y con fondo transparente: public/logo-avi-therapy-companion.png (1239 × 198) */}
+        {/* Logo oficial AVI (imagen de José Luis, 26 oct 2026), recortado sin márgenes
+            y con esquinas transparentes: public/logo-avi-2.png (455 × 455) */}
         <div className="space-y-3">
           <h1 className="flex justify-center">
             <Image
-              src="/logo-avi-therapy-companion.png"
+              src="/logo-avi-2.png"
               alt="AVI Therapy Companion"
-              width={1239}
-              height={198}
+              width={455}
+              height={455}
               priority
-              className="w-full max-w-[380px] h-auto"
+              className="w-full max-w-[86px] h-auto"
             />
           </h1>
           <p className="text-lg text-gray-600">
