@@ -14,8 +14,12 @@ import ExpedienteTab from './ExpedienteTab'
 import DatosGeneralesTab from './DatosGeneralesTab'
 import TipoCasoTab from './TipoCasoTab'
 import DerivacionesCierresTab from './DerivacionesCierresTab'
+import AudioRecorder from '@/components/AudioRecorder'
 
 const MAX_SESIONES_PRESENCIALES = 12
+
+// Resumen de la escucha de AVI: llena el campo; si ya tenía texto, se agrega al final (no se pierde lo escrito)
+const agregarResumen = (actual: string, resumen: string) => actual.trim() ? `${actual.trimEnd()}\n\n${resumen}` : resumen
 
 // Fecha de hoy en horario de la Ciudad de México (YYYY-MM-DD)
 function hoyMX(): string {
@@ -1066,6 +1070,9 @@ export default function PatientDetailPage() {
                 />
               </div>
 
+              {/* Escucha de AVI (Sprint 13): el resumen pre-llena "2. Desarrollo"; el terapeuta lo edita antes de guardar */}
+              <AudioRecorder patientId={patientId} onResumen={t => setNewSessionDesarrollo(prev => agregarResumen(prev, t))} />
+
               {/* 2. Desarrollo */}
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-gray-600">
@@ -1403,6 +1410,9 @@ export default function PatientDetailPage() {
               ))}
             </select>
           </div>
+
+          {/* Escucha de AVI (Sprint 13): el resumen pre-llena "1. Desarrollo del caso" */}
+          <AudioRecorder patientId={patientId} onResumen={t => setInitialNote(prev => agregarResumen(prev, t))} />
 
           {/* 1. Desarrollo del caso */}
           <div className="space-y-2">

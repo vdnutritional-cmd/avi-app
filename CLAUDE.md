@@ -29,6 +29,7 @@ Módulos transversales: **SaaS Controller** (superadmin), **Administración** de
 | IA — chat paciente | Anthropic `claude-haiku-4-5-20251001` (también patrones y Reporte de la Atención) |
 | IA — análisis | `claude-sonnet-5` con RAG por Enfoque terapéutico, uno o dos (expediente, análisis clínicos; la HC no usa RAG); `claude-sonnet-4-6` en emociones/recursos de sesiones |
 | IA — embeddings | OpenAI `text-embedding-3-small` (1536) |
+| Transcripción de sesión | **Groq Whisper** `whisper-large-v3` (es) + resumen con `claude-sonnet-4-6` (Sprint 13, `AudioRecorder`) |
 | Voz | TTS **Amazon Polly** (Mia, es-MX) en `/api/voice/tts`; dictado con **Web Speech API** del navegador. ElevenLabs **no se usa** (`/api/voice/stt` es legado, sin llamadas). En sesión **escrita** no se usa voz |
 | Pagos | Stripe (checkout + webhooks) |
 | Email | Resend |
@@ -160,6 +161,7 @@ El archivo más grande (~2300 líneas). Es un **client component** que maneja:
 
 - **Domicilio en partes** (25 oct 2026): calle, números, colonia, municipio, C.P., estado y país (`domicilio_*` en `patient_expediente`, `src/lib/domicilio.ts`), igual en el registro por QR. `contacto_domicilio` guarda el domicilio completo en una línea (lo leen los PDF y los análisis); de los pacientes anteriores se muestra como aviso para pasarlo a las partes. Religión: misma lista en el QR y en Datos Generales; lo escrito mal antes se ve vacío y se corrige en sesión
 - **Sesiones presenciales:** la lista en pantalla va de la más reciente a la primera; el PDF, de la primera a la última
+- **Escucha de AVI** (Sprint 13, `src/components/AudioRecorder.tsx`): en Sesiones Presenciales (antes de "2. Desarrollo") y en Nota Inicial (antes de "1. Desarrollo del caso"). Graba en tramos de 4 min a 32 kbps (Vercel no acepta peticiones de más de 4.5 MB); cada tramo se transcribe en `POST /api/transcribir-sesion` (Groq) mientras sigue la sesión, y al detener `POST /api/transcribir-sesion/resumen` hace el resumen de 300–400 palabras (`ia_uso` tipo `resumen_transcripcion`). Solo los primeros ~50 min; avisos con tono a los 40 y 50 min; Wake Lock; cuenta como actividad. **El audio no se guarda**: vive en memoria del navegador; si falla, "Reintentar" lo reenvía. El resumen se agrega al campo (si ya tenía texto, al final)
 - **Datos Generales** (`DatosGeneralesTab`) recibe `initialData` de `page.tsx` (se carga una vez): al guardar avisa con `onSaved` y solo manda los campos que cambiaron — si no, al volver a la pestaña se veían datos viejos y el siguiente guardado borraba lo anterior
 
 ### `src/app/therapist/layout.tsx`
@@ -310,6 +312,7 @@ SUPABASE_ANON_KEY=     # sin prefijo NEXT_PUBLIC_ para server
 SUPABASE_SERVICE_ROLE_KEY=
 ANTHROPIC_API_KEY=
 OPENAI_API_KEY=        # embeddings text-embedding-3-small (RAG)
+GROQ_API_KEY=          # Whisper: transcripción de sesión (Sprint 13)
 STRIPE_SECRET_KEY=
 STRIPE_WEBHOOK_SECRET=
 RESEND_API_KEY=
