@@ -29,7 +29,7 @@ Módulos transversales: **SaaS Controller** (superadmin), **Administración** de
 | IA — chat paciente | Anthropic `claude-haiku-4-5-20251001` (también patrones y Reporte de la Atención) |
 | IA — análisis | `claude-sonnet-5` con RAG por Enfoque terapéutico, uno o dos (expediente, análisis clínicos; la HC no usa RAG); `claude-sonnet-4-6` en emociones/recursos de sesiones |
 | IA — embeddings | OpenAI `text-embedding-3-small` (1536) |
-| Transcripción de sesión | **Groq Whisper** `whisper-large-v3` (es) + resumen con `claude-sonnet-4-6` (Sprint 13, `AudioRecorder`) |
+| Transcripción de sesión | **Groq Whisper** `whisper-large-v3-turbo` (es, ~$0.04/h de audio) + resumen con `claude-sonnet-4-6` (Sprint 13, `AudioRecorder`) |
 | Voz | TTS **Amazon Polly** (Mia, es-MX) en `/api/voice/tts`; dictado con **Web Speech API** del navegador. ElevenLabs **no se usa** (`/api/voice/stt` es legado, sin llamadas). En sesión **escrita** no se usa voz |
 | Pagos | Stripe (checkout + webhooks) |
 | Email | Resend |
@@ -161,11 +161,12 @@ El archivo más grande (~2300 líneas). Es un **client component** que maneja:
 
 - **Domicilio en partes** (25 oct 2026): calle, números, colonia, municipio, C.P., estado y país (`domicilio_*` en `patient_expediente`, `src/lib/domicilio.ts`), igual en el registro por QR. `contacto_domicilio` guarda el domicilio completo en una línea (lo leen los PDF y los análisis); de los pacientes anteriores se muestra como aviso para pasarlo a las partes. Religión: misma lista en el QR y en Datos Generales; lo escrito mal antes se ve vacío y se corrige en sesión
 - **Sesiones presenciales:** la lista en pantalla va de la más reciente a la primera; el PDF, de la primera a la última
-- **Escucha de AVI** (Sprint 13, `src/components/AudioRecorder.tsx`): en Sesiones Presenciales (antes de "2. Desarrollo") y en Nota Inicial (antes de "1. Desarrollo del caso"). Graba en tramos de 4 min a 32 kbps (Vercel no acepta peticiones de más de 4.5 MB); cada tramo se transcribe en `POST /api/transcribir-sesion` (Groq) mientras sigue la sesión, y al detener `POST /api/transcribir-sesion/resumen` hace el resumen de 300–400 palabras (`ia_uso` tipo `resumen_transcripcion`). Solo los primeros ~50 min; avisos con tono a los 40 y 50 min; Wake Lock; cuenta como actividad. **El audio no se guarda**: vive en memoria del navegador; si falla, "Reintentar" lo reenvía. El resumen se agrega al campo (si ya tenía texto, al final)
+- **Escucha de AVI** (Sprint 13, `src/components/AudioRecorder.tsx`): en Sesiones Presenciales (antes de "2. Desarrollo") y en Nota Inicial (antes de "1. Desarrollo del caso"). Graba en tramos de 4 min a 32 kbps (Vercel no acepta peticiones de más de 4.5 MB); cada tramo se transcribe en `POST /api/transcribir-sesion` (Groq `whisper-large-v3-turbo`, `verbose_json`; los segundos de audio van a `ia_uso.audio_segundos`, tipo `transcripcion_audio`, migración `20261027c`) mientras sigue la sesión, y al detener `POST /api/transcribir-sesion/resumen` hace el resumen de 300–400 palabras (`ia_uso` tipo `resumen_transcripcion`). Solo los primeros ~50 min; avisos con tono a los 40 y 50 min; Wake Lock; cuenta como actividad. **El audio no se guarda**: vive en memoria del navegador; si falla, "Reintentar" lo reenvía. El resumen se agrega al campo (si ya tenía texto, al final)
   - **Consentimiento Informado (decisión del 27 oct 2026):** la escucha de AVI se incluirá en el Consentimiento Informado del paciente (`patient/onboarding`, paso 4; apartado nuevo con la palabra de la persona). El texto debe ser exacto:
     - **Sí se graba toda la sesión** (hasta ~50 min); los tramos son solo la forma de enviarla.
     - El audio y la transcripción **no se guardan** y se borran al terminar. **Solo queda el resumen**, que el terapeuta revisa.
     - Procesan **Groq** (EE. UU., voz a texto) y **Anthropic** (resumen).
+  - **Si Groq rechaza por pago, límite del plan o clave** (402/403/429/401 o texto de billing): `avisarFallaServicioIA()` (`src/lib/ia/alerta-servicio.ts`) manda correo a `ADMIN_EMAIL` (máx. 1 cada 6 h por motivo; queda en `audit_log` como `ALERTA:Groq:<motivo>`) y el terapeuta ve "no está disponible… AVI ya fue avisado", con su grabación conservada para reintentar. Las fallas pasajeras (red, 5xx) muestran el mensaje de WiFi
   - **Pendientes del consentimiento:**
     - Revisar la política de privacidad de Groq (retención de audios).
     - Decidir qué pasa con los pacientes que aceptaron la versión anterior: pedirles aceptar de nuevo al entrar, o autorización verbal en sesión mientras tanto.

@@ -16,7 +16,8 @@
 import { useEffect, useRef, useState } from 'react'
 
 type Estado = 'idle' | 'recording' | 'transcribing' | 'error'
-type Tramo = { inicio: number; blob: Blob; texto?: string; fallo?: boolean }
+// mensaje: aviso del servidor cuando el servicio no está disponible (pago, límite); si no, el de WiFi
+type Tramo = { inicio: number; blob: Blob; texto?: string; fallo?: boolean; mensaje?: string }
 
 const TRAMO_MS     = 4 * 60 * 1000
 const AVISO_SEG    = 40 * 60
@@ -106,13 +107,17 @@ export default function AudioRecorder({ onResumen, patientId }: { onResumen: (te
   function transcribir(tramo: Tramo): Promise<void> {
     const envio = (async () => {
       tramo.fallo = false
+      tramo.mensaje = undefined
       try {
         const form = new FormData()
         form.append('audio', tramo.blob)
         if (patientId) form.append('patientId', patientId)
         const res = await fetch('/api/transcribir-sesion', { method: 'POST', body: form })
         const json = await res.json().catch(() => ({}))
-        if (!res.ok) throw new Error(json.error)
+        if (!res.ok) {
+          if (json.servicio) tramo.mensaje = json.error
+          throw new Error(json.error)
+        }
         tramo.texto = json.texto ?? ''
       } catch {
         tramo.fallo = true
@@ -199,7 +204,10 @@ export default function AudioRecorder({ onResumen, patientId }: { onResumen: (te
     const tramos = tramosRef.current
     await Promise.all(tramos.map(t => t.fallo ? transcribir(t) : envios.current.get(t)))
     if (tramos.length === 0) { setError('No se grabó audio.'); setEstado('error'); return }
-    if (tramos.some(t => t.fallo)) { setError('Ocurrió un error al transcribir; revisa la comunicación de WiFi y reintenta.'); setEstado('error'); return }
+    if (tramos.some(t => t.fallo)) {
+      setError(tramos.find(t => t.mensaje)?.mensaje ?? 'Ocurrió un error al transcribir; revisa la comunicación de WiFi y reintenta.')
+      setEstado('error'); return
+    }
 
     const transcripcion = tramos.map(t => t.texto).filter(Boolean).join('\n')
     try {

@@ -40,3 +40,31 @@ export function registrarUso(
     void registrar()
   }
 }
+
+/**
+ * Uso de audio (Groq Whisper, 27 oct 2026): cobra por hora de audio, no por tokens.
+ * Guarda los segundos en ia_uso.audio_segundos (migración 20261027c), una fila por tramo.
+ */
+export function registrarUsoAudio(
+  tipo: string,
+  modelo: string,
+  segundos: number | null | undefined,
+  ids: { therapistId?: string | null; patientId?: string | null } = {},
+) {
+  if (!segundos) return
+  const registrar = async () => {
+    const { error } = await createAdminClient().from('ia_uso').insert({
+      tipo,
+      modelo,
+      therapist_id:   ids.therapistId ?? null,
+      patient_id:     ids.patientId ?? null,
+      audio_segundos: Math.round(segundos * 10) / 10,
+    })
+    if (error) console.error('[ia_uso] No se pudo registrar', tipo, error.message)
+  }
+  try {
+    after(registrar)
+  } catch {
+    void registrar()
+  }
+}
