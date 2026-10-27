@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logApiAccess } from '@/lib/audit/log-access'
 import { autorizarEmpresa } from '@/lib/autorizar-empresa'
+import { ajustarEnfoquesTrasCambio } from '@/lib/enfoques-permitidos'
 
 const RUTA = '/api/institucional/alta-baja'
 const noAutorizado = () => NextResponse.json({ error: 'No tienes permiso en esta empresa.' }, { status: 403 })
@@ -37,6 +38,8 @@ export async function POST(req: NextRequest) {
     { onConflict: 'therapist_id,empresa_id', ignoreDuplicates: true },
   )
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  // Con la empresa nueva, sus enfoques permitidos pueden cambiar
+  await ajustarEnfoquesTrasCambio(admin, { therapistIds: [perfil.id] })
   logApiAccess(auth.supabase, auth.user.id, RUTA, 'POST', { empresa_id, therapist_id: perfil.id })
   return NextResponse.json({ ok: true, nombre: perfil.full_name })
 }
@@ -47,13 +50,15 @@ export async function DELETE(req: NextRequest) {
   if (!auth) return noAutorizado()
   if (typeof therapist_id !== 'string' || !therapist_id) return NextResponse.json({ error: 'Falta el terapeuta.' }, { status: 400 })
 
-  const { error, count } = await createAdminClient()
+  const admin = createAdminClient()
+  const { error, count } = await admin
     .from('therapist_empresa')
     .delete({ count: 'exact' })
     .eq('therapist_id', therapist_id)
     .eq('empresa_id', empresa_id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   if (!count) return NextResponse.json({ error: 'Ese terapeuta ya no está en esta empresa.' }, { status: 404 })
+  await ajustarEnfoquesTrasCambio(admin, { therapistIds: [therapist_id] })
   logApiAccess(auth.supabase, auth.user.id, RUTA, 'DELETE', { empresa_id, therapist_id })
   return NextResponse.json({ ok: true })
 }

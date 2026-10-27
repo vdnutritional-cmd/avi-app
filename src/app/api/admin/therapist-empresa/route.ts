@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { ajustarEnfoquesTrasCambio } from '@/lib/enfoques-permitidos'
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? 'pepe.vargas.papa@gmail.com'
 
@@ -51,6 +52,7 @@ export async function POST(req: NextRequest) {
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  await ajustarEnfoquesTrasCambio(service(), { therapistIds: [therapistId] })
   return NextResponse.json({ ok: true, row: data })
 }
 
@@ -67,5 +69,6 @@ export async function DELETE(req: NextRequest) {
     .eq('empresa_id', empresaId)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  await ajustarEnfoquesTrasCambio(service(), { therapistIds: [therapistId] })
   return NextResponse.json({ ok: true })
 }

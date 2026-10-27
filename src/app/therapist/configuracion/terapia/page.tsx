@@ -3,59 +3,18 @@
 export const dynamic = 'force-dynamic'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { ENFOQUES_CATALOGO, MAX_ENFOQUES, enfoquesDePerfil, nombrePerfil, perfilDeEnfoques, type EnfoqueId } from '@/lib/enfoques'
 
-// Perfiles válidos según las combinaciones acordadas
-const TERAPIAS = [
-  {
-    id: 'famsis',
-    label: 'Terapia Familiar Sistémica',
-    descripcion: 'Enfoque que ve a la familia como un sistema interconectado donde el síntoma de un miembro refleja desequilibrios relacionales del sistema completo.',
-    icon: '🏠',
-  },
-  {
-    id: 'trec',
-    label: 'Terapia Racional Emotivo-Conductual (TREC)',
-    descripcion: 'Terapia cognitiva que sostiene que las emociones perturbadoras derivan de creencias irracionales, las cuales se identifican y sustituyen por otras más racionales.',
-    icon: '🧠',
-  },
-  {
-    id: 'cc',
-    label: 'Terapia Cognitivo-Conductual (TCC)',
-    descripcion: 'Modelo que integra técnicas cognitivas y conductuales, partiendo de que pensamientos, emociones y conductas se interrelacionan y modifican patrones disfuncionales.',
-    icon: '💡',
-  },
-] as const
-
-type TerapiaId = 'famsis' | 'trec' | 'cc'
-
-// Calcula el perfil compuesto según las terapias seleccionadas
-function calcularPerfil(seleccion: TerapiaId[]): string {
-  const sorted = [...seleccion].sort()
-  if (sorted.length === 0) return 'famsis'          // default: Familiar Sistémica
-  if (sorted.length === 1) return sorted[0]
-  // 2 terapias — ordenar alfabéticamente para obtener la clave compuesta
-  return sorted.join('_')
-}
-
-// Extrae las terapias individuales desde un perfil compuesto guardado en DB
-function perfilASeleccion(perfil: string): TerapiaId[] {
-  const partes = perfil.split('_') as TerapiaId[]
-  return partes.filter((p): p is TerapiaId => ['famsis', 'trec', 'cc'].includes(p))
-}
-
-const PERFIL_LABELS: Record<string, string> = {
-  famsis:      'Terapia Familiar Sistémica',
-  trec:        'Terapia Racional Emotivo-Conductual (TREC)',
-  cc:          'Terapia Cognitivo-Conductual (TCC)',
-  famsis_trec: 'Terapia Familiar Sistémica + TREC',
-  famsis_cc:   'Terapia Familiar Sistémica + Cognitivo-Conductual',
-  trec_cc:     'TREC + Cognitivo-Conductual',
-}
+// Solo se muestran los enfoques permitidos (27 oct 2026): con plan pagado personal o sin empresa, todos;
+// si no, los que autorizaron sus empresas activas en Configuración Admin. Regla: src/lib/enfoques-permitidos.ts
+type Motivo = 'plan_personal' | 'gracia' | 'empresas' | 'sin_empresa'
 
 export default function TerapiaConfigPage() {
-  const [seleccion, setSeleccion] = useState<TerapiaId[]>([])
-  const [perfilActual, setPerfilActual] = useState<string>('famsis')
+  const [seleccion, setSeleccion] = useState<EnfoqueId[]>([])
+  const [permitidos, setPermitidos] = useState<EnfoqueId[]>([])
+  const [motivo, setMotivo] = useState<Motivo>('sin_empresa')
+  const [empresas, setEmpresas] = useState<{ nombre: string; enfoques: EnfoqueId[] }[]>([])
+  const [graciaHasta, setGraciaHasta] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -67,28 +26,28 @@ export default function TerapiaConfigPage() {
 
   async function cargarPerfil() {
     setLoading(true)
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setLoading(false); return }
-
-    const { data } = await supabase
-      .from('profiles')
-      .select('therapy_profile')
-      .eq('id', user.id)
-      .single()
-
-    const perfil = data?.therapy_profile ?? null
-    setPerfilActual(perfil ?? '')
-    setSeleccion(perfil ? perfilASeleccion(perfil) : [])
+    try {
+      const res = await fetch('/api/therapist/enfoque')
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      const perm: EnfoqueId[] = data.permitidos ?? []
+      setPermitidos(perm)
+      setMotivo(data.motivo)
+      setEmpresas(data.empresas ?? [])
+      setGraciaHasta(data.graciaHasta ?? null)
+      setSeleccion(enfoquesDePerfil(data.perfil).filter(id => perm.includes(id)))
+    } catch {
+      setError('No se pudo cargar tu configuración. Recarga la página.')
+    }
     setLoading(false)
   }
 
-  function toggleTerapia(id: TerapiaId) {
+  function toggleTerapia(id: EnfoqueId) {
     setSeleccion(prev => {
       if (prev.includes(id)) {
         return prev.filter(t => t !== id)
       }
-      if (prev.length >= 2) {
+      if (prev.length >= MAX_ENFOQUES) {
         setError('Máximo 2 enfoques terapéuticos. Deselecciona uno para elegir otro.')
         return prev
       }
@@ -105,28 +64,24 @@ export default function TerapiaConfigPage() {
     }
     setSaving(true)
     setError(null)
-    const nuevoPerfil = calcularPerfil(seleccion)
-
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setSaving(false); return }
-
-    const { error: updateError } = await supabase
-      .from('profiles')
-      .update({ therapy_profile: nuevoPerfil })
-      .eq('id', user.id)
-
-    if (updateError) {
-      setError('Error al guardar. Intenta de nuevo.')
-    } else {
-      setPerfilActual(nuevoPerfil)
+    try {
+      const res = await fetch('/api/therapist/enfoque', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enfoques: seleccion }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
       setSaved(true)
+    } catch (e) {
+      setError(e instanceof Error && e.message ? e.message : 'Error al guardar. Intenta de nuevo.')
     }
     setSaving(false)
   }
 
+  const terapias = ENFOQUES_CATALOGO.filter(t => permitidos.includes(t.id))
   const perfilPreview = seleccion.length > 0
-    ? PERFIL_LABELS[calcularPerfil(seleccion)] ?? calcularPerfil(seleccion)
+    ? nombrePerfil(perfilDeEnfoques(seleccion))
     : 'Selecciona al menos un enfoque'
 
   if (loading) {
@@ -148,12 +103,28 @@ export default function TerapiaConfigPage() {
         </p>
       </div>
 
+      {/* De dónde salen los enfoques que se muestran */}
+      {motivo === 'empresas' && (
+        <div className="rounded-xl bg-primary-50 border border-primary-100 px-4 py-3 text-xs text-primary-800 leading-relaxed">
+          Enfoques autorizados por {empresas.length === 1 ? 'tu empresa' : 'tus empresas'}:{' '}
+          <strong>{empresas.map(e => e.nombre).join(', ')}</strong>.
+        </div>
+      )}
+
+      {motivo === 'gracia' && graciaHasta && (
+        <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-xs text-amber-800 leading-relaxed">
+          Tu plan pagado venció. Conservas todos los enfoques hasta el{' '}
+          <strong>{new Date(graciaHasta).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}</strong>;
+          después solo podrás usar los que autoricen tus empresas. Si renuevas tu plan antes, no cambia nada.
+        </div>
+      )}
+
       {/* Selector de enfoques */}
       <div className="space-y-3">
         <p className="text-sm font-medium text-gray-700">
-          Elige hasta 2 enfoques terapéuticos:
+          {terapias.length > 1 ? 'Elige hasta 2 enfoques terapéuticos:' : 'Enfoque terapéutico:'}
         </p>
-        {TERAPIAS.map(t => {
+        {terapias.map(t => {
           const activa = seleccion.includes(t.id)
           return (
             <button

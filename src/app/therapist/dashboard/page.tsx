@@ -4,6 +4,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { terminos } from '@/lib/terminologia'
 import { getTerminologiaTerapeuta } from '@/lib/terminologia-paciente'
 import Link from 'next/link'
+import { nombrePerfil } from '@/lib/enfoques'
+
 
 export default async function TherapistDashboardPage() {
   const supabase = await createClient()
@@ -74,15 +76,6 @@ export default async function TherapistDashboardPage() {
     ? ['active', 'free_approved', 'trialing'].includes(subscription.status)
     : false
 
-  const PERFIL_LABELS: Record<string, string> = {
-    famsis:      'Terapia Familiar Sistémica',
-    trec:        'Terapia Racional Emotivo-Conductual (TREC)',
-    cc:          'Terapia Cognitivo-Conductual (TCC)',
-    famsis_trec: 'Terapia Familiar Sistémica + TREC',
-    famsis_cc:   'Terapia Familiar Sistémica + Cognitivo-Conductual',
-    trec_cc:     'TREC + Cognitivo-Conductual',
-  }
-
   const perfil = therapistProfile?.therapy_profile ?? null
   const perfilConfigurado = !!perfil
 
@@ -125,7 +118,7 @@ export default async function TherapistDashboardPage() {
               Configuración de terapia seleccionada para la realización de los análisis clínicos:
             </p>
             <p className="text-xs text-green-700 mt-0.5 font-medium">
-              {PERFIL_LABELS[perfil!] ?? perfil}
+              {nombrePerfil(perfil)}
             </p>
           </div>
         </Link>

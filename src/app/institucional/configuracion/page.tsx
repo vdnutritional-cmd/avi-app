@@ -23,7 +23,7 @@ export default async function ConfiguracionAdminPage() {
   const empresaIds = [...new Set((registros ?? []).map(r => r.empresa_id as string))]
 
   const { data: empresas } = empresaIds.length
-    ? await admin.from('convenio_empresas').select('id, nombre, terminologia, telefono, telefono_solicitudes, logo_url')
+    ? await admin.from('convenio_empresas').select('id, nombre, terminologia, telefono, telefono_solicitudes, logo_url, enfoques_permitidos')
         .in('id', empresaIds).eq('is_active', true).order('nombre')
     : { data: [] }
 
@@ -32,7 +32,7 @@ export default async function ConfiguracionAdminPage() {
       <div>
         <h1 className="text-2xl font-bold text-primary-700">Configuración Admin</h1>
         <p className="text-sm text-gray-500 mt-1">
-          Terminología, teléfono de contacto y logo de cada empresa a la que perteneces.
+          Terminología, enfoques terapéuticos, teléfono de contacto y logo de cada empresa a la que perteneces.
         </p>
       </div>
       {empresaIds.length === 0

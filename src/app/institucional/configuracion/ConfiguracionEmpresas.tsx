@@ -1,12 +1,13 @@
 'use client'
 
 // ─────────────────────────────────────────────────────────────
-// Configuración Admin — por empresa: terminología, teléfono de contacto y logo.
+// Configuración Admin — por empresa: terminología, enfoques terapéuticos, teléfono de contacto y logo.
 // La usan la Persona Institucional (User/Superuser) en Administración y el
 // SaaS Controller en AVI Administración. Guarda vía /api/institucional/empresa-config.
 // ─────────────────────────────────────────────────────────────
 import { useRef, useState } from 'react'
 import { TERMINOLOGIA_OPCIONES, normalizarTerminologia, terminos, type Terminologia } from '@/lib/terminologia'
+import { ENFOQUES_CATALOGO, TODOS_LOS_ENFOQUES, esEnfoque, type EnfoqueId } from '@/lib/enfoques'
 
 export interface EmpresaConfig {
   id: string
@@ -15,6 +16,7 @@ export interface EmpresaConfig {
   telefono: string | null
   telefono_solicitudes: string | null
   logo_url: string | null
+  enfoques_permitidos?: string[] | null
 }
 
 const API = '/api/institucional/empresa-config'
@@ -136,6 +138,7 @@ function TarjetaEmpresa({ empresa, abierta }: { empresa: EmpresaConfig; abierta:
       </summary>
       <div className="px-5 pb-5 space-y-5 border-t border-gray-100 pt-4">
         <TerminologiaEmpresa empresa={empresa} actual={terminologia} setActual={setTerminologia} />
+        <EnfoquesEmpresa empresa={empresa} w={w} />
         <TelefonoEmpresa empresa={empresa} campo="telefono" titulo="Teléfono de contacto"
           explicacion={'Lo ve la persona en la bienvenida de AVI ("Para cualquier otro apoyo, contacta a…") y AVI lo usa en el chat para invitarla a llamar.'} />
         <TelefonoEmpresa empresa={empresa} campo="telefono_solicitudes" titulo="WhatsApp para solicitudes de alta"
@@ -181,6 +184,70 @@ function TerminologiaEmpresa({ empresa, actual, setActual }: {
           </label>
         ))}
         {saving && <span className="text-xs text-gray-400">Guardando…</span>}
+      </div>
+      {err && <p className="text-red-500 text-xs">{err}</p>}
+    </section>
+  )
+}
+
+// ── Enfoques terapéuticos autorizados (27 oct 2026) ─────────
+// El <pro> sin plan pagado personal solo ve en Configuración › Enfoque terapéutico los que
+// autoricen sus empresas, y elige hasta 2 (src/lib/enfoques-permitidos.ts).
+function EnfoquesEmpresa({ empresa, w }: { empresa: EmpresaConfig; w: ReturnType<typeof terminos> }) {
+  const inicial = (empresa.enfoques_permitidos ?? TODOS_LOS_ENFOQUES).filter(esEnfoque)
+  const [guardado, setGuardado] = useState<EnfoqueId[]>(inicial)
+  const [marcados, setMarcados] = useState<EnfoqueId[]>(inicial)
+  const [saving, setSaving] = useState(false)
+  const [err, setErr] = useState('')
+  const [ok, setOk] = useState('')
+  const cambiado = marcados.length !== guardado.length || marcados.some(id => !guardado.includes(id))
+  const quitados = guardado.filter(id => !marcados.includes(id))
+
+  function toggle(id: EnfoqueId) {
+    setMarcados(prev => prev.includes(id) ? prev.filter(x => x !== id) : TODOS_LOS_ENFOQUES.filter(x => x === id || prev.includes(x)))
+    setErr(''); setOk('')
+  }
+
+  async function guardar() {
+    if (marcados.length === 0) { setErr('Marca al menos un enfoque terapéutico.'); return }
+    if (quitados.length && !confirm(
+      `A los ${w.pros} de ${empresa.nombre} que usan ${quitados.map(id => ENFOQUES_CATALOGO.find(e => e.id === id)!.label).join(' y ')} se les quitará de su configuración, salvo que otra de sus empresas o su plan personal lo autorice. ¿Continuar?`
+    )) return
+    setSaving(true); setErr(''); setOk('')
+    try {
+      const json = await enviar({ method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ empresa_id: empresa.id, enfoques_permitidos: marcados }) })
+      setGuardado(marcados)
+      setOk(json.terapeutasAjustados
+        ? `✓ Guardado. Se ajustó el enfoque de ${json.terapeutasAjustados} ${json.terapeutasAjustados === 1 ? w.pro : w.pros}.`
+        : '✓ Guardado')
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'No se pudo guardar.')
+    } finally { setSaving(false) }
+  }
+
+  return (
+    <section className="space-y-2 border-t border-gray-100 pt-4">
+      <h3 className="text-sm font-semibold text-gray-800">Enfoques terapéuticos</h3>
+      <p className="text-xs text-gray-500 leading-relaxed">
+        Los que marques son los que verán los {w.pros} de esta empresa en Configuración › Enfoque terapéutico;
+        de ellos cada uno elige hasta 2. Quien paga su propio plan en AVI puede elegir entre todos.
+      </p>
+      <div className="space-y-1.5">
+        {ENFOQUES_CATALOGO.map(e => (
+          <label key={e.id} className={`flex items-center gap-2 text-sm ${saving ? 'opacity-50' : 'cursor-pointer'}`}>
+            <input type="checkbox" checked={marcados.includes(e.id)} disabled={saving}
+              onChange={() => toggle(e.id)} className="accent-purple-700" />
+            <span className="text-gray-800">{e.icon} {e.label}</span>
+          </label>
+        ))}
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <button onClick={guardar} disabled={saving || !cambiado || marcados.length === 0}
+          className="text-xs bg-gray-100 hover:bg-gray-200 disabled:opacity-50 text-gray-700 px-3 py-1.5 rounded-lg transition-colors">
+          {saving ? 'Guardando…' : 'Guardar'}
+        </button>
+        {marcados.length === 0 && <span className="text-xs text-amber-600">Marca al menos uno</span>}
+        {ok && !cambiado && <span className="text-xs text-green-600">{ok}</span>}
       </div>
       {err && <p className="text-red-500 text-xs">{err}</p>}
     </section>

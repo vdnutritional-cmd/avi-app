@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { ajustarEnfoquesTrasCambio } from '@/lib/enfoques-permitidos'
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? 'pepe.vargas.papa@gmail.com'
 
@@ -76,5 +77,7 @@ export async function PATCH(req: NextRequest) {
     .eq('id', id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  // Activar o desactivar la empresa cambia los enfoques permitidos de sus terapeutas
+  if (is_active !== undefined) await ajustarEnfoquesTrasCambio(service, { empresaId: id })
   return NextResponse.json({ ok: true })
 }

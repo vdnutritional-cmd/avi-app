@@ -108,7 +108,8 @@ src/app/
     ├── cron/
     │   ├── bloquear-inactivos/     Cron diario 09:00 UTC — bloqueo por inactividad (15/30/45 días según frecuencia_config) → status 'inactive'
     │   ├── cerrar-sesiones-avi/    Cron diario 08:00 UTC — cierra y analiza sesiones AVI que quedaron abiertas
-    │   └── desactivar-companion-expirados/  Cron diario 10:00 UTC — expira bundles companion
+    │   ├── desactivar-companion-expirados/  Cron diario 10:00 UTC — expira bundles companion
+    │   └── ajustar-enfoques/       Cron diario 10:30 UTC — quita enfoques no permitidos (fin de gracia de 30 días)
     ├── historia-clinica/route.ts   HC Original / HC Actualizada
     ├── expediente-analysis/route.ts
     ├── therapist/
@@ -506,6 +507,71 @@ Una sola tabla, `document_chunks` (pgvector, 1536). `scripts/index-fuentes.ts` i
 - `match_document_chunks` acepta `filter_profile` y `filter_books` (ILIKE por libro).
 - **Chat AVI del paciente:** no usa el perfil del terapeuta, sino `retrievePasajesPersonalismo()`: 3 pasajes de Wojtyla, Burgos, Buber, Teología del Cuerpo y El amor humano (sin Supervisión de Casos), sin nombres de autores.
 
+### Enfoques permitidos por empresa (27 oct 2026)
+- `convenio_empresas.enfoques_permitidos` (migración `20261027`): la Persona Institucional User/Superuser (o el superadmin) los marca en **Configuración Admin**.
+- Regla única en `src/lib/enfoques-permitidos.ts` → `getEnfoquesPermitidos()`:
+  - **Plan pagado personal activo** (suscripción `paid`/`unit`/`valora`/`companion`, o bundle activo `regular`/`convenio`) → todos.
+  - **Gratis permanente (`free_approved`) con empresas activas** → la unión de lo que autorizan.
+  - **Plan pagado vencido hace menos de 30 días** (`DIAS_GRACIA`) → todos (periodo de gracia por si vuelve a pagar). `profiles.plan_pagado_visto_at` = última vez visto con plan pagado activo (lo renueva el servidor).
+  - **Sin plan pagado y sin empresas activas** → todos. Siempre elige máximo 2.
+- El terapeuta guarda por `POST /api/therapist/enfoque` (valida en el servidor). **Trigger `profiles_proteger_enfoque`** (migración `20261027b`): `therapy_profile` y `plan_pagado_visto_at` solo los cambia el service role; desde el navegador se rechazan. Todo cambio de enfoque va por el cliente admin.
+- Cron diario `ajustar-enfoques` (10:30 UTC): quita los enfoques que ya no están permitidos (p. ej. al terminar la gracia).
+- Al quitar un enfoque una empresa, en un alta/baja o al activar/desactivar una empresa, `ajustarEnfoquesDeTerapeutas()` le quita al terapeuta lo que ya no tenga permitido. Sin ninguno, el Dashboard le pide elegir de nuevo.
+- Catálogo único de enfoques (nombres, descripciones, combinaciones): `src/lib/enfoques.ts`.
+
+### Procedimiento: agregar libros (RAG) o un enfoque terapéutico nuevo (27 oct 2026)
+Datos clave:
+- `scripts/index-fuentes.ts` **borra todo `document_chunks` y reindexa todos los libros** en la base real. Costo de centavos; por unos minutos los análisis quedan sin pasajes, así que se corre en horario tranquilo.
+- Los análisis buscan **por nombre de libro**: `doc_name` = nombre del archivo `.md` con `_` → espacios. Un libro indexado que no está en `ENFOQUES` / `LIBROS_BASE` de `retrieve-chunks.ts` **nunca se usa**.
+- Las etiquetas `therapy_profiles` de los chunks ya no se usan para buscar (son del Sprint 24). El script las sigue escribiendo y necesita la carpeta en `DIR_PROFILE_MAP` para leerla.
+
+**A) Libro nuevo en un enfoque existente o en la base común**
+1. José Luis entrega el `.md` revisado. Se limpia como Beck: sin portada ni índice, y sin contenido incompatible con el personalismo.
+2. Se pone en su carpeta `docs-*`.
+3. Se agrega a la lista de su enfoque (`ENFOQUES`) o a la base común (`LIBROS_BASE`). Si es personalista y debe usarlo el chat del paciente, va además en `LIBROS_PERSONALISMO`.
+4. Se corre `npx tsx scripts/index-fuentes.ts`.
+5. Se verifica que el libro tenga chunks y que un análisis de prueba lo cite.
+6. Se actualizan la Bitácora y la tabla de carpetas de arriba.
+
+**B) Enfoque terapéutico nuevo**
+
+José Luis entrega, revisado con el supervisor:
+- Los libros.
+- El nombre largo, el nombre corto y la descripción que ve el terapeuta.
+- El marco teórico para el prompt: autores, conceptos y técnicas.
+- Los Factores de riesgo y protección de la Nota Inicial: Individual, Familiar y Pareja × riesgo y protección = 6 listas, con título y descripción.
+
+Cambios:
+1. **Catálogo** `src/lib/enfoques.ts`: clave **sin "_"** (los perfiles combinados se unen con "_", ordenados) y textos. Con esto aparece solo en Configuración Admin y en Configuración › Enfoque terapéutico.
+2. **SQL:** ampliar `convenio_empresas_enfoques_check` con la clave nueva. Decidir si las empresas lo reciben marcado o desmarcado; el default actual son los 3 originales.
+3. **RAG:**
+   - Carpeta `docs-<nuevo>`.
+   - Agregarla a `DIR_PROFILE_MAP` de `index-fuentes.ts`.
+   - Agregar el enfoque con su `nombre` y `libros` en `ENFOQUES` de `retrieve-chunks.ts`.
+   - Reindexar.
+4. **Prompts:** `MARCO_POR_ENFOQUE` en `src/lib/prompts/consultame-prompt.ts`. `instruccionEnfoque()` / `nombreEnfoques()` se adaptan solos.
+5. **Nota Inicial:**
+   - Las 6 listas, `SCHEMA_LABELS` y las columnas en `factores-nota-inicial.ts`.
+   - Columnas `factores_riesgo_<x>` / `factores_proteccion_<x>` en `therapist_patients` (SQL).
+   - El bloque del enfoque en `patients/[patientId]/page.tsx` (hoy hecho a mano, como `tfsActive`/`trecActive`/`tccActive`), con su guardado y carga.
+   - La vista en `IndividualTab` / `FamiliarTab` / `ParejaTab`.
+   - Los ciclos `['famsis','trec','cc']` de `print-utils.ts` y `api/therapist/reporte-atencion`.
+   - **Recomendado antes del primer enfoque nuevo:** armar los bloques de la Nota Inicial desde el catálogo y guardar los factores en una sola columna `jsonb` por enfoque. Así cada enfoque nuevo solo pide su contenido y el SQL del paso 2.
+6. **Documentos:** este archivo (tabla de carpetas), Bitácora, `AVI - SQL Migración Supabase.md`, `AVI - Arquitectura General.md` y el Inventario de Terminología (14.8, nombres de enfoques).
+
+No cambian:
+- Los análisis que usan el enfoque toman `profiles.therapy_profile` solos: Análisis de Caso, Prediagnóstico, Plan, Emociones y Recursos, Análisis Clínicos e Historia Clínica.
+- El costo por análisis tampoco cambia: siempre 16 pasajes.
+- El default `'famsis'` de las rutas sin enfoque configurado se queda.
+
+**Orden:**
+1. Contenido revisado.
+2. Cambios en local.
+3. SQL en Supabase (lo corre José Luis).
+4. Reindexar.
+5. Revisión en http://localhost:3000.
+6. Commit y push con autorización.
+
 ---
 
 ## Chat AVI del paciente (`patient/chat/page.tsx` + `api/chat/route.ts`)
@@ -580,7 +646,7 @@ npx tsc --noEmit
 npm run dev
 
 # Indexar documentos RAG
-npx ts-node scripts/index-fuentes.ts
+npx tsx scripts/index-fuentes.ts   # borra y reindexa todo (ver procedimiento en RAG multi-perfil)
 
 # Build para verificar errores de compilación
 npm run build

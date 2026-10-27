@@ -1,6 +1,7 @@
 // ─────────────────────────────────────────────────────────────
 // /api/institucional/empresa-config — Configuración Admin de una empresa en CONVENIO
-//   PATCH  { empresa_id, terminologia?, telefono?, telefono_solicitudes? }
+//   PATCH  { empresa_id, terminologia?, telefono?, telefono_solicitudes?, enfoques_permitidos? }
+//          Al cambiar los enfoques, a sus terapeutas se les quitan los que ya no tengan permitidos.
 //   POST   multipart { empresa_id, file }  → sube o cambia el logo
 //   DELETE ?empresa_id=…                   → quita el logo
 // Acceso: Persona Institucional activa con nivel User o Superuser (N2/N1) EN ESA
@@ -11,6 +12,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logApiAccess } from '@/lib/audit/log-access'
 import { autorizarEmpresa as autorizar } from '@/lib/autorizar-empresa'
+import { esEnfoque } from '@/lib/enfoques'
+import { ajustarEnfoquesDeTerapeutas } from '@/lib/enfoques-permitidos'
 
 const BUCKET = 'empresa-logos'
 const RUTA = '/api/institucional/empresa-config'
@@ -20,7 +23,7 @@ const MAX_BYTES = 2 * 1024 * 1024
 const noAutorizado = () => NextResponse.json({ error: 'No tienes permiso para configurar esta empresa.' }, { status: 403 })
 
 export async function PATCH(req: NextRequest) {
-  const { empresa_id, terminologia, telefono, telefono_solicitudes } = await req.json()
+  const { empresa_id, terminologia, telefono, telefono_solicitudes, enfoques_permitidos } = await req.json()
   const auth = await autorizar(empresa_id)
   if (!auth) return noAutorizado()
 
@@ -38,12 +41,31 @@ export async function PATCH(req: NextRequest) {
     updates.telefono_solicitudes = typeof telefono_solicitudes === 'string' && telefono_solicitudes.trim()
       ? telefono_solicitudes.trim().slice(0, 40) : null
   }
+  if (enfoques_permitidos !== undefined) {
+    const lista = Array.isArray(enfoques_permitidos) ? [...new Set(enfoques_permitidos)] : []
+    if (lista.length === 0 || !lista.every(esEnfoque)) {
+      return NextResponse.json({ error: 'Marca al menos un enfoque terapéutico.' }, { status: 400 })
+    }
+    updates.enfoques_permitidos = lista
+  }
   if (Object.keys(updates).length === 0) return NextResponse.json({ error: 'Nada que guardar' }, { status: 400 })
 
-  const { error } = await createAdminClient().from('convenio_empresas').update(updates).eq('id', empresa_id)
+  const admin = createAdminClient()
+  const { error } = await admin.from('convenio_empresas').update(updates).eq('id', empresa_id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  logApiAccess(auth.supabase, auth.user.id, RUTA, 'PATCH', { empresa_id, ...updates })
-  return NextResponse.json({ ok: true })
+
+  // Quitar de una vez a sus terapeutas los enfoques que ya no tienen permitidos (decisión de José Luis, 27 oct)
+  let terapeutasAjustados = 0
+  if (updates.enfoques_permitidos) {
+    const { data: rels } = await admin.from('therapist_empresa').select('therapist_id').eq('empresa_id', empresa_id)
+    try {
+      terapeutasAjustados = await ajustarEnfoquesDeTerapeutas(admin, (rels ?? []).map(r => r.therapist_id as string))
+    } catch (e) {
+      return NextResponse.json({ error: `Se guardó, pero no se pudo ajustar a los terapeutas: ${e instanceof Error ? e.message : e}` }, { status: 500 })
+    }
+  }
+  logApiAccess(auth.supabase, auth.user.id, RUTA, 'PATCH', { empresa_id, ...updates, terapeutasAjustados })
+  return NextResponse.json({ ok: true, terapeutasAjustados })
 }
 
 export async function POST(req: NextRequest) {

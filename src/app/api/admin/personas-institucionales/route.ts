@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { buscarCuentaPorEmail } from '@/lib/registro-email'
+import { ajustarEnfoquesTrasCambio } from '@/lib/enfoques-permitidos'
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? 'pepe.vargas.papa@gmail.com'
 const MAX_PERSONAS = 5
@@ -142,6 +143,7 @@ export async function POST(req: NextRequest) {
       error: `Quedó como persona institucional, pero no se pudo asignar a la empresa: ${errEmpresa.message}`,
     }, { status: 500 })
   }
+  await ajustarEnfoquesTrasCambio(admin, { therapistIds: [therapist_id] })
 
   return NextResponse.json({ persona: { ...data, nombre: therapistProfile.full_name, email: therapistProfile.email } })
 }
