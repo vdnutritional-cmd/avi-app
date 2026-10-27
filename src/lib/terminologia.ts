@@ -58,6 +58,11 @@ export function terminos(t: unknown): Record<Variable, string> {
   return DICCIONARIO[normalizarTerminologia(t)]
 }
 
+/** Nombre de AVI según la terminología: asesorado → "AVI Acompañamiento Virtual Interactivo"; paciente → "AVI Therapy Companion" */
+export function nombreAvi(t: unknown): string {
+  return normalizarTerminologia(t) === 'asesorado' ? 'AVI Acompañamiento Virtual Interactivo' : 'AVI Therapy Companion'
+}
+
 /** Reemplaza <user>, <Pros>, <servs>… en un texto. Ej.: aplicarTerminologia('Tu <pro>', 'asesorado') → 'Tu asesor' */
 export function aplicarTerminologia(texto: string, t: unknown): string {
   const d = terminos(t)

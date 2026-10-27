@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { checkPassword } from '@/lib/password-strength'
 import PasswordStrengthBar from '@/components/PasswordStrengthBar'
-import { terminos, TERMINOLOGIA_SIN_EMPRESA, type Terminologia } from '@/lib/terminologia'
+import { nombreAvi, terminos, TERMINOLOGIA_SIN_EMPRESA, type Terminologia } from '@/lib/terminologia'
 import { ESTADOS_MEXICO, PAISES, domicilioVacio, type Domicilio } from '@/lib/domicilio'
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
@@ -302,7 +302,7 @@ function RegistroConsultorioForm() {
 
         {/* Encabezado */}
         <div className="text-center">
-          <Link href="/" className="text-2xl font-bold text-primary-700">AVI Therapy Companion</Link>
+          <Link href="/" className="text-2xl font-bold text-primary-700">{nombreAvi(terminologia)}</Link>
           <p className="text-gray-500 text-xs mt-1">Registro con <strong>{therapistName}</strong></p>
         </div>
 

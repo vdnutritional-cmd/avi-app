@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useTerminologiaMenu, useTerminologiaMenuValor } from '../TerminologiaMenu'
 import { buildReportHeader, printHtmlViaIframe } from '@/app/therapist/patients/[patientId]/print-utils'
-import type { Terminologia } from '@/lib/terminologia'
+import { nombreAvi, type Terminologia } from '@/lib/terminologia'
 
 type Palabras = ReturnType<typeof useTerminologiaMenu>
 
@@ -142,7 +142,7 @@ function imprimirReporte(data: ReporteData, w: Palabras, terminologia: Terminolo
   ${bloque('Virtuales Facturables', data.virtualesFacturables)}
   ${bloque('Pro-Bono', data.proBono)}
 
-  <div class="footer">AVI Therapy Companion · avi-app.com.mx</div>
+  <div class="footer">${nombreAvi(terminologia)} · avi-app.com.mx</div>
 
 </body>
 </html>`

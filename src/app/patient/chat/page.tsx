@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { leerModoElegido, guardarModoElegido, leerBorrador, guardarBorrador } from '@/lib/modo-platica'
-import { terminos, normalizarTerminologia, TERMINOLOGIA_SIN_EMPRESA, type Terminologia } from '@/lib/terminologia'
+import { nombreAvi, terminos, normalizarTerminologia, TERMINOLOGIA_SIN_EMPRESA, type Terminologia } from '@/lib/terminologia'
 
 // Límite de sesiones AVI: según la frecuencia de sesiones presenciales y el periodo
 // desde la última presencial (src/lib/limite-sesiones-avi.ts, vía /api/patient/sesiones-avi)
@@ -397,7 +397,7 @@ export default function PatientChatPage() {
     try { userStoppedRef.current = true; recognitionRef.current?.stop() } catch { /* sin grabación */ }
     guardarBorrador('')   // lo no enviado no pasa a la siguiente sesión
 
-    const mensaje = `Gracias por usar AVI. Recuerda contactar a tu ${terminos(terminologiaRef.current).pro} personal y haz una cita, o contacta a AVI Therapy Companion por WhatsApp para apoyarte para tener tu cita.`
+    const mensaje = `Gracias por usar AVI. Recuerda contactar a tu ${terminos(terminologiaRef.current).pro} personal y haz una cita, o contacta a ${nombreAvi(terminologiaRef.current)} por WhatsApp para apoyarte para tener tu cita.`
     setMessages(prev => [...prev, { role: 'assistant', content: mensaje }])
     if (motivo !== 'avi') await speak(mensaje)
     const ok = await closeSession()
@@ -768,7 +768,7 @@ export default function PatientChatPage() {
   const bloqueCierre = (
     <div className="text-center max-w-xs space-y-3 px-2">
       <p className="text-sm text-blue-600 leading-relaxed">
-        Te invitamos a contactar a <strong>TU {pro.toUpperCase()}</strong> personal o contacta por WhatsApp a <strong>AVI Therapy Companion</strong> para apoyarte a obtener tu cita.
+        Te invitamos a contactar a <strong>TU {pro.toUpperCase()}</strong> personal o contacta por WhatsApp a <strong>{nombreAvi(terminologia)}</strong> para apoyarte a obtener tu cita.
       </p>
       <a
         href={`https://wa.me/523318830312?text=${encodeURIComponent('Apóyenme para tener una cita. Mi nombre es: ')}`}

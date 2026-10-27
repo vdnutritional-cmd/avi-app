@@ -10,7 +10,7 @@ import {
   SCHEMA_RIESGO_COL,
   SCHEMA_PROTECCION_COL,
 } from './factores-nota-inicial'
-import { terminos, normalizarTerminologia, TERMINOLOGIA_SIN_EMPRESA, type Terminologia } from '@/lib/terminologia'
+import { nombreAvi, terminos, normalizarTerminologia, TERMINOLOGIA_SIN_EMPRESA, type Terminologia } from '@/lib/terminologia'
 
 /**
  * Palabras de la persona para el PDF (Inventario de Terminología, página 7):
@@ -2764,7 +2764,7 @@ export async function imprimirDatosGeneralesDesdeReportes(
 
   <!-- Pie de página -->
   <div class="footer">
-    AVI Therapy Companion · avi-app.com.mx · Documento de uso clínico confidencial
+    ${nombreAvi(t)} · avi-app.com.mx · Documento de uso clínico confidencial
   </div>
 
 </body>
