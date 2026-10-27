@@ -199,7 +199,7 @@ export default function AudioRecorder({ onResumen, patientId }: { onResumen: (te
     const tramos = tramosRef.current
     await Promise.all(tramos.map(t => t.fallo ? transcribir(t) : envios.current.get(t)))
     if (tramos.length === 0) { setError('No se grabó audio.'); setEstado('error'); return }
-    if (tramos.some(t => t.fallo)) { setError('Ocurrió un error al transcribir.'); setEstado('error'); return }
+    if (tramos.some(t => t.fallo)) { setError('Ocurrió un error al transcribir; revisa la comunicación de WiFi y reintenta.'); setEstado('error'); return }
 
     const transcripcion = tramos.map(t => t.texto).filter(Boolean).join('\n')
     try {
@@ -213,7 +213,7 @@ export default function AudioRecorder({ onResumen, patientId }: { onResumen: (te
       onResumen(json.resumen)
       descartar()
     } catch {
-      setError('Ocurrió un error al transcribir.')
+      setError('Ocurrió un error al transcribir; revisa la comunicación de WiFi y reintenta.')
       setEstado('error')
     }
   }
@@ -268,7 +268,7 @@ export default function AudioRecorder({ onResumen, patientId }: { onResumen: (te
 
       {estado === 'error' && (
         <div className="space-y-2">
-          <p className="text-sm text-red-600">{error || 'Ocurrió un error al transcribir.'}</p>
+          <p className="text-sm text-red-600">{error || 'Ocurrió un error al transcribir; revisa la comunicación de WiFi y reintenta.'}</p>
           {confirmarDescarte ? (
             <div className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 space-y-2">
               <p className="text-sm text-gray-700">¿Seguro que deseas descartar la grabación? Esta acción no se puede deshacer.</p>

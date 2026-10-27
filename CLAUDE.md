@@ -162,6 +162,14 @@ El archivo más grande (~2300 líneas). Es un **client component** que maneja:
 - **Domicilio en partes** (25 oct 2026): calle, números, colonia, municipio, C.P., estado y país (`domicilio_*` en `patient_expediente`, `src/lib/domicilio.ts`), igual en el registro por QR. `contacto_domicilio` guarda el domicilio completo en una línea (lo leen los PDF y los análisis); de los pacientes anteriores se muestra como aviso para pasarlo a las partes. Religión: misma lista en el QR y en Datos Generales; lo escrito mal antes se ve vacío y se corrige en sesión
 - **Sesiones presenciales:** la lista en pantalla va de la más reciente a la primera; el PDF, de la primera a la última
 - **Escucha de AVI** (Sprint 13, `src/components/AudioRecorder.tsx`): en Sesiones Presenciales (antes de "2. Desarrollo") y en Nota Inicial (antes de "1. Desarrollo del caso"). Graba en tramos de 4 min a 32 kbps (Vercel no acepta peticiones de más de 4.5 MB); cada tramo se transcribe en `POST /api/transcribir-sesion` (Groq) mientras sigue la sesión, y al detener `POST /api/transcribir-sesion/resumen` hace el resumen de 300–400 palabras (`ia_uso` tipo `resumen_transcripcion`). Solo los primeros ~50 min; avisos con tono a los 40 y 50 min; Wake Lock; cuenta como actividad. **El audio no se guarda**: vive en memoria del navegador; si falla, "Reintentar" lo reenvía. El resumen se agrega al campo (si ya tenía texto, al final)
+  - **Consentimiento Informado (decisión del 27 oct 2026):** la escucha de AVI se incluirá en el Consentimiento Informado del paciente (`patient/onboarding`, paso 4; apartado nuevo con la palabra de la persona). El texto debe ser exacto:
+    - **Sí se graba toda la sesión** (hasta ~50 min); los tramos son solo la forma de enviarla.
+    - El audio y la transcripción **no se guardan** y se borran al terminar. **Solo queda el resumen**, que el terapeuta revisa.
+    - Procesan **Groq** (EE. UU., voz a texto) y **Anthropic** (resumen).
+  - **Pendientes del consentimiento:**
+    - Revisar la política de privacidad de Groq (retención de audios).
+    - Decidir qué pasa con los pacientes que aceptaron la versión anterior: pedirles aceptar de nuevo al entrar, o autorización verbal en sesión mientras tanto.
+    - El texto lo define José Luis con el supervisor; ver la Bitácora, "Sprint 13".
 - **Datos Generales** (`DatosGeneralesTab`) recibe `initialData` de `page.tsx` (se carga una vez): al guardar avisa con `onSaved` y solo manda los campos que cambiaron — si no, al volver a la pestaña se veían datos viejos y el siguiente guardado borraba lo anterior
 
 ### `src/app/therapist/layout.tsx`

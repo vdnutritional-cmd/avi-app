@@ -14,7 +14,7 @@ export const maxDuration = 60
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 const MODELO = 'claude-sonnet-4-6'
 
-const SYSTEM = 'Eres un asistente clínico. A partir de esta transcripción de sesión terapéutica, redacta un resumen de 300 a 400 palabras. Destaca principalmente las respuestas, emociones y temas relevantes del paciente. No concluyas ni asumas nada solo resume ajustandote a las 300 o 400 palabras y sin truncar tu resumen; es decir que quede completo el resumen ajustado a un máximo de 400 palabras. Usa lenguaje clínico neutro. No incluyas nombres propios.'
+const SYSTEM = 'Eres un asistente clínico. A partir de esta transcripción de sesión terapéutica, redacta un resumen de 300 a 400 palabras. Destaca principalmente las respuestas, emociones y temas relevantes del paciente. No concluyas ni asumas nada solo resume ajustandote a las 300 o 400 palabras y sin truncar tu resumen; es decir que quede completo el resumen ajustado a un máximo de 400 palabras. Usa lenguaje clínico neutro. Incluye los nombres propios que se mencionen en la conversación cuando ayuden a que el resumen sea claro y entendible.'
 
 export async function POST(req: NextRequest) {
   const { transcripcion, patientId } = await req.json().catch(() => ({}))
