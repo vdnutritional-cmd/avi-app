@@ -1412,7 +1412,20 @@ export default function PatientDetailPage() {
           </div>
 
           {/* Escucha de AVI (Sprint 13): el resumen pre-llena "1. Desarrollo del caso" */}
-          <AudioRecorder patientId={patientId} onResumen={t => setInitialNote(prev => agregarResumen(prev, t))} />
+          {/* A la derecha, un segundo "Guardar nota" (mismo guardado que el de abajo, 27 oct 2026) */}
+          <div className="flex items-start gap-3">
+            <div className="flex-1 min-w-0">
+              <AudioRecorder patientId={patientId} onResumen={t => setInitialNote(prev => agregarResumen(prev, t))} />
+            </div>
+            <button
+              onClick={saveNote}
+              disabled={savingNote || !noteChanged}
+              className="shrink-0 px-5 py-2.5 bg-primary-600 text-white rounded-xl text-sm font-semibold
+                         hover:bg-primary-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {savingNote ? 'Guardando...' : noteSaved ? '✓ Guardado' : 'Guardar nota'}
+            </button>
+          </div>
 
           {/* 1. Desarrollo del caso */}
           <div className="space-y-2">

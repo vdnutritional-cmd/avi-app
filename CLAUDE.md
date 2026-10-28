@@ -56,9 +56,10 @@ src/app/
 │   ├── forgot-password/
 │   └── reset-password/
 
-├── patient/                        Panel del paciente ("Platícame..." · barra: Habla | Resumen | Salir)
+├── patient/                        Panel del paciente ("Platícame..." · barra: Habla | Resumen | Mensajes | Salir)
 │   ├── chat/page.tsx               Chat AVI: elección Hablada/Escrita, voz o chat escrito (ver "Chat AVI del paciente")
 │   ├── reformulate/page.tsx        "Resumen" (patrones de cada sesión)
+│   ├── mensajes/page.tsx           "Mensajes": lo que le envía su terapeuta (solo lectura; `?id=` abre uno)
 │   ├── discover/page.tsx           Pantalla de crisis / descubre
 │   ├── onboarding/page.tsx
 │   └── cuestionario/[id]/page.tsx  Cuestionarios asignados
@@ -173,6 +174,14 @@ El archivo más grande (~2300 líneas). Es un **client component** que maneja:
     - El texto lo define José Luis con el supervisor; ver la Bitácora, "Sprint 13".
 - **Datos Generales** (`DatosGeneralesTab`) recibe `initialData` de `page.tsx` (se carga una vez): al guardar avisa con `onSaved` y solo manda los campos que cambiaron — si no, al volver a la pestaña se veían datos viejos y el siguiente guardado borraba lo anterior
 
+- **Mensajes al paciente** (27 oct 2026, AVI-CLÍNICO › Cuestionarios, `MensajesPaciente.tsx`):
+  - Canal de **un solo sentido**: Asunto + Mensaje. La persona no contesta y no ve el teléfono del terapeuta.
+  - La persona los lee en la pestaña **Mensajes** (con número de no leídos) y en Habla aparecen los sin leer.
+  - Al enviar le llega un correo **sin el contenido**: "Tienes un mensaje nuevo de tu <pro> en AVI".
+  - El terapeuta ve "Leído el…" / "Sin leer". **Retirar** (envío por error) pone `retirado_at`: la persona deja de verlo y aquí queda en el registro; nunca se borra.
+  - Solo nivel Clínico y personas activas con acceso (`motivoSinMensajes()` en `src/lib/mensajes-paciente.ts`).
+  - APIs: `/api/therapist/mensajes-paciente` (GET/POST/PATCH, auditadas) y `/api/patient/mensajes` (GET/PATCH leído). Se mueven al fusionar cuentas y se copian al transferir (sin duplicarse para la persona en un traslado compartido). La IA del chat AVI no los lee
+
 ### `src/app/therapist/layout.tsx`
 - Fetch de perfil, suscripción, membresía institucional
 - Gate: sin plan activo → `<ActivarPlan>`
@@ -263,6 +272,7 @@ Los 6 reportes que usan `sharedCSS()` ya lo tienen. Los demás lo tienen inline.
 | `therapist_session_notes` | Sesiones presenciales (objetivo, desarrollo, acuerdo, seguimiento) |
 | `patient_expediente` | Expediente clínico completo (Individual, Familiar, Pareja, Análisis Clínicos, HC, info_*) |
 | `patient_questionnaires` | Cuestionarios asignados (McMaster FAD) |
+| `patient_mensajes` | Mensajes del terapeuta al paciente (asunto, mensaje, `leido_at`, `retirado_at`). Solo servidor (RLS sin políticas). Migración `20261027d` |
 | `convenio_codes` | Códigos de descuento CONVENIO (`code`, `plan_id`, `used_by`, `expires_at`, `is_active`) |
 | `convenio_empresas` | Empresas convenio (nombre, logo_url, `telefono`, `terminologia` paciente/asesorado, `enfoques_permitidos`, is_active). Terminología, enfoques, teléfono y logo los configura la empresa en Configuración Admin |
 | `therapist_empresa` | Relación terapeuta ↔ empresa |

@@ -256,6 +256,9 @@ export async function POST(request: NextRequest) {
     derivaciones:  await copiarFilas(admin, 'patient_derivaciones_cierres', user.id, receptorId, patientId, () => 'unica'),
     cuestionarios: await copiarFilas(admin, 'patient_questionnaires', user.id, receptorId, patientId,
                      f => `${f.questionnaire_type}|${f.assigned_at}`),
+    // Mensajes al paciente (27 oct 2026): siguen visibles para la persona con el nuevo terapeuta
+    mensajes:      await copiarFilas(admin, 'patient_mensajes', user.id, receptorId, patientId,
+                     f => `${f.created_at}|${f.asunto}`),
   }
 
   const errores = Object.values(copias).map(c => c.error).filter(Boolean) as string[]

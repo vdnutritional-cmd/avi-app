@@ -56,6 +56,8 @@ export default function PatientChatPage() {
   const router = useRouter()
   const [accesoSuspendido, setAccesoSuspendido] = useState(false)
   const [pendientes, setPendientes] = useState<Pendiente[]>([])
+  // Mensajes sin leer de su terapeuta (27 oct 2026): se leen en la pestaña Mensajes
+  const [mensajesNuevos, setMensajesNuevos] = useState<{ id: string; asunto: string; created_at: string }[]>([])
   // Palabras según la empresa del paciente (Inventario de Terminología, página 2)
   const [terminologia, setTerminologia] = useState<Terminologia>(TERMINOLOGIA_SIN_EMPRESA)
   const terminologiaRef = useRef<Terminologia>(TERMINOLOGIA_SIN_EMPRESA)
@@ -130,6 +132,10 @@ export default function PatientChatPage() {
       if (data) setPendientes(data)
     }
     fetchPendientes()
+    fetch('/api/patient/mensajes')
+      .then(r => r.ok ? r.json() : null)
+      .then(j => { if (j) setMensajesNuevos((j.mensajes ?? []).filter((m: { leido_at: string | null }) => !m.leido_at)) })
+      .catch(() => {})
   }, [])
 
   const [appState, setAppState] = useState<AppState>('idle')
@@ -756,7 +762,7 @@ export default function PatientChatPage() {
     )
   }
 
-  const hasPendientes = pendientes.length > 0
+  const hasPendientes = pendientes.length > 0 || mensajesNuevos.length > 0
   // Antes de iniciar: ¿hablada o escrita? (una vez iniciada la sesión ya no cambia)
   const mostrarEleccion = !modoConfirmado && !sessionId && messages.length === 0 && !limitAlcanzado
   const enEscrito = modoConfirmado && modo === 'escrita' && (!limitAlcanzado || !!sessionId)
@@ -1147,9 +1153,36 @@ export default function PatientChatPage() {
       {/* ── SECCIÓN PENDIENTES — 20% (solo si hay cuestionarios asignados) ── */}
       {hasPendientes && (
         <div className="flex-[1] border-t border-gray-100 bg-white px-4 py-3 overflow-y-auto">
+          {mensajesNuevos.length > 0 && (
+            <>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                {mensajesNuevos.length === 1 ? `Tienes un mensaje de tu ${pro}` : `Tienes ${mensajesNuevos.length} mensajes de tu ${pro}`}
+              </p>
+              <div className="space-y-2 mb-3">
+                {mensajesNuevos.map(m => (
+                  <Link
+                    key={m.id}
+                    href={`/patient/mensajes?id=${m.id}`}
+                    className="flex items-center justify-between bg-emerald-50 border border-emerald-200
+                               rounded-xl px-4 py-3 hover:bg-emerald-100 transition-colors"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-emerald-800 truncate">✉️ {m.asunto}</p>
+                      <p className="text-xs text-emerald-600 mt-0.5">
+                        Enviado {new Date(m.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
+                      </p>
+                    </div>
+                    <span className="text-emerald-400 text-lg">→</span>
+                  </Link>
+                ))}
+              </div>
+            </>
+          )}
+          {pendientes.length > 0 && (
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
             Tu {pro} te pide completar
           </p>
+          )}
           <div className="space-y-2">
             {pendientes.map(p => (
               <Link

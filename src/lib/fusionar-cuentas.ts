@@ -5,7 +5,7 @@
 //   - Nota inicial, expediente y derivaciones/cierres: campo por campo; si la real ya tiene
 //     el dato, se respeta el de la real.
 //   - Sesiones presenciales: se juntan las de ambas y se numeran por fecha (la más antigua = 1).
-//   - Análisis y cuestionarios: pasan a la real.
+//   - Análisis, cuestionarios y mensajes al paciente: pasan a la real.
 // Solo servidor: usa el cliente admin; quien llama ya validó que ambas cuentas son del terapeuta.
 import type { createAdminClient } from '@/lib/supabase/admin'
 
@@ -119,6 +119,7 @@ export async function fusionarCuentas(
   }
   const analisis = await mover('analyses')
   const cuestionarios = await mover('patient_questionnaires')
+  await mover('patient_mensajes')   // mensajes al paciente (27 oct 2026)
 
   // ── 5. Archivar la temporal ──
   const { error: eArch } = await admin.from('therapist_patients')

@@ -8,6 +8,7 @@ import {
   FAD_DIMENSION_ORDER,
   type FADResult,
 } from '@/lib/questionnaires/mcmaster-fad'
+import MensajesPaciente from './MensajesPaciente'
 
 interface Props {
   patientId: string
@@ -82,6 +83,9 @@ export default function CuestionariosTab({ patientId, therapistId, terminologia 
 
   return (
     <div className="space-y-6">
+
+      {/* ── Mensajes al paciente (canal de un solo sentido) ── */}
+      <MensajesPaciente patientId={patientId} w={w} />
 
       {/* ── Asignar ── */}
       <div className="bg-indigo-50 border border-indigo-200 rounded-2xl px-5 py-4">

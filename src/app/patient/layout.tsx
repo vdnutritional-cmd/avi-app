@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import LogoutButton from '../therapist/LogoutButton'
 import InactivityGuard from '@/components/InactivityGuard'
+import MensajesNavLink from './MensajesNavLink'
 
 export default async function PatientLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -44,6 +45,7 @@ export default async function PatientLayout({ children }: { children: React.Reac
             <span className="text-xl">✨</span>
             <span>Resumen</span>
           </Link>
+          <MensajesNavLink />
           <LogoutButton variante="nav" />
         </nav>
       </div>
