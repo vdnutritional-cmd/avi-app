@@ -475,7 +475,7 @@ export default function PatientDetailPage() {
         session_date:        newSessionDate,
         session_objetivo:    newSessionObjetivo    || null,
         session_desarrollo:  newSessionDesarrollo  || null,
-        notes:               newSessionNotes       || null,   // Observaciones particulares
+        notes:               newSessionNotes       ?? '',   // Observaciones particulares (la columna no acepta null)
         session_emociones:   newSessionEmociones   || null,
         session_recursos:    newSessionRecursos     || null,
         is_pro_bono:         newSessionProBono,
