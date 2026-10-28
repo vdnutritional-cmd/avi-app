@@ -12,10 +12,14 @@
 //   Si algo falla, se conserva para "Reintentar" sin volver a grabar.
 // - Wake Lock para que no se apague la pantalla; avisos con tono a los 40 y 50 min;
 //   cuenta como actividad (evento avi:actividad) para que no se cierre la sesión por inactividad.
+// - Modo "flotante" (28 oct 2026): la página lo deja montado siempre y lo dibuja en `destino`
+//   (un lugar dentro de la sección). Si el terapeuta cambia de sección, la grabación sigue y se ve
+//   el aviso fijo "🎙 Escucha de AVI — 12:34"; al tocarlo, onVolver regresa a la sección.
 // ─────────────────────────────────────────────────────────────
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 
-type Estado = 'idle' | 'recording' | 'transcribing' | 'error'
+export type Estado = 'idle' | 'recording' | 'transcribing' | 'error'
 // mensaje: aviso del servidor cuando el servicio no está disponible (pago, límite); si no, el de WiFi
 type Tramo = { inicio: number; blob: Blob; texto?: string; fallo?: boolean; mensaje?: string }
 
@@ -52,12 +56,25 @@ function tipoAudio(): string {
   return ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'].find(t => MediaRecorder.isTypeSupported(t)) ?? ''
 }
 
-export default function AudioRecorder({ onResumen, patientId }: { onResumen: (texto: string) => void; patientId?: string }) {
+interface Props {
+  onResumen: (texto: string) => void
+  patientId?: string
+  /** Modo flotante: dónde dibujarse (null = la sección no está a la vista → aviso fijo) */
+  destino?: HTMLElement | null
+  /** Modo flotante: regresar a la sección donde se inició */
+  onVolver?: () => void
+  onEstado?: (estado: Estado) => void
+  /** Otra escucha de AVI en curso en la misma página: no deja iniciar otra */
+  ocupado?: boolean
+}
+
+export default function AudioRecorder({ onResumen, patientId, destino, onVolver, onEstado, ocupado }: Props) {
   const [estado, setEstado] = useState<Estado>('idle')
   const [segundos, setSegundos] = useState(0)
   const [banner, setBanner] = useState<keyof typeof BANNERS>('normal')
   const [recortada, setRecortada] = useState(false)
   const [error, setError] = useState('')
+  useEffect(() => { onEstado?.(estado) }, [estado, onEstado])
   const [confirmarDescarte, setConfirmarDescarte] = useState(false)
 
   const streamRef   = useRef<MediaStream | null>(null)
@@ -236,11 +253,13 @@ export default function AudioRecorder({ onResumen, patientId }: { onResumen: (te
 
   const hayGrabacion = tramosRef.current.length > 0
 
-  return (
+  const ui = (
     <div className="space-y-2">
       {estado === 'idle' && (
-        <button type="button" onClick={iniciar}
-          className="text-sm font-semibold bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-xl transition-colors">
+        <button type="button" onClick={iniciar} disabled={ocupado}
+          title={ocupado ? 'Ya hay una escucha de AVI en curso' : undefined}
+          className="text-sm font-semibold bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-xl transition-colors
+                     disabled:opacity-40 disabled:cursor-not-allowed">
           🎙 Inicia escucha de AVI
         </button>
       )}
@@ -304,5 +323,21 @@ export default function AudioRecorder({ onResumen, patientId }: { onResumen: (te
         </div>
       )}
     </div>
+  )
+
+  if (destino === undefined) return ui            // modo normal: en su lugar
+  if (destino) return createPortal(ui, destino)    // modo flotante, sección a la vista
+  if (estado === 'idle') return null
+  // Sección fuera de la vista: la grabación sigue; aviso fijo para regresar
+  return createPortal(
+    <button type="button" onClick={onVolver}
+      className={`fixed top-3 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2 rounded-full shadow-lg
+                  text-sm font-semibold text-white transition-colors
+                  ${estado === 'error' ? 'bg-red-600 hover:bg-red-700' : 'bg-purple-600 hover:bg-purple-700'}`}>
+      {estado === 'recording' && <span className="w-2.5 h-2.5 rounded-full bg-red-400 animate-pulse" />}
+      {estado === 'transcribing' && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+      🎙 Escucha de AVI — {estado === 'recording' ? <span className="font-mono">{mmss(segundos)}</span> : estado === 'transcribing' ? 'transcribiendo…' : 'revisar'}
+    </button>,
+    document.body,
   )
 }

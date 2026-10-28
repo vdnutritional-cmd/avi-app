@@ -14,7 +14,7 @@ import ExpedienteTab from './ExpedienteTab'
 import DatosGeneralesTab from './DatosGeneralesTab'
 import TipoCasoTab from './TipoCasoTab'
 import DerivacionesCierresTab from './DerivacionesCierresTab'
-import AudioRecorder from '@/components/AudioRecorder'
+import AudioRecorder, { type Estado as EstadoEscucha } from '@/components/AudioRecorder'
 
 const MAX_SESIONES_PRESENCIALES = 12
 
@@ -119,6 +119,12 @@ export default function PatientDetailPage() {
   const [newSessionDate, setNewSessionDate] = useState(hoyMX())
   const [newSessionObjetivo, setNewSessionObjetivo] = useState('')
   const [newSessionDesarrollo, setNewSessionDesarrollo] = useState('')
+  // Escucha de AVI (28 oct 2026): los grabadores viven a nivel de página para que la grabación
+  // siga al cambiar de sección; se dibujan en estos lugares cuando la sección está a la vista
+  const [slotEscuchaNota, setSlotEscuchaNota] = useState<HTMLDivElement | null>(null)
+  const [slotEscuchaPres, setSlotEscuchaPres] = useState<HTMLDivElement | null>(null)
+  const [estadoEscuchaNota, setEstadoEscuchaNota] = useState<EstadoEscucha>('idle')
+  const [estadoEscuchaPres, setEstadoEscuchaPres] = useState<EstadoEscucha>('idle')
   const [newSessionNotes, setNewSessionNotes] = useState('')  // Observaciones particulares
   const [newSessionProBono, setNewSessionProBono] = useState(false)
   const [newSessionIsVirtual, setNewSessionIsVirtual] = useState(false)
@@ -714,6 +720,16 @@ export default function PatientDetailPage() {
 
   return (
     <>
+      {/* ── Escucha de AVI (Nota Inicial y Sesiones Presenciales): siempre montadas; ver slotEscucha* ── */}
+      <AudioRecorder patientId={patientId} destino={slotEscuchaNota}
+        onResumen={t => setInitialNote(prev => agregarResumen(prev, t))}
+        onVolver={() => setActiveTab('nota')}
+        onEstado={setEstadoEscuchaNota} ocupado={estadoEscuchaPres !== 'idle'} />
+      <AudioRecorder patientId={patientId} destino={slotEscuchaPres}
+        onResumen={t => setNewSessionDesarrollo(prev => agregarResumen(prev, t))}
+        onVolver={() => setActiveTab('presenciales')}
+        onEstado={setEstadoEscuchaPres} ocupado={estadoEscuchaNota !== 'idle'} />
+
       {/* ── Hamburger de secciones — fixed top-right, solo móvil ── */}
       <button
         onClick={() => setSheetOpen(true)}
@@ -1071,7 +1087,7 @@ export default function PatientDetailPage() {
               </div>
 
               {/* Escucha de AVI (Sprint 13): el resumen pre-llena "2. Desarrollo"; el terapeuta lo edita antes de guardar */}
-              <AudioRecorder patientId={patientId} onResumen={t => setNewSessionDesarrollo(prev => agregarResumen(prev, t))} />
+              <div ref={setSlotEscuchaPres} />
 
               {/* 2. Desarrollo */}
               <div className="space-y-1">
@@ -1415,7 +1431,7 @@ export default function PatientDetailPage() {
           {/* A la derecha, un segundo "Guardar nota" (mismo guardado que el de abajo, 27 oct 2026) */}
           <div className="flex items-start gap-3">
             <div className="flex-1 min-w-0">
-              <AudioRecorder patientId={patientId} onResumen={t => setInitialNote(prev => agregarResumen(prev, t))} />
+              <div ref={setSlotEscuchaNota} />
             </div>
             <button
               onClick={saveNote}
