@@ -181,6 +181,7 @@ El archivo más grande (~2300 líneas). Es un **client component** que maneja:
   - Al enviar le llega un correo **sin el contenido**: "Tienes un mensaje nuevo de tu <pro> en AVI".
   - El terapeuta ve "Leído el…" / "Sin leer". **Retirar** (envío por error) pone `retirado_at`: la persona deja de verlo y aquí queda en el registro; nunca se borra.
   - Solo nivel Clínico y personas activas con acceso (`motivoSinMensajes()` en `src/lib/mensajes-paciente.ts`).
+  - **Avisos en el teléfono (28 oct 2026, `src/lib/push/avisar-paciente.ts`):** al enviar un mensaje o asignar un cuestionario (Cuestionarios y Sensación final, vía `POST /api/therapist/avisar-cuestionario`) llega una notificación push **sin contenido** ("Tienes un mensaje nuevo de tu <pro>") con el número de pendientes en el ícono de AVI (`setAppBadge` en `public/sw.js`). `SincronizarAvisos` (layout del paciente) pone el número al día con `GET /api/patient/avisos` y lo quita al verlos; `ActivarAvisos` pide el permiso en la pantalla de inicio de Habla ("Ahora no" = 7 días) y en iPhone sin instalar explica "Agregar a pantalla de inicio". iPhone: iOS 16.4+ instalada en la pantalla de inicio. Android: número o punto según el teléfono. Las suscripciones no se borran al salir (el paciente sale solo a los 30 min); un teléfono queda con la última cuenta que lo activó
   - APIs: `/api/therapist/mensajes-paciente` (GET/POST/PATCH, auditadas) y `/api/patient/mensajes` (GET/PATCH leído). Se mueven al fusionar cuentas y se copian al transferir (sin duplicarse para la persona en un traslado compartido). La IA del chat AVI no los lee
 
 ### `src/app/therapist/layout.tsx`
@@ -273,6 +274,7 @@ Los 6 reportes que usan `sharedCSS()` ya lo tienen. Los demás lo tienen inline.
 | `therapist_session_notes` | Sesiones presenciales (objetivo, desarrollo, acuerdo, seguimiento) |
 | `patient_expediente` | Expediente clínico completo (Individual, Familiar, Pareja, Análisis Clínicos, HC, info_*) |
 | `patient_questionnaires` | Cuestionarios asignados (McMaster FAD) |
+| `patient_push_subscriptions` | Teléfonos del paciente para avisos push (mensaje o cuestionario nuevo). Solo servidor (RLS sin políticas). Migración `20261028`. Aparte de `push_subscriptions` (crisis al terapeuta) |
 | `patient_mensajes` | Mensajes del terapeuta al paciente (asunto, mensaje, `leido_at`, `retirado_at`). Solo servidor (RLS sin políticas). Migración `20261027d` |
 | `convenio_codes` | Códigos de descuento CONVENIO (`code`, `plan_id`, `used_by`, `expires_at`, `is_active`) |
 | `convenio_empresas` | Empresas convenio (nombre, logo_url, `telefono`, `terminologia` paciente/asesorado, `enfoques_permitidos`, is_active). Terminología, enfoques, teléfono y logo los configura la empresa en Configuración Admin |
@@ -601,10 +603,12 @@ No cambian:
 
 ## Chat AVI del paciente (`patient/chat/page.tsx` + `api/chat/route.ts`)
 
-- **Elección al iniciar:** "¿Cómo quieres platicar hoy?" → Hablada / Escrita.
-  - Queda marcada la última elección.
-  - No cambia a mitad de la sesión; se guarda en `sessions.modo`.
-  - Se recuerda al ir a Resumen y regresar; se vuelve a preguntar después de salir.
+- **Pantalla de inicio (28 oct 2026):** "¿Qué quieres hacer hoy?", siempre al entrar a Habla (salvo una sesión abierta que se retoma):
+  - "Tu <pro> te envió": mensajes sin leer y cuestionarios pendientes (incluida la calificación de cierre `sensacion_final`); al terminar regresan aquí (Mensajes con `?id=` muestra "← Regresar").
+  - 🎙️ Platicar con AVI hablando · ⌨️ Platicar con AVI escribiendo (queda marcada la última elección; sin sesiones disponibles se muestra el aviso en su lugar) · 🚪 Salir (`LogoutButton variante="inicio"`).
+  - La forma no cambia a mitad de la sesión; se guarda en `sessions.modo`.
+  - **"← Regresar"** (arriba, en hablada y escrita): sin plática regresa directo; con plática pregunta "¿Quieres terminar tu plática con AVI?" y la cierra como "Terminar" (resumen, cuenta como sesión) antes de volver. Tras el cierre, "← Regresar al inicio".
+  - Ya no hay franja de pendientes abajo de la pantalla de voz.
 - **Tiempos (acordados con el supervisor):**
 
 | Momento | Tiempo |

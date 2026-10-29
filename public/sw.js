@@ -8,10 +8,28 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(fetch(event.request))
 })
 
-// Notificaciones push de crisis
+// Notificaciones push: avisos al paciente (mensaje o cuestionario de su terapeuta) y crisis al terapeuta
 
 self.addEventListener('push', (event) => {
   const data = event.data?.json() ?? {}
+  if (data.tipo === 'paciente') {
+    // Sin contenido; un solo aviso a la vez (el nuevo reemplaza al anterior) + número en el ícono de AVI
+    const badge = typeof data.badge === 'number' && self.navigator && 'setAppBadge' in self.navigator
+      ? (data.badge > 0 ? self.navigator.setAppBadge(data.badge) : self.navigator.clearAppBadge())
+      : Promise.resolve()
+    event.waitUntil(Promise.all([
+      self.registration.showNotification(data.title ?? 'AVI', {
+        body: data.body ?? 'Tienes algo nuevo en AVI.',
+        icon: '/icons/icon-192-v2.png',
+        badge: '/icons/icon-192-v2.png',
+        tag: 'avi-paciente',
+        renotify: true,
+        data: { url: data.url ?? '/patient/chat' },
+      }),
+      Promise.resolve(badge).catch(() => {}),
+    ]))
+    return
+  }
   event.waitUntil(
     self.registration.showNotification(data.title ?? '⚠️ Crisis AVI', {
       body: data.body ?? 'Un paciente puede estar en crisis.',

@@ -1,8 +1,10 @@
 'use client'
 
 // Mensajes de mi terapeuta (27 oct 2026): solo para leer, no se contestan.
-// Al abrir uno se marca como leído; ?id=… lo abre directo (desde Habla).
+// Al abrir uno se marca como leído; ?id=… lo abre directo (desde la pantalla de inicio de Habla,
+// con "← Regresar" para volver a ella).
 import { Suspense, useEffect, useState } from 'react'
+import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { terminos, normalizarTerminologia, type Terminologia } from '@/lib/terminologia'
 
@@ -61,6 +63,9 @@ function Mensajes() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
+      {params.get('id') && (
+        <Link href="/patient/chat" className="text-sm text-primary-600 hover:underline">← Regresar</Link>
+      )}
       <div>
         <h1 className="text-lg font-semibold text-gray-800">Mensajes de tu {pro}</h1>
         <p className="text-xs text-gray-500 mt-1">Información que tu {pro} te envía. Son solo para leer; no se contestan por aquí.</p>

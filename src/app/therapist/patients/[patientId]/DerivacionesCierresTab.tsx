@@ -203,6 +203,10 @@ export default function DerivacionesCierresTab({ patientId, therapistId, termino
       alert('Error al enviar el cuestionario: ' + error.message)
     } else {
       setCuestionarioPendiente(true)
+      // Aviso push al teléfono del paciente (si los activó)
+      fetch('/api/therapist/avisar-cuestionario', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ patientId }),
+      }).catch(() => {})
     }
 
     setEnviandoCuest(false)

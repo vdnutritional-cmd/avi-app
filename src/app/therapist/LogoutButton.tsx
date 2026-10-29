@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { olvidarModoElegido } from '@/lib/modo-platica'
 
 // variante: 'menu' (sidebar del terapeuta, con 🚪) · 'paciente' (encabezado del paciente)
-//           · 'nav' (barra de abajo del paciente: "Salir")
+//           · 'nav' (barra de abajo del paciente: "Salir") · 'inicio' (botón "Salir" de la pantalla de inicio de Habla)
 // Si la pantalla "Habla" está abierta, ella cierra la plática en orden (AVI termina de
 // responder, resumen) y avisa cuando acabó. Si el paciente está en otra pantalla
 // (p. ej. "Resumen") con una plática abierta, se cierra desde aquí.
@@ -30,7 +30,7 @@ async function cerrarPlaticaAbierta() {
   } catch { /* sin conexión: sale igual */ }
 }
 
-export default function LogoutButton({ variante = 'menu' }: { variante?: 'menu' | 'paciente' | 'nav' }) {
+export default function LogoutButton({ variante = 'menu' }: { variante?: 'menu' | 'paciente' | 'nav' | 'inicio' }) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
 
@@ -47,6 +47,20 @@ export default function LogoutButton({ variante = 'menu' }: { variante?: 'menu' 
       router.push('/')
       router.refresh()
     }
+  }
+
+  if (variante === 'inicio') {
+    return (
+      <button
+        onClick={handleLogout}
+        disabled={loading}
+        className="w-full flex items-center gap-3 px-5 py-4 rounded-2xl border-2 border-gray-200 bg-white hover:bg-gray-50
+                   text-base font-medium text-gray-700 transition-colors disabled:opacity-50"
+      >
+        <span className="text-2xl">🚪</span>
+        {loading ? 'Cerrando…' : 'Salir'}
+      </button>
+    )
   }
 
   if (variante === 'nav') {

@@ -1,6 +1,6 @@
-// Modo de platicar con AVI (hablada / escrita) que el paciente ya eligió en este inicio de sesión.
-// Se recuerda al ir a "Resumen" y regresar a "Habla"; se olvida al salir
-// ("Cerrar sesión", "Salir" o por inactividad) y entonces se vuelve a preguntar.
+// Modo de platicar con AVI (hablada / escrita) que el paciente eligió en este inicio de sesión.
+// Queda marcado en la pantalla de inicio de "Habla" (que se muestra siempre al entrar);
+// se olvida al salir ("Cerrar sesión", "Salir" o por inactividad).
 // Solo navegador: si el almacenamiento no está disponible, simplemente se pregunta de nuevo.
 const CLAVE = 'avi_modo_platica'
 

@@ -70,7 +70,13 @@ export default function CuestionariosTab({ patientId, therapistId, terminologia 
         status:             'pending',
       })
     if (error) alert('Error al asignar el cuestionario: ' + error.message)
-    else await fetchCuestionarios()
+    else {
+      // Aviso push al teléfono del paciente (si los activó)
+      fetch('/api/therapist/avisar-cuestionario', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ patientId }),
+      }).catch(() => {})
+      await fetchCuestionarios()
+    }
     setAsignando(false)
   }
 

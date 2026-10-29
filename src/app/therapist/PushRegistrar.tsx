@@ -1,15 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-
-const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? ''
-
-function urlBase64ToUint8Array(base64String: string): Uint8Array {
-  const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
-  const rawData = window.atob(base64)
-  return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)))
-}
+import { suscribirPush } from '@/lib/push/suscribir-navegador'
 
 export default function PushRegistrar() {
   const [permission, setPermission] = useState<NotificationPermission | null>(null)
@@ -30,26 +22,8 @@ export default function PushRegistrar() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  async function registerAndSubscribe() {
-    try {
-      const registration = await navigator.serviceWorker.register('/sw.js')
-      await navigator.serviceWorker.ready
-
-      const existing = await registration.pushManager.getSubscription()
-      const sub = existing ?? await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) as any,
-      })
-
-      await fetch('/api/push/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(sub.toJSON()),
-      })
-    } catch (err) {
-      console.error('Error registrando push:', err)
-    }
+  function registerAndSubscribe() {
+    return suscribirPush('/api/push/subscribe')
   }
 
   async function handleEnable() {

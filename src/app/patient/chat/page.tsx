@@ -4,6 +4,8 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import LogoutButton from '@/app/therapist/LogoutButton'
+import { ActivarAvisos } from '../AvisosPush'
 import { leerModoElegido, guardarModoElegido, leerBorrador, guardarBorrador } from '@/lib/modo-platica'
 import { nombreAvi, terminos, normalizarTerminologia, TERMINOLOGIA_SIN_EMPRESA, type Terminologia } from '@/lib/terminologia'
 
@@ -17,7 +19,10 @@ const ESPERA_ESCRIBIENDO_MS = 10 * 60_000  // sesión escrita: sin escribir (cad
 const AVISO_ANTES_MS       =      60_000   // aviso 1 minuto antes de cerrar
 
 // Cómo platica el paciente: se elige antes de iniciar y no cambia durante la sesión.
-// Ya elegido, se recuerda al ir a "Resumen" y regresar; se vuelve a preguntar al salir.
+// Pantalla de inicio (28 oct 2026): "¿Qué quieres hacer hoy?" se muestra siempre al entrar a Habla
+// (salvo una sesión abierta que se retoma): lo que le envió su terapeuta (mensajes y cuestionarios),
+// platicar hablando, platicar escribiendo y Salir. La última forma elegida queda marcada.
+// "← Regresar" vuelve a ella; con una plática en curso primero pregunta y la cierra como "Terminar".
 type Modo = 'hablada' | 'escrita'
 
 type AppState =
@@ -65,9 +70,8 @@ export default function PatientChatPage() {
   // La pantalla espera la primera respuesta para no mostrar un instante "terapeuta" a un Asesorado
   const [terminologiaLista, setTerminologiaLista] = useState(false)
 
-  // Acceso y sesiones AVI disponibles (la regla vive en el servidor)
-  useEffect(() => {
-    async function checkSesionesAvi() {
+  // Acceso y sesiones AVI disponibles (la regla vive en el servidor). Se vuelve a pedir al regresar al inicio
+  async function cargarEstadoSesiones() {
       try {
         const res = await fetch('/api/patient/sesiones-avi')
         if (!res.ok) return
@@ -81,8 +85,9 @@ export default function PatientChatPage() {
         if (!leerModoElegido() && (estado.ultimoModo === 'hablada' || estado.ultimoModo === 'escrita')) setModo(estado.ultimoModo)
       } catch { /* sin conexión: el servidor vuelve a revisar al iniciar la sesión */ }
       finally { setTerminologiaLista(true) }
-    }
-    checkSesionesAvi()
+  }
+  useEffect(() => {
+    cargarEstadoSesiones()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -115,27 +120,29 @@ export default function PatientChatPage() {
     checkOnboarding()
   }, [router])
 
-  // Cargar cuestionarios pendientes del paciente
-  useEffect(() => {
-    async function fetchPendientes() {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+  // Lo que le envió su terapeuta: cuestionarios por contestar (incluye la calificación de cierre)
+  // y mensajes sin leer. Se muestran en la pantalla de inicio
+  async function cargarPendientes() {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
 
-      const { data } = await supabase
-        .from('patient_questionnaires')
-        .select('id, title, questionnaire_type, assigned_at')
-        .eq('patient_id', user.id)
-        .eq('status', 'pending')
-        .order('assigned_at', { ascending: true })
+    const { data } = await supabase
+      .from('patient_questionnaires')
+      .select('id, title, questionnaire_type, assigned_at')
+      .eq('patient_id', user.id)
+      .eq('status', 'pending')
+      .order('assigned_at', { ascending: true })
 
-      if (data) setPendientes(data)
-    }
-    fetchPendientes()
+    if (data) setPendientes(data)
     fetch('/api/patient/mensajes')
       .then(r => r.ok ? r.json() : null)
       .then(j => { if (j) setMensajesNuevos((j.mensajes ?? []).filter((m: { leido_at: string | null }) => !m.leido_at)) })
       .catch(() => {})
+  }
+  useEffect(() => {
+    cargarPendientes()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const [appState, setAppState] = useState<AppState>('idle')
@@ -164,19 +171,21 @@ export default function PatientChatPage() {
   const [cierrePendiente, setCierrePendiente] = useState(false)
   // Aviso 1 minuto antes del cierre por tiempo (null = sin aviso)
   const [avisoTiempo, setAvisoTiempo] = useState<string | null>(null)
-  // Hablada o escrita: se elige en la pantalla de inicio ("Empezar") y queda fija en la sesión
+  // Hablada o escrita: se elige en la pantalla de inicio y queda fija en la sesión
   const [modo, setModo] = useState<Modo>('hablada')
   const [modoConfirmado, setModoConfirmado] = useState(false)
   const [texto, setTexto] = useState('')       // Lo que el paciente va escribiendo (modo escrito)
   const modoRef = useRef<Modo>('hablada')
   const textoRef = useRef('')
 
-  // Ya eligió en este inicio de sesión (fue a "Resumen" y regresó): directo a su modo,
-  // con lo que llevaba escrito sin enviar
+  // "← Regresar" con una plática en curso: al terminar de cerrarse, vuelve a la pantalla de inicio
+  const volverAlInicioRef = useRef(false)
+  const [confirmarRegreso, setConfirmarRegreso] = useState(false)
+
+  // La forma que eligió la última vez en este inicio de sesión queda marcada en la pantalla de inicio
   useEffect(() => {
     const elegido = leerModoElegido()
-    if (elegido) { setModo(elegido); setModoConfirmado(true) }
-    if (elegido === 'escrita') setTexto(leerBorrador())
+    if (elegido) setModo(elegido)
   }, [])
 
   // Salió a mitad de una sesión y regresó: se retoma la misma sesión con su conversación
@@ -199,6 +208,7 @@ export default function PatientChatPage() {
         setModo(modoSesion)
         setModoConfirmado(true)
         guardarModoElegido(modoSesion)
+        if (modoSesion === 'escrita') setTexto(leerBorrador())   // lo que llevaba escrito sin enviar
         if (modoSesion === 'hablada') setShowTranscript(true)   // que vea dónde se quedó
       } catch { /* sin conexión: empieza normal */ }
     }
@@ -411,6 +421,7 @@ export default function PatientChatPage() {
       // No se pudo guardar el resumen: se puede volver a intentar con "Terminar la sesión"
       // (si estaba saliendo, sale igual: la sesión se cierra y analiza en el barrido diario)
       finalizandoRef.current = false
+      volverAlInicioRef.current = false
       setErrorMsg('No se pudo guardar tu sesión. Toca "Terminar la sesión" para intentarlo de nuevo.')
     }
     // Avisar a "Cerrar sesión" / "Salir" que ya puede salir
@@ -494,6 +505,7 @@ export default function PatientChatPage() {
 
       // "Terminar" presionado por error ("no, me equivoqué", "no cierres"...): se sigue normal
       if (continuar && !saliendoRef.current) {
+        volverAlInicioRef.current = false
         cierrePendienteRef.current = false
         setCierrePendiente(false)
       }
@@ -731,9 +743,59 @@ export default function PatientChatPage() {
 
   function cancelarCierre() {
     if (saliendoRef.current) return   // ya está saliendo de la app
+    volverAlInicioRef.current = false
     cierrePendienteRef.current = false
     setCierrePendiente(false)
   }
+
+  // ── Pantalla de inicio ───────────────────────────────────────────────────────
+  function empezar(m: Modo) {
+    setModo(m)
+    guardarModoElegido(m)
+    if (m === 'escrita') setTexto(leerBorrador())
+    setModoConfirmado(true)
+  }
+
+  // Deja todo listo para una plática nueva y muestra la pantalla de inicio
+  function volverAlInicio() {
+    volverAlInicioRef.current = false
+    setConfirmarRegreso(false)
+    grabacionProcesadaRef.current = true   // lo que se estuviera grabando sin plática no se envía
+    try { userStoppedRef.current = true; recognitionRef.current?.stop() } catch { /* sin grabación */ }
+    stopAudio()
+    sessionIdRef.current = null
+    setSessionId(null)
+    setMessages([])
+    setSessionClosed(false)
+    finalizandoRef.current = false
+    cierrePorTiempoRef.current = false
+    limiteRef.current = null
+    setAvisoTiempo(null)
+    setErrorMsg(null)
+    setShowTranscript(false)
+    setAppState('idle')
+    setModoConfirmado(false)
+    cargarEstadoSesiones()
+    cargarPendientes()
+  }
+
+  // "← Regresar": sin plática en curso regresa directo; con plática pregunta antes
+  function regresar() {
+    if (closing || (finalizandoRef.current && !sessionClosed)) return
+    if (sessionId && !sessionClosed && messages.length > 0) { setConfirmarRegreso(true); return }
+    volverAlInicio()
+  }
+
+  // Sí, terminar: se cierra como con "Terminar" (resumen, cuenta como sesión) y luego vuelve al inicio
+  function terminarYRegresar() {
+    setConfirmarRegreso(false)
+    volverAlInicioRef.current = true
+    handlePatientClose()
+  }
+  useEffect(() => {
+    if (sessionClosed && volverAlInicioRef.current) volverAlInicio()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionClosed])
 
   const handleMicButton = () => {
     if (appState === 'idle') startRecording()
@@ -762,9 +824,8 @@ export default function PatientChatPage() {
     )
   }
 
-  const hasPendientes = pendientes.length > 0 || mensajesNuevos.length > 0
-  // Antes de iniciar: ¿hablada o escrita? (una vez iniciada la sesión ya no cambia)
-  const mostrarEleccion = !modoConfirmado && !sessionId && messages.length === 0 && !limitAlcanzado
+  // Antes de iniciar: pantalla de inicio (una vez iniciada la sesión, la forma ya no cambia)
+  const mostrarInicio = !modoConfirmado && !sessionId && messages.length === 0
   const enEscrito = modoConfirmado && modo === 'escrita' && (!limitAlcanzado || !!sessionId)
   const sesionesDisponibles = limiteActual !== null && !sessionId
     ? <>Sesiones AVI disponibles: {Math.max(0, limiteActual - sesionesUsadas)} de {limiteActual}</>
@@ -787,6 +848,125 @@ export default function PatientChatPage() {
       <p className="text-xs text-blue-400">
         ✓ Sesión guardada — ve a <strong>&quot;Resumen&quot;</strong> para ver una propuesta de cómo verte
       </p>
+      <button onClick={volverAlInicio} className="text-sm text-primary-600 hover:underline">
+        ← Regresar al inicio
+      </button>
+    </div>
+  )
+
+  // "← Regresar" (arriba a la izquierda, en hablada y escrita)
+  const botonRegresar = (
+    <button
+      onClick={regresar}
+      disabled={closing || (cierrePendiente && !sessionClosed)}
+      className="text-xs text-primary-600 hover:underline disabled:opacity-40 disabled:no-underline"
+    >
+      ← Regresar
+    </button>
+  )
+
+  // Con una plática en curso, "Regresar" primero pregunta
+  const bloqueConfirmarRegreso = confirmarRegreso && (
+    <div className="mx-4 mt-2 bg-primary-50 border border-primary-200 rounded-2xl px-4 py-3 text-center space-y-2">
+      <p className="text-sm font-semibold text-gray-800">¿Quieres terminar tu plática con AVI?</p>
+      <p className="text-xs text-gray-600">Se guardará tu Resumen y regresarás al inicio.</p>
+      <div className="flex justify-center gap-2 pt-1">
+        <button
+          onClick={terminarYRegresar}
+          className="px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold transition-colors"
+        >
+          Sí, terminar
+        </button>
+        <button
+          onClick={() => setConfirmarRegreso(false)}
+          className="px-4 py-2 rounded-xl border-2 border-gray-300 bg-white hover:bg-gray-50 text-gray-700 text-sm font-semibold transition-colors"
+        >
+          No, seguir
+        </button>
+      </div>
+    </div>
+  )
+
+  const fechaCorta = (iso: string) => new Date(iso).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })
+
+  // ¿Qué quieres hacer hoy? Pendientes de su terapeuta · hablando · escribiendo · Salir
+  const pantallaInicio = (
+    <div className="flex-1 overflow-y-auto px-6 py-8">
+      <div className="flex flex-col items-center gap-4 w-full max-w-xs mx-auto text-center">
+        <p className="text-2xl font-semibold text-gray-700 mb-2">¿Qué quieres hacer hoy?</p>
+
+        <ActivarAvisos pro={pro} />
+
+        {/* Lo que le envió su terapeuta: al terminar regresa aquí */}
+        {(mensajesNuevos.length > 0 || pendientes.length > 0) && (
+          <div className="w-full space-y-2 text-left">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Tu {pro} te envió</p>
+            {mensajesNuevos.map(m => (
+              <Link
+                key={m.id}
+                href={`/patient/mensajes?id=${m.id}`}
+                className="flex items-center justify-between bg-emerald-50 border-2 border-emerald-200
+                           rounded-2xl px-4 py-3 hover:bg-emerald-100 transition-colors"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-emerald-800 truncate">✉️ {m.asunto}</p>
+                  <p className="text-xs text-emerald-600 mt-0.5">Mensaje · enviado {fechaCorta(m.created_at)}</p>
+                </div>
+                <span className="text-emerald-400 text-lg">→</span>
+              </Link>
+            ))}
+            {pendientes.map(p => (
+              <Link
+                key={p.id}
+                href={`/patient/cuestionario/${p.id}`}
+                className="flex items-center justify-between bg-indigo-50 border-2 border-indigo-200
+                           rounded-2xl px-4 py-3 hover:bg-indigo-100 transition-colors"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-indigo-800">📝 {p.title}</p>
+                  <p className="text-xs text-indigo-500 mt-0.5">Para contestar · asignado {fechaCorta(p.assigned_at)}</p>
+                </div>
+                <span className="text-indigo-400 text-lg">→</span>
+              </Link>
+            ))}
+          </div>
+        )}
+
+        {/* Platicar con AVI (o por qué no está disponible) */}
+        {limitAlcanzado ? (
+          <div className="w-full bg-blue-50 border border-blue-200 rounded-2xl px-5 py-4">
+            {motivoLimite === 'sin_cupo' ? (
+              <p className="text-sm text-blue-700 leading-relaxed">
+                ⏸️ AVI no está disponible por ahora. Tu acceso está en pausa; avísale a <strong>TU {pro.toUpperCase()}</strong> para que lo reactive.
+              </p>
+            ) : (
+              <p className="text-sm text-blue-700 leading-relaxed">
+                🌙 Usaste tus {limiteActual} sesiones AVI. Se renuevan en tu próxima sesión presencial con tu {pro}. Mientras tanto, contacta a <strong>TU {pro.toUpperCase()}</strong>.
+              </p>
+            )}
+          </div>
+        ) : (
+          (['hablada', 'escrita'] as const).map(m => (
+            <button
+              key={m}
+              onClick={() => empezar(m)}
+              className={`w-full flex items-center gap-3 px-5 py-4 rounded-2xl border-2 transition-colors text-left
+                ${modo === m ? 'border-primary-600 bg-primary-50' : 'border-gray-200 bg-white hover:bg-gray-50'}`}
+            >
+              <span className="text-2xl">{m === 'hablada' ? '🎙️' : '⌨️'}</span>
+              <span className="text-base font-medium text-gray-800">
+                {m === 'hablada' ? 'Platicar con AVI hablando' : 'Platicar con AVI escribiendo'}
+              </span>
+            </button>
+          ))
+        )}
+
+        <LogoutButton variante="inicio" />
+
+        <p className="text-xs text-gray-300">
+          AVI no reemplaza a tu {pro}{!limitAlcanzado && sesionesDisponibles && <> · {sesionesDisponibles}</>}
+        </p>
+      </div>
     </div>
   )
 
@@ -823,13 +1003,16 @@ export default function PatientChatPage() {
         </div>
       )}
 
-      {/* ── SECCIÓN AVI — 80% (o 100% si no hay pendientes) ── */}
-      <div className={`flex flex-col relative ${hasPendientes ? 'flex-[4]' : 'flex-1'} overflow-hidden`}>
-        {enEscrito ? (
+      {/* ── SECCIÓN AVI ── */}
+      <div className="flex flex-col relative flex-1 overflow-hidden">
+        {mostrarInicio ? pantallaInicio : enEscrito ? (
           <>
             {/* Barra superior: modo + Terminar (compacto, en negro) */}
             <div className="flex items-center justify-between gap-2 px-4 pt-3 pb-2 border-b border-gray-100">
-              <span className="text-xs text-gray-400">⌨️ Escrita</span>
+              <span className="flex items-center gap-3">
+                {botonRegresar}
+                <span className="text-xs text-gray-400">⌨️ Escrita</span>
+              </span>
               {messages.length > 0 && !sessionClosed && (
                 <div className="flex items-center gap-3">
                   {/* Presionó "Terminar" por error: puede cancelarlo (AVI también lo detecta si lo escribe) */}
@@ -849,6 +1032,8 @@ export default function PatientChatPage() {
                 </div>
               )}
             </div>
+
+            {bloqueConfirmarRegreso}
 
             {errorMsg && (
               <div className="mx-4 mt-2 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-sm text-amber-700 flex justify-between items-start gap-2">
@@ -930,6 +1115,7 @@ export default function PatientChatPage() {
 
           {/* Barra superior */}
           <div className="flex items-center justify-between px-4 pt-3 pb-1">
+            {botonRegresar}
             <button
               onClick={() => setShowTranscript(v => !v)}
               className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
@@ -937,6 +1123,8 @@ export default function PatientChatPage() {
               {showTranscript ? 'Ocultar texto' : 'Ver conversación'}
             </button>
           </div>
+
+          {bloqueConfirmarRegreso}
 
           {/* Error visible */}
           {errorMsg && (
@@ -967,37 +1155,6 @@ export default function PatientChatPage() {
           {/* Área principal de voz */}
           <div className={`flex flex-col items-center justify-center gap-6 px-8
             ${showTranscript && messages.length > 0 ? 'py-4' : 'flex-1'}`}>
-            {/* ¿Hablada o escrita? Se marca lo que eligió la última vez */}
-            {mostrarEleccion ? (
-              <div className="flex flex-col items-center gap-4 w-full max-w-xs text-center">
-                <p className="text-2xl font-semibold text-gray-700 mb-2">¿Cómo quieres platicar hoy?</p>
-                {(['hablada', 'escrita'] as const).map(m => (
-                  <button
-                    key={m}
-                    onClick={() => setModo(m)}
-                    className={`w-full flex items-center justify-between px-5 py-4 rounded-2xl border-2 transition-colors
-                      ${modo === m ? 'border-primary-600 bg-primary-50' : 'border-gray-200 bg-white hover:bg-gray-50'}`}
-                  >
-                    <span className="flex items-center gap-3 text-base font-medium text-gray-800">
-                      <span className="text-2xl">{m === 'hablada' ? '🎙️' : '⌨️'}</span>
-                      {m === 'hablada' ? 'Hablada' : 'Escrita'}
-                    </span>
-                    <span className={`w-5 h-5 rounded-full border-2 ${modo === m ? 'border-primary-600 bg-primary-600' : 'border-gray-300'}`} />
-                  </button>
-                ))}
-                <button
-                  onClick={() => { guardarModoElegido(modo); setModoConfirmado(true) }}
-                  className="w-full mt-2 py-3.5 rounded-2xl bg-primary-600 hover:bg-primary-700 text-white font-semibold transition-colors"
-                >
-                  Empezar
-                </button>
-                <p className="text-xs text-gray-300">
-                  AVI no reemplaza a tu {pro}{sesionesDisponibles && <> · {sesionesDisponibles}</>}
-                </p>
-              </div>
-            ) : (
-            <>
-
             {/* Sin sesiones AVI disponibles */}
             {limitAlcanzado && !sessionId && motivoLimite === 'limite' && (
               <div className="flex flex-col items-center gap-4 text-center max-w-xs">
@@ -1143,66 +1300,11 @@ export default function PatientChatPage() {
               )}
               </>
             )}
-            </>
-            )}
           </div>
           </>
         )}
       </div>
 
-      {/* ── SECCIÓN PENDIENTES — 20% (solo si hay cuestionarios asignados) ── */}
-      {hasPendientes && (
-        <div className="flex-[1] border-t border-gray-100 bg-white px-4 py-3 overflow-y-auto">
-          {mensajesNuevos.length > 0 && (
-            <>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                {mensajesNuevos.length === 1 ? `Tienes un mensaje de tu ${pro}` : `Tienes ${mensajesNuevos.length} mensajes de tu ${pro}`}
-              </p>
-              <div className="space-y-2 mb-3">
-                {mensajesNuevos.map(m => (
-                  <Link
-                    key={m.id}
-                    href={`/patient/mensajes?id=${m.id}`}
-                    className="flex items-center justify-between bg-emerald-50 border border-emerald-200
-                               rounded-xl px-4 py-3 hover:bg-emerald-100 transition-colors"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-emerald-800 truncate">✉️ {m.asunto}</p>
-                      <p className="text-xs text-emerald-600 mt-0.5">
-                        Enviado {new Date(m.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
-                      </p>
-                    </div>
-                    <span className="text-emerald-400 text-lg">→</span>
-                  </Link>
-                ))}
-              </div>
-            </>
-          )}
-          {pendientes.length > 0 && (
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-            Tu {pro} te pide completar
-          </p>
-          )}
-          <div className="space-y-2">
-            {pendientes.map(p => (
-              <Link
-                key={p.id}
-                href={`/patient/cuestionario/${p.id}`}
-                className="flex items-center justify-between bg-indigo-50 border border-indigo-200
-                           rounded-xl px-4 py-3 hover:bg-indigo-100 transition-colors"
-              >
-                <div>
-                  <p className="text-sm font-medium text-indigo-800">{p.title}</p>
-                  <p className="text-xs text-indigo-500 mt-0.5">
-                    Asignado {new Date(p.assigned_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
-                  </p>
-                </div>
-                <span className="text-indigo-400 text-lg">→</span>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   )
 }

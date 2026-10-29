@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import LogoutButton from '../therapist/LogoutButton'
 import InactivityGuard from '@/components/InactivityGuard'
 import MensajesNavLink from './MensajesNavLink'
+import SincronizarAvisos from './AvisosPush'
 
 export default async function PatientLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -24,6 +25,7 @@ export default async function PatientLayout({ children }: { children: React.Reac
     // (los tiempos dentro de una sesión — 10 y 5 min — los maneja patient/chat/page.tsx)
     <InactivityGuard timeoutMs={30 * 60_000}>
       <div className="min-h-screen flex flex-col bg-gray-50">
+        <SincronizarAvisos />
         <header className="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between sticky top-0 z-10">
           <span className="text-xl font-bold text-primary-700">Platícame...</span>
           <div className="flex items-center gap-3">

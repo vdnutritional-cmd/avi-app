@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logApiAccess } from '@/lib/audit/log-access'
 import { MAX_ASUNTO, MAX_MENSAJE, motivoSinMensajes, avisarMensajeNuevo } from '@/lib/mensajes-paciente'
+import { avisarPacientePush } from '@/lib/push/avisar-paciente'
 
 /**
  * Mensajes del terapeuta a una persona (AVI-CLÍNICO › Cuestionarios, 27 oct 2026).
@@ -58,6 +59,7 @@ export async function POST(req: NextRequest) {
   if (error) return NextResponse.json({ error: 'No se pudo enviar. Intenta de nuevo.' }, { status: 500 })
 
   avisarMensajeNuevo(user.id, patientId)
+  avisarPacientePush(user.id, patientId, 'mensaje')
   logApiAccess(supabase, user.id, RUTA, 'POST', { patient_id: patientId, mensaje_id: data.id })
   return NextResponse.json({ ok: true, id: data.id })
 }
