@@ -101,12 +101,11 @@ export default async function TherapistPatientsPage() {
     return (
       <div className="p-6 max-w-lg mx-auto text-center space-y-4 pt-12">
         <div className="text-4xl">👥</div>
-        <h2 className="text-lg font-semibold text-gray-700">Presiona las 3 rayitas del menú para entrar a tu Dashboard</h2>
-        <p className="text-sm text-gray-400">
-          Genera un código en la sección de Códigos y compártelo con tu {w.user} para que se registre.
-        </p>
-        <Link href="/therapist/codes" className="inline-block text-sm text-primary-600 hover:underline">
-          Ir a Códigos →
+        <h2 className="text-lg font-normal text-gray-700">
+          Registra a tus {w.users} en la sección <strong>&quot;Registro de {w.users}&quot;</strong>, en la opción de <strong>&quot;Mi QR de registro&quot;</strong>.
+        </h2>
+        <Link href="/therapist/mi-qr" className="inline-block text-sm text-primary-600 hover:underline">
+          Ir a Mi QR de registro →
         </Link>
       </div>
     )
