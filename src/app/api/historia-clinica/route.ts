@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { logApiAccess } from '@/lib/audit/log-access'
 import { registrarUso } from '@/lib/ia/registrar-uso'
 
-export const maxDuration = 180
+export const maxDuration = 300 // 30 oct 2026: con 16,000 tokens puede pasar de 3 min
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 
@@ -364,7 +364,9 @@ export async function POST(request: NextRequest) {
 
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-5',
-      max_tokens: 6000,
+      // 30 oct 2026: con 6,000 se cortaba (Sonnet 5 también gasta tokens en razonar antes de escribir):
+      // una vez salió vacía y otra sin las últimas secciones
+      max_tokens: 16000,
       messages: [{ role: 'user', content: prompt }],
     })
     registrarUso(`historia_clinica_${type}`, 'claude-sonnet-5', response.usage, { therapistId: user.id, patientId })
@@ -372,6 +374,12 @@ export async function POST(request: NextRequest) {
     const raw = response.content.find(b => b.type === 'text')?.text?.trim() ?? ''
     console.log('[historia-clinica] type:', type, '| stop_reason:', response.stop_reason, '| chars:', raw.length)
 
+    if (response.stop_reason === 'max_tokens') {
+      return NextResponse.json(
+        { error: 'La Historia Clínica resultó demasiado extensa y se cortó. Intenta de nuevo.' },
+        { status: 422 }
+      )
+    }
     if (!raw) return NextResponse.json({ error: 'El modelo no generó contenido. Intenta de nuevo.' }, { status: 422 })
 
     const sections = {

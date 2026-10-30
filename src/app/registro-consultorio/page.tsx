@@ -607,9 +607,14 @@ function RegistroConsultorioForm() {
             </Field>
             {dg.salud_ayuda_psicologica === 'Sí' && (
               <Field label="¿Por cuánto tiempo?" optional>
-                <input type="text" value={dg.salud_ayuda_tiempo}
-                  onChange={e => setField('salud_ayuda_tiempo', e.target.value)}
-                  placeholder="6 meses, 1 año…" className={inputCls} />
+                {/* Misma lista que Datos Generales (DatosGeneralesTab) */}
+                <select value={dg.salud_ayuda_tiempo} onChange={e => setField('salud_ayuda_tiempo', e.target.value)} className={selectCls}>
+                  <option value="">Seleccionar</option>
+                  <option>Menos de 1 año</option>
+                  <option>1 año</option><option>2 años</option><option>3 años</option>
+                  <option>4 años</option><option>5 años</option>
+                  <option>Más de 5 años</option>
+                </select>
               </Field>
             )}
             <Field label="¿Toma medicamentos actualmente?" optional>
