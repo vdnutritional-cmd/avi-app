@@ -63,7 +63,7 @@ export default function ConversionPacientePage() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Conversión de paciente a terapeuta</h1>
         <p className="text-sm text-gray-600 mt-1 leading-relaxed">
-          Para una persona que se registró por error como paciente y en realidad es terapeuta o asesor.
+          Para una persona que se registró por error como paciente y en realidad es terapeuta, consultor o asesor.
           AVI solo admite una cuenta por correo, por eso no puede registrarse otra vez: aquí su misma cuenta
           (mismo correo y contraseña) pasa a ser de terapeuta. No se borra nada de su historial.
         </p>

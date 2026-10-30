@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { checkPassword } from '@/lib/password-strength'
 import PasswordStrengthBar from '@/components/PasswordStrengthBar'
-import { nombreAvi, terminos, TERMINOLOGIA_SIN_EMPRESA, type Terminologia } from '@/lib/terminologia'
+import { nombreAvi, terminos, terminologiaComun, TERMINOLOGIA_SIN_EMPRESA, type Terminologia } from '@/lib/terminologia'
 import { ESTADOS_MEXICO, PAISES, domicilioVacio, type Domicilio } from '@/lib/domicilio'
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
@@ -96,13 +96,13 @@ function RegistroConsultorioForm() {
 
   // Palabra de la persona (Inventario de Terminología, página 11): la de su empresa;
   // sin empresa (o "Ninguna"), "Cómo me nombran" del terapeuta. Antes de elegir en el
-  // paso Empresa, 'asesorado' si alguna lo es (como el menú del terapeuta).
+  // paso Empresa, la más restrictiva de sus empresas (como el menú del terapeuta).
   const empresaElegida = empresas.find(e => e.id === empresaId)
   const terminologia: Terminologia = empresaElegida
     ? empresaElegida.terminologia
     : empresas.length === 0 || empresaId === SIN_EMPRESA
       ? terminologiaPropia
-      : empresas.some(e => e.terminologia === 'asesorado') ? 'asesorado' : 'paciente'
+      : terminologiaComun(empresas.map(e => e.terminologia))
   const w = terminos(terminologia)
 
   // Steps dinámicos: insertar 'Empresa' entre 'Cuenta' y los datos de la persona si el terapeuta
@@ -233,7 +233,7 @@ function RegistroConsultorioForm() {
         <div className="text-5xl">🔗</div>
         <h2 className="text-xl font-bold text-gray-800">Código no válido</h2>
         <p className="text-gray-500 text-sm leading-relaxed">
-          Este código de registro no existe. Pide a tu terapeuta o asesor que te muestre el QR correcto.
+          Este código de registro no existe. Pide a tu terapeuta, consultor o asesor que te muestre el QR correcto.
         </p>
         <Link href="/auth/login" className="text-primary-600 text-sm hover:underline">Iniciar sesión</Link>
       </div>

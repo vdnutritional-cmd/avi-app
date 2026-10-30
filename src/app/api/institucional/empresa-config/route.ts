@@ -13,6 +13,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { logApiAccess } from '@/lib/audit/log-access'
 import { autorizarEmpresa as autorizar } from '@/lib/autorizar-empresa'
 import { esEnfoque } from '@/lib/enfoques'
+import { esTerminologia } from '@/lib/terminologia'
 import { ajustarEnfoquesDeTerapeutas } from '@/lib/enfoques-permitidos'
 
 const BUCKET = 'empresa-logos'
@@ -29,7 +30,7 @@ export async function PATCH(req: NextRequest) {
 
   const updates: Record<string, unknown> = {}
   if (terminologia !== undefined) {
-    if (terminologia !== 'paciente' && terminologia !== 'asesorado') {
+    if (!esTerminologia(terminologia)) {
       return NextResponse.json({ error: 'Terminología no válida' }, { status: 400 })
     }
     updates.terminologia = terminologia

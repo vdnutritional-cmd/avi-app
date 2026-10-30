@@ -97,7 +97,7 @@ export default function PricingPage() {
         <Link href="/" className="text-2xl font-bold text-purple-700">AVI</Link>
         <h1 className="mt-6 text-4xl font-bold text-gray-900">Planes y precios</h1>
         <p className="mt-3 text-lg text-gray-500 max-w-xl mx-auto">
-          Solo los terapeutas y asesores pagan. Los pacientes o asesorados siempre acceden gratis.
+          Solo los terapeutas, consultores y asesores pagan. Los pacientes, consultantes o asesorados siempre acceden gratis.
           Cancela o cambia de plan en cualquier momento.
         </p>
 
@@ -499,7 +499,7 @@ export default function PricingPage() {
         <section className="text-center border border-dashed border-gray-200 rounded-2xl p-8">
           <h2 className="text-lg font-semibold text-gray-700 mb-2">Empresas que Transforman Vidas</h2>
           <p className="text-sm text-gray-500 max-w-lg mx-auto mb-4">
-            AVI cuenta con patrocinios que permiten ofrecer acceso gratuito a Pacientes y Asesorados.
+            AVI cuenta con patrocinios que permiten ofrecer acceso gratuito a Pacientes, Consultantes y Asesorados.
             ¿Te gustaría apoyar?
           </p>
           <a

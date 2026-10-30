@@ -18,10 +18,12 @@ interface Paciente {
 interface Props {
   pacientes: Paciente[]
   empresas: Empresa[]
+  /** Empresas de sus personas a las que el terapeuta no pertenece (id → nombre) */
+  otrasEmpresas: Record<string, string>
   w: Record<Variable, string>
 }
 
-export default function AsignacionClient({ pacientes, empresas, w }: Props) {
+export default function AsignacionClient({ pacientes, empresas, otrasEmpresas, w }: Props) {
   const [assignments, setAssignments] = useState<Record<string, string | null>>(
     Object.fromEntries(pacientes.map(p => [p.patient_id, p.empresa_id]))
   )
@@ -95,6 +97,10 @@ export default function AsignacionClient({ pacientes, empresas, w }: Props) {
                   {empresas.map(e => (
                     <option key={e.id} value={e.id}>{e.nombre}</option>
                   ))}
+                  {/* Su empresa actual, aunque el terapeuta no pertenezca a ella (solo se puede quitar) */}
+                  {p.empresa_id && otrasEmpresas[p.empresa_id] && (
+                    <option value={p.empresa_id}>{otrasEmpresas[p.empresa_id]} (no perteneces a esta empresa)</option>
+                  )}
                 </select>
                 {errors[p.patient_id] && (
                   <p className="text-xs text-red-500 mt-1">{errors[p.patient_id]}</p>

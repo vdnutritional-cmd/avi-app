@@ -10,7 +10,7 @@ import {
   SCHEMA_RIESGO_COL,
   SCHEMA_PROTECCION_COL,
 } from './factores-nota-inicial'
-import { nombreAvi, terminos, normalizarTerminologia, TERMINOLOGIA_SIN_EMPRESA, type Terminologia } from '@/lib/terminologia'
+import { esTerapia, nombreAvi, terminos, normalizarTerminologia, TERMINOLOGIA_SIN_EMPRESA, type Terminologia } from '@/lib/terminologia'
 
 /**
  * Palabras de la persona para el PDF (Inventario de Terminología, página 7):
@@ -2069,12 +2069,12 @@ export function buildReportHeader(opts: ReportHeaderOptions): string {
     day: 'numeric', month: 'long', year: 'numeric',
   })
 
-  // Logo de AVI según la terminología: asesorado → "Acompañamiento Virtual Interactivo"; paciente → "Therapy Companion".
+  // Logo de AVI según la terminología: paciente → "Therapy Companion"; consultante y asesorado → "Acompañamiento Virtual Interactivo".
   // URL absoluta: el reporte se imprime desde un iframe.
   const origen = typeof window !== 'undefined' ? window.location.origin : ''
-  const logoAvi = (opts.terminologia ?? TERMINOLOGIA_SIN_EMPRESA) === 'asesorado'
-    ? { src: `${origen}/logo-avi-acompanamiento.png`, alt: 'AVI Acompañamiento Virtual Interactivo' }
-    : { src: `${origen}/logo-avi-companion.png`, alt: 'AVI Therapy Companion' }
+  const logoAvi = esTerapia(opts.terminologia ?? TERMINOLOGIA_SIN_EMPRESA)
+    ? { src: `${origen}/logo-avi-companion.png`, alt: 'AVI Therapy Companion' }
+    : { src: `${origen}/logo-avi-acompanamiento.png`, alt: 'AVI Acompañamiento Virtual Interactivo' }
 
   const rightContent =
     side === 'logo' && logoUrl

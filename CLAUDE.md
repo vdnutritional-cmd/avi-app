@@ -449,7 +449,7 @@ Una Persona Institucional siempre es una cuenta `role='therapist'` (Administraci
 | `patient-contacto.ts` | Contacto del paciente para la bienvenida y el chat |
 | `limite-sesiones-avi.ts` | `getEstadoSesionesAvi()` — sesiones AVI permitidas (política por frecuencia) |
 | `cerrar-sesion-avi.ts` | `procesarCierreSesion()` (patrones + completed) y `cerrarSesionesAbiertas()` |
-| `terminologia.ts` | Diccionario `<user>/<pro>/<serv>` (paciente/terapeuta/terapia · asesorado/asesor/asesoría), `terminos()`, `aplicarTerminologia()`, `nombreAvi()` (asesorado → "AVI Acompañamiento Virtual Interactivo"; paciente → "AVI Therapy Companion") |
+| `terminologia.ts` | Diccionario `<user>/<pro>/<serv>` (paciente/terapeuta/terapia · consultante/consultor/consultoría · asesorado/asesor/asesoría), `terminos()`, `aplicarTerminologia()`, `terminologiaComun()`, `esTerapia()`, `nombreAvi()` (paciente → "AVI Therapy Companion"; consultante y asesorado → "AVI Acompañamiento Virtual Interactivo") |
 | `terminologia-paciente.ts` | Política: qué palabra ve cada quien (persona, terapeuta, pantallas generales). Solo servidor |
 | `modo-platica.ts` | Modo elegido (hablada/escrita) y borrador sin enviar, en localStorage; se olvidan al salir |
 | `fusionar-cuentas.ts` | `fusionarCuentas()` — fusión temporal → real: nota, expediente y cierres campo por campo (gana la real), presenciales juntas renumeradas por fecha, análisis y cuestionarios; si falla no archiva |
@@ -471,6 +471,10 @@ Una Persona Institucional siempre es una cuenta `role='therapist'` (Administraci
 ## Terminología Paciente / Asesorado (14 oct 2026)
 
 Por cuestión legal (instituciones Sin Fines de Lucro no pueden usar "paciente"). Inventario de textos en `../AVI - Inventario Terminología.md`.
+- **Tres opciones (29 oct 2026, migración `20261029`):** Paciente (paciente/terapeuta/terapia) · **Consultante** (consultante/consultor/consultoría, grado entre terapeuta y asesor) · Asesorado (asesorado/asesor/asesoría). Todo pasa por `DICCIONARIO` / `TERMINOLOGIAS` / `esTerminologia()` de `terminologia.ts`: **nunca comparar con `'asesorado'` a mano**.
+  - Varias palabras juntas (menú, Administración, registro antes de elegir empresa) → `terminologiaComun()`: la más restrictiva, **asesorado > consultante > paciente**.
+  - Nombre y logo de AVI: solo Paciente es "AVI Therapy Companion" (`esTerapia()`); Consultante y Asesorado → "AVI Acompañamiento Virtual Interactivo".
+  - Textos fijos de páginas públicas: "terapeuta, consultor o asesor".
 - **Empresa:** la define la Persona Institucional User/Superuser en **Administración › Configuración Admin** (`/institucional/configuracion`, también teléfono y logo). El superadmin, en AVI Administración › Configuración Admin. API `/api/institucional/empresa-config` (permiso por empresa, logo subido desde el servidor). Empresas en CONVENIO del SaaS Controller ya no lo hace.
 - **Persona con empresa:** la de su empresa (bienvenida, chat, y lo que ve el terapeuta dentro de ella). **Sin empresa:** "Cómo me nombran" del terapeuta (`/therapist/configuracion/terminologia`).
 - **Menú y pantallas generales del terapeuta:** una sola palabra; "asesorado" si alguna empresa suya (o su elección) lo es. Nunca "pacientes/asesorados".

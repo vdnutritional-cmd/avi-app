@@ -32,7 +32,7 @@ Tus mensajes están protegidos. AVI no comparte tu información con nadie más.`
   {
     icono: '⚠️',
     titulo: 'Importante que sepas',
-    contenido: `AVI NO es un asesor o terapeuta. NO hace diagnósticos. NO reemplaza la atención de tu <pro> personal.
+    contenido: `AVI NO es un terapeuta, consultor o asesor. NO hace diagnósticos. NO reemplaza la atención de tu <pro> personal.
 
 Si en algún momento sientes que estás en crisis o en peligro, llama a la Línea de la Vida: 800 911 2000 (gratuita, 24 horas).
 

@@ -305,7 +305,7 @@ function PersonasInstitucionales({ empresa }: { empresa: Empresa }) {
                       Agregar por correo
                     </p>
                     <p className="text-xs text-gray-600 mt-1 leading-relaxed">
-                      Para una persona que no está en la lista de arriba. Debe tener cuenta de terapeuta o asesor en AVI.
+                      Para una persona que no está en la lista de arriba. Debe tener cuenta de terapeuta, consultor o asesor en AVI.
                       También queda asignada a esta empresa, para que si opera como terapeuta pueda asignarle sus pacientes.
                     </p>
                   </div>

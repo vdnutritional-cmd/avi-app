@@ -53,6 +53,15 @@ export default async function AsignacionInstitucionPage() {
     }
   })
 
+  // Empresas de sus pacientes a las que el terapeuta no pertenece (p. ej. llegaron por un traslado).
+  // Se muestran tal cual: antes la lista decía "Sin asignar" aunque la persona tuviera empresa.
+  const propias = new Set(empresas.map(e => e.id))
+  const ajenasIds = [...new Set(pacientes.map(p => p.empresa_id).filter((id): id is string => !!id && !propias.has(id)))]
+  const { data: ajenas } = ajenasIds.length
+    ? await admin.from('convenio_empresas').select('id, nombre').in('id', ajenasIds)
+    : { data: [] }
+  const otrasEmpresas = Object.fromEntries((ajenas ?? []).map(e => [e.id as string, (e.nombre as string) ?? 'Empresa']))
+
   // Palabras de las pantallas generales del terapeuta (Inventario de Terminología, página 4)
   const w = terminos(await getTerminologiaTerapeuta(admin, user.id))
 
@@ -65,7 +74,7 @@ export default async function AsignacionInstitucionPage() {
         </p>
       </div>
 
-      <AsignacionClient pacientes={pacientes} empresas={empresas} w={w} />
+      <AsignacionClient pacientes={pacientes} empresas={empresas} otrasEmpresas={otrasEmpresas} w={w} />
     </div>
   )
 }

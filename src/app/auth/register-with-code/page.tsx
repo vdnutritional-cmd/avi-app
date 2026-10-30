@@ -165,7 +165,7 @@ export default function RegisterWithCodePage() {
             <div className="text-center space-y-2">
               <p className="text-2xl">🔑</p>
               <p className="text-gray-600 text-sm">
-                Tu terapeuta o asesor te proporcionó un código de 8 caracteres para acceder a AVI.
+                Tu terapeuta, consultor o asesor te proporcionó un código de 8 caracteres para acceder a AVI.
               </p>
             </div>
             <div className="space-y-1">

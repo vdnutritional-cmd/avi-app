@@ -6,11 +6,11 @@
 //     ella (AVI-ESENCIAL, AVI-CLÍNICO, sus reportes): la terminología de su empresa.
 //     Sin empresa → la que eligió su terapeuta en "Cómo me nombran" (profiles.terminologia).
 //   - Pantallas generales del terapeuta (menú, Dashboard, listas): una sola palabra.
-//     'asesorado' si alguna de sus empresas (o "Cómo me nombran") es Asesorado,
-//     porque las instituciones sin fines de lucro no pueden usar "paciente".
+//     La más restrictiva entre sus empresas y "Cómo me nombran" (asesorado > consultante > paciente),
+//     porque las instituciones sin fines de lucro no pueden usar "paciente" (terminologiaComun).
 // ─────────────────────────────────────────────────────────────
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { normalizarTerminologia, TERMINOLOGIA_SIN_EMPRESA, type Terminologia } from './terminologia'
+import { normalizarTerminologia, terminologiaComun, TERMINOLOGIA_SIN_EMPRESA, type Terminologia } from './terminologia'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = SupabaseClient<any, any, any>
@@ -68,26 +68,25 @@ export async function getTerminologiaPersona(db: Db, therapistId: string, patien
   return vinculo ? terminologiaDeVinculo(db, vinculo) : getTerminologiaPropia(db, therapistId)
 }
 
-/** Pantallas generales del terapeuta: 'asesorado' si alguna empresa suya (o "Cómo me nombran") lo es */
+/** Pantallas generales del terapeuta: la más restrictiva entre sus empresas y "Cómo me nombran" */
 export async function getTerminologiaTerapeuta(db: Db, therapistId: string): Promise<Terminologia> {
   const [propia, { data: vinculos }, { data: rels }] = await Promise.all([
     getTerminologiaPropia(db, therapistId),
     db.from('therapist_patients').select('empresa_id').eq('therapist_id', therapistId).neq('status', 'archived'),
     db.from('therapist_empresa').select('empresa_id').eq('therapist_id', therapistId),
   ])
-  if (propia === 'asesorado') return 'asesorado'
 
   const empresaIds = [...new Set(
     [...(vinculos ?? []), ...(rels ?? [])].map(v => v.empresa_id as string | null).filter((id): id is string => !!id)
   )]
   if (empresaIds.length === 0) return propia
   const { data: empresas } = await db.from('convenio_empresas').select('terminologia').in('id', empresaIds)
-  return (empresas ?? []).some(e => normalizarTerminologia(e.terminologia) === 'asesorado') ? 'asesorado' : propia
+  return terminologiaComun([propia, ...(empresas ?? []).map(e => normalizarTerminologia(e.terminologia))])
 }
 
-/** Reportes de Administración (una o varias empresas): 'asesorado' si alguna lo es */
+/** Reportes de Administración (una o varias empresas): la más restrictiva */
 export async function getTerminologiaEmpresas(db: Db, empresaIds: string[]): Promise<Terminologia> {
   if (empresaIds.length === 0) return normalizarTerminologia(null)
   const { data: empresas } = await db.from('convenio_empresas').select('terminologia').in('id', empresaIds)
-  return (empresas ?? []).some(e => normalizarTerminologia(e.terminologia) === 'asesorado') ? 'asesorado' : 'paciente'
+  return terminologiaComun((empresas ?? []).map(e => normalizarTerminologia(e.terminologia)))
 }

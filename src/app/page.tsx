@@ -56,7 +56,7 @@ export default function HomePage() {
             className="w-full py-3 px-6 bg-white text-primary-600 border-2 border-primary-200
                        rounded-2xl font-semibold hover:bg-primary-50 transition-colors text-center"
           >
-            Soy terapeuta o asesor — Registrarme
+            Soy terapeuta, consultor o asesor — Registrarme
           </Link>
           {MOSTRAR_CODIGO_ACCESO && (
             <Link

@@ -30,7 +30,7 @@ export default function ComoMeNombranForm({ inicial, userId }: { inicial: Termin
         <h1 className="text-xl font-bold text-gray-800">Cómo me nombran</h1>
         <p className="text-sm text-gray-500 mt-1 leading-relaxed">
           Por transparencia y cumplimiento, por favor define cómo deseas que AVI se refiera a ti y a las personas
-          que atiendes de forma personal: como Asesor y Asesorado o como Terapeuta y Paciente.
+          que atiendes de forma personal: como Terapeuta y Paciente, como Consultor y Consultante o como Asesor y Asesorado.
         </p>
       </div>
 
