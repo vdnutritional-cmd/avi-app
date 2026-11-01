@@ -4,8 +4,8 @@
 //   - Paciente de empresa CONVENIO (empresa_id != null):
 //       nivel Clínico, nunca bloqueado, no cuenta contra el límite.
 //   - Paciente independiente (empresa_id = null):
-//       nivel según el plan del terapeuta (bundle Companion → Clínico;
-//       si no, subscriptions.tier). Solo los primeros N independientes
+//       nivel según el plan del terapeuta (subscriptions.tier; un Companion
+//       agregado sobre otro plan → Clínico). Solo los primeros N independientes
 //       (por fecha de registro) tienen acceso, N = cupo del plan.
 //       Sin plan → todos los independientes bloqueados.
 //
@@ -42,16 +42,16 @@ export async function getAccesoTerapeuta(
 ): Promise<AccesoTerapeuta> {
   const [subRes, bundleRes, empresaRes, indepRes] = await Promise.all([
     db.from('subscriptions')
-      .select('status, tier, patient_slots')
+      .select('status, plan, tier, patient_slots')
       .eq('therapist_id', therapistId)
       .maybeSingle(),
     // Bundle Companion (empresa_id=null) cubre a los pacientes independientes
     db.from('therapist_slot_bundles')
-      .select('patient_slots')
+      .select('patient_slots, stripe_sub_id')
       .eq('therapist_id', therapistId)
       .eq('status', 'active')
       .is('empresa_id', null)
-      .limit(1),
+      .order('created_at', { ascending: true }),
     db.from('therapist_empresa')
       .select('empresa_id, convenio_empresas(is_active)')
       .eq('therapist_id', therapistId),
@@ -64,8 +64,9 @@ export async function getAccesoTerapeuta(
       .order('created_at', { ascending: true }),
   ])
 
-  const sub = subRes.data as { status: string; tier: string | null; patient_slots: number | null } | null
-  const bundle = (bundleRes.data?.[0] ?? null) as { patient_slots: number } | null
+  const sub = subRes.data as { status: string; plan: string | null; tier: string | null; patient_slots: number | null } | null
+  const bundles = (bundleRes.data ?? []) as { patient_slots: number; stripe_sub_id: string | null }[]
+  const bundle = bundles[0] ?? null
 
   const tieneEmpresa = (empresaRes.data ?? []).some(r => {
     const e = r.convenio_empresas as { is_active?: boolean } | { is_active?: boolean }[] | null
@@ -76,7 +77,13 @@ export async function getAccesoTerapeuta(
   const subConAcceso = !!sub && ACCESS_STATUSES.includes(sub.status)
   const tienePlan = subConAcceso || !!bundle
 
-  const indepTier: Tier = bundle || sub?.tier === 'clinico' ? 'clinico' : 'esencial'
+  // El nivel lo da subscriptions.tier (Stripe lo pone según el plan, Companion pone 'clinico' y
+  // Admin › Terapeutas lo cambia con "Cambiar tier"). El bundle solo da el cupo: los paquetes de
+  // Stripe también crean uno (source_type 'regular'), y antes cualquier bundle daba Clínico.
+  // Excepción: Companion agregado sobre otro plan (Opción B, p. ej. free_approved Esencial) no
+  // toca la suscripción → su bundle (sin stripe_sub_id) da Clínico mientras dure.
+  const companionSobreOtroPlan = sub?.plan !== 'companion' && bundles.some(b => !b.stripe_sub_id)
+  const indepTier: Tier = sub?.tier === 'clinico' || companionSobreOtroPlan ? 'clinico' : 'esencial'
   const indepSlots: number | null = bundle
     ? bundle.patient_slots
     : subConAcceso ? (sub?.patient_slots ?? null) : 0

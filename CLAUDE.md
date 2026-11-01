@@ -406,7 +406,7 @@ Reglas del webhook (`handleCheckoutCompleted`):
 | Paciente | Nivel | ¿Se bloquea? |
 |---|---|---|
 | CONVENIO (`empresa_id != null`) | Clínico | Nunca; no cuenta contra el cupo |
-| Independiente (`empresa_id = null`) | Del plan del terapeuta (bundle Companion → Clínico; si no, `subscriptions.tier`) | Solo los primeros N por fecha de registro tienen acceso (N = cupo). Sin plan → todos bloqueados |
+| Independiente (`empresa_id = null`) | `subscriptions.tier` (el bundle solo da el cupo; Companion agregado sobre otro plan → Clínico) | Solo los primeros N por fecha de registro tienen acceso (N = cupo). Sin plan → todos bloqueados |
 
 - El registro de pacientes **nunca** se detiene por cupo; el límite se aplica después, en el acceso.
 - `therapist/layout.tsx` deja entrar sin plan propio si el terapeuta tiene una empresa CONVENIO activa.
