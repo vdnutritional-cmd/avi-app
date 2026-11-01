@@ -429,7 +429,7 @@ Reglas del webhook (`handleCheckoutCompleted`):
 ### Personas Institucionales — niveles (`src/lib/niveles-institucionales.ts`)
 | Nivel | Acceso |
 |---|---|
-| N3 — **Community Manager** | Panel de Control |
+| N3 — **Community Manager** | Panel de Control + Reporte por Terapeuta (1 nov 2026) |
 | N2 — **User** | Panel + Reporte General + Configuración Admin + Alta/Baja de <Pros> |
 | N1 — **Superuser** | User + Reporte por Terapeuta |
 
@@ -609,7 +609,7 @@ No cambian:
 
 - **Pantalla de inicio (28 oct 2026):** "¿Qué quieres hacer hoy?", siempre al entrar a Habla (salvo una sesión abierta que se retoma):
   - "Tu <pro> te envió": mensajes sin leer y cuestionarios pendientes (incluida la calificación de cierre `sensacion_final`); al terminar regresan aquí (Mensajes con `?id=` muestra "← Regresar").
-  - 🎙️ Platicar con AVI hablando · ⌨️ Platicar con AVI escribiendo (queda marcada la última elección; sin sesiones disponibles se muestra el aviso en su lugar) · 🚪 Salir (`LogoutButton variante="inicio"`).
+  - Subtítulo "¿Cómo quieres platicar con AVI?" y los botones 🎙️ HABLANDO · ⌨️ ESCRIBIENDO (queda marcada la última elección; sin sesiones disponibles se muestra el aviso en su lugar) · 🚪 Salir (`LogoutButton variante="inicio"`).
   - La forma no cambia a mitad de la sesión; se guarda en `sessions.modo`.
   - **"← Regresar"** (arriba, en hablada y escrita): sin plática regresa directo; con plática pregunta "¿Quieres terminar tu plática con AVI?" y la cierra como "Terminar" (resumen, cuenta como sesión) antes de volver. Tras el cierre, "← Regresar al inicio".
   - Ya no hay franja de pendientes abajo de la pantalla de voz.

@@ -166,7 +166,7 @@ export default function PanelInstitucionalVista({ empresaBlocks, permisos, hrefR
           <SeccionBloqueada titulo="Reporte General" />
         )}
 
-        {/* Reporte por terapeuta (solo N1) */}
+        {/* Reporte por terapeuta (N1 y N3) */}
         {permisos.reporteTerapeuta ? (
           <SeccionActiva
             titulo={`Reporte por ${w.pro}`}

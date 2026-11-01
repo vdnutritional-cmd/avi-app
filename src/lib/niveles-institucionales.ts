@@ -2,7 +2,7 @@
 // Niveles de Personas Institucionales — acceso en "Administración"
 // Por dentro se guardan como N1/N2/N3; en pantalla se muestran con NIVEL_NOMBRES.
 //
-//   N3 (Community Manager): Panel de Control
+//   N3 (Community Manager): Panel de Control + Reporte por Terapeuta (1 nov 2026; antes solo Panel)
 //   N2 (User):       Panel de Control + Reporte General
 //   N1 (Superuser):  Panel de Control + Reporte General + Reporte por Terapeuta
 //   Configuración Admin (terminología, teléfono y logo) y Alta/Baja de <Pros>: N1 y N2
@@ -15,7 +15,7 @@
 export type NivelPI = 'N1' | 'N2' | 'N3'
 
 export const NIVELES_REPORTE_GENERAL: NivelPI[]  = ['N1', 'N2']
-export const NIVELES_REPORTE_TERAPEUTA: NivelPI[] = ['N1']
+export const NIVELES_REPORTE_TERAPEUTA: NivelPI[] = ['N1', 'N3']
 export const NIVELES_BAJA_TERAPEUTAS: NivelPI[]  = ['N1', 'N2']
 export const NIVELES_CONFIGURACION: NivelPI[]    = ['N1', 'N2']
 
@@ -27,9 +27,9 @@ export const NIVEL_NOMBRES: Record<NivelPI, string> = {
 }
 
 export const NIVEL_LABELS: Record<NivelPI, string> = {
-  N1: 'Superuser — Panel + Reporte General + Reporte por Terapeuta',
-  N2: 'User — Panel + Reporte General',
-  N3: 'Community Manager — Solo Panel de Control',
+  N1: 'Superuser — Panel + Reporte General + Reporte por Terapeuta + Configuración Admin + Alta/Baja',
+  N2: 'User — Panel + Reporte General + Configuración Admin + Alta/Baja',
+  N3: 'Community Manager — Panel + Reporte por Terapeuta',
 }
 
 /** Nombre visible de un nivel guardado (N1/N2/N3) */

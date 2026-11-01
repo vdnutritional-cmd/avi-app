@@ -946,7 +946,10 @@ export default function PatientChatPage() {
             )}
           </div>
         ) : (
-          (['hablada', 'escrita'] as const).map(m => (
+          <>
+          {/* Separa lo que envió su terapeuta de las formas de platicar (1 nov 2026) */}
+          <p className="w-full text-left text-xs font-semibold text-gray-500 uppercase tracking-wide mt-2">¿Cómo quieres platicar con AVI?</p>
+          {(['hablada', 'escrita'] as const).map(m => (
             <button
               key={m}
               onClick={() => empezar(m)}
@@ -955,10 +958,11 @@ export default function PatientChatPage() {
             >
               <span className="text-2xl">{m === 'hablada' ? '🎙️' : '⌨️'}</span>
               <span className="text-base font-medium text-gray-800">
-                {m === 'hablada' ? 'Platicar con AVI hablando' : 'Platicar con AVI escribiendo'}
+                {m === 'hablada' ? 'HABLANDO' : 'ESCRIBIENDO'}
               </span>
             </button>
-          ))
+          ))}
+          </>
         )}
 
         <LogoutButton variante="inicio" />
