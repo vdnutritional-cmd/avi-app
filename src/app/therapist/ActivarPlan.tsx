@@ -394,10 +394,10 @@ export default function ActivarPlan({ therapistName, terminologia }: { therapist
                 )}
                 <p className="text-xs font-semibold text-gray-500 mb-1">{plan.name}</p>
                 <div className="mb-0.5">
-                  <span className="text-2xl font-bold text-gray-900">${plan.priceUSD}</span>
+                  <span className="text-2xl font-bold text-gray-900">${plan.priceUSD.toFixed(2)}</span>
                   <span className="text-gray-400 text-[10px] ml-1">USD/mes</span>
                 </div>
-                <p className="text-[10px] text-gray-400 mb-0.5">${plan.unitPriceUSD}/paciente</p>
+                <p className="text-[10px] text-gray-400 mb-0.5">${plan.unitPriceUSD.toFixed(2)}/paciente</p>
                 {plan.savingsVsUnit && (
                   <span className="text-[10px] text-green-600 font-medium mb-3">
                     Ahorra {plan.savingsVsUnit}%
@@ -408,7 +408,7 @@ export default function ActivarPlan({ therapistName, terminologia }: { therapist
               </div>
             ))}
           </div>
-          <p className="mt-4 text-center text-xs text-gray-400">
+          <p className="mt-4 text-center text-xs text-gray-600">
             * Al pago se añadirá el IVA correspondiente (16% en México).
           </p>
         </section>
@@ -445,10 +445,10 @@ export default function ActivarPlan({ therapistName, terminologia }: { therapist
               <div key={plan.id} className="bg-white/10 rounded-xl p-4 border border-white/20">
                 <p className="text-xs font-semibold text-purple-200 mb-1">{plan.name}</p>
                 <div className="mb-0.5">
-                  <span className="text-2xl font-bold">${plan.priceUSD}</span>
+                  <span className="text-2xl font-bold">${plan.priceUSD.toFixed(2)}</span>
                   <span className="text-purple-300 text-[10px] ml-1">USD/mes</span>
                 </div>
-                <p className="text-xs text-purple-300 mb-0.5">${plan.unitPriceUSD}/paciente</p>
+                <p className="text-xs text-purple-300 mb-0.5">${plan.unitPriceUSD.toFixed(2)}/paciente</p>
                 <span className="text-[10px] text-green-300 font-medium block mb-3">
                   Ahorra {plan.savingsVsUnit}% vs precio estándar
                 </span>

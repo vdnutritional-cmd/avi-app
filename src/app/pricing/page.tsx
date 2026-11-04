@@ -367,10 +367,10 @@ export default function PricingPage() {
                 )}
                 <p className="text-sm font-semibold text-gray-500 mb-1">{plan.name}</p>
                 <div className="mb-1">
-                  <span className="text-3xl font-bold text-gray-900">${plan.priceUSD}</span>
+                  <span className="text-3xl font-bold text-gray-900">${plan.priceUSD.toFixed(2)}</span>
                   <span className="text-gray-400 text-xs ml-1">USD/mes</span>
                 </div>
-                <p className="text-xs text-gray-400 mb-1">${plan.unitPriceUSD}/paciente</p>
+                <p className="text-xs text-gray-400 mb-1">${plan.unitPriceUSD.toFixed(2)}/paciente</p>
                 {plan.savingsVsUnit && (
                   <span className="text-xs text-green-600 font-medium mb-4">
                     Ahorra {plan.savingsVsUnit}% vs unitario
@@ -383,7 +383,7 @@ export default function PricingPage() {
           </div>
 
           {/* Nota IVA */}
-          <p className="mt-6 text-center text-xs text-gray-400">
+          <p className="mt-6 text-center text-xs text-gray-600">
             * Al pago se le añadirá el IVA correspondiente (16% en México).
           </p>
         </section>
@@ -425,10 +425,10 @@ export default function PricingPage() {
               >
                 <p className="text-sm font-semibold text-purple-200 mb-1">{plan.name}</p>
                 <div className="mb-1">
-                  <span className="text-3xl font-bold">${plan.priceUSD}</span>
+                  <span className="text-3xl font-bold">${plan.priceUSD.toFixed(2)}</span>
                   <span className="text-purple-300 text-xs ml-1">USD/mes</span>
                 </div>
-                <p className="text-xs text-purple-300 mb-1">${plan.unitPriceUSD}/paciente</p>
+                <p className="text-xs text-purple-300 mb-1">${plan.unitPriceUSD.toFixed(2)}/paciente</p>
                 <span className="text-xs text-green-300 font-medium block mb-4">
                   Ahorra {plan.savingsVsUnit}% vs precio estándar
                 </span>

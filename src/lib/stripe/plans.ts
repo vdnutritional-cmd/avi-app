@@ -34,8 +34,8 @@ export interface PatrocinioPlan {
 }
 
 // ── Precios unitarios base ────────────────────────────────────
-export const UNIT_PRICE_ESENCIAL = 2.85
-export const UNIT_PRICE_CLINICO  = 3.85
+export const UNIT_PRICE_ESENCIAL = 3.95   // 4 nov 2026 (antes 2.85)
+export const UNIT_PRICE_CLINICO  = 4.49   // 4 nov 2026 (antes 3.85)
 
 // Alias para compatibilidad con código existente
 export const UNIT_PRICE_PER_PATIENT = UNIT_PRICE_ESENCIAL
@@ -60,9 +60,9 @@ export const ESENCIAL_PLANS: Plan[] = [
     name: 'Esencial 5',
     description: '5 pacientes activos por mes',
     patientSlots: 5,
-    priceUSD: 12.50,
-    unitPriceUSD: 2.50,
-    savingsVsUnit: 12,   // vs $14.25 unitario
+    priceUSD: 19.42,
+    unitPriceUSD: 3.88,
+    savingsVsUnit: 2,   // vs $19.75 unitario
     stripePriceId: process.env.STRIPE_PRICE_ESENCIAL_PACK5 ?? '',
   },
   {
@@ -72,9 +72,9 @@ export const ESENCIAL_PLANS: Plan[] = [
     name: 'Esencial 10',
     description: '10 pacientes activos por mes',
     patientSlots: 10,
-    priceUSD: 24.50,
-    unitPriceUSD: 2.45,
-    savingsVsUnit: 14,   // vs $28.50 unitario
+    priceUSD: 38.15,
+    unitPriceUSD: 3.82,
+    savingsVsUnit: 3,   // vs $39.50 unitario
     stripePriceId: process.env.STRIPE_PRICE_ESENCIAL_PACK10 ?? '',
     highlight: true,
   },
@@ -85,9 +85,9 @@ export const ESENCIAL_PLANS: Plan[] = [
     name: 'Esencial 20',
     description: '20 pacientes activos por mes',
     patientSlots: 20,
-    priceUSD: 48.00,
-    unitPriceUSD: 2.40,
-    savingsVsUnit: 16,   // vs $57.00 unitario
+    priceUSD: 74.92,
+    unitPriceUSD: 3.75,
+    savingsVsUnit: 5,   // vs $79.00 unitario
     stripePriceId: process.env.STRIPE_PRICE_ESENCIAL_PACK20 ?? '',
   },
   {
@@ -97,9 +97,9 @@ export const ESENCIAL_PLANS: Plan[] = [
     name: 'Esencial 30',
     description: '30 pacientes activos por mes',
     patientSlots: 30,
-    priceUSD: 70.50,
-    unitPriceUSD: 2.35,
-    savingsVsUnit: 18,   // vs $85.50 unitario
+    priceUSD: 110.31,
+    unitPriceUSD: 3.68,
+    savingsVsUnit: 7,   // vs $118.50 unitario
     stripePriceId: process.env.STRIPE_PRICE_ESENCIAL_PACK30 ?? '',
   },
   {
@@ -109,9 +109,9 @@ export const ESENCIAL_PLANS: Plan[] = [
     name: 'Esencial 40',
     description: '40 pacientes activos por mes',
     patientSlots: 40,
-    priceUSD: 90.00,
-    unitPriceUSD: 2.25,
-    savingsVsUnit: 21,   // vs $114.00 unitario
+    priceUSD: 144.33,
+    unitPriceUSD: 3.61,
+    savingsVsUnit: 9,   // vs $158.00 unitario
     stripePriceId: process.env.STRIPE_PRICE_ESENCIAL_PACK40 ?? '',
   },
 ]
@@ -125,9 +125,9 @@ export const ESENCIAL_VALORA_PLANS: Plan[] = [
     name: 'CONVENIO Esencial 10',
     description: '10 pacientes — Precio especial asesores en CONVENIO',
     patientSlots: 10,
-    priceUSD: 17.00,
-    unitPriceUSD: 1.70,
-    savingsVsUnit: 40,   // vs $28.50 unitario
+    priceUSD: 35.39,
+    unitPriceUSD: 3.54,
+    savingsVsUnit: 10,   // vs $39.50 unitario
     stripePriceId: process.env.STRIPE_PRICE_ESENCIAL_VALORA10 ?? '',
     isValora: true,
   },
@@ -138,9 +138,9 @@ export const ESENCIAL_VALORA_PLANS: Plan[] = [
     name: 'CONVENIO Esencial 20',
     description: '20 pacientes — Precio especial asesores en CONVENIO',
     patientSlots: 20,
-    priceUSD: 32.00,
-    unitPriceUSD: 1.60,
-    savingsVsUnit: 44,   // vs $57.00 unitario
+    priceUSD: 69.41,
+    unitPriceUSD: 3.47,
+    savingsVsUnit: 12,   // vs $79.00 unitario
     stripePriceId: process.env.STRIPE_PRICE_ESENCIAL_VALORA20 ?? '',
     isValora: true,
     highlight: true,
@@ -167,9 +167,9 @@ export const CLINICO_PLANS: Plan[] = [
     name: 'Clínico 5',
     description: '5 pacientes activos por mes',
     patientSlots: 5,
-    priceUSD: 17.50,
-    unitPriceUSD: 3.50,
-    savingsVsUnit: 9,    // vs $19.25 unitario
+    priceUSD: 22.03,
+    unitPriceUSD: 4.41,
+    savingsVsUnit: 2,    // vs $22.45 unitario
     stripePriceId: process.env.STRIPE_PRICE_CLINICO_PACK5 ?? '',
   },
   {
@@ -179,9 +179,9 @@ export const CLINICO_PLANS: Plan[] = [
     name: 'Clínico 10',
     description: '10 pacientes activos por mes',
     patientSlots: 10,
-    priceUSD: 34.00,
-    unitPriceUSD: 3.40,
-    savingsVsUnit: 12,   // vs $38.50 unitario
+    priceUSD: 43.29,
+    unitPriceUSD: 4.33,
+    savingsVsUnit: 4,   // vs $44.90 unitario
     stripePriceId: process.env.STRIPE_PRICE_CLINICO_PACK10 ?? '',
     highlight: true,
   },
@@ -192,9 +192,9 @@ export const CLINICO_PLANS: Plan[] = [
     name: 'Clínico 20',
     description: '20 pacientes activos por mes',
     patientSlots: 20,
-    priceUSD: 66.00,
-    unitPriceUSD: 3.30,
-    savingsVsUnit: 14,   // vs $77.00 unitario
+    priceUSD: 85.01,
+    unitPriceUSD: 4.25,
+    savingsVsUnit: 5,   // vs $89.80 unitario
     stripePriceId: process.env.STRIPE_PRICE_CLINICO_PACK20 ?? '',
   },
   {
@@ -204,9 +204,9 @@ export const CLINICO_PLANS: Plan[] = [
     name: 'Clínico 30',
     description: '30 pacientes activos por mes',
     patientSlots: 30,
-    priceUSD: 96.00,
-    unitPriceUSD: 3.20,
-    savingsVsUnit: 17,   // vs $115.50 unitario
+    priceUSD: 125.18,
+    unitPriceUSD: 4.17,
+    savingsVsUnit: 7,   // vs $134.70 unitario
     stripePriceId: process.env.STRIPE_PRICE_CLINICO_PACK30 ?? '',
   },
   {
@@ -216,9 +216,9 @@ export const CLINICO_PLANS: Plan[] = [
     name: 'Clínico 40',
     description: '40 pacientes activos por mes',
     patientSlots: 40,
-    priceUSD: 122.00,
-    unitPriceUSD: 3.05,
-    savingsVsUnit: 21,   // vs $154.00 unitario
+    priceUSD: 163.78,
+    unitPriceUSD: 4.09,
+    savingsVsUnit: 9,   // vs $179.60 unitario
     stripePriceId: process.env.STRIPE_PRICE_CLINICO_PACK40 ?? '',
   },
 ]
@@ -232,9 +232,9 @@ export const CLINICO_VALORA_PLANS: Plan[] = [
     name: 'CONVENIO Clínico 10',
     description: '10 pacientes — Precio especial asesores en CONVENIO',
     patientSlots: 10,
-    priceUSD: 26.50,
-    unitPriceUSD: 2.65,
-    savingsVsUnit: 31,   // vs $38.50 unitario
+    priceUSD: 40.16,
+    unitPriceUSD: 4.02,
+    savingsVsUnit: 11,   // vs $44.90 unitario
     stripePriceId: process.env.STRIPE_PRICE_CLINICO_VALORA10 ?? '',
     isValora: true,
   },
@@ -245,9 +245,9 @@ export const CLINICO_VALORA_PLANS: Plan[] = [
     name: 'CONVENIO Clínico 20',
     description: '20 pacientes — Precio especial asesores en CONVENIO',
     patientSlots: 20,
-    priceUSD: 50.00,
-    unitPriceUSD: 2.50,
-    savingsVsUnit: 35,   // vs $77.00 unitario
+    priceUSD: 78.76,
+    unitPriceUSD: 3.94,
+    savingsVsUnit: 12,   // vs $89.80 unitario
     stripePriceId: process.env.STRIPE_PRICE_CLINICO_VALORA20 ?? '',
     isValora: true,
     highlight: true,
