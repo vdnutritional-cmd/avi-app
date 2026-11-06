@@ -1,32 +1,18 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import FiltrosEstadisticas from './FiltrosEstadisticas'
 import PrintEstadisticasButton from './PrintEstadisticasButton'
 import { institucionRowsDesde } from '@/lib/sesiones-por-institucion'
 import { terminos, type Terminologia } from '@/lib/terminologia'
 import { getTerminologiaTerapeuta } from '@/lib/terminologia-paciente'
+import { resolverPeriodo, type Periodo } from '@/lib/periodo'
+import { todasLasFilas } from '@/lib/supabase/todas-las-filas'
+import SelectorPeriodo from '@/components/SelectorPeriodo'
 
 export const dynamic = 'force-dynamic'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-function nombreMesLargo(year: number, month: number) {
-  return new Date(year, month - 1, 1).toLocaleDateString('es-MX', { month: 'long', year: 'numeric' })
-}
-
-function mesAnterior(year: number, month: number) {
-  return month === 1
-    ? `${year - 1}-12`
-    : `${year}-${String(month - 1).padStart(2, '0')}`
-}
-
-function mesSiguienteStr(year: number, month: number) {
-  return month === 12
-    ? `${year + 1}-01`
-    : `${year}-${String(month + 1).padStart(2, '0')}`
-}
 
 const TIPOS_DERIVACION = [
   'Psicólogo',
@@ -60,16 +46,10 @@ export default async function EstadisticasPage({
     : 'activos') as Tipo
   const pid         = pidParam ?? 'all'
 
-  // ── Mes a mostrar ──────────────────────────────────────────────────────────
-  const now = new Date()
-  const [ySt, mSt] = (mes ?? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`).split('-')
-  const year  = parseInt(ySt)
-  const month = parseInt(mSt)
-  const mesKey = `${year}-${String(month).padStart(2, '0')}`
-
-  const mesInicio    = `${mesKey}-01`
-  const mesSiguiente = new Date(year, month, 1).toISOString().split('T')[0]
-  const isCurrentMonth = mesKey === `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  // ── Periodo: mes, año acumulado, total acumulado o rango de fechas ────────
+  const periodo = resolverPeriodo(mes)
+  const mesInicio    = periodo.inicio
+  const mesSiguiente = periodo.fin
 
   // ── 1. Pacientes en scope (SIN filtrar por pid) ────────────────────────────
   // Siempre traemos todos los del tipo seleccionado para que el dropdown
@@ -133,45 +113,51 @@ export default async function EstadisticasPage({
 
   const esTotal = tipo === 'total'
 
-  let sesionesQuery = admin
-    .from('therapist_session_notes')
-    .select('patient_id, session_date, is_pro_bono')
-    .eq('therapist_id', therapistId)
-    .gte('session_date', mesInicio)
-    .lt('session_date', mesSiguiente)
+  // Por páginas: con año o total acumulado pueden ser más de 1,000 filas
+  const filtrarPacientes = !esTotal
+  const armarSesiones = () => {
+    const q = admin
+      .from('therapist_session_notes')
+      .select('patient_id, session_date, is_pro_bono')
+      .eq('therapist_id', therapistId)
+      .gte('session_date', mesInicio)
+      .lt('session_date', mesSiguiente)
+    return (filtrarPacientes ? q.in('patient_id', pacienteIds) : q).order('id')
+  }
 
   // Notas iniciales: excluir archivados para evitar doble conteo con cuentas fusionadas
-  let notasIniQuery = admin
-    .from('therapist_patients')
-    .select('patient_id, initial_note_date, initial_note_pro_bono, initial_note')
-    .eq('therapist_id', therapistId)
-    .neq('status', 'archived')
-    .not('initial_note', 'is', null)
-    .not('initial_note_date', 'is', null)
-    .gte('initial_note_date', mesInicio)
-    .lt('initial_note_date', mesSiguiente)
+  const armarNotasIni = () => {
+    const q = admin
+      .from('therapist_patients')
+      .select('patient_id, initial_note_date, initial_note_pro_bono')
+      .eq('therapist_id', therapistId)
+      .neq('status', 'archived')
+      .not('initial_note', 'is', null)
+      .not('initial_note_date', 'is', null)
+      .gte('initial_note_date', mesInicio)
+      .lt('initial_note_date', mesSiguiente)
+    return (filtrarPacientes ? q.in('patient_id', pacienteIds) : q).order('id')
+  }
 
   if (!esTotal) {
     if (pacienteIds.length === 0) {
       // Sin pacientes en scope → página vacía
       return renderPage({
-        year, month, mesKey, isCurrentMonth, tipo, pid, terminologia,
+        periodo, tipo, pid, terminologia,
         terapeutaNombre, empresasParaLogo,
         todasLasSesiones: [], pacientesEnPeriodoIds: [],
         relaciones: [],
         derivacionesRows: [], expedientesRows: [],
-        todosActivosRows: [], derivActivosRows: [],
+        todosActivosRows: [],
         countInactivos: 0,
         empresaByPatient, nombreByPatient,
       })
     }
-    sesionesQuery = sesionesQuery.in('patient_id', pacienteIds)
-    notasIniQuery = notasIniQuery.in('patient_id', pacienteIds)
   }
 
   const [{ data: sesionesRows }, { data: notasRows }] = await Promise.all([
-    sesionesQuery,
-    notasIniQuery,
+    todasLasFilas(armarSesiones),
+    todasLasFilas(armarNotasIni),
   ])
 
   type SesionRow = { patient_id: string; session_date: string; is_pro_bono: boolean }
@@ -212,11 +198,11 @@ export default async function EstadisticasPage({
       : Promise.resolve({ data: [] }),
   ])
 
-  // ── 4. Todos los activos para Satisfacción (sin filtro de mes) ─────────────
+  // ── 4. Totales de activos e inactivos (tarjeta del Resumen; sin filtro de periodo) ──
   const [{ data: todosActivosRows }, { count: countInactivos }] = await Promise.all([
     admin
       .from('therapist_patients')
-      .select('patient_id, sensacion_paciente_inicial')
+      .select('patient_id')
       .eq('therapist_id', therapistId)
       .eq('is_active', true)
       .neq('status', 'archived'),
@@ -228,25 +214,14 @@ export default async function EstadisticasPage({
       .neq('status', 'archived'),
   ])
 
-  const todosActivosIds = (todosActivosRows ?? []).map(r => r.patient_id as string)
-
-  const { data: derivActivosRows } = todosActivosIds.length > 0
-    ? await supabase
-        .from('patient_derivaciones_cierres')
-        .select('patient_id, sensacion_paciente_final')
-        .eq('therapist_id', therapistId)
-        .in('patient_id', todosActivosIds)
-    : { data: [] }
-
   return renderPage({
-    year, month, mesKey, isCurrentMonth, tipo, pid, terminologia,
+    periodo, tipo, pid, terminologia,
     terapeutaNombre, empresasParaLogo,
     todasLasSesiones, pacientesEnPeriodoIds,
     relaciones: relaciones ?? [],
     derivacionesRows: derivacionesRows ?? [],
     expedientesRows:  expedientesRows  ?? [],
     todosActivosRows: todosActivosRows ?? [],
-    derivActivosRows: derivActivosRows ?? [],
     countInactivos: countInactivos ?? 0,
     empresaByPatient,
     nombreByPatient,
@@ -256,10 +231,7 @@ export default async function EstadisticasPage({
 // ── Renderer ──────────────────────────────────────────────────────────────────
 
 interface RenderProps {
-  year: number
-  month: number
-  mesKey: string
-  isCurrentMonth: boolean
+  periodo: Periodo
   tipo: Tipo
   pid: string
   terminologia: Terminologia
@@ -271,18 +243,17 @@ interface RenderProps {
   derivacionesRows: Record<string, unknown>[]
   expedientesRows: Record<string, unknown>[]
   todosActivosRows: Record<string, unknown>[]
-  derivActivosRows: Record<string, unknown>[]
   countInactivos: number
   empresaByPatient: Record<string, string>
   nombreByPatient: Record<string, string>
 }
 
 function renderPage({
-  year, month, mesKey, isCurrentMonth, tipo, pid, terminologia,
+  periodo, tipo, pid, terminologia,
   terapeutaNombre, empresasParaLogo,
   todasLasSesiones, pacientesEnPeriodoIds,
   relaciones, derivacionesRows, expedientesRows,
-  todosActivosRows, derivActivosRows,
+  todosActivosRows,
   countInactivos,
   empresaByPatient, nombreByPatient,
 }: RenderProps) {
@@ -348,25 +319,8 @@ function renderPage({
   const abandono          = derivaciones.filter(d => d.abandono               === true).length
   const atenEspecializada = derivaciones.filter(d => d.atencion_especializada === 'SI').length
 
-  // F) Satisfacción (siempre para todos los activos, sin filtro de mes/pid)
+  // F) Total de activos (tarjeta del Resumen)
   const totalActivos = todosActivosRows.length
-
-  const finalPorPatient: Record<string, string> = {}
-  for (const d of derivActivosRows) {
-    finalPorPatient[d.patient_id as string] = (d.sensacion_paciente_final as string) ?? 'n/a'
-  }
-
-  const distInicial: Record<string, number> = { 'n/a': 0, '1': 0, '2': 0, '3': 0, '4': 0, '5': 0, '6': 0, '7': 0, '8': 0, '9': 0, '10': 0 }
-  const distFinal:   Record<string, number> = { 'n/a': 0, '1': 0, '2': 0, '3': 0, '4': 0, '5': 0, '6': 0, '7': 0, '8': 0, '9': 0, '10': 0 }
-
-  for (const r of todosActivosRows) {
-    const ini    = r.sensacion_paciente_inicial
-    const keyIni = (ini !== null && ini !== undefined) ? String(ini) : 'n/a'
-    distInicial[keyIni in distInicial ? keyIni : 'n/a']++
-
-    const fin = finalPorPatient[r.patient_id as string] ?? 'n/a'
-    distFinal[fin in distFinal ? fin : 'n/a']++
-  }
 
   // G) Tabla calificación por paciente (pacientes del periodo con filtro pid)
   const relacionesByPid: Record<string, Record<string, unknown>> = {}
@@ -387,10 +341,14 @@ function renderPage({
     })
     .sort((a, b) => a.nombre.localeCompare(b.nombre))
 
-  // ── Navegación de meses ────────────────────────────────────────────────────
-  const prevMes    = mesAnterior(year, month)
-  const nextMes    = mesSiguienteStr(year, month)
-  const baseParams = (m: string) => `/therapist/estadisticas?mes=${m}&tipo=${tipo}&pid=${pid}`
+  // Satisfacción: solo las personas atendidas en el periodo (las mismas de la tabla por persona)
+  const totalAtendidas = calificaciones.length
+  const distInicial: Record<string, number> = { 'n/a': 0, '1': 0, '2': 0, '3': 0, '4': 0, '5': 0, '6': 0, '7': 0, '8': 0, '9': 0, '10': 0 }
+  const distFinal:   Record<string, number> = { 'n/a': 0, '1': 0, '2': 0, '3': 0, '4': 0, '5': 0, '6': 0, '7': 0, '8': 0, '9': 0, '10': 0 }
+  for (const c of calificaciones) {
+    distInicial[c.inicial in distInicial ? c.inicial : 'n/a']++
+    distFinal[c.final in distFinal ? c.final : 'n/a']++
+  }
 
   const tipoLabel = tipo === 'activos' ? 'activos' : tipo === 'inactivos' ? 'inactivos' : 'activos + inactivos'
 
@@ -413,34 +371,14 @@ function renderPage({
 
       {/* ── Controles ──────────────────────────────────────────────────────── */}
       <div className="space-y-3">
-        {/* Navegación de meses */}
-        <div className="flex items-center gap-2">
-          <Link
-            href={baseParams(prevMes)}
-            className="px-3 py-1.5 text-sm border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors text-gray-600"
-          >
-            ← ant.
-          </Link>
-          <span className="text-sm font-medium text-gray-700 capitalize min-w-[150px] text-center">
-            {nombreMesLargo(year, month)}
-          </span>
-          <Link
-            href={isCurrentMonth ? '#' : baseParams(nextMes)}
-            className={`px-3 py-1.5 text-sm border rounded-xl transition-colors ${
-              isCurrentMonth
-                ? 'border-gray-100 text-gray-300 cursor-default'
-                : 'border-gray-200 hover:bg-gray-50 text-gray-600'
-            }`}
-          >
-            sig. →
-          </Link>
-        </div>
+        {/* Periodo: mes, año, total o fechas */}
+        <SelectorPeriodo valor={periodo.clave} />
 
         {/* Toggle activos/inactivos/total + dropdown filtrado por mes */}
         <FiltrosEstadisticas
           tipo={tipo}
           pid={pid}
-          mes={mesKey}
+          mes={periodo.clave}
           pacientes={pacientesParaDropdown}
           w={w}
         />
@@ -448,7 +386,7 @@ function renderPage({
 
       {/* ── Sin sesiones ───────────────────────────────────────────────────── */}
       {totalSesiones === 0 && (
-        <EmptyCard text={`No hay sesiones registradas en ${nombreMesLargo(year, month)} para ${w.users} ${tipoLabel}${pid !== 'all' ? ` (${w.user} seleccionado)` : ''}.`} />
+        <EmptyCard text={`No hay sesiones registradas en el periodo (${periodo.etiqueta}) para ${w.users} ${tipoLabel}${pid !== 'all' ? ` (${w.user} seleccionado)` : ''}.`} />
       )}
 
       {/* ── A. Resumen del periodo ─────────────────────────────────────────── */}
@@ -581,14 +519,14 @@ function renderPage({
         <SectionTitle>
           Satisfacción del {w.user}
           <span className="ml-2 text-xs font-normal text-gray-400 normal-case">
-            todos los {w.users} activos ({totalActivos})
+            {w.users} atendidos en el periodo ({totalAtendidas})
           </span>
         </SectionTitle>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-2">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Calificación inicial</p>
             {(['n/a','1','2','3','4','5','6','7','8','9','10'] as const).map(v => (
-              <ScoreRow key={v} label={v} count={distInicial[v] ?? 0} total={totalActivos} />
+              <ScoreRow key={v} label={v} count={distInicial[v] ?? 0} total={totalAtendidas} />
             ))}
             <div className="flex justify-between text-xs text-gray-400 border-t border-gray-100 pt-2 mt-1">
               <span>Total</span>
@@ -598,7 +536,7 @@ function renderPage({
           <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-2">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Calificación final</p>
             {(['n/a','1','2','3','4','5','6','7','8','9','10'] as const).map(v => (
-              <ScoreRow key={v} label={v} count={distFinal[v] ?? 0} total={totalActivos} />
+              <ScoreRow key={v} label={v} count={distFinal[v] ?? 0} total={totalAtendidas} />
             ))}
             <div className="flex justify-between text-xs text-gray-400 border-t border-gray-100 pt-2 mt-1">
               <span>Total</span>
@@ -613,7 +551,7 @@ function renderPage({
         <section className="space-y-3">
           <SectionTitle>Calificación inicial y final por {w.user}</SectionTitle>
           <p className="text-xs text-gray-400">
-            {w.Users} atendidos en {nombreMesLargo(year, month)} · {tipoLabel}
+            {w.Users} atendidos en el periodo: {periodo.etiqueta} · {tipoLabel}
           </p>
           <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
             <table className="w-full text-sm">
@@ -645,7 +583,7 @@ function renderPage({
             terapeutaNombre={terapeutaNombre}
             terminologia={terminologia}
             empresas={empresasParaLogo}
-            mes={nombreMesLargo(year, month)}
+            mes={periodo.etiqueta}
             tipoLabel={tipoLabel}
             totalSesiones={totalSesiones}
             personasAtendidas={personasAtendidas}

@@ -5,6 +5,9 @@ import { terminos } from '@/lib/terminologia'
 import { getTerminologiaTerapeuta } from '@/lib/terminologia-paciente'
 import Link from 'next/link'
 import ReporteAsesorias from './ReporteAsesorias'
+import SelectorPeriodo from '@/components/SelectorPeriodo'
+import { resolverPeriodo } from '@/lib/periodo'
+import { todasLasFilas } from '@/lib/supabase/todas-las-filas'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,25 +34,22 @@ export default async function AsesoriasPage({
   if (!user) redirect('/auth/login')
   const w = terminos(await getTerminologiaTerapeuta(createAdminClient(), user.id))
 
-  // Mes a mostrar (default: mes actual)
-  const now = new Date()
-  const [yearStr, monthStr] = (mes ?? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`).split('-')
-  const year  = parseInt(yearStr)
-  const month = parseInt(monthStr)
+  // Periodo: mes, año acumulado, total acumulado o rango de fechas (src/lib/periodo.ts)
+  const periodo   = resolverPeriodo(mes)
+  const mesInicio = periodo.inicio
+  const mesFin    = periodo.fin
 
-  const mesInicio = `${year}-${String(month).padStart(2, '0')}-01`
-  const mesFin    = new Date(year, month, 1).toISOString().split('T')[0] // primer día del mes siguiente
-
-  // Sesiones presenciales del mes
-  const { data: sesiones } = await supabase
+  // Sesiones presenciales del periodo (por páginas: con año o total pueden ser más de 1,000)
+  const { data: sesiones } = await todasLasFilas(() => supabase
     .from('therapist_session_notes')
     .select('session_date, is_pro_bono, is_virtual')
     .eq('therapist_id', user.id)
     .gte('session_date', mesInicio)
     .lt('session_date', mesFin)
     .order('session_date', { ascending: true })
+    .order('id'))
 
-  // Notas iniciales del mes (cuentan como sesión)
+  // Notas iniciales del periodo (cuentan como sesión)
   // Excluir archivados: son cuentas fusionadas cuya nota fue copiada al destino activo → evita doble conteo
   const { data: notasIniciales } = await supabase
     .from('therapist_patients')
@@ -86,39 +86,40 @@ export default async function AsesoriasPage({
   const totalFs   = fsFact + fsPb
   const totalVirt = virtFact + virtPb
 
-  // Navegación de meses
-  const prevMonth = month === 1 ? `${year - 1}-12` : `${year}-${String(month - 1).padStart(2, '0')}`
-  const nextMonth = month === 12 ? `${year + 1}-01` : `${year}-${String(month + 1).padStart(2, '0')}`
-  const isCurrentMonth = year === now.getFullYear() && month === (now.getMonth() + 1)
+  // Desglose por mes: en un mes, los 5 meses anteriores; en año, total o fechas, cada mes del periodo
+  const esMes = periodo.tipo === 'mes'
+  const [y0, m0] = mesInicio.split('-').map(Number)
+  const seisMesesAtras = new Date(y0, m0 - 7, 1).toISOString().split('T')[0]
+  const [{ data: historial }, { data: historialNotas }] = esMes
+    ? await Promise.all([
+        supabase
+          .from('therapist_session_notes')
+          .select('session_date, is_pro_bono')
+          .eq('therapist_id', user.id)
+          .gte('session_date', seisMesesAtras)
+          .lt('session_date', mesInicio)
+          .order('session_date', { ascending: true }),
+        supabase
+          .from('therapist_patients')
+          .select('initial_note_date, initial_note_pro_bono')
+          .eq('therapist_id', user.id)
+          .neq('status', 'archived')
+          .not('initial_note', 'is', null)
+          .not('initial_note_date', 'is', null)
+          .gte('initial_note_date', seisMesesAtras)
+          .lt('initial_note_date', mesInicio),
+      ])
+    : [{ data: [] }, { data: [] }]
 
-  // Historial: últimos 6 meses para mini-tabla
-  const seisMesesAtras = new Date(year, month - 7, 1).toISOString().split('T')[0]
-  const [{ data: historial }, { data: historialNotas }] = await Promise.all([
-    supabase
-      .from('therapist_session_notes')
-      .select('session_date, is_pro_bono')
-      .eq('therapist_id', user.id)
-      .gte('session_date', seisMesesAtras)
-      .lt('session_date', mesInicio)
-      .order('session_date', { ascending: true }),
-    supabase
-      .from('therapist_patients')
-      .select('initial_note_date, initial_note_pro_bono')
-      .eq('therapist_id', user.id)
-      .neq('status', 'archived')
-      .not('initial_note', 'is', null)
-      .not('initial_note_date', 'is', null)
-      .gte('initial_note_date', seisMesesAtras)
-      .lt('initial_note_date', mesInicio),
-  ])
-
-  const historialCombinado = [
-    ...(historial ?? []),
-    ...(historialNotas ?? []).map(n => ({
-      session_date: n.initial_note_date as string,
-      is_pro_bono: n.initial_note_pro_bono ?? false,
-    })),
-  ]
+  const historialCombinado = esMes
+    ? [
+        ...(historial ?? []),
+        ...(historialNotas ?? []).map(n => ({
+          session_date: n.initial_note_date as string,
+          is_pro_bono: n.initial_note_pro_bono ?? false,
+        })),
+      ]
+    : rows
 
   // Agrupar historial por mes
   const historialPorMes: Record<string, { total: number; fact: number; pb: number }> = {}
@@ -131,7 +132,7 @@ export default async function AsesoriasPage({
   }
   const historialMeses = Object.entries(historialPorMes)
     .sort(([a], [b]) => b.localeCompare(a))
-    .slice(0, 5)
+    .slice(0, esMes ? 5 : undefined)
 
   return (
     <div className="max-w-3xl space-y-8">
@@ -140,36 +141,17 @@ export default async function AsesoriasPage({
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Mis {w.Servs}</h1>
-          <p className="text-gray-500 mt-1 text-sm">Estadísticas mensuales por jornada y tipo</p>
-        </div>
-        {/* Navegador de meses */}
-        <div className="flex items-center gap-2">
-          <Link
-            href={`/therapist/asesorias?mes=${prevMonth}`}
-            className="px-3 py-1.5 text-sm border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors text-gray-600"
-          >
-            ← ant.
-          </Link>
-          <span className="text-sm font-medium text-gray-700 capitalize min-w-[140px] text-center">
-            {nombreMes(year, month)}
-          </span>
-          <Link
-            href={isCurrentMonth ? '#' : `/therapist/asesorias?mes=${nextMonth}`}
-            className={`px-3 py-1.5 text-sm border rounded-xl transition-colors ${
-              isCurrentMonth
-                ? 'border-gray-100 text-gray-300 cursor-default'
-                : 'border-gray-200 hover:bg-gray-50 text-gray-600'
-            }`}
-          >
-            sig. →
-          </Link>
+          <p className="text-gray-500 mt-1 text-sm">Estadísticas por jornada y tipo</p>
         </div>
       </div>
+
+      {/* Periodo: mes, año, total o fechas */}
+      <SelectorPeriodo valor={periodo.clave} />
 
       {/* Tarjetas resumen */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {[
-          { label: `Total ${w.servs}`, value: total, sub: nombreMes(year, month), accent: true },
+          { label: `Total ${w.servs}`, value: total, sub: periodo.etiqueta, accent: true },
           { label: 'Entre semana', value: totalEb, sub: 'Lun – Vie (presencial)' },
           { label: 'Fin de semana', value: totalFs, sub: 'Sáb – Dom (presencial)' },
           { label: 'Virtuales', value: totalVirt, sub: 'Cualquier día' },
@@ -239,7 +221,7 @@ export default async function AsesoriasPage({
       {total === 0 && (
         <div className="text-center py-10 text-gray-400">
           <p className="text-4xl mb-3">📊</p>
-          <p>No hay sesiones registradas en {nombreMes(year, month)}.</p>
+          <p>No hay sesiones registradas en el periodo ({periodo.etiqueta}).</p>
           <p className="text-sm mt-1">Las sesiones presenciales aparecen aquí al registrarlas en el perfil de cada {w.user}.</p>
         </div>
       )}
@@ -247,7 +229,7 @@ export default async function AsesoriasPage({
       {/* Historial últimos meses */}
       {historialMeses.length > 0 && (
         <div>
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Meses anteriores</h2>
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">{esMes ? 'Meses anteriores' : 'Por mes'}</h2>
           <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
             <table className="w-full text-sm">
               <thead>

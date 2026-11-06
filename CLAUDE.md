@@ -456,6 +456,7 @@ Una Persona Institucional siempre es una cuenta `role='therapist'` (Administraci
 | `enfoques.ts` | Catálogo único de enfoques terapéuticos (`ENFOQUES_CATALOGO`, `perfilDeEnfoques()`, `enfoquesDePerfil()`, `nombrePerfil()`) |
 | `enfoques-permitidos.ts` | `getEnfoquesPermitidos()` (plan pagado / gracia / empresas / sin empresa) y `ajustarEnfoquesDeTerapeutas()` — solo servidor. Ver "Enfoques permitidos por empresa" |
 | `domicilio.ts` | `ESTADOS_MEXICO`, `PAISES` (por ahora solo México), `CAMPOS_DOMICILIO`, `domicilioEnUnaLinea()` |
+| `periodo.ts` | Periodo de los reportes estadísticos (Mi estadística, Mis Asesorías, Reporte General y por <Pro>): parámetro `mes` = `2026-10` (mes), `2026` (año acumulado), `total` o `2026-09-01_2026-10-31` (fechas). `resolverPeriodo()` → `inicio`/`fin` (fin excluido); selector común `src/components/SelectorPeriodo.tsx`. Consultas de sesiones con `todasLasFilas()` (`supabase/todas-las-filas.ts`: más de 1,000 filas) |
 | `ia/registrar-uso.ts` | `registrarUso(tipo, modelo, usage, ids)` — **toda llamada nueva a la IA debe registrar su uso** en `ia_uso` (con `after()`, sin costo de tokens) |
 | `rag/retrieve-chunks.ts` | `retrievePasajesPersonalismo()` — 3 pasajes de 5 libros personalistas para el chat AVI |
 

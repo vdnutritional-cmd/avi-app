@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useState, useTransition } from 'react'
 import { terminos, type Terminologia } from '@/lib/terminologia'
+import { resolverPeriodo } from '@/lib/periodo'
 
 interface Empresa { id: string; nombre: string }
 
@@ -41,9 +42,8 @@ export default function FiltrosReporteGeneral({
   const [localSelected, setLocalSelected] = useState<string[]>(empresaIdsSelected)
   useEffect(() => { setLocalSelected(empresaIdsSelected) }, [empresaIdsSelected])
 
-  const now = new Date()
-  const defaultMes = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-  const mesSafe = /^\d{4}-\d{2}$/.test(mes) ? mes : defaultMes
+  // Periodo (mes, año, total o fechas; src/lib/periodo.ts)
+  const mesSafe = resolverPeriodo(mes).clave
 
   function nav(params: Record<string, string>) {
     if (params.tipo) setLocalTipo(params.tipo)

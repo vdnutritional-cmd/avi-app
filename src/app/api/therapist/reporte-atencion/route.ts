@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
     admin
       .from('therapist_patients')
       .select(`
-        initial_note_motivo, initial_note_subyacente,
+        initial_note_motivo, initial_note_subyacente, initial_note, initial_note_date,
         sensacion_paciente_inicial, frecuencia_config,
         factores_riesgo_sel, factores_proteccion_sel,
         factores_riesgo_trec, factores_proteccion_trec,
@@ -223,6 +223,10 @@ Responde EXCLUSIVAMENTE con JSON válido, sin texto adicional antes ni después:
   const atencionEsp     = (derivacion?.atencion_especializada      as string) ?? 'n/a'
   const atencionEspCual = (derivacion?.atencion_especializada_cual as string) ?? ''
 
+  // La Nota Inicial también es sesión (igual que en Mi estadística y Mis Asesorías)
+  const fechaNota = relacion?.initial_note_date as string | null | undefined
+  const notaInicialEnPeriodo = !!relacion?.initial_note && !!fechaNota && fechaNota >= date_from && fechaNota <= date_to
+
   // ── 7. Respuesta ────────────────────────────────────────────────────────────
   return NextResponse.json({
     paciente_nombre:       pacienteNombre,
@@ -239,7 +243,7 @@ Responde EXCLUSIVAMENTE con JSON válido, sin texto adicional antes ni después:
     derivacion_tipos:      derivacionTipos,
     atencion_especializada:      atencionEsp,
     atencion_especializada_cual: atencionEspCual,
-    total_sesiones:        sesionesFiltradas.length,
+    total_sesiones:        sesionesFiltradas.length + (notaInicialEnPeriodo ? 1 : 0),
     terminologia,
   })
 }

@@ -1,8 +1,10 @@
 import { createAdminClient } from '@/lib/supabase/admin'
-import Link from 'next/link'
 import FiltrosReporte from './FiltrosReporte'
 import PrintEstadisticasButton from '@/app/therapist/estadisticas/PrintEstadisticasButton'
 import { institucionRowsDesde } from '@/lib/sesiones-por-institucion'
+import { resolverPeriodo, type Periodo } from '@/lib/periodo'
+import SelectorPeriodo from '@/components/SelectorPeriodo'
+import { todasLasFilas } from '@/lib/supabase/todas-las-filas'
 import { terminos, type Terminologia } from '@/lib/terminologia'
 import { getTerminologiaEmpresas } from '@/lib/terminologia-paciente'
 
@@ -10,16 +12,6 @@ const TIPOS_DERIVACION = [
   'Psicólogo', 'Psiquiatra', 'Especialista en Adicciones',
   'Ginecólogo', 'Urólogo', 'Otro Médico de la salud',
 ]
-
-function nombreMesLargo(year: number, month: number) {
-  return new Date(year, month - 1, 1).toLocaleDateString('es-MX', { month: 'long', year: 'numeric' })
-}
-function mesAnteriorStr(year: number, month: number) {
-  return month === 1 ? `${year - 1}-12` : `${year}-${String(month - 1).padStart(2, '0')}`
-}
-function mesSiguienteStr(year: number, month: number) {
-  return month === 12 ? `${year + 1}-01` : `${year}-${String(month + 1).padStart(2, '0')}`
-}
 
 export interface EmpresaReporte { id: string; nombre: string; logo_url: string | null }
 export type Params = { empresaIds?: string; empresaId?: string; terapeutaId?: string; mes?: string; tipo?: string; pid?: string }
@@ -52,9 +44,8 @@ export default async function ReporteTerapeutaContenido({ empresas, piNombre, ba
   const w = terminos(terminologia)
 
   // ── Validar mes antes de cualquier early return ────────────────────────────
-  const now = new Date()
-  const defaultMes = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-  const validMes = (mes && /^\d{4}-\d{2}$/.test(mes)) ? mes : defaultMes
+  // Periodo: mes, año acumulado, total acumulado o rango de fechas (src/lib/periodo.ts)
+  const periodo = resolverPeriodo(mes)
 
   // Terapeutas de las empresas seleccionadas
   type TerapeutaRow = { id: string; nombre: string; email: string }
@@ -101,7 +92,7 @@ export default async function ReporteTerapeutaContenido({ empresas, piNombre, ba
           terapeutaId="all"
           tipo="activos"
           pid="all"
-          mes={validMes}
+          mes={periodo.clave}
           pacientes={[]}
         />
       </div>
@@ -109,12 +100,8 @@ export default async function ReporteTerapeutaContenido({ empresas, piNombre, ba
   }
 
   // ── Parámetros de fecha ────────────────────────────────────────────────────
-  const [ySt, mSt] = validMes.split('-')
-  const year = parseInt(ySt); const month = parseInt(mSt)
-  const mesKey = `${year}-${String(month).padStart(2, '0')}`
-  const mesInicio = `${mesKey}-01`
-  const mesSiguiente = new Date(year, month, 1).toISOString().split('T')[0]
-  const isCurrentMonth = mesKey === `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  const mesInicio = periodo.inicio
+  const mesSiguiente = periodo.fin
 
   const tipo = (['activos', 'inactivos', 'total'].includes(tipoParam ?? '') ? tipoParam : 'activos') as 'activos' | 'inactivos' | 'total'
   // Solo terapeutas de las empresas seleccionadas (nunca confiar en la URL)
@@ -132,7 +119,7 @@ export default async function ReporteTerapeutaContenido({ empresas, piNombre, ba
         <div><h1 className="text-2xl font-bold text-gray-900">Reporte por {w.Pro}</h1></div>
         <FiltrosReporte basePath={basePath} terminologia={terminologia} ocultarEmpresas={ocultarSelectorEmpresas}
           empresas={empresas} terapeutas={terapeutas} empresaIdsSelected={selectedIds} terapeutaId={terapeutaId}
-          tipo={tipo} pid={pid} mes={mesKey} pacientes={[]} />
+          tipo={tipo} pid={pid} mes={periodo.clave} pacientes={[]} />
         <p className="text-sm text-gray-400 text-center py-8">No hay {w.pros} registrados en las empresas seleccionadas.</p>
       </div>
     )
@@ -180,30 +167,25 @@ export default async function ReporteTerapeutaContenido({ empresas, piNombre, ba
     { data: relaciones },
     { data: scRels },
     { data: scNotasRows },
-    { data: todosActivosRowsRaw }, // satisfacción: todos los activos
   ] = await Promise.all([
     relacionesQuery,
     scQuery,
     scNotasQuery,
-    admin.from('therapist_patients')
-      .select('patient_id, sensacion_paciente_inicial')
-      .in('therapist_id', therapistIds)
-      .in('empresa_id', selectedIds)
-      .eq('is_active', true)
-      .neq('status', 'archived'),
   ])
 
   const pacienteIds = (relaciones ?? []).map(r => r.patient_id as string)
   const scPacIds = (scRels ?? []).map(r => r.patient_id as string)
 
   // ── Segunda ronda en paralelo: nombres, sesiones del periodo y sin convenio ──
-  const sesionesQuery = admin
+  // Por páginas: con año o total acumulado pueden ser más de 1,000 sesiones
+  const armarSesiones = () => admin
     .from('therapist_session_notes')
     .select('patient_id, session_date, is_pro_bono, therapist_id')
     .in('therapist_id', therapistIds)
     .in('patient_id', pacienteIds)
     .gte('session_date', mesInicio)
     .lt('session_date', mesSiguiente)
+    .order('id')
 
   const notasIniQuery = admin
     .from('therapist_patients')
@@ -221,14 +203,15 @@ export default async function ReporteTerapeutaContenido({ empresas, piNombre, ba
   const [{ data: profiles }, { data: scSesRaw }, { data: sesionesRows }, { data: notasRows }] = await Promise.all([
     hayPacientes ? admin.from('profiles').select('id, full_name, email').in('id', pacienteIds) : Promise.resolve({ data: [] }),
     scPacIds.length > 0
-      ? admin.from('therapist_session_notes')
+      ? todasLasFilas(() => admin.from('therapist_session_notes')
           .select('patient_id')
           .in('therapist_id', therapistIds)
           .in('patient_id', scPacIds)
           .gte('session_date', mesInicio)
           .lt('session_date', mesSiguiente)
+          .order('id'))
       : Promise.resolve({ data: [] }),
-    hayPacientes ? sesionesQuery : Promise.resolve({ data: [] }),
+    hayPacientes ? todasLasFilas(armarSesiones) : Promise.resolve({ data: [] }),
     hayPacientes ? notasIniQuery : Promise.resolve({ data: [] }),
   ])
 
@@ -249,11 +232,11 @@ export default async function ReporteTerapeutaContenido({ empresas, piNombre, ba
   // pacienteIds ya excluye archivados para todos los tipos (activos/inactivos/total)
   if (!hayPacientes) {
     return renderPage({ terminologia, basePath, ocultarSelectorEmpresas,
-      year, month, mesKey, isCurrentMonth, tipo, pid, terapeutaId,
+      periodo, tipo, pid, terapeutaId,
       piNombre, empresas, terapeutas, selectedIds, empresasActuales,
       todasLasSesiones: [], pacientesEnPeriodoIds: [],
       relaciones: [], derivacionesRows: [], expedientesRows: [],
-      todosActivosRows: [], derivActivosRows: [],
+     
       empresaByPatient, nombreByPatient,
       sinConvenioSesiones, sinConvenioPersonas,
     })
@@ -268,11 +251,9 @@ export default async function ReporteTerapeutaContenido({ empresas, piNombre, ba
   const pacientesEnPeriodoSet = new Set(todasLasSesiones.map(s => s.patient_id))
   const pacientesEnPeriodoIds = [...pacientesEnPeriodoSet]
 
-  // ── Tercera ronda en paralelo: derivaciones, expedientes y satisfacción ──
-  const todosActivosRows = todosActivosRowsRaw ?? []
-  const todosActivosIds = todosActivosRows.map(r => r.patient_id as string)
+  // ── Tercera ronda en paralelo: derivaciones (con la calificación final) y expedientes ──
   const hayPeriodo = pacientesEnPeriodoIds.length > 0
-  const [{ data: derivacionesRows }, { data: expedientesRows }, { data: derivActivosRows }] = await Promise.all([
+  const [{ data: derivacionesRows }, { data: expedientesRows }] = await Promise.all([
     hayPeriodo
       ? admin.from('patient_derivaciones_cierres')
           .select('patient_id, derivacion_tipos, caso_riesgo, asistencia_seguimiento, atencion_especializada, percepcion_alivio, cambio_funcionamiento, abandono, sensacion_paciente_final')
@@ -283,22 +264,15 @@ export default async function ReporteTerapeutaContenido({ empresas, piNombre, ba
           .select('patient_id, tipo_caso, problematica')
           .in('therapist_id', therapistIds).in('patient_id', pacientesEnPeriodoIds)
       : Promise.resolve({ data: [] }),
-    todosActivosIds.length > 0
-      ? admin.from('patient_derivaciones_cierres')
-          .select('patient_id, sensacion_paciente_final')
-          .in('therapist_id', therapistIds).in('patient_id', todosActivosIds)
-      : Promise.resolve({ data: [] }),
   ])
 
   return renderPage({ terminologia, basePath, ocultarSelectorEmpresas,
-    year, month, mesKey, isCurrentMonth, tipo, pid, terapeutaId,
+    periodo, tipo, pid, terapeutaId,
     piNombre, empresas, terapeutas, selectedIds, empresasActuales,
     todasLasSesiones, pacientesEnPeriodoIds,
     relaciones: relaciones ?? [],
     derivacionesRows: derivacionesRows ?? [],
     expedientesRows: expedientesRows ?? [],
-    todosActivosRows,
-    derivActivosRows: derivActivosRows ?? [],
     empresaByPatient, nombreByPatient,
     sinConvenioSesiones, sinConvenioPersonas,
   })
@@ -310,7 +284,7 @@ interface RenderProps {
   terminologia: Terminologia
   basePath: string
   ocultarSelectorEmpresas: boolean
-  year: number; month: number; mesKey: string; isCurrentMonth: boolean
+  periodo: Periodo
   tipo: 'activos' | 'inactivos' | 'total'; pid: string; terapeutaId: string
   piNombre: string
   empresas: { id: string; nombre: string; logo_url: string | null }[]
@@ -322,8 +296,6 @@ interface RenderProps {
   relaciones: Record<string, unknown>[]
   derivacionesRows: Record<string, unknown>[]
   expedientesRows: Record<string, unknown>[]
-  todosActivosRows: Record<string, unknown>[]
-  derivActivosRows: Record<string, unknown>[]
   empresaByPatient: Record<string, string>
   nombreByPatient: Record<string, string>
   sinConvenioSesiones: number
@@ -332,11 +304,10 @@ interface RenderProps {
 
 function renderPage({
   terminologia, basePath, ocultarSelectorEmpresas,
-  year, month, mesKey, isCurrentMonth, tipo, pid, terapeutaId,
+  periodo, tipo, pid, terapeutaId,
   piNombre, empresas, terapeutas, selectedIds, empresasActuales,
   todasLasSesiones, pacientesEnPeriodoIds,
   relaciones, derivacionesRows, expedientesRows,
-  todosActivosRows, derivActivosRows,
   empresaByPatient, nombreByPatient,
   sinConvenioSesiones, sinConvenioPersonas,
 }: RenderProps) {
@@ -383,23 +354,6 @@ function renderPage({
   const abandono         = derivaciones.filter(d => d.abandono               === true).length
   const atenEspecializada= derivaciones.filter(d => d.atencion_especializada === 'SI').length
 
-  const totalActivos = todosActivosRows.length
-  const finalPorPatient: Record<string, string> = {}
-  for (const d of derivActivosRows) finalPorPatient[d.patient_id as string] = (d.sensacion_paciente_final as string) ?? 'n/a'
-
-  const distInicial: Record<string, number> = {}
-  const distFinal:   Record<string, number> = {}
-  const KEYS = ['n/a','1','2','3','4','5','6','7','8','9','10']
-  for (const k of KEYS) { distInicial[k] = 0; distFinal[k] = 0 }
-
-  for (const r of todosActivosRows) {
-    const ini = r.sensacion_paciente_inicial
-    const ki  = ini != null ? String(ini) : 'n/a'
-    distInicial[ki in distInicial ? ki : 'n/a']++
-    const fin = finalPorPatient[r.patient_id as string] ?? 'n/a'
-    distFinal[fin in distFinal ? fin : 'n/a']++
-  }
-
   const relacionesByPid: Record<string, Record<string, unknown>> = {}
   for (const r of relaciones) relacionesByPid[r.patient_id as string] = r
 
@@ -414,15 +368,18 @@ function renderPage({
     }
   }).sort((a, b) => a.nombre.localeCompare(b.nombre))
 
-  const prevMes = mesAnteriorStr(year, month)
-  const nextMes = mesSiguienteStr(year, month)
+  // Satisfacción: solo las personas atendidas en el periodo (las mismas de la calificación por persona)
+  const totalAtendidas = calificaciones.length
+  const distInicial: Record<string, number> = {}
+  const distFinal:   Record<string, number> = {}
+  for (const k of ['n/a','1','2','3','4','5','6','7','8','9','10']) { distInicial[k] = 0; distFinal[k] = 0 }
+  for (const c of calificaciones) {
+    distInicial[c.inicial in distInicial ? c.inicial : 'n/a']++
+    distFinal[c.final in distFinal ? c.final : 'n/a']++
+  }
+
   const w = terminos(terminologia)
   const tipoLabel = tipo === 'activos' ? 'activos' : tipo === 'inactivos' ? 'inactivos' : 'activos + inactivos'
-
-  const baseNavParams = (m: string) => {
-    const sp = new URLSearchParams({ empresaIds: selectedIds.join(','), terapeutaId, tipo, pid, mes: m })
-    return `${basePath}?${sp.toString()}`
-  }
 
   const institucionRows = institucionRowsDesde(sesionesPorEmpresa)   // % suman 100
   const totalInstitucion = institucionRows.reduce((a, r) => a + r.total, 0)
@@ -453,22 +410,19 @@ function renderPage({
         terapeutaId={terapeutaId}
         tipo={tipo}
         pid={pid}
-        mes={mesKey}
+        mes={periodo.clave}
         pacientes={pacientesParaDropdown}
       />
+
+      {/* Periodo: mes, año, total o fechas */}
+      <SelectorPeriodo valor={periodo.clave} />
 
       {/* Contenido del reporte — se atenúa mientras los filtros cargan (ver Filtros*) */}
       <div className="space-y-8 transition-opacity duration-150 [html[data-reporte-cargando]_&]:opacity-40 [html[data-reporte-cargando]_&]:pointer-events-none">
 
-      {/* Navegación de meses */}
-      <div className="flex items-center gap-2">
-        <Link href={baseNavParams(prevMes)} className="px-3 py-1.5 text-sm border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors text-gray-600">← ant.</Link>
-        <span className="text-sm font-medium text-gray-700 capitalize min-w-[150px] text-center">{nombreMesLargo(year, month)}</span>
-        <Link href={isCurrentMonth ? '#' : baseNavParams(nextMes)} className={`px-3 py-1.5 text-sm border rounded-xl transition-colors ${isCurrentMonth ? 'border-gray-100 text-gray-300 cursor-default' : 'border-gray-200 hover:bg-gray-50 text-gray-600'}`}>sig. →</Link>
-      </div>
 
       {totalSesiones === 0 && (
-        <EmptyCard text={`No hay sesiones en ${nombreMesLargo(year, month)} para los filtros seleccionados.`} />
+        <EmptyCard text={`No hay sesiones en el periodo (${periodo.etiqueta}) para los filtros seleccionados.`} />
       )}
 
       {totalSesiones === 0 && sinConvenioSesiones > 0 && (
@@ -556,10 +510,10 @@ function renderPage({
           </section>
 
           <section className="space-y-3">
-            <SectionTitle>Satisfacción del {w.user} <span className="ml-1 text-xs font-normal text-gray-400 normal-case">todos los activos ({totalActivos})</span></SectionTitle>
+            <SectionTitle>Satisfacción del {w.user} <span className="ml-1 text-xs font-normal text-gray-400 normal-case">atendidos en el periodo ({totalAtendidas})</span></SectionTitle>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <ScoreCard title="Calificación inicial" dist={distInicial} total={totalActivos} />
-              <ScoreCard title="Calificación final"   dist={distFinal}   total={totalActivos} />
+              <ScoreCard title="Calificación inicial" dist={distInicial} total={totalAtendidas} />
+              <ScoreCard title="Calificación final"   dist={distFinal}   total={totalAtendidas} />
             </div>
           </section>
 
@@ -588,7 +542,7 @@ function renderPage({
               terminologia={terminologia}
               terapeutaNombre={terapeutaLabel}
               empresas={empresasParaLogo}
-              mes={nombreMesLargo(year, month)}
+              mes={periodo.etiqueta}
               tipoLabel={tipoLabel}
               totalSesiones={totalSesiones}
               personasAtendidas={personasAtendidas}
