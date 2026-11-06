@@ -11,8 +11,41 @@ export const ESTADOS_MEXICO = [
   'Tlaxcala', 'Veracruz de Ignacio de la Llave', 'Yucatán', 'Zacatecas',
 ]
 
-// Por ahora solo México; se agregarán más países
-export const PAISES = ['México']
+// Estados Unidos: 50 estados + Distrito de Columbia (6 nov 2026)
+export const ESTADOS_USA = [
+  'Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Carolina del Norte',
+  'Carolina del Sur', 'Colorado', 'Connecticut', 'Dakota del Norte', 'Dakota del Sur',
+  'Delaware', 'Distrito de Columbia', 'Florida', 'Georgia', 'Hawái', 'Idaho', 'Illinois',
+  'Indiana', 'Iowa', 'Kansas', 'Kentucky', 'Luisiana', 'Maine', 'Maryland',
+  'Massachusetts', 'Míchigan', 'Minnesota', 'Misisipi', 'Misuri', 'Montana', 'Nebraska',
+  'Nevada', 'Nueva Jersey', 'Nueva York', 'Nuevo Hampshire', 'Nuevo México', 'Ohio',
+  'Oklahoma', 'Oregón', 'Pensilvania', 'Rhode Island', 'Tennessee', 'Texas', 'Utah',
+  'Vermont', 'Virginia', 'Virginia Occidental', 'Washington', 'Wisconsin', 'Wyoming',
+]
+
+// Colombia: 32 departamentos + Bogotá D.C. (6 nov 2026)
+export const DEPARTAMENTOS_COLOMBIA = [
+  'Amazonas', 'Antioquia', 'Arauca', 'Atlántico', 'Bogotá D.C.', 'Bolívar', 'Boyacá',
+  'Caldas', 'Caquetá', 'Casanare', 'Cauca', 'Cesar', 'Chocó', 'Córdoba', 'Cundinamarca',
+  'Guainía', 'Guaviare', 'Huila', 'La Guajira', 'Magdalena', 'Meta', 'Nariño',
+  'Norte de Santander', 'Putumayo', 'Quindío', 'Risaralda',
+  'San Andrés, Providencia y Santa Catalina', 'Santander', 'Sucre', 'Tolima',
+  'Valle del Cauca', 'Vaupés', 'Vichada',
+]
+
+export const PAISES = ['México', 'USA', 'Colombia']
+
+/** Estados (o departamentos) del país elegido; sin país, los de México */
+export function estadosDePais(pais: string | null | undefined): string[] {
+  if (pais === 'USA') return ESTADOS_USA
+  if (pais === 'Colombia') return DEPARTAMENTOS_COLOMBIA
+  return ESTADOS_MEXICO
+}
+
+/** "Departamento" en Colombia; "Estado" en México y USA */
+export function etiquetaEstado(pais: string | null | undefined): string {
+  return pais === 'Colombia' ? 'Departamento' : 'Estado'
+}
 
 export const CAMPOS_DOMICILIO = [
   'domicilio_calle', 'domicilio_num_ext', 'domicilio_num_int', 'domicilio_colonia',

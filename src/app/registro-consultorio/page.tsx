@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { checkPassword } from '@/lib/password-strength'
 import PasswordStrengthBar from '@/components/PasswordStrengthBar'
 import { nombreAvi, terminos, terminologiaComun, TERMINOLOGIA_SIN_EMPRESA, type Terminologia } from '@/lib/terminologia'
-import { ESTADOS_MEXICO, PAISES, domicilioVacio, type Domicilio } from '@/lib/domicilio'
+import { PAISES, domicilioVacio, estadosDePais, etiquetaEstado, type Domicilio } from '@/lib/domicilio'
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
 interface Hijo { nombre: string; edad: string; ocupacion: string; vive_en_casa: string }
@@ -416,7 +416,15 @@ function RegistroConsultorioForm() {
                 <select value={dg.asesorado_lugar_nacimiento}
                   onChange={e => setField('asesorado_lugar_nacimiento', e.target.value)} className={selectCls}>
                   <option value="">Estado</option>
-                  {ESTADOS_MEXICO.map(est => <option key={est}>{est}</option>)}
+                  {/* México guarda solo el estado (como antes); USA y Colombia, "Estado, País" */}
+                  {PAISES.map(pais => (
+                    <optgroup key={pais} label={pais}>
+                      {estadosDePais(pais).map(est => {
+                        const valor = pais === 'México' ? est : `${est}, ${pais}`
+                        return <option key={valor} value={valor}>{est}</option>
+                      })}
+                    </optgroup>
+                  ))}
                 </select>
               </Field>
             </div>
@@ -503,14 +511,18 @@ function RegistroConsultorioForm() {
               </Field>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Estado">
+              <Field label={etiquetaEstado(dg.domicilio_pais)}>
                 <select value={dg.domicilio_estado} onChange={e => setField('domicilio_estado', e.target.value)} className={selectCls}>
                   <option value="">Seleccionar</option>
-                  {ESTADOS_MEXICO.map(est => <option key={est}>{est}</option>)}
+                  {estadosDePais(dg.domicilio_pais).map(est => <option key={est}>{est}</option>)}
                 </select>
               </Field>
               <Field label="País">
-                <select value={dg.domicilio_pais} onChange={e => setField('domicilio_pais', e.target.value)} className={selectCls}>
+                <select value={dg.domicilio_pais} onChange={e => {
+                  // El estado elegido solo vale para su país
+                  if (!estadosDePais(e.target.value).includes(dg.domicilio_estado)) setField('domicilio_estado', '')
+                  setField('domicilio_pais', e.target.value)
+                }} className={selectCls}>
                   <option value="">Seleccionar</option>
                   {PAISES.map(p => <option key={p}>{p}</option>)}
                 </select>

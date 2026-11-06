@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Lock } from 'lucide-react'
 import { terminos, TERMINOLOGIA_SIN_EMPRESA, type Terminologia } from '@/lib/terminologia'
-import { ESTADOS_MEXICO, PAISES, CAMPOS_DOMICILIO, domicilioVacio, domicilioEnUnaLinea, type Domicilio } from '@/lib/domicilio'
+import { PAISES, estadosDePais, etiquetaEstado, CAMPOS_DOMICILIO, domicilioVacio, domicilioEnUnaLinea, type Domicilio } from '@/lib/domicilio'
 
 // ──────────────────────────────────────────────
 // Types
@@ -549,12 +549,16 @@ export default function DatosGeneralesTab({ patientId, therapistId, patientEmail
             <TextInput value={data.domicilio_cp} onChange={v => set('domicilio_cp', v)} maxLength={10} placeholder="Ej. 44100" />
           </div>
           <div className="sm:col-span-2">
-            <Label>Estado</Label>
-            <SelectInput value={data.domicilio_estado} onChange={v => set('domicilio_estado', v)} options={ESTADOS_MEXICO} />
+            <Label>{etiquetaEstado(data.domicilio_pais)}</Label>
+            <SelectInput value={data.domicilio_estado} onChange={v => set('domicilio_estado', v)} options={estadosDePais(data.domicilio_pais)} />
           </div>
           <div>
             <Label>País</Label>
-            <SelectInput value={data.domicilio_pais} onChange={v => set('domicilio_pais', v)} options={PAISES} />
+            <SelectInput value={data.domicilio_pais} onChange={v => {
+              // El estado elegido solo vale para su país
+              if (!estadosDePais(v).includes(data.domicilio_estado)) set('domicilio_estado', '')
+              set('domicilio_pais', v)
+            }} options={PAISES} />
           </div>
         </div>
       </SectionCard>
