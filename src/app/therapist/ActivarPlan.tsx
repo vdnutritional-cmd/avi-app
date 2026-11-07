@@ -192,17 +192,25 @@ function CheckoutButton({
     }
     setLoading(true)
     setError('')
-    const res = await fetch('/api/stripe/checkout', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        planId,
-        slots,
-        convenioCode: requiresCode ? code.trim().toUpperCase() : undefined,
-        empresaIds: requiresCode ? empresaIds : undefined,
-      }),
-    })
-    const data = await res.json()
+    // Si la respuesta no llega o no es JSON, el botón no debe quedarse en "Verificando…"
+    let data: { url?: string; error?: string }
+    try {
+      const res = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          planId,
+          slots,
+          convenioCode: requiresCode ? code.trim().toUpperCase() : undefined,
+          empresaIds: requiresCode ? empresaIds : undefined,
+        }),
+      })
+      data = await res.json()
+    } catch {
+      setLoading(false)
+      setError('No se pudo iniciar el pago. Revisa tu conexión e intenta de nuevo.')
+      return
+    }
     setLoading(false)
     if (data.url) {
       window.location.href = data.url
