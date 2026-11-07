@@ -45,7 +45,7 @@ export default async function ReporteTerapeutaPage({
   const empresas = piRecords.map(r => {
     const e = r.convenio_empresas as { nombre?: string; logo_url?: string | null } | null
     return { id: r.empresa_id as string, nombre: e?.nombre ?? 'Empresa', logo_url: e?.logo_url ?? null }
-  })
+  }).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }))   // Empresas a analizar en orden alfabético
 
   return (
     <ReporteTerapeutaContenido
