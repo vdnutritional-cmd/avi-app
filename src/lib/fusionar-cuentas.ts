@@ -58,8 +58,10 @@ export async function fusionarCuentas(
   falla('Nota inicial', eTpO ?? eTpD)
   if (!tpO || !tpD) throw new Error('No se encontraron las dos cuentas en tu lista')
   const nota = camposFaltantes(tpO, tpD, k => k.startsWith('initial_note'))
-  if (Object.keys(nota).length) {
-    const { error } = await admin.from('therapist_patients').update(nota).eq('id', tpD.id)
+  // SubCarpeta (del mismo terapeuta) y CentroAtención (solo si es de la misma empresa), si la real no tenía
+  const carpetas = camposFaltantes(tpO, tpD, k => k === 'subcarpeta_id' || (k === 'centro_id' && tpO.empresa_id === tpD.empresa_id))
+  if (Object.keys(nota).length || Object.keys(carpetas).length) {
+    const { error } = await admin.from('therapist_patients').update({ ...nota, ...carpetas }).eq('id', tpD.id)
     falla('Nota inicial', error)
   }
 

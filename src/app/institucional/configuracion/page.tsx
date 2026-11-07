@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { NIVELES_CONFIGURACION } from '@/lib/niveles-institucionales'
+import { cargarCentrosConConteo } from '@/lib/centros-atencion'
 import ConfiguracionEmpresas, { type EmpresaConfig } from './ConfiguracionEmpresas'
 
 export const dynamic = 'force-dynamic'
@@ -26,18 +27,20 @@ export default async function ConfiguracionAdminPage() {
     ? await admin.from('convenio_empresas').select('id, nombre, terminologia, telefono, telefono_solicitudes, logo_url, enfoques_permitidos')
         .in('id', empresaIds).eq('is_active', true).order('nombre')
     : { data: [] }
+  const centros = await cargarCentrosConConteo(admin, (empresas ?? []).map(e => e.id as string))
+  const conCentros = (empresas ?? []).map(e => ({ ...e, centros: centros.filter(c => c.empresa_id === e.id) })) as EmpresaConfig[]
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-primary-700">Configuración Admin</h1>
         <p className="text-sm text-gray-500 mt-1">
-          Terminología, enfoques terapéuticos, teléfono de contacto y logo de cada empresa a la que perteneces.
+          CentrosAtención, terminología, enfoques terapéuticos, teléfono de contacto y logo de cada empresa a la que perteneces.
         </p>
       </div>
       {empresaIds.length === 0
         ? <p className="text-sm text-gray-500 text-center py-8">No tienes permiso para esta sección (requiere nivel User o Superuser).</p>
-        : <ConfiguracionEmpresas empresas={(empresas ?? []) as EmpresaConfig[]} />}
+        : <ConfiguracionEmpresas empresas={conCentros} />}
     </div>
   )
 }

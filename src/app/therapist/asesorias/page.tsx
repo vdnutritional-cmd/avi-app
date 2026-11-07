@@ -8,6 +8,8 @@ import ReporteAsesorias from './ReporteAsesorias'
 import SelectorPeriodo from '@/components/SelectorPeriodo'
 import { resolverPeriodo } from '@/lib/periodo'
 import { todasLasFilas } from '@/lib/supabase/todas-las-filas'
+import SelectorCarpetas from '@/components/SelectorCarpetas'
+import { cargarSubcarpetas, etiquetaSubcarpetas, personasEnSubcarpetas, resolverSubcarpetas } from '@/lib/subcarpetas'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,14 +27,22 @@ function nombreMes(year: number, month: number) {
 export default async function AsesoriasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ mes?: string }>
+  searchParams: Promise<{ mes?: string; subcarpetas?: string }>
 }) {
-  const { mes } = await searchParams
+  const { mes, subcarpetas: subParam } = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   // El layout también redirige, pero la página se renderiza en paralelo: sin sesión no debe consultar nada
   if (!user) redirect('/auth/login')
-  const w = terminos(await getTerminologiaTerapeuta(createAdminClient(), user.id))
+  const admin = createAdminClient()
+  const w = terminos(await getTerminologiaTerapeuta(admin, user.id))
+
+  // SubCarpetas (privadas, src/lib/subcarpetas.ts): solo las sesiones de sus personas
+  const subcarpetas = await cargarSubcarpetas(admin, user.id)
+  const selSub = resolverSubcarpetas(subParam, subcarpetas)
+  const enFiltro = await personasEnSubcarpetas(admin, user.id, selSub)
+  const filtrarSub = <T extends { patient_id: unknown }>(filas: T[] | null) => (filas ?? []).filter(r => !enFiltro || enFiltro.has(r.patient_id as string))
+  const filtroSub = etiquetaSubcarpetas(selSub, subcarpetas)
 
   // Periodo: mes, año acumulado, total acumulado o rango de fechas (src/lib/periodo.ts)
   const periodo   = resolverPeriodo(mes)
@@ -40,9 +50,9 @@ export default async function AsesoriasPage({
   const mesFin    = periodo.fin
 
   // Sesiones presenciales del periodo (por páginas: con año o total pueden ser más de 1,000)
-  const { data: sesiones } = await todasLasFilas(() => supabase
+  const { data: sesionesTodas } = await todasLasFilas(() => supabase
     .from('therapist_session_notes')
-    .select('session_date, is_pro_bono, is_virtual')
+    .select('patient_id, session_date, is_pro_bono, is_virtual')
     .eq('therapist_id', user.id)
     .gte('session_date', mesInicio)
     .lt('session_date', mesFin)
@@ -51,9 +61,10 @@ export default async function AsesoriasPage({
 
   // Notas iniciales del periodo (cuentan como sesión)
   // Excluir archivados: son cuentas fusionadas cuya nota fue copiada al destino activo → evita doble conteo
-  const { data: notasIniciales } = await supabase
+  const sesiones = filtrarSub(sesionesTodas)
+  const { data: notasTodas } = await supabase
     .from('therapist_patients')
-    .select('initial_note_date, initial_note_pro_bono, initial_note_virtual')
+    .select('patient_id, initial_note_date, initial_note_pro_bono, initial_note_virtual')
     .eq('therapist_id', user.id)
     .neq('status', 'archived')
     .not('initial_note', 'is', null)
@@ -61,10 +72,12 @@ export default async function AsesoriasPage({
     .gte('initial_note_date', mesInicio)
     .lt('initial_note_date', mesFin)
 
+  const notasIniciales = filtrarSub(notasTodas)
+
   type Row = { session_date: string; is_pro_bono: boolean; is_virtual?: boolean }
 
   const rows: Row[] = [
-    ...(sesiones ?? []),
+    ...sesiones.map(({ session_date, is_pro_bono, is_virtual }) => ({ session_date, is_pro_bono, is_virtual })),
     ...(notasIniciales ?? []).map(n => ({
       session_date: n.initial_note_date as string,
       is_pro_bono: n.initial_note_pro_bono ?? false,
@@ -90,18 +103,18 @@ export default async function AsesoriasPage({
   const esMes = periodo.tipo === 'mes'
   const [y0, m0] = mesInicio.split('-').map(Number)
   const seisMesesAtras = new Date(y0, m0 - 7, 1).toISOString().split('T')[0]
-  const [{ data: historial }, { data: historialNotas }] = esMes
+  const [{ data: historialTodo }, { data: historialNotasTodo }] = esMes
     ? await Promise.all([
         supabase
           .from('therapist_session_notes')
-          .select('session_date, is_pro_bono')
+          .select('patient_id, session_date, is_pro_bono')
           .eq('therapist_id', user.id)
           .gte('session_date', seisMesesAtras)
           .lt('session_date', mesInicio)
           .order('session_date', { ascending: true }),
         supabase
           .from('therapist_patients')
-          .select('initial_note_date, initial_note_pro_bono')
+          .select('patient_id, initial_note_date, initial_note_pro_bono')
           .eq('therapist_id', user.id)
           .neq('status', 'archived')
           .not('initial_note', 'is', null)
@@ -109,12 +122,14 @@ export default async function AsesoriasPage({
           .gte('initial_note_date', seisMesesAtras)
           .lt('initial_note_date', mesInicio),
       ])
-    : [{ data: [] }, { data: [] }]
+    : [{ data: null }, { data: null }]
+  const historial = filtrarSub(historialTodo)
+  const historialNotas = filtrarSub(historialNotasTodo)
 
   const historialCombinado = esMes
     ? [
-        ...(historial ?? []),
-        ...(historialNotas ?? []).map(n => ({
+        ...historial.map(({ session_date, is_pro_bono }) => ({ session_date: session_date as string, is_pro_bono: is_pro_bono as boolean })),
+        ...historialNotas.map(n => ({
           session_date: n.initial_note_date as string,
           is_pro_bono: n.initial_note_pro_bono ?? false,
         })),
@@ -141,12 +156,18 @@ export default async function AsesoriasPage({
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Mis {w.Servs}</h1>
-          <p className="text-gray-500 mt-1 text-sm">Estadísticas por jornada y tipo</p>
+          <p className="text-gray-500 mt-1 text-sm">Estadísticas por jornada y tipo{filtroSub && ` · 📁 ${filtroSub}`}</p>
         </div>
       </div>
 
       {/* Periodo: mes, año, total o fechas */}
       <SelectorPeriodo valor={periodo.clave} />
+
+      {/* SubCarpetas (privadas): solo si el terapeuta tiene */}
+      {subcarpetas.length > 0 && (
+        <SelectorCarpetas titulo="SubCarpeta" parametro="subcarpetas" seleccion={selSub} etiquetaSin="Sin SubCarpeta"
+          opciones={subcarpetas.map(s => ({ id: s.id, nombre: s.nombre }))} />
+      )}
 
       {/* Tarjetas resumen */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">

@@ -9,11 +9,13 @@ import SelectorPeriodo from '@/components/SelectorPeriodo'
 import { todasLasFilas } from '@/lib/supabase/todas-las-filas'
 import { terminos, type Terminologia } from '@/lib/terminologia'
 import { getTerminologiaEmpresas } from '@/lib/terminologia-paciente'
+import { cargarCentros, centrosDeTerapeutas, enCentros, etiquetaCentros, resolverCentros, type CentroAtencion } from '@/lib/centros-atencion'
+import SelectorCarpetas from '@/components/SelectorCarpetas'
 
 const TIPOS_DERIVACION = ['Psicólogo', 'Psiquiatra', 'Especialista en Adicciones', 'Ginecólogo', 'Urólogo', 'Otro Médico de la salud']
 
 export interface EmpresaReporte { id: string; nombre: string; logo_url: string | null }
-export type Params = { empresaIds?: string; mes?: string; tipo?: string; pid?: string }
+export type Params = { empresaIds?: string; mes?: string; tipo?: string; pid?: string; centros?: string }
 
 // Contenido del reporte, compartido por Administración Institucional (Persona
 // Institucional: solo sus empresas según nivel) y Administración Institucional AVI
@@ -29,7 +31,7 @@ export default async function ReporteGeneralContenido({ empresas, piNombre, base
   /** AVI Administración: las empresas se eligen en el selector común de arriba */
   ocultarSelectorEmpresas?: boolean
 }) {
-  const { empresaIds: empIdsParam, mes, tipo: tipoParam, pid: pidParam } = searchParams
+  const { empresaIds: empIdsParam, mes, tipo: tipoParam, pid: pidParam, centros: centrosParam } = searchParams
   const admin = createAdminClient()
 
   // Solo empresas permitidas para esta PI (nunca confiar en la URL)
@@ -59,6 +61,11 @@ export default async function ReporteGeneralContenido({ empresas, piNombre, base
     )
   }
 
+  // ── CentrosAtención de las empresas elegidas y filtro (src/lib/centros-atencion.ts) ──
+  const centros = await cargarCentros(admin, selectedIds)
+  const selCentros = resolverCentros(centrosParam, centros)
+  const filtroCentros = selCentros.join(',')
+
   // ── Todos los terapeutas de la empresa ────────────────────────────────────
   const [{ data: teRels }, { data: piTer }] = await Promise.all([
     admin.from('therapist_empresa').select('therapist_id').in('empresa_id', selectedIds),
@@ -83,7 +90,7 @@ export default async function ReporteGeneralContenido({ empresas, piNombre, base
         <div><h1 className="text-2xl font-bold text-gray-900">Reporte General</h1></div>
         <FiltrosReporteGeneral basePath={basePath} terminologia={terminologia} ocultarEmpresas={ocultarSelectorEmpresas}
           empresas={empresas} empresaIdsSelected={selectedIds}
-          tipo={tipo} pid={pid} mes={periodo.clave} pacientes={[]} />
+          tipo={tipo} pid={pid} mes={periodo.clave} pacientes={[]} centros={filtroCentros} />
         <p className="text-sm text-gray-400 text-center py-8">No hay {w.pros} registrados en las empresas seleccionadas.</p>
       </div>
     )
@@ -93,7 +100,7 @@ export default async function ReporteGeneralContenido({ empresas, piNombre, base
   // Sin la columna initial_note (texto completo): solo se filtra por "no nula".
   let relacionesQuery = admin
     .from('therapist_patients')
-    .select('patient_id, is_active, empresa_id, sensacion_paciente_inicial, initial_note_date, initial_note_pro_bono, status, convenio_empresas(nombre)')
+    .select('patient_id, therapist_id, centro_id, is_active, empresa_id, sensacion_paciente_inicial, initial_note_date, initial_note_pro_bono, status, convenio_empresas(nombre)')
     .in('empresa_id', selectedIds)
     .in('therapist_id', therapistIds)
   // Pacientes SIN convenio (referencia) — aparece aunque no haya pacientes del convenio en el mes/tipo
@@ -129,15 +136,25 @@ export default async function ReporteGeneralContenido({ empresas, piNombre, base
 
   const [
     { data: terapeutaProfiles },   // para tabla Tipo de asesoría
-    { data: relaciones },
-    { data: scRels },
-    { data: scNotasRows },
+    { data: relacionesTodas },
+    { data: scRelsTodas },
+    { data: scNotasTodas },
+    centrosPorPro,
   ] = await Promise.all([
     admin.from('profiles').select('id, full_name, email').in('id', therapistIds),
     relacionesQuery,
     scQuery,
     scNotasQuery,
+    centrosDeTerapeutas(admin, centros.map(c => c.id)),
   ])
+
+  // Filtro por CentroAtención: solo los vínculos (terapeuta–persona) de esos CentrosAtención.
+  // Las personas sin convenio no tienen CentroAtención: con filtro no se muestran como referencia.
+  const relaciones = (relacionesTodas ?? []).filter(r => enCentros(r.centro_id as string | null, selCentros))
+  const scRels = selCentros.length ? [] : scRelsTodas
+  const scNotasRows = selCentros.length ? [] : scNotasTodas
+  const vinculoEnFiltro = new Set(relaciones.map(r => `${r.therapist_id}|${r.patient_id}`))
+  const centroDeVinculo = new Map(relaciones.map(r => [`${r.therapist_id}|${r.patient_id}`, (r.centro_id as string | null) ?? null]))
 
   const therapistNombres: Record<string, string> = {}
   for (const p of terapeutaProfiles ?? [])
@@ -159,7 +176,7 @@ export default async function ReporteGeneralContenido({ empresas, piNombre, base
 
   const notasIniQuery = admin
     .from('therapist_patients')
-    .select('patient_id, initial_note_date, initial_note_pro_bono, therapist_id, initial_note_virtual')
+    .select('patient_id, initial_note_date, initial_note_pro_bono, therapist_id, initial_note_virtual, centro_id')
     .in('therapist_id', therapistIds)
     .in('empresa_id', selectedIds)
     .neq('status', 'archived')
@@ -170,7 +187,7 @@ export default async function ReporteGeneralContenido({ empresas, piNombre, base
     .in('patient_id', pacienteIds)
 
   const hayPacientes = pacienteIds.length > 0
-  const [{ data: profiles }, { data: scSesRaw }, { data: sesionesRows }, { data: notasRows }] = await Promise.all([
+  const [{ data: profiles }, { data: scSesRaw }, { data: sesionesTodas }, { data: notasTodas }] = await Promise.all([
     hayPacientes ? admin.from('profiles').select('id, full_name, email').in('id', pacienteIds) : Promise.resolve({ data: [] }),
     scPacIds.length > 0
       ? todasLasFilas(() => admin.from('therapist_session_notes')
@@ -184,6 +201,12 @@ export default async function ReporteGeneralContenido({ empresas, piNombre, base
     hayPacientes ? todasLasFilas(armarSesiones) : Promise.resolve({ data: [] }),
     hayPacientes ? notasIniQuery : Promise.resolve({ data: [] }),
   ])
+
+  // Con filtro por CentroAtención: solo las sesiones del vínculo terapeuta–persona en ese CentroAtención
+  const sesionesRows = selCentros.length
+    ? (sesionesTodas ?? []).filter(s => vinculoEnFiltro.has(`${s.therapist_id}|${s.patient_id}`))
+    : sesionesTodas
+  const notasRows = (notasTodas ?? []).filter(n => enCentros(n.centro_id as string | null, selCentros))
 
   const nombreByPatient: Record<string, string> = {}
   for (const p of profiles ?? []) nombreByPatient[p.id] = p.full_name ?? p.email ?? p.id
@@ -201,13 +224,14 @@ export default async function ReporteGeneralContenido({ empresas, piNombre, base
 
   // pacienteIds ya excluye archivados para todos los tipos (activos/inactivos/total)
   if (!hayPacientes) {
-    return renderPage({ terminologia, basePath, ocultarSelectorEmpresas, periodo, tipo, pid, piNombre, empresas, selectedIds, empresasActuales, todasLasSesiones: [], pacientesEnPeriodoIds: [], relaciones: [], derivacionesRows: [], expedientesRows: [], empresaByPatient, nombreByPatient, sinConvenioSesiones, sinConvenioPersonas, tipoAsesoriaRows: [] })
+    return renderPage({ terminologia, basePath, ocultarSelectorEmpresas, periodo, tipo, pid, piNombre, empresas, selectedIds, empresasActuales, todasLasSesiones: [], pacientesEnPeriodoIds: [], relaciones: [], derivacionesRows: [], expedientesRows: [], empresaByPatient, nombreByPatient, sinConvenioSesiones, sinConvenioPersonas, tipoAsesoriaRows: [], centros, selCentros })
   }
 
-  type SesionRow = { patient_id: string; session_date: string; is_pro_bono: boolean }
+  type SesionRow = { patient_id: string; session_date: string; is_pro_bono: boolean; centro_id: string | null }
+  const centroDe = (s: { therapist_id: unknown; patient_id: unknown }) => centroDeVinculo.get(`${s.therapist_id}|${s.patient_id}`) ?? null
   const todasLasSesiones: SesionRow[] = [
-    ...(sesionesRows ?? []).map(s => ({ patient_id: s.patient_id as string, session_date: s.session_date as string, is_pro_bono: (s.is_pro_bono as boolean) ?? false })),
-    ...(notasRows ?? []).map(n => ({ patient_id: n.patient_id as string, session_date: n.initial_note_date as string, is_pro_bono: (n.initial_note_pro_bono as boolean) ?? false })),
+    ...(sesionesRows ?? []).map(s => ({ patient_id: s.patient_id as string, session_date: s.session_date as string, is_pro_bono: (s.is_pro_bono as boolean) ?? false, centro_id: centroDe(s) })),
+    ...(notasRows ?? []).map(n => ({ patient_id: n.patient_id as string, session_date: n.initial_note_date as string, is_pro_bono: (n.initial_note_pro_bono as boolean) ?? false, centro_id: (n.centro_id as string | null) ?? null })),
   ]
 
   const pacientesEnPeriodoSet = new Set(todasLasSesiones.map(s => s.patient_id))
@@ -216,17 +240,20 @@ export default async function ReporteGeneralContenido({ empresas, piNombre, base
   // ── 6. Tipo de asesoría por terapeuta ─────────────────────────────────────
   const tipoAsesoriaMap: Record<string, { nombre: string; total: number; virtuales: number; presenciales: number; proBono: number; facturables: number }> = {}
   for (const id of therapistIds) {
+    // Con filtro por CentroAtención: los <pros> de esos CentrosAtención (los demás aparecen si tienen sesiones)
+    if (selCentros.length && !(centrosPorPro.get(id) ?? []).some(c => selCentros.includes(c))) continue
     tipoAsesoriaMap[id] = { nombre: therapistNombres[id] ?? id, total: 0, virtuales: 0, presenciales: 0, proBono: 0, facturables: 0 }
   }
+  const filaPro = (id: string) => tipoAsesoriaMap[id] ??= { nombre: therapistNombres[id] ?? id, total: 0, virtuales: 0, presenciales: 0, proBono: 0, facturables: 0 }
   for (const s of sesionesRows ?? []) {
-    const row = tipoAsesoriaMap[s.therapist_id as string]
+    const row = filaPro(s.therapist_id as string)
     if (!row) continue
     row.total++
     if (s.is_virtual) row.virtuales++; else row.presenciales++
     if (s.is_pro_bono) row.proBono++; else row.facturables++
   }
   for (const n of notasRows ?? []) {
-    const row = tipoAsesoriaMap[n.therapist_id as string]
+    const row = filaPro(n.therapist_id as string)
     if (!row) continue
     row.total++
     const isVirtual = (n as Record<string, unknown>).initial_note_virtual as boolean ?? false
@@ -260,6 +287,7 @@ export default async function ReporteGeneralContenido({ empresas, piNombre, base
     empresaByPatient, nombreByPatient,
     sinConvenioSesiones, sinConvenioPersonas,
     tipoAsesoriaRows,
+    centros, selCentros,
   })
 }
 
@@ -275,7 +303,7 @@ interface RenderProps {
   empresas: { id: string; nombre: string; logo_url: string | null }[]
   selectedIds: string[]
   empresasActuales: { id: string; nombre: string; logo_url: string | null }[]
-  todasLasSesiones: { patient_id: string; session_date: string; is_pro_bono: boolean }[]
+  todasLasSesiones: { patient_id: string; session_date: string; is_pro_bono: boolean; centro_id?: string | null }[]
   pacientesEnPeriodoIds: string[]
   relaciones: Record<string, unknown>[]
   derivacionesRows: Record<string, unknown>[]
@@ -285,6 +313,9 @@ interface RenderProps {
   sinConvenioSesiones: number
   sinConvenioPersonas: number
   tipoAsesoriaRows: { nombre: string; total: number; virtuales: number; presenciales: number; proBono: number; facturables: number }[]
+  /** CentrosAtención de las empresas elegidas y los marcados en el filtro */
+  centros: CentroAtencion[]
+  selCentros: string[]
 }
 
 function renderPage({
@@ -296,6 +327,7 @@ function renderPage({
   empresaByPatient, nombreByPatient,
   sinConvenioSesiones, sinConvenioPersonas,
   tipoAsesoriaRows,
+  centros, selCentros,
 }: RenderProps) {
   const archivedSet = new Set(relaciones.filter(r => r.status === 'archived').map(r => r.patient_id as string))
   const pacientesParaDropdown = pacientesEnPeriodoIds
@@ -362,6 +394,15 @@ function renderPage({
   const w = terminos(terminologia)
   const tipoLabel = tipo === 'activos' ? 'activos' : tipo === 'inactivos' ? 'inactivos' : 'activos + inactivos'
 
+  // Sesiones por CentroAtención (solo si las empresas elegidas tienen CentrosAtención)
+  const sesionesPorCentro: Record<string, number> = {}
+  for (const s of sesiones) {
+    const nombre = s.centro_id ? centros.find(c => c.id === s.centro_id)?.nombre ?? 'Sin CentroAtención' : 'Sin CentroAtención'
+    sesionesPorCentro[nombre] = (sesionesPorCentro[nombre] ?? 0) + 1
+  }
+  const centroRows = centros.length ? institucionRowsDesde(sesionesPorCentro) : []
+  const filtroCentros = etiquetaCentros(selCentros, centros)
+
   const institucionRows = institucionRowsDesde(sesionesPorEmpresa)   // % suman 100
   const totalInstitucion = institucionRows.reduce((a, r) => a + r.total, 0)
   const pctInstitucion   = institucionRows.reduce((a, r) => a + r.pct, 0)
@@ -372,12 +413,17 @@ function renderPage({
     <div className="max-w-3xl space-y-8">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Reporte General</h1>
-        <p className="text-gray-500 mt-1 text-sm">{empresasActuales.map(e => e.nombre).join(' + ') || '—'} · Todos los {w.pros} · {w.users} {tipoLabel}</p>
+        <p className="text-gray-500 mt-1 text-sm">{empresasActuales.map(e => e.nombre).join(' + ') || '—'}{filtroCentros && ` · 📁 ${filtroCentros}`} · Todos los {w.pros} · {w.users} {tipoLabel}</p>
       </div>
 
       <FiltrosReporteGeneral basePath={basePath} terminologia={terminologia} ocultarEmpresas={ocultarSelectorEmpresas}
         empresas={empresas} empresaIdsSelected={selectedIds}
-        tipo={tipo} pid={pid} mes={periodo.clave} pacientes={pacientesParaDropdown} />
+        tipo={tipo} pid={pid} mes={periodo.clave} pacientes={pacientesParaDropdown} centros={selCentros.join(',')} />
+
+      {centros.length > 0 && (
+        <SelectorCarpetas titulo="CentroAtención" parametro="centros" seleccion={selCentros} etiquetaSin="Sin CentroAtención"
+          opciones={centros.map(c => ({ id: c.id, nombre: empresasActuales.length > 1 ? `${c.nombre} (${empresasActuales.find(e => e.id === c.empresa_id)?.nombre ?? ''})` : c.nombre, inactivo: !c.is_active }))} />
+      )}
 
       {/* Periodo: mes, año, total o fechas */}
       <SelectorPeriodo valor={periodo.clave} />
@@ -481,6 +527,14 @@ function renderPage({
             )}
           </section>
 
+          {centroRows.length > 0 && (
+            <section className="space-y-3">
+              <SectionTitle destacado>Sesiones por CentroAtención</SectionTitle>
+              <TableSimple rows={centroRows.map(r => [r.nombre, String(r.total), `${r.pct}%`])} headers={['CentroAtención', 'Sesiones', '%']}
+                footer={['Total', String(centroRows.reduce((a, r) => a + r.total, 0)), `${centroRows.reduce((a, r) => a + r.pct, 0)}%`]} />
+            </section>
+          )}
+
           {motivoEntries.length > 0 && (
             <section className="space-y-3">
               <SectionTitle>Motivo de consulta</SectionTitle>
@@ -568,6 +622,8 @@ function renderPage({
               atenEspecializada={atenEspecializada}
               calificaciones={calificaciones}
               tipoAsesoriaRows={tipoAsesoriaRows}
+              centroRows={centroRows}
+              filtro={filtroCentros && `CentroAtención: ${filtroCentros}`}
               reportTitle="Reporte General"
               impresoPor={piNombre}
             />

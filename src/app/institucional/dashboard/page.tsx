@@ -3,7 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import PanelInstitucionalVista, { type EmpresaBlock } from './PanelInstitucionalVista'
 import { permisosPI } from '@/lib/niveles-institucionales'
-import { cargarTelefonos, cargarTerapeutasEmpresa } from './cargar-panel'
+import { cargarResumenCentros, cargarTelefonos, cargarTerapeutasEmpresa } from './cargar-panel'
 import { normalizarTerminologia } from '@/lib/terminologia'
 
 // ── Página ─────────────────────────────────────────────────────────────────────
@@ -37,8 +37,9 @@ export default async function InstitucionalDashboardPage() {
       const nivel = pi.nivel as 'N1' | 'N2' | 'N3'
 
       const terapeutas = await cargarTerapeutasEmpresa(admin, empresaId, empresaNombre, whatsappMap)
+      const centros = await cargarResumenCentros(admin, empresaId, terapeutas)
 
-      return { empresaId, empresaNombre, empresaLogoUrl, nivel, terminologia: normalizarTerminologia(empresaData?.terminologia), terapeutas }
+      return { empresaId, empresaNombre, empresaLogoUrl, nivel, terminologia: normalizarTerminologia(empresaData?.terminologia), terapeutas, centros }
     })
   )
 

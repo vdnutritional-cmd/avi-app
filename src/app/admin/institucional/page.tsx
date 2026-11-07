@@ -8,7 +8,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logApiAccess } from '@/lib/audit/log-access'
-import { cargarTelefonos, cargarTerapeutasEmpresa } from '@/app/institucional/dashboard/cargar-panel'
+import { cargarResumenCentros, cargarTelefonos, cargarTerapeutasEmpresa } from '@/app/institucional/dashboard/cargar-panel'
 import PanelInstitucionalVista, { type EmpresaBlock } from '@/app/institucional/dashboard/PanelInstitucionalVista'
 import EncabezadoAVI from './EncabezadoAVI'
 import ResumenCombinadoAVI from './ResumenCombinadoAVI'
@@ -37,14 +37,18 @@ export default async function AdminInstitucionalPanelPage({
     conSinEmpresa ? cargarIndependientes(admin) : Promise.resolve(null),
   ])
   const empresaBlocks: EmpresaBlock[] = await Promise.all(
-    seleccionadas.map(async e => ({
-      empresaId: e.id,
-      empresaNombre: e.nombre,
-      empresaLogoUrl: e.logo_url,
-      nivel: 'N1' as const,
-      terminologia: e.terminologia,
-      terapeutas: await cargarTerapeutasEmpresa(admin, e.id, e.nombre, whatsappMap),
-    }))
+    seleccionadas.map(async e => {
+      const terapeutas = await cargarTerapeutasEmpresa(admin, e.id, e.nombre, whatsappMap)
+      return {
+        empresaId: e.id,
+        empresaNombre: e.nombre,
+        empresaLogoUrl: e.logo_url,
+        nivel: 'N1' as const,
+        terminologia: e.terminologia,
+        terapeutas,
+        centros: await cargarResumenCentros(admin, e.id, terapeutas),
+      }
+    })
   )
 
   const qs = new URLSearchParams({ empresaIds: selectedIds.join(',') })

@@ -8,6 +8,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { EmpresaAdministrada, ProAltaBaja, ProEnEmpresa } from './cargar-alta-baja'
+import type { CentroAtencion } from '@/lib/centros-atencion'
 
 type Palabras = { pro: string; Pro: string; pros: string; Pros: string; user: string; users: string }
 
@@ -25,7 +26,12 @@ async function enviar(method: 'POST' | 'DELETE', body: Record<string, string>) {
   return json
 }
 
-export default function AltaBajaPros({ empresas, pros, w }: { empresas: EmpresaAdministrada[]; pros: ProAltaBaja[]; w: Palabras }) {
+export default function AltaBajaPros({ empresas, pros, centros, w }: {
+  empresas: EmpresaAdministrada[]; pros: ProAltaBaja[]
+  /** CentrosAtención de estas empresas (src/lib/centros-atencion.ts) */
+  centros: CentroAtencion[]
+  w: Palabras
+}) {
   const router = useRouter()
   const [exito, setExito] = useState('')
   const [baja, setBaja] = useState<{ pro: ProAltaBaja; empresa: ProEnEmpresa } | null>(null)
@@ -48,7 +54,7 @@ export default function AltaBajaPros({ empresas, pros, w }: { empresas: EmpresaA
         {pros.length === 0
           ? <p className="text-sm text-gray-400">Aún no hay {w.pros} en tus empresas.</p>
           : pros.map(p => (
-              <TarjetaPro key={p.therapistId} pro={p} empresas={empresas} w={w}
+              <TarjetaPro key={p.therapistId} pro={p} empresas={empresas} centros={centros} w={w}
                 onBaja={empresa => { setExito(''); setBaja({ pro: p, empresa }) }} onListo={listo} />
             ))}
       </section>
@@ -108,8 +114,8 @@ function AltaPorCorreo({ empresas, w, onListo }: { empresas: EmpresaAdministrada
 }
 
 // ── Tarjeta de cada terapeuta (mismo diseño que SaaS Controller › Terapeutas) ──
-function TarjetaPro({ pro, empresas, w, onBaja, onListo }: {
-  pro: ProAltaBaja; empresas: EmpresaAdministrada[]; w: Palabras
+function TarjetaPro({ pro, empresas, centros, w, onBaja, onListo }: {
+  pro: ProAltaBaja; empresas: EmpresaAdministrada[]; centros: CentroAtencion[]; w: Palabras
   onBaja: (e: ProEnEmpresa) => void; onListo: (m: string) => void
 }) {
   const disponibles = empresas.filter(e => !pro.empresas.some(x => x.empresaId === e.id))
@@ -178,7 +184,86 @@ function TarjetaPro({ pro, empresas, w, onBaja, onListo }: {
           </div>
         )}
         {err && <p className="text-red-500 text-xs mt-1">{err}</p>}
+
+        {pro.empresas.some(e => centros.some(c => c.empresa_id === e.empresaId)) && (
+          <div className="mt-3 pt-3 border-t border-gray-100 space-y-2">
+            <p className="text-sm font-normal text-primary-400">CentrosAtención</p>
+            {pro.empresas.filter(e => centros.some(c => c.empresa_id === e.empresaId)).map(e => (
+              <CentrosDelPro key={e.empresaId} pro={pro} empresa={e} centros={centros.filter(c => c.empresa_id === e.empresaId)}
+                verEmpresa={pro.empresas.length > 1 || empresas.length > 1} w={w} onListo={onListo} />
+            ))}
+          </div>
+        )}
       </div>
+    </div>
+  )
+}
+
+// ── CentrosAtención de un <pro> en una empresa (7 nov 2026) ──
+const API_CENTRO_PRO = '/api/institucional/centros-atencion/terapeuta'
+
+function CentrosDelPro({ pro, empresa, centros, verEmpresa, w, onListo }: {
+  pro: ProAltaBaja; empresa: ProEnEmpresa; centros: CentroAtencion[]; verEmpresa: boolean
+  w: Palabras; onListo: (m: string) => void
+}) {
+  const disponibles = centros.filter(c => c.is_active && !empresa.centros.some(x => x.id === c.id))
+  const [centroId, setCentroId] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [err, setErr] = useState('')
+
+  async function llamar(method: 'POST' | 'DELETE', id: string) {
+    setSaving(true); setErr('')
+    try {
+      const res = await fetch(API_CENTRO_PRO, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ centro_id: id, therapist_id: pro.therapistId }) })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok || json.error) throw new Error(json.error ?? 'No se pudo guardar.')
+      return json
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'No se pudo guardar.')
+      return null
+    } finally { setSaving(false) }
+  }
+
+  async function asignar() {
+    const nombre = centros.find(c => c.id === centroId)?.nombre ?? ''
+    const json = await llamar('POST', centroId)
+    if (!json) return
+    setCentroId('')
+    const n = json.personasAsignadas as number
+    onListo(`${pro.nombre} quedó en ${nombre}.` + (n ? ` Sus ${n} ${n === 1 ? w.user : w.users} sin CentroAtención también quedaron ahí.` : ''))
+  }
+
+  async function quitar(c: { id: string; nombre: string }) {
+    if (!confirm(`¿Quitar a ${pro.nombre} de ${c.nombre}? Sus ${w.users} que ya están en ${c.nombre} se quedan ahí.`)) return
+    if (await llamar('DELETE', c.id)) onListo(`${pro.nombre} ya no está en ${c.nombre}.`)
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {verEmpresa && <span className="text-xs text-gray-500">{empresa.nombre}:</span>}
+      {empresa.centros.length === 0 && <span className="text-xs text-amber-600">Sin CentroAtención</span>}
+      {empresa.centros.map(c => (
+        <span key={c.id} className={`inline-flex items-center gap-1.5 text-xs pl-2.5 pr-1 py-1 rounded-full border font-medium ${
+          c.is_active ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-gray-50 text-gray-400 border-gray-200'}`}>
+          📁 {c.nombre}{!c.is_active && ' (desactivado)'}
+          <button onClick={() => quitar(c)} disabled={saving} title={`Quitar de ${c.nombre}`}
+            className="ml-0.5 w-5 h-5 rounded-full text-[11px] text-blue-400 hover:bg-red-100 hover:text-red-600 transition-colors">✕</button>
+        </span>
+      ))}
+      {disponibles.length > 0 && (
+        <span className="inline-flex items-center gap-1.5">
+          <select value={centroId} onChange={e => setCentroId(e.target.value)}
+            className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-purple-300 text-gray-600">
+            <option value="" disabled>+ CentroAtención...</option>
+            {disponibles.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+          </select>
+          <button onClick={asignar} disabled={saving || !centroId}
+            className="text-xs text-purple-600 border border-purple-200 rounded-lg px-2 py-1 hover:bg-purple-50 disabled:opacity-50 transition-colors">
+            {saving ? 'Guardando…' : 'Asignar'}
+          </button>
+        </span>
+      )}
+      {err && <p className="w-full text-red-500 text-xs">{err}</p>}
     </div>
   )
 }

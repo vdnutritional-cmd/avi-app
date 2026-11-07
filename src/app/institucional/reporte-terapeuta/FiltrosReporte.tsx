@@ -25,12 +25,14 @@ interface FiltrosReporteProps {
   ocultarEmpresas?: boolean
   /** Palabra de las empresas (Inventario de Terminología, página 12) */
   terminologia: Terminologia
+  /** Filtro de CentrosAtención (parámetro `centros`): se conserva al cambiar estatus o persona */
+  centros?: string
 }
 
 export default function FiltrosReporte({
   basePath, empresas, terapeutas,
   empresaIdsSelected, terapeutaId, tipo, pid, mes,
-  pacientes, ocultarEmpresas = false, terminologia,
+  pacientes, ocultarEmpresas = false, terminologia, centros = '',
 }: FiltrosReporteProps) {
   const w = terminos(terminologia)
   const router = useRouter()
@@ -58,6 +60,7 @@ export default function FiltrosReporte({
     const sp = new URLSearchParams({
       empresaIds: localSelected.join(','),
       terapeutaId, tipo, pid, mes: mesSafe,
+      ...(centros ? { centros } : {}),
       ...params,
     })
     startTransition(() => router.push(`${basePath}?${sp.toString()}`))

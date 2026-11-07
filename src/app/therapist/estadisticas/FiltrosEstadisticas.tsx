@@ -9,13 +9,15 @@ interface Props {
   mes: string
   pacientes: { id: string; nombre: string }[]
   w: Record<Variable, string>
+  /** Filtro de SubCarpetas (parámetro `subcarpetas`): se conserva */
+  subcarpetas?: string
 }
 
-export default function FiltrosEstadisticas({ tipo, pid, mes, pacientes, w }: Props) {
+export default function FiltrosEstadisticas({ tipo, pid, mes, pacientes, w, subcarpetas = '' }: Props) {
   const router = useRouter()
 
   function navTo(overrides: Record<string, string>) {
-    const params = new URLSearchParams({ mes, tipo, pid, ...overrides })
+    const params = new URLSearchParams({ mes, tipo, pid, ...(subcarpetas ? { subcarpetas } : {}), ...overrides })
     router.push(`/therapist/estadisticas?${params.toString()}`)
   }
 

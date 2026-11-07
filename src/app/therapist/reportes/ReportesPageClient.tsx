@@ -30,7 +30,7 @@ type ReportId =
   | 'hc-original' | 'hc-actualizada' | 'valorativo' | 'integracion' | 'proceso'
 
 interface Empresa  { id: string; nombre: string; logo_url: string | null }
-interface Paciente { id: string; nombre: string; empresa_id: string | null; tier?: 'esencial' | 'clinico'; bloqueado?: boolean }
+interface Paciente { id: string; nombre: string; empresa_id: string | null; subcarpeta_id?: string | null; tier?: 'esencial' | 'clinico'; bloqueado?: boolean }
 interface Props    {
   tier: string | null; terapeutaNombre: string
   /** Palabra del menú del terapeuta: pantalla general (Inventario de Terminología, página 7) */
@@ -62,6 +62,9 @@ export default function ReportesPageClient({ tier, terapeutaNombre, terminologia
   const [loaded,            setLoaded]            = useState(false)
   const [empresas,          setEmpresas]          = useState<Empresa[]>([])
   const [pacientes,         setPacientes]         = useState<Paciente[]>([])
+  // SubCarpetas del terapeuta (privadas): '' = todas, 'sin' = sin SubCarpeta
+  const [subcarpetas,       setSubcarpetas]       = useState<{ id: string; nombre: string }[]>([])
+  const [subSel,            setSubSel]            = useState('')
   const [selectedEmpresaId, setSelectedEmpresaId] = useState('')   // '' = sin selección
   const [pid,               setPid]               = useState('')
   const [selected,          setSelected]          = useState<ReportId | null>(null)
@@ -102,6 +105,7 @@ export default function ReportesPageClient({ tier, terapeutaNombre, terminologia
         const emp: Empresa[] = data.empresas ?? []
         setEmpresas(emp)
         setPacientes(data.pacientesActivos ?? [])
+        setSubcarpetas(data.subcarpetas ?? [])
         // Auto-seleccionar primera empresa si solo hay una
         if (emp.length === 1) setSelectedEmpresaId(emp[0].id)
         setLoaded(true)
@@ -177,7 +181,10 @@ export default function ReportesPageClient({ tier, terapeutaNombre, terminologia
         : pacientes.filter(p => p.empresa_id === selectedEmpresaId) // empresa concreta
 
   // Si no hay empresas registradas, mostrar todos los pacientes directamente
-  const pacientesVisibles = empresas.length === 0 ? pacientes : pacientesFiltrados
+  const pacientesPorEmpresa = empresas.length === 0 ? pacientes : pacientesFiltrados
+  // …y según la SubCarpeta elegida
+  const pacientesVisibles = subSel === '' ? pacientesPorEmpresa
+    : pacientesPorEmpresa.filter(p => subSel === 'sin' ? !p.subcarpeta_id : p.subcarpeta_id === subSel)
 
   function handleEmpresaChange(val: string) {
     setSelectedEmpresaId(val)
@@ -458,7 +465,23 @@ export default function ReportesPageClient({ tier, terapeutaNombre, terminologia
               </div>
             )}
 
-            {/* 2. Paciente — filtrado según empresa elegida */}
+            {/* 2. SubCarpeta — solo si el terapeuta tiene (7 nov 2026) */}
+            {subcarpetas.length > 0 && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-1">SubCarpeta</label>
+                <select
+                  value={subSel}
+                  onChange={e => { setSubSel(e.target.value); handlePacienteChange('') }}
+                  className="w-full border border-gray-200 rounded-xl px-2.5 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-300"
+                >
+                  <option value="">Todas</option>
+                  {subcarpetas.map(s => <option key={s.id} value={s.id}>📁 {s.nombre}</option>)}
+                  <option value="sin">Sin SubCarpeta</option>
+                </select>
+              </div>
+            )}
+
+            {/* 3. Paciente — filtrado según empresa y SubCarpeta elegidas */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-1">{w.User}</label>
               <select
@@ -470,7 +493,7 @@ export default function ReportesPageClient({ tier, terapeutaNombre, terminologia
                 <option value="">— Elige un {w.user} —</option>
                 {pacientesVisibles.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
               </select>
-              {empresas.length > 0 && selectedEmpresaId !== '' && pacientesVisibles.length === 0 && (
+              {(empresas.length === 0 || selectedEmpresaId !== '') && pacientesVisibles.length === 0 && (empresas.length > 0 || subSel !== '') && (
                 <p className="text-xs text-gray-400 px-1">Sin {w.users} en este contexto.</p>
               )}
             </div>

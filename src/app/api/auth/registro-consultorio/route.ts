@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getTerminologiaPropia, getTerminologiaRegistro } from '@/lib/terminologia-paciente'
 import { normalizarTerminologia } from '@/lib/terminologia'
 import { CAMPOS_DOMICILIO, domicilioEnUnaLinea } from '@/lib/domicilio'
+import { centroPorDefecto } from '@/lib/centros-atencion'
 
 /**
  * POST /api/auth/registro-consultorio
@@ -91,6 +92,8 @@ export async function POST(req: NextRequest) {
     status:       'active',
     is_active:    true,
     ...(resolvedEmpresaId ? { empresa_id: resolvedEmpresaId } : {}),
+    // CentroAtención: el único del terapeuta en esa empresa (si tiene varios, lo elige después)
+    centro_id: await centroPorDefecto(admin, therapistProfile.id, resolvedEmpresaId ?? null),
   })
 
   // ── 5. Crear expediente con Datos Generales ───────────────────────────────

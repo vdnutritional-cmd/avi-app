@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getEmpresasDeTerapeuta } from '@/lib/empresas-terapeuta'
 import { mensajeEmailPacienteExistente } from '@/lib/registro-email'
 import { getTerminologiaRegistro } from '@/lib/terminologia-paciente'
+import { centroPorDefecto } from '@/lib/centros-atencion'
 
 /**
  * POST /api/auth/confirm-patient
@@ -81,6 +82,8 @@ export async function POST(req: NextRequest) {
           patient_id: userId,
           authorization_code_id: codeId ?? null,
           empresa_id: empresaValida,
+          // CentroAtención: el único del terapeuta en esa empresa (si tiene varios, lo elige después)
+          centro_id: await centroPorDefecto(admin, therapistId, empresaValida),
         })
 
       if (linkError) {

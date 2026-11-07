@@ -9,6 +9,7 @@ import { terminos } from '@/lib/terminologia'
 import { getTerminologiaTerapeuta } from '@/lib/terminologia-paciente'
 import { cargarAltaBaja, type EmpresaAdministrada } from './cargar-alta-baja'
 import AltaBajaPros from './AltaBajaPros'
+import { cargarCentros } from '@/lib/centros-atencion'
 
 export const dynamic = 'force-dynamic'
 
@@ -32,9 +33,10 @@ export default async function AltaBajaPage() {
   }
   empresas.sort((a, b) => a.nombre.localeCompare(b.nombre))
 
-  const [pros, terminologia] = await Promise.all([
+  const [pros, terminologia, centros] = await Promise.all([
     cargarAltaBaja(admin, empresas),
     getTerminologiaTerapeuta(admin, user.id),
+    cargarCentros(admin, empresas.map(e => e.id)),
   ])
   const w = terminos(terminologia)
 
@@ -46,7 +48,7 @@ export default async function AltaBajaPage() {
       </div>
       {empresas.length === 0
         ? <p className="text-sm text-gray-500 text-center py-8">No tienes permiso para esta sección (requiere nivel User o Superuser).</p>
-        : <AltaBajaPros empresas={empresas} pros={pros} w={w} />}
+        : <AltaBajaPros empresas={empresas} pros={pros} centros={centros} w={w} />}
     </div>
   )
 }

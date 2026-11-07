@@ -2,8 +2,9 @@
 // Fuente única para Administración Institucional (Persona Institucional) y
 // Administración Institucional AVI (superadmin). Solo servidor (cliente admin).
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { cargarCentros, centrosDeTerapeutas } from '@/lib/centros-atencion'
 
-export interface PacienteItem { id: string; nombre: string }
+export interface PacienteItem { id: string; nombre: string; /** CentroAtención (null = sin CentroAtención) */ centro: string | null }
 
 export interface TerapeutaRow {
   therapistId: string
@@ -15,6 +16,37 @@ export interface TerapeutaRow {
   isHuerfano: boolean
   pacientes: PacienteItem[]
   pacientesActivos: number
+  /** CentrosAtención de la empresa a los que está asignado (nombres) */
+  centros: string[]
+}
+
+/** Resumen por CentroAtención de una empresa para el Panel (7 nov 2026) */
+export interface CentroResumen { nombre: string; activo: boolean; pros: number; personas: number }
+
+/**
+ * Resumen por CentroAtención: <pros> asignados y personas activas de cada uno, más una fila
+ * "Sin CentroAtención" si hay personas sin él. Vacío si la empresa no tiene CentrosAtención.
+ */
+export async function cargarResumenCentros(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  admin: SupabaseClient<any, any, any>,
+  empresaId: string,
+  terapeutas: TerapeutaRow[],
+): Promise<CentroResumen[]> {
+  const centros = await cargarCentros(admin, [empresaId])
+  if (centros.length === 0) return []
+  const personas = terapeutas.flatMap(t => t.pacientes)
+  const filas: CentroResumen[] = centros
+    .map(c => ({
+      nombre: c.nombre,
+      activo: c.is_active,
+      pros: terapeutas.filter(t => t.centros.includes(c.nombre)).length,
+      personas: personas.filter(p => p.centro === c.nombre).length,
+    }))
+    .filter(f => f.activo || f.personas > 0)
+  const sin = personas.filter(p => !p.centro).length
+  if (sin > 0) filas.push({ nombre: 'Sin CentroAtención', activo: true, pros: terapeutas.filter(t => t.centros.length === 0).length, personas: sin })
+  return filas
 }
 
 /** Teléfonos (WhatsApp) de los terapeutas, desde auth user_metadata */
@@ -68,13 +100,18 @@ export async function cargarTerapeutasEmpresa(
     }
   }
 
+  // CentrosAtención de la empresa y de cada terapeuta (7 nov 2026)
+  const centros = await cargarCentros(admin, [empresaId])
+  const nombreCentro = new Map(centros.map(c => [c.id, c.nombre]))
+  const centrosPorPro = await centrosDeTerapeutas(admin, centros.map(c => c.id))
+
   // Pacientes activos (con nombre) por terapeuta + empresa
   return Promise.all(
     Array.from(therapistMap.values()).map(async (t) => {
       const p = t.profiles as { full_name?: string; email?: string } | null
       const { data: tpRows } = await admin
         .from('therapist_patients')
-        .select('patient_id, profiles!therapist_patients_patient_id_fkey(full_name, email)')
+        .select('patient_id, centro_id, profiles!therapist_patients_patient_id_fkey(full_name, email)')
         .eq('therapist_id', t.therapist_id)
         .eq('empresa_id', empresaId)
         .eq('is_active', true)
@@ -85,6 +122,7 @@ export async function cargarTerapeutasEmpresa(
         return {
           id:     row.patient_id as string,
           nombre: pp?.full_name ?? pp?.email ?? row.patient_id,
+          centro: row.centro_id ? nombreCentro.get(row.centro_id) ?? null : null,
         }
       })
 
@@ -99,6 +137,7 @@ export async function cargarTerapeutasEmpresa(
         isHuerfano,
         pacientes,
         pacientesActivos: pacientes.length,
+        centros: (centrosPorPro.get(t.therapist_id) ?? []).map(id => nombreCentro.get(id) ?? '').filter(Boolean).sort(),
       }
     })
   )

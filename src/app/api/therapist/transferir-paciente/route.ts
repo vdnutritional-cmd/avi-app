@@ -31,7 +31,7 @@ const RUTA = '/api/therapist/transferir-paciente'
 const CAMPOS_VINCULO = [
   'initial_note', 'initial_note_updated_at', 'initial_note_date', 'initial_note_pro_bono',
   'initial_note_virtual', 'initial_note_motivo', 'initial_note_subyacente', 'initial_note_premisas',
-  'empresa_id', 'sensacion_paciente_inicial',
+  'empresa_id', 'centro_id', 'sensacion_paciente_inicial',
   'factores_riesgo_sel', 'factores_proteccion_sel',
   'factores_riesgo_tcc', 'factores_proteccion_tcc',
   'factores_riesgo_trec', 'factores_proteccion_trec',
@@ -289,6 +289,8 @@ export async function POST(request: NextRequest) {
     if (tpReceptor?.is_active && tpReceptor[campo] !== null && tpReceptor[campo] !== undefined) continue
     vinculo[campo] = valorOrigen
   }
+  // El CentroAtención va con su empresa: si el receptor conservó otra empresa, no se mezcla
+  if ('centro_id' in vinculo && !('empresa_id' in vinculo) && tpReceptor?.empresa_id !== tpOrigen.empresa_id) delete vinculo.centro_id
 
   const { error: vinculoError } = await admin
     .from('therapist_patients')

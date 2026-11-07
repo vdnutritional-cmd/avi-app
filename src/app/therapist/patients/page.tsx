@@ -6,6 +6,7 @@ import Link from 'next/link'
 import PatientsClient from './PatientsClient'
 import { terminos } from '@/lib/terminologia'
 import { getTerminologiaTerapeuta } from '@/lib/terminologia-paciente'
+import { cargarSubcarpetas } from '@/lib/subcarpetas'
 
 export const dynamic = 'force-dynamic'
 
@@ -70,16 +71,19 @@ export default async function TherapistPatientsPage() {
   // Pacientes no archivados (activos e inactivos, pero no fusionados)
   const { data: relations } = await supabase
     .from('therapist_patients')
-    .select('patient_id, is_active, created_at, initial_note_virtual, initial_note_pro_bono, status')
+    .select('patient_id, is_active, created_at, initial_note_virtual, initial_note_pro_bono, status, subcarpeta_id')
     .eq('therapist_id', user.id)
     .neq('status', 'archived')
     .order('created_at', { ascending: false })
 
   const patientIds = (relations ?? []).map(r => r.patient_id)
   const adminClient = createAdminClient()
-  const { data: profiles } = patientIds.length > 0
-    ? await adminClient.from('profiles').select('id, full_name, email').in('id', patientIds)
-    : { data: [] }
+  const [{ data: profiles }, subcarpetas] = await Promise.all([
+    patientIds.length > 0
+      ? adminClient.from('profiles').select('id, full_name, email').in('id', patientIds)
+      : Promise.resolve({ data: [] as { id: string; full_name: string | null; email: string | null }[] }),
+    cargarSubcarpetas(adminClient, user.id),
+  ])
 
   const patients = (relations ?? []).map(r => {
     const profile = profiles?.find(p => p.id === r.patient_id)
@@ -91,6 +95,7 @@ export default async function TherapistPatientsPage() {
       status: r.status as string,
       is_virtual:  r.initial_note_virtual  ?? false,
       is_pro_bono: r.initial_note_pro_bono ?? false,
+      subcarpeta_id: (r.subcarpeta_id as string | null) ?? null,
     }
   })
 
@@ -116,6 +121,7 @@ export default async function TherapistPatientsPage() {
       activos={activos}
       bloqueados={bloqueados}
       toggleAction={togglePaciente}
+      subcarpetas={subcarpetas}
       w={w}
     />
   )

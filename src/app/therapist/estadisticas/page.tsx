@@ -9,6 +9,8 @@ import { getTerminologiaTerapeuta } from '@/lib/terminologia-paciente'
 import { resolverPeriodo, type Periodo } from '@/lib/periodo'
 import { todasLasFilas } from '@/lib/supabase/todas-las-filas'
 import SelectorPeriodo from '@/components/SelectorPeriodo'
+import SelectorCarpetas from '@/components/SelectorCarpetas'
+import { cargarSubcarpetas, etiquetaSubcarpetas, personasEnSubcarpetas, resolverSubcarpetas, type Subcarpeta } from '@/lib/subcarpetas'
 
 export const dynamic = 'force-dynamic'
 
@@ -30,9 +32,9 @@ type Tipo = 'activos' | 'inactivos' | 'total'
 export default async function EstadisticasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ mes?: string; tipo?: string; pid?: string }>
+  searchParams: Promise<{ mes?: string; tipo?: string; pid?: string; subcarpetas?: string }>
 }) {
-  const { mes, tipo: tipoParam, pid: pidParam } = await searchParams
+  const { mes, tipo: tipoParam, pid: pidParam, subcarpetas: subParam } = await searchParams
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -45,6 +47,12 @@ export default async function EstadisticasPage({
     ? tipoParam
     : 'activos') as Tipo
   const pid         = pidParam ?? 'all'
+
+  // ── SubCarpetas (privadas del terapeuta, src/lib/subcarpetas.ts): solo sus personas ──
+  const subcarpetas = await cargarSubcarpetas(admin, therapistId)
+  const selSub = resolverSubcarpetas(subParam, subcarpetas)
+  const enFiltro = await personasEnSubcarpetas(admin, therapistId, selSub)
+  const filtrarSub = <T extends { patient_id: unknown }>(filas: T[] | null) => (filas ?? []).filter(r => !enFiltro || enFiltro.has(r.patient_id as string))
 
   // ── Periodo: mes, año acumulado, total acumulado o rango de fechas ────────
   const periodo = resolverPeriodo(mes)
@@ -67,7 +75,7 @@ export default async function EstadisticasPage({
   }
   // tipo === 'total': sin filtros → incluye activos + inactivos + archivados
 
-  const { data: relaciones } = await relacionesQuery
+  const relaciones = filtrarSub((await relacionesQuery).data)
 
   // Nombre del terapeuta (para encabezado de impresión)
   const { data: therapistProfile } = await admin
@@ -143,7 +151,7 @@ export default async function EstadisticasPage({
     if (pacienteIds.length === 0) {
       // Sin pacientes en scope → página vacía
       return renderPage({
-        periodo, tipo, pid, terminologia,
+        periodo, tipo, pid, terminologia, subcarpetas, selSub,
         terapeutaNombre, empresasParaLogo,
         todasLasSesiones: [], pacientesEnPeriodoIds: [],
         relaciones: [],
@@ -155,10 +163,12 @@ export default async function EstadisticasPage({
     }
   }
 
-  const [{ data: sesionesRows }, { data: notasRows }] = await Promise.all([
+  const [{ data: sesionesTodas }, { data: notasTodas }] = await Promise.all([
     todasLasFilas(armarSesiones),
     todasLasFilas(armarNotasIni),
   ])
+  const sesionesRows = filtrarSub(sesionesTodas)
+  const notasRows = filtrarSub(notasTodas)
 
   type SesionRow = { patient_id: string; session_date: string; is_pro_bono: boolean }
 
@@ -199,7 +209,7 @@ export default async function EstadisticasPage({
   ])
 
   // ── 4. Totales de activos e inactivos (tarjeta del Resumen; sin filtro de periodo) ──
-  const [{ data: todosActivosRows }, { count: countInactivos }] = await Promise.all([
+  const [{ data: activosTodos }, { data: inactivosTodos }] = await Promise.all([
     admin
       .from('therapist_patients')
       .select('patient_id')
@@ -208,21 +218,23 @@ export default async function EstadisticasPage({
       .neq('status', 'archived'),
     admin
       .from('therapist_patients')
-      .select('*', { count: 'exact', head: true })
+      .select('patient_id')
       .eq('therapist_id', therapistId)
       .eq('is_active', false)
       .neq('status', 'archived'),
   ])
+  const todosActivosRows = filtrarSub(activosTodos)
+  const countInactivos = filtrarSub(inactivosTodos).length
 
   return renderPage({
-    periodo, tipo, pid, terminologia,
+    periodo, tipo, pid, terminologia, subcarpetas, selSub,
     terapeutaNombre, empresasParaLogo,
     todasLasSesiones, pacientesEnPeriodoIds,
     relaciones: relaciones ?? [],
     derivacionesRows: derivacionesRows ?? [],
     expedientesRows:  expedientesRows  ?? [],
-    todosActivosRows: todosActivosRows ?? [],
-    countInactivos: countInactivos ?? 0,
+    todosActivosRows,
+    countInactivos,
     empresaByPatient,
     nombreByPatient,
   })
@@ -235,6 +247,8 @@ interface RenderProps {
   tipo: Tipo
   pid: string
   terminologia: Terminologia
+  subcarpetas: Subcarpeta[]
+  selSub: string[]
   terapeutaNombre: string
   empresasParaLogo: { id: string; nombre: string; logo_url: string | null }[]
   todasLasSesiones: { patient_id: string; session_date: string; is_pro_bono: boolean }[]
@@ -249,7 +263,7 @@ interface RenderProps {
 }
 
 function renderPage({
-  periodo, tipo, pid, terminologia,
+  periodo, tipo, pid, terminologia, subcarpetas, selSub,
   terapeutaNombre, empresasParaLogo,
   todasLasSesiones, pacientesEnPeriodoIds,
   relaciones, derivacionesRows, expedientesRows,
@@ -258,6 +272,7 @@ function renderPage({
   empresaByPatient, nombreByPatient,
 }: RenderProps) {
   const w = terminos(terminologia)
+  const filtroSub = etiquetaSubcarpetas(selSub, subcarpetas)
 
   // ── Dropdown: pacientes con sesiones en el mes, excluyendo archivados ──────
   const archivedSet = new Set(
@@ -365,7 +380,7 @@ function renderPage({
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Mi estadística</h1>
         <p className="text-gray-500 mt-1 text-sm">
-          Información clínica y operativa de tu práctica · {w.users} {tipoLabel}
+          Información clínica y operativa de tu práctica{filtroSub && ` · 📁 ${filtroSub}`} · {w.users} {tipoLabel}
         </p>
       </div>
 
@@ -381,7 +396,14 @@ function renderPage({
           mes={periodo.clave}
           pacientes={pacientesParaDropdown}
           w={w}
+          subcarpetas={selSub.join(',')}
         />
+
+        {/* SubCarpetas (privadas): solo si el terapeuta tiene */}
+        {subcarpetas.length > 0 && (
+          <SelectorCarpetas titulo="SubCarpeta" parametro="subcarpetas" seleccion={selSub} etiquetaSin="Sin SubCarpeta"
+            opciones={subcarpetas.map(s => ({ id: s.id, nombre: s.nombre }))} />
+        )}
       </div>
 
       {/* ── Sin sesiones ───────────────────────────────────────────────────── */}
@@ -598,6 +620,7 @@ function renderPage({
             abandono={abandono}
             atenEspecializada={atenEspecializada}
             calificaciones={calificaciones}
+            filtro={filtroSub && `SubCarpeta: ${filtroSub}`}
           />
         </div>
       )}

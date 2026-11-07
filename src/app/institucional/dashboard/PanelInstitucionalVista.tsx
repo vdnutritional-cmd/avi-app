@@ -3,7 +3,7 @@
 // que el Administrador AVI vea exactamente lo que ven las Personas Institucionales.
 import Link from 'next/link'
 import TerapeutasAcordeon from './TerapeutasAcordeon'
-import type { TerapeutaRow } from './cargar-panel'
+import type { CentroResumen, TerapeutaRow } from './cargar-panel'
 import { nombreNivel } from '@/lib/niveles-institucionales'
 import { terminos, terminologiaComun, type Terminologia } from '@/lib/terminologia'
 
@@ -15,6 +15,8 @@ export interface EmpresaBlock {
   /** Palabra de la empresa (Inventario de Terminología, página 12) */
   terminologia: Terminologia
   terapeutas: TerapeutaRow[]
+  /** Resumen por CentroAtención (vacío si la empresa no tiene) */
+  centros: CentroResumen[]
 }
 
 // ── Componentes UI simples ─────────────────────────────────────────────────────
@@ -138,6 +140,32 @@ export default function PanelInstitucionalVista({ empresaBlocks, permisos, hrefR
                 </span>
               </div>
             </div>
+
+            {/* Por CentroAtención (7 nov 2026) */}
+            {bloque.centros.length > 0 && (
+              <div className="md:w-2/3 md:mx-auto bg-white border border-gray-100 rounded-2xl overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">CentroAtención</th>
+                      <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">{wb.Pros}</th>
+                      <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">{wb.Users} activos</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {bloque.centros.map(c => (
+                      <tr key={c.nombre}>
+                        <td className={`px-4 py-2.5 ${c.activo ? 'text-gray-700' : 'text-gray-400'}`}>
+                          📁 {c.nombre}{!c.activo && <span className="ml-1 text-xs">(desactivado)</span>}
+                        </td>
+                        <td className="px-4 py-2.5 text-right font-semibold text-green-700">{c.pros}</td>
+                        <td className="px-4 py-2.5 text-right font-semibold text-primary-700">{c.personas}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
 
           </section>
         )

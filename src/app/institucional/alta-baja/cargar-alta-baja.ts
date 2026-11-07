@@ -6,13 +6,18 @@
 // última sesión AVI de sus pacientes en esas empresas.
 // ─────────────────────────────────────────────────────────────
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { cargarCentros, centrosDeTerapeutas } from '@/lib/centros-atencion'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = SupabaseClient<any, any, any>
 
 export interface EmpresaAdministrada { id: string; nombre: string }
 
-export interface ProEnEmpresa { empresaId: string; nombre: string; desde: string; pacientes: number }
+export interface ProEnEmpresa {
+  empresaId: string; nombre: string; desde: string; pacientes: number
+  /** CentrosAtención de la empresa a los que está asignado */
+  centros: { id: string; nombre: string; is_active: boolean }[]
+}
 
 export interface ProAltaBaja {
   therapistId: string
@@ -37,11 +42,13 @@ export async function cargarAltaBaja(admin: Db, empresas: EmpresaAdministrada[])
   const therapistIds = [...new Set((rels ?? []).map(r => r.therapist_id as string))]
   if (therapistIds.length === 0) return []
 
-  const [{ data: perfiles }, { data: todasRels }, { data: vinculos }] = await Promise.all([
+  const centros = await cargarCentros(admin, ids)
+  const [{ data: perfiles }, { data: todasRels }, { data: vinculos }, centrosPorPro] = await Promise.all([
     admin.from('profiles').select('id, full_name, email, created_at').in('id', therapistIds),
     admin.from('therapist_empresa').select('therapist_id, empresa_id').in('therapist_id', therapistIds),
     admin.from('therapist_patients').select('therapist_id, patient_id, empresa_id')
       .in('therapist_id', therapistIds).in('empresa_id', ids).eq('is_active', true),
+    centrosDeTerapeutas(admin, centros.map(c => c.id)),
   ])
 
   // Última sesión AVI de los pacientes de cada terapeuta en estas empresas
@@ -82,6 +89,9 @@ export async function cargarAltaBaja(admin: Db, empresas: EmpresaAdministrada[])
         nombre: nombreEmpresa.get(r.empresa_id) ?? '',
         desde: r.created_at,
         pacientes: (vinculos ?? []).filter(v => v.therapist_id === id && v.empresa_id === r.empresa_id).length,
+        centros: centros
+          .filter(c => c.empresa_id === r.empresa_id && (centrosPorPro.get(id) ?? []).includes(c.id))
+          .map(c => ({ id: c.id, nombre: c.nombre, is_active: c.is_active })),
       })).sort((a, b) => a.nombre.localeCompare(b.nombre)),
       otrasEmpresas: Math.max(0, total - propias.length),
     }

@@ -5,6 +5,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import EncabezadoAVI from '../EncabezadoAVI'
 import { cargarEmpresasAVI, resolverSeleccion, SIN_EMPRESA } from '../empresas-avi'
+import { cargarCentrosConConteo } from '@/lib/centros-atencion'
 import ConfiguracionEmpresas, { type EmpresaConfig } from '@/app/institucional/configuracion/ConfiguracionEmpresas'
 
 export const dynamic = 'force-dynamic'
@@ -23,13 +24,15 @@ export default async function AdminConfiguracionPage({
     ? await admin.from('convenio_empresas').select('id, nombre, terminologia, telefono, telefono_solicitudes, logo_url, enfoques_permitidos')
         .in('id', selectedIds).order('nombre')
     : { data: [] }
+  const centros = await cargarCentrosConConteo(admin, selectedIds)
+  const conCentros = (data ?? []).map(e => ({ ...e, centros: centros.filter(c => c.empresa_id === e.id) })) as EmpresaConfig[]
 
   return (
     <div className="space-y-8">
       <EncabezadoAVI actual="/admin/institucional/configuracion" empresas={empresas} selectedIds={selectedIds} mes={params.mes} />
       {selectedIds.length === 0
         ? <p className="text-sm text-gray-400 text-center py-8">Selecciona una o más empresas.</p>
-        : <ConfiguracionEmpresas empresas={(data ?? []) as EmpresaConfig[]} />}
+        : <ConfiguracionEmpresas empresas={conCentros} />}
     </div>
   )
 }

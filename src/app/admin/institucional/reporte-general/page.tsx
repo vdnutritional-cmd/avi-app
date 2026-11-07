@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic'
 export default async function Page({
   searchParams,
 }: {
-  searchParams: Promise<{ empresaIds?: string; mes?: string; tipo?: string; pid?: string }>
+  searchParams: Promise<{ empresaIds?: string; mes?: string; tipo?: string; pid?: string; centros?: string }>
 }) {
   const params = await searchParams
   const supabase = await createClient()

@@ -1,13 +1,14 @@
 'use client'
 
 // ─────────────────────────────────────────────────────────────
-// Configuración Admin — por empresa: terminología, enfoques terapéuticos, teléfono de contacto y logo.
+// Configuración Admin — por empresa: CentrosAtención, terminología, enfoques terapéuticos, teléfono de contacto y logo.
 // La usan la Persona Institucional (User/Superuser) en Administración y el
 // SaaS Controller en AVI Administración. Guarda vía /api/institucional/empresa-config.
 // ─────────────────────────────────────────────────────────────
 import { useRef, useState } from 'react'
 import { TERMINOLOGIA_OPCIONES, normalizarTerminologia, terminos, type Terminologia } from '@/lib/terminologia'
 import { ENFOQUES_CATALOGO, TODOS_LOS_ENFOQUES, esEnfoque, type EnfoqueId } from '@/lib/enfoques'
+import type { CentroConConteo } from '@/lib/centros-atencion'
 
 export interface EmpresaConfig {
   id: string
@@ -17,6 +18,7 @@ export interface EmpresaConfig {
   telefono_solicitudes: string | null
   logo_url: string | null
   enfoques_permitidos?: string[] | null
+  centros?: CentroConConteo[]
 }
 
 const API = '/api/institucional/empresa-config'
@@ -138,6 +140,7 @@ function TarjetaEmpresa({ empresa, abierta }: { empresa: EmpresaConfig; abierta:
       </summary>
       <div className="px-5 pb-5 space-y-5 border-t border-gray-100 pt-4">
         <TerminologiaEmpresa empresa={empresa} actual={terminologia} setActual={setTerminologia} />
+        <CentrosAtencionEmpresa empresa={empresa} w={w} />
         <EnfoquesEmpresa empresa={empresa} w={w} />
         <TelefonoEmpresa empresa={empresa} campo="telefono" titulo="Teléfono de contacto"
           explicacion={'Lo ve la persona en la bienvenida de AVI ("Para cualquier otro apoyo, contacta a…") y AVI lo usa en el chat para invitarla a llamar.'} />
@@ -184,6 +187,111 @@ function TerminologiaEmpresa({ empresa, actual, setActual }: {
           </label>
         ))}
         {saving && <span className="text-xs text-gray-400">Guardando…</span>}
+      </div>
+      {err && <p className="text-red-500 text-xs">{err}</p>}
+    </section>
+  )
+}
+
+// ── CentrosAtención (7 nov 2026, src/lib/centros-atencion.ts) ──
+// Carpetas de la empresa con el nombre que la empresa quiera. Los <pros> se asignan en Alta/Baja.
+const API_CENTROS = '/api/institucional/centros-atencion'
+
+function CentrosAtencionEmpresa({ empresa, w }: { empresa: EmpresaConfig; w: ReturnType<typeof terminos> }) {
+  const [centros, setCentros] = useState<CentroConConteo[]>(empresa.centros ?? [])
+  const [nuevo, setNuevo] = useState('')
+  const [editando, setEditando] = useState<{ id: string; nombre: string } | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [err, setErr] = useState('')
+
+  async function llamar(method: 'POST' | 'PATCH' | 'DELETE', body: Record<string, unknown>) {
+    setSaving(true); setErr('')
+    try {
+      const res = await fetch(API_CENTROS, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok || json.error) throw new Error(json.error ?? 'No se pudo guardar.')
+      return json
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'No se pudo guardar.')
+      return null
+    } finally { setSaving(false) }
+  }
+
+  const ordenar = (lista: CentroConConteo[]) => [...lista].sort((a, b) => a.nombre.localeCompare(b.nombre))
+
+  async function crear() {
+    const json = await llamar('POST', { empresa_id: empresa.id, nombre: nuevo })
+    if (json?.centro) { setCentros(prev => ordenar([...prev, { ...json.centro, pros: 0, personas: 0 }])); setNuevo('') }
+  }
+  async function renombrar() {
+    if (!editando) return
+    const json = await llamar('PATCH', { id: editando.id, nombre: editando.nombre })
+    if (json) { setCentros(prev => ordenar(prev.map(c => c.id === editando.id ? { ...c, nombre: editando.nombre.trim().replace(/\s+/g, ' ') } : c))); setEditando(null) }
+  }
+  async function activar(c: CentroConConteo, is_active: boolean) {
+    if (!is_active && !confirm(`¿Desactivar "${c.nombre}"? Ya no se podrá asignar a ${w.pros} ni a ${w.users} nuevos; su historia se conserva en los reportes.`)) return
+    if (await llamar('PATCH', { id: c.id, is_active })) setCentros(prev => prev.map(x => x.id === c.id ? { ...x, is_active } : x))
+  }
+  async function eliminar(c: CentroConConteo) {
+    if (!confirm(`¿Eliminar "${c.nombre}"?`)) return
+    if (await llamar('DELETE', { id: c.id })) setCentros(prev => prev.filter(x => x.id !== c.id))
+  }
+
+  const inputCls = 'border border-gray-300 rounded-xl px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-300'
+  return (
+    <section className="space-y-2 border-t border-gray-100 pt-4">
+      <h3 className="text-sm font-semibold text-gray-800">CentrosAtención</h3>
+      <p className="text-xs text-gray-500 leading-relaxed">
+        Carpetas de tu empresa (por ejemplo, cada sede) con el nombre que tú quieras. Asigna a tus {w.pros} en
+        Alta/Baja de {w.Pros} (pueden estar en varios); cada {w.user} queda en un CentroAtención y los reportes
+        se pueden ver por empresa total o por CentroAtención.
+      </p>
+
+      {centros.length > 0 && (
+        <ul className="divide-y divide-gray-100 border border-gray-100 rounded-xl">
+          {centros.map(c => (
+            <li key={c.id} className={`flex flex-wrap items-center gap-2 px-3 py-2 text-sm ${c.is_active ? '' : 'bg-gray-50'}`}>
+              {editando?.id === c.id ? (
+                <>
+                  <input value={editando.nombre} maxLength={80} autoFocus
+                    onChange={e => setEditando({ id: c.id, nombre: e.target.value })}
+                    onKeyDown={e => { if (e.key === 'Enter') renombrar(); if (e.key === 'Escape') setEditando(null) }}
+                    className={`${inputCls} flex-1 min-w-[160px]`} />
+                  <button onClick={renombrar} disabled={saving || !editando.nombre.trim()}
+                    className="text-xs bg-gray-100 hover:bg-gray-200 disabled:opacity-50 text-gray-700 px-3 py-1.5 rounded-lg">Guardar</button>
+                  <button onClick={() => setEditando(null)} disabled={saving} className="text-xs text-gray-500 hover:text-gray-700 px-2">Cancelar</button>
+                </>
+              ) : (
+                <>
+                  <span className={`flex-1 min-w-[140px] font-medium ${c.is_active ? 'text-gray-800' : 'text-gray-400'}`}>
+                    📁 {c.nombre}{!c.is_active && <span className="ml-2 text-xs font-normal">(desactivado)</span>}
+                  </span>
+                  <span className="text-xs text-gray-500">{c.pros} {c.pros === 1 ? w.pro : w.pros} · {c.personas} {c.personas === 1 ? w.user : w.users} activos</span>
+                  <button onClick={() => { setErr(''); setEditando({ id: c.id, nombre: c.nombre }) }} disabled={saving}
+                    className="text-xs text-purple-600 hover:text-purple-800 px-1.5">Renombrar</button>
+                  {c.is_active
+                    ? <button onClick={() => activar(c, false)} disabled={saving} className="text-xs text-amber-600 hover:text-amber-800 px-1.5">Desactivar</button>
+                    : <button onClick={() => activar(c, true)} disabled={saving} className="text-xs text-green-600 hover:text-green-800 px-1.5">Reactivar</button>}
+                  {c.pros === 0 && c.personas === 0 && (
+                    <button onClick={() => eliminar(c)} disabled={saving} title="Eliminar"
+                      className="text-xs text-red-400 hover:text-red-600 px-1.5">✕</button>
+                  )}
+                </>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="flex flex-wrap items-center gap-2">
+        <input value={nuevo} maxLength={80} placeholder="Nombre del CentroAtención"
+          onChange={e => { setNuevo(e.target.value); setErr('') }}
+          onKeyDown={e => e.key === 'Enter' && nuevo.trim() && crear()}
+          className={`${inputCls} w-64`} />
+        <button onClick={crear} disabled={saving || !nuevo.trim()}
+          className="text-xs bg-purple-700 hover:bg-purple-800 disabled:opacity-50 text-white font-semibold px-3 py-1.5 rounded-lg transition-colors">
+          {saving ? 'Guardando…' : '+ Agregar'}
+        </button>
       </div>
       {err && <p className="text-red-500 text-xs">{err}</p>}
     </section>

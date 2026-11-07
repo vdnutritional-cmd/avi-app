@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic'
 export default async function ReporteGeneralPage({
   searchParams,
 }: {
-  searchParams: Promise<{ empresaIds?: string; mes?: string; tipo?: string; pid?: string }>
+  searchParams: Promise<{ empresaIds?: string; mes?: string; tipo?: string; pid?: string; centros?: string }>
 }) {
   const params = await searchParams
 

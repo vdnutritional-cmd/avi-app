@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { terminos, type Terminologia } from '@/lib/terminologia'
 
-interface PacienteItem { id: string; nombre: string }
+interface PacienteItem { id: string; nombre: string; centro: string | null }
 
 interface TerapeutaRow {
   therapistId: string
@@ -14,6 +14,7 @@ interface TerapeutaRow {
   isHuerfano: boolean
   pacientes: PacienteItem[]
   pacientesActivos: number
+  centros: string[]
 }
 
 // terminologia: la común de las empresas (encabezado); terminologias: la de cada empresa, por nombre (detalle)
@@ -43,6 +44,8 @@ export default function TerapeutasAcordeon({ terapeutas, terminologia, terminolo
   }))
 
   const huerfanosTotal = terapeutas.filter(t => t.isHuerfano).length
+  // Empresas con CentrosAtención: junto a cada persona se ve el suyo
+  const hayCentros = terapeutas.some(t => t.centros.length > 0 || t.pacientes.some(p => p.centro))
 
   return (
     <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
@@ -141,6 +144,9 @@ export default function TerapeutasAcordeon({ terapeutas, terminologia, terminolo
                                 </span>
                               )}
                             </div>
+                            {t.centros.length > 0 && (
+                              <div className="text-xs text-blue-600 mt-0.5">📁 {t.centros.join(' · ')}</div>
+                            )}
                           </td>
 
                           <td className="px-3 py-3.5 text-gray-500 hidden md:table-cell">{t.empresa}</td>
@@ -186,6 +192,11 @@ export default function TerapeutasAcordeon({ terapeutas, terminologia, terminolo
                                   <li key={pac.id} className="flex items-center gap-2 text-sm text-gray-700">
                                     <span className="w-1.5 h-1.5 rounded-full bg-primary-400 shrink-0" />
                                     {pac.nombre}
+                                    {hayCentros && (
+                                      <span className={`text-xs ${pac.centro ? 'text-blue-600' : 'text-gray-400'}`}>
+                                        · {pac.centro ?? 'Sin CentroAtención'}
+                                      </span>
+                                    )}
                                   </li>
                                 ))}
                               </ul>

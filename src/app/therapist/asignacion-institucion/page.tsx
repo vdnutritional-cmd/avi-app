@@ -38,7 +38,7 @@ export default async function AsignacionInstitucionPage() {
   // tiene dos FKs a profiles (therapist_id y patient_id).
   const { data: pacientesRels } = await admin
     .from('therapist_patients')
-    .select('patient_id, empresa_id, profiles!patient_id(full_name, email)')
+    .select('patient_id, empresa_id, centro_id, profiles!patient_id(full_name, email)')
     .eq('therapist_id', user.id)
     .eq('is_active', true)
     .order('created_at', { ascending: false })
@@ -50,8 +50,25 @@ export default async function AsignacionInstitucionPage() {
       nombre: p?.full_name ?? 'Sin nombre',
       email: p?.email ?? '',
       empresa_id: r.empresa_id as string | null,
+      centro_id: r.centro_id as string | null,
     }
   })
+
+  // CentrosAtención (7 nov 2026): los activos del terapeuta, y los de sus personas aunque ya no esté en ellos
+  const { data: misCentrosRel } = await admin
+    .from('therapist_centro_atencion')
+    .select('centro_id, empresa_centros_atencion!inner(empresa_id, nombre, is_active)')
+    .eq('therapist_id', user.id)
+    .eq('empresa_centros_atencion.is_active', true)
+  const centros = (misCentrosRel ?? []).map(r => {
+    const c = r.empresa_centros_atencion as unknown as { empresa_id: string; nombre: string }
+    return { id: r.centro_id as string, empresa_id: c.empresa_id, nombre: c.nombre }
+  }).sort((a, b) => a.nombre.localeCompare(b.nombre))
+  const centrosAjenosIds = [...new Set(pacientes.map(p => p.centro_id).filter((id): id is string => !!id && !centros.some(c => c.id === id)))]
+  const { data: centrosAjenos } = centrosAjenosIds.length
+    ? await admin.from('empresa_centros_atencion').select('id, nombre').in('id', centrosAjenosIds)
+    : { data: [] }
+  const otrosCentros = Object.fromEntries((centrosAjenos ?? []).map(c => [c.id as string, c.nombre as string]))
 
   // Empresas de sus pacientes a las que el terapeuta no pertenece (p. ej. llegaron por un traslado).
   // Se muestran tal cual: antes la lista decía "Sin asignar" aunque la persona tuviera empresa.
@@ -70,11 +87,13 @@ export default async function AsignacionInstitucionPage() {
       <div>
         <h1 className="text-xl font-bold text-gray-800">Asignación a Institución</h1>
         <p className="text-sm text-gray-500 mt-1">
-          Asigna o cambia la empresa institucional de cada {w.user}. El cambio se guarda automáticamente.
+          Asigna o cambia la empresa institucional de cada {w.user}
+          {centros.length > 0 && ' y su CentroAtención'}. El cambio se guarda automáticamente.
         </p>
       </div>
 
-      <AsignacionClient pacientes={pacientes} empresas={empresas} otrasEmpresas={otrasEmpresas} w={w} />
+      <AsignacionClient pacientes={pacientes} empresas={empresas} otrasEmpresas={otrasEmpresas}
+        centros={centros} otrosCentros={otrosCentros} w={w} />
     </div>
   )
 }

@@ -31,7 +31,7 @@ type ReportId =
   | 'hc-original' | 'hc-actualizada' | 'valorativo' | 'integracion' | 'proceso'
 
 interface Empresa  { id: string; nombre: string; logo_url: string | null }
-interface Paciente { id: string; nombre: string; empresa_id?: string | null; tier?: 'esencial' | 'clinico'; bloqueado?: boolean }
+interface Paciente { id: string; nombre: string; empresa_id?: string | null; subcarpeta_id?: string | null; tier?: 'esencial' | 'clinico'; bloqueado?: boolean }
 
 interface Props {
   tier:            string | null
@@ -64,6 +64,11 @@ export default function ReportesPanel({ tier, terapeutaNombre, terminologia = TE
   const [loaded,    setLoaded]    = useState(false)
   const [empresas,  setEmpresas]  = useState<Empresa[]>([])
   const [pacientes, setPacientes] = useState<Paciente[]>([])
+  // SubCarpetas del terapeuta (privadas): '' = todas, 'sin' = sin SubCarpeta
+  const [subcarpetas, setSubcarpetas] = useState<{ id: string; nombre: string }[]>([])
+  const [subSel,      setSubSel]      = useState('')
+  const pacientesVisibles = subSel === '' ? pacientes
+    : pacientes.filter(p => subSel === 'sin' ? !p.subcarpeta_id : p.subcarpeta_id === subSel)
   const [logoUrl,   setLogoUrl]   = useState<string | null>(null)
   const [pid,       setPid]       = useState('')
   const [selected,  setSelected]  = useState<ReportId | null>(null)
@@ -111,6 +116,7 @@ export default function ReportesPanel({ tier, terapeutaNombre, terminologia = TE
         const emp: Empresa[] = data.empresas ?? []
         setEmpresas(emp)
         setPacientes(data.pacientesActivos ?? [])
+        setSubcarpetas(data.subcarpetas ?? [])
         setLoaded(true)
       })
       .catch(() => setLoaded(true))
@@ -304,6 +310,22 @@ export default function ReportesPanel({ tier, terapeutaNombre, terminologia = TE
 
           {/* Selectores de paciente y encabezado */}
           <div className="px-3 pt-3 pb-2 space-y-3">
+            {subcarpetas.length > 0 && (
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest px-1">SubCarpeta</label>
+                <select
+                  value={subSel}
+                  onChange={e => { setSubSel(e.target.value); handlePacienteChange('') }}
+                  className="w-full border border-gray-200 rounded-xl px-2.5 py-2 text-sm bg-white
+                             focus:outline-none focus:ring-2 focus:ring-primary-300"
+                >
+                  <option value="">Todas</option>
+                  {subcarpetas.map(s => <option key={s.id} value={s.id}>📁 {s.nombre}</option>)}
+                  <option value="sin">Sin SubCarpeta</option>
+                </select>
+              </div>
+            )}
+
             <div className="space-y-1">
               <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest px-1">{w.User}</label>
               <select
@@ -313,7 +335,7 @@ export default function ReportesPanel({ tier, terapeutaNombre, terminologia = TE
                            focus:outline-none focus:ring-2 focus:ring-primary-300"
               >
                 <option value="">— Elige un {w.user} —</option>
-                {pacientes.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+                {pacientesVisibles.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
               </select>
             </div>
 

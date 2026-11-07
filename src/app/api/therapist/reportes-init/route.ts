@@ -1,11 +1,12 @@
 // ─────────────────────────────────────────────────────────────
 // GET /api/therapist/reportes-init
-// Devuelve empresas y pacientes activos para el panel de reportes
+// Devuelve empresas, SubCarpetas y pacientes activos para el panel de reportes
 // ─────────────────────────────────────────────────────────────
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAccesoTerapeuta, accesoDePaciente } from '@/lib/acceso-paciente'
+import { cargarSubcarpetas } from '@/lib/subcarpetas'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,15 +32,17 @@ export async function GET() {
   // ── Solo pacientes ACTIVOS (no archivados) ───────────────────
   const { data: relaciones } = await admin
     .from('therapist_patients')
-    .select('patient_id, empresa_id')
+    .select('patient_id, empresa_id, subcarpeta_id')
     .eq('therapist_id', therapistId)
     .eq('is_active', true)
     .neq('status', 'archived')
 
   // Mapa patient_id → empresa_id para filtrado en el cliente
   const empresaMap: Record<string, string | null> = {}
+  const subcarpetaMap: Record<string, string | null> = {}
   const pacienteIds = (relaciones ?? []).map(r => {
     empresaMap[r.patient_id as string] = (r.empresa_id as string | null) ?? null
+    subcarpetaMap[r.patient_id as string] = (r.subcarpeta_id as string | null) ?? null
     return r.patient_id as string
   })
 
@@ -48,7 +51,10 @@ export async function GET() {
     : { data: [] }
 
   // Nivel y bloqueo por paciente (regla "la empresa paga")
-  const acceso = await getAccesoTerapeuta(admin, therapistId)
+  const [acceso, subcarpetas] = await Promise.all([
+    getAccesoTerapeuta(admin, therapistId),
+    cargarSubcarpetas(admin, therapistId),   // privadas del terapeuta: filtro de la lista
+  ])
 
   const pacientesActivos = (profiles ?? [])
     .map(p => {
@@ -58,11 +64,12 @@ export async function GET() {
         id:        p.id,
         nombre:    p.full_name ?? p.email ?? p.id,
         empresa_id,
+        subcarpeta_id: subcarpetaMap[p.id] ?? null,
         tier,
         bloqueado,
       }
     })
     .sort((a, b) => a.nombre.localeCompare(b.nombre))
 
-  return NextResponse.json({ empresas, pacientesActivos })
+  return NextResponse.json({ empresas, subcarpetas, pacientesActivos })
 }

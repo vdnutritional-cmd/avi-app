@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────
 // /api/institucional/alta-baja — Alta/Baja de <Pros> en una empresa en CONVENIO
 //   POST   { empresa_id, therapist_id } o { empresa_id, email }  → alta (therapist_empresa)
-//   DELETE { empresa_id, therapist_id }                          → baja
+//   DELETE { empresa_id, therapist_id }                          → baja (y de sus CentrosAtención)
 // Acceso: Persona Institucional User/Superuser de ESA empresa, o el superadmin
 // (src/lib/autorizar-empresa.ts). Regla "la empresa paga": con el alta, el terapeuta
 // entra a AVI con su empresa aunque no tenga plan propio.
@@ -11,6 +11,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { logApiAccess } from '@/lib/audit/log-access'
 import { autorizarEmpresa } from '@/lib/autorizar-empresa'
 import { ajustarEnfoquesTrasCambio } from '@/lib/enfoques-permitidos'
+import { quitarDeCentrosDeEmpresa } from '@/lib/centros-atencion'
 
 const RUTA = '/api/institucional/alta-baja'
 const noAutorizado = () => NextResponse.json({ error: 'No tienes permiso en esta empresa.' }, { status: 403 })
@@ -58,6 +59,7 @@ export async function DELETE(req: NextRequest) {
     .eq('empresa_id', empresa_id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   if (!count) return NextResponse.json({ error: 'Ese terapeuta ya no está en esta empresa.' }, { status: 404 })
+  await quitarDeCentrosDeEmpresa(admin, therapist_id, empresa_id)
   await ajustarEnfoquesTrasCambio(admin, { therapistIds: [therapist_id] })
   logApiAccess(auth.supabase, auth.user.id, RUTA, 'DELETE', { empresa_id, therapist_id })
   return NextResponse.json({ ok: true })

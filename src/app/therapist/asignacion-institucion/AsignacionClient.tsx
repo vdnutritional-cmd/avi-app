@@ -13,27 +13,39 @@ interface Paciente {
   nombre: string
   email: string
   empresa_id: string | null
+  centro_id: string | null
 }
+
+interface Centro { id: string; empresa_id: string; nombre: string }
 
 interface Props {
   pacientes: Paciente[]
   empresas: Empresa[]
   /** Empresas de sus personas a las que el terapeuta no pertenece (id → nombre) */
   otrasEmpresas: Record<string, string>
+  /** CentrosAtención activos del terapeuta (7 nov 2026) */
+  centros: Centro[]
+  /** CentrosAtención de sus personas en los que el terapeuta ya no está (id → nombre) */
+  otrosCentros: Record<string, string>
   w: Record<Variable, string>
 }
 
-export default function AsignacionClient({ pacientes, empresas, otrasEmpresas, w }: Props) {
+export default function AsignacionClient({ pacientes, empresas, otrasEmpresas, centros, otrosCentros, w }: Props) {
   const [assignments, setAssignments] = useState<Record<string, string | null>>(
     Object.fromEntries(pacientes.map(p => [p.patient_id, p.empresa_id]))
   )
+  const [centroDe, setCentroDe] = useState<Record<string, string | null>>(
+    Object.fromEntries(pacientes.map(p => [p.patient_id, p.centro_id]))
+  )
+  const hayCentros = centros.length > 0 || Object.keys(otrosCentros).length > 0
   const [saving, setSaving] = useState<Record<string, boolean>>({})
   const [saved, setSaved] = useState<Record<string, boolean>>({})
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [, startTransition] = useTransition()
 
-  async function handleChange(patientId: string, empresaId: string | null) {
-    setAssignments(prev => ({ ...prev, [patientId]: empresaId }))
+  async function handleChange(patientId: string, cambio: { empresa_id: string | null } | { centro_id: string | null }) {
+    if ('empresa_id' in cambio) setAssignments(prev => ({ ...prev, [patientId]: cambio.empresa_id }))
+    else setCentroDe(prev => ({ ...prev, [patientId]: cambio.centro_id }))
     setSaving(prev => ({ ...prev, [patientId]: true }))
     setSaved(prev => ({ ...prev, [patientId]: false }))
     setErrors(prev => ({ ...prev, [patientId]: '' }))
@@ -42,12 +54,14 @@ export default function AsignacionClient({ pacientes, empresas, otrasEmpresas, w
       const res = await fetch('/api/therapist/paciente-empresa', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ patient_id: patientId, empresa_id: empresaId }),
+        body: JSON.stringify({ patient_id: patientId, ...cambio }),
       })
+      const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        const data = await res.json()
         setErrors(prev => ({ ...prev, [patientId]: data.error ?? 'Error al guardar' }))
       } else {
+        // Al cambiar de empresa, el servidor pone el CentroAtención que le toca
+        if ('centro_id' in data) setCentroDe(prev => ({ ...prev, [patientId]: data.centro_id }))
         startTransition(() => {
           setSaved(prev => ({ ...prev, [patientId]: true }))
           setTimeout(() => setSaved(prev => ({ ...prev, [patientId]: false })), 2000)
@@ -76,6 +90,7 @@ export default function AsignacionClient({ pacientes, empresas, otrasEmpresas, w
             <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">{w.User}</th>
             <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide hidden sm:table-cell">Correo</th>
             <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Institución asignada</th>
+            {hayCentros && <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">CentroAtención</th>}
             <th className="text-center px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-12"></th>
           </tr>
         </thead>
@@ -88,7 +103,7 @@ export default function AsignacionClient({ pacientes, empresas, otrasEmpresas, w
                 <select
                   value={assignments[p.patient_id] ?? ''}
                   disabled={saving[p.patient_id]}
-                  onChange={e => handleChange(p.patient_id, e.target.value || null)}
+                  onChange={e => handleChange(p.patient_id, { empresa_id: e.target.value || null })}
                   className="w-full text-sm border border-gray-200 rounded-xl px-3 py-1.5
                              bg-white text-gray-700 focus:outline-none focus:ring-2
                              focus:ring-primary-300 disabled:opacity-50 disabled:cursor-wait"
@@ -106,6 +121,31 @@ export default function AsignacionClient({ pacientes, empresas, otrasEmpresas, w
                   <p className="text-xs text-red-500 mt-1">{errors[p.patient_id]}</p>
                 )}
               </td>
+              {hayCentros && (() => {
+                const empresaId = assignments[p.patient_id]
+                const propios = centros.filter(c => c.empresa_id === empresaId)
+                const actual = centroDe[p.patient_id]
+                const ajeno = actual && !propios.some(c => c.id === actual) ? otrosCentros[actual] : null
+                if (!empresaId || (propios.length === 0 && !ajeno)) {
+                  return <td className="px-5 py-3 text-xs text-gray-300">—</td>
+                }
+                return (
+                  <td className="px-5 py-3">
+                    <select
+                      value={actual ?? ''}
+                      disabled={saving[p.patient_id]}
+                      onChange={e => handleChange(p.patient_id, { centro_id: e.target.value || null })}
+                      className="w-full text-sm border border-gray-200 rounded-xl px-3 py-1.5
+                                 bg-white text-gray-700 focus:outline-none focus:ring-2
+                                 focus:ring-primary-300 disabled:opacity-50 disabled:cursor-wait"
+                    >
+                      <option value="">Sin CentroAtención</option>
+                      {propios.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                      {ajeno && <option value={actual!}>{ajeno} (no estás en este CentroAtención)</option>}
+                    </select>
+                  </td>
+                )
+              })()}
               <td className="px-3 py-3.5 text-center w-12">
                 {saving[p.patient_id] && (
                   <span className="text-xs text-gray-400">⏳</span>

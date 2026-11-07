@@ -36,6 +36,10 @@ interface PrintEstadisticasProps {
   abandono: number
   atenEspecializada: number
   calificaciones: { nombre: string; inicial: string; final: string }[]
+  /** Filtro aplicado, para el subtítulo: "CentroAtención: Valora Sur" o "SubCarpeta: Parejas" */
+  filtro?: string | null
+  /** Sesiones por CentroAtención (Reporte General y por <Pro> de empresas con CentrosAtención) */
+  centroRows?: { nombre: string; total: number; pct: number }[]
   // Solo Reporte Institucional General
   tipoAsesoriaRows?: { nombre: string; total: number; virtuales: number; presenciales: number; proBono: number; facturables: number }[]
 }
@@ -66,6 +70,8 @@ export default function PrintEstadisticasButton(props: PrintEstadisticasProps) {
       casosRiesgo, asistSeguimiento, percepcionAlivio, cambioFunc, abandono, atenEspecializada,
       calificaciones,
       tipoAsesoriaRows = [],
+      centroRows = [],
+      filtro,
       reportTitle = 'Mi Estadística',
       impresoPor,
     } = props
@@ -78,7 +84,7 @@ export default function PrintEstadisticasButton(props: PrintEstadisticasProps) {
       impresoPor: nombreImpresion,
       logoUrl,
       side: logoUrl ? 'logo' : 'name',
-      subtitle: `${reportTitle} · ${w.Users} ${tipoLabel} · ${mes}`,
+      subtitle: `${reportTitle}${filtro ? ` · ${filtro}` : ''} · ${w.Users} ${tipoLabel} · ${mes}`,
     })
 
     const inst = institucionRows.map(r =>
@@ -154,6 +160,17 @@ export default function PrintEstadisticasButton(props: PrintEstadisticasProps) {
     <thead><tr><th>Institución</th><th style="text-align:right;">Sesiones</th><th style="text-align:right;">%</th></tr></thead>
     <tbody>${inst}
       <tr style="font-weight:700;background:#f5f5f5;"><td style="padding:5px 10px;">Total</td><td style="padding:5px 10px;text-align:right;">${institucionRows.reduce((a, r) => a + r.total, 0)}</td><td style="padding:5px 10px;text-align:right;">${institucionRows.reduce((a, r) => a + r.pct, 0)}%</td></tr>
+    </tbody>
+  </table>` : ''}
+
+  ${centroRows.length > 0 ? `
+  <h2>Sesiones por CentroAtención</h2>
+  <table>
+    <thead><tr><th>CentroAtención</th><th style="text-align:right;">Sesiones</th><th style="text-align:right;">%</th></tr></thead>
+    <tbody>${centroRows.map(r =>
+      `<tr><td style="padding:5px 10px;">${r.nombre}</td><td style="padding:5px 10px;text-align:right;">${r.total}</td><td style="padding:5px 10px;text-align:right;">${r.pct}%</td></tr>`
+    ).join('')}
+      <tr style="font-weight:700;background:#f5f5f5;"><td style="padding:5px 10px;">Total</td><td style="padding:5px 10px;text-align:right;">${centroRows.reduce((a, r) => a + r.total, 0)}</td><td style="padding:5px 10px;text-align:right;">${centroRows.reduce((a, r) => a + r.pct, 0)}%</td></tr>
     </tbody>
   </table>` : ''}
 

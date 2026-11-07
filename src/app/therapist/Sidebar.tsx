@@ -93,20 +93,20 @@ export default function Sidebar({ fullName, email, subscriptionStatus, patientSl
           <div className={disabled ? 'opacity-40 pointer-events-none select-none' : ''}>
           <NavLink href="/therapist/dashboard" icon="🏠" label="Dashboard" onClose={closeSidebar} />
 
-          {hasEmpresas ? (
-            <NavGroup
-              name="pacientes"
-              label={`Mis ${w.Users}`}
-              icon="👥"
-              isOpen={openGroup === 'pacientes'}
-              onToggle={() => toggleGroup('pacientes')}
-            >
-              <NavLink href="/therapist/patients"                 icon="🔍" label={`Seleccionar ${w.user}`}  onClose={closeSidebar} />
-              <NavLink href="/therapist/asignacion-institucion"   icon="🏢" label="Asignación a Institución" onClose={closeSidebar} />
-            </NavGroup>
-          ) : (
-            <NavLink href="/therapist/patients" icon="👥" label={`Mis ${w.Users}`} onClose={closeSidebar} />
-          )}
+          {/* SubCarpetas (7 nov 2026): para todo terapeuta; Asignación a Institución solo con empresas */}
+          <NavGroup
+            name="pacientes"
+            label={`Mis ${w.Users}`}
+            icon="👥"
+            isOpen={openGroup === 'pacientes'}
+            onToggle={() => toggleGroup('pacientes')}
+          >
+            <NavLink href="/therapist/patients"                 icon="🔍" label={`Seleccionar ${w.user}`}  onClose={closeSidebar} />
+            <NavLink href="/therapist/subcarpetas"              icon="📁" label="Crear SubCarpeta"         onClose={closeSidebar} />
+            {hasEmpresas && (
+              <NavLink href="/therapist/asignacion-institucion" icon="🏢" label="Asignación a Institución" onClose={closeSidebar} />
+            )}
+          </NavGroup>
 
           {/* Bloque: Información */}
           <NavGroup
