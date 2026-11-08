@@ -91,33 +91,19 @@ export default function PatientChatPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Redirigir a onboarding si es la primera vez — verifica por usuario en Supabase
+  // Primera vez → onboarding. Ya entró antes pero no ha firmado el Consentimiento vigente (v2, 8 nov 2026)
+  // → /patient/consentimiento. Un cambio habilitado por su terapeuta (Derechos ARCO) aparece en "Tu <pro> te envió".
+  const [solicitudArco, setSolicitudArco] = useState<{ created_at: string } | null>(null)
   useEffect(() => {
-    async function checkOnboarding() {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      // Cache específico por usuario (evita consulta extra en visitas repetidas)
-      const cacheKey = `avi_onboarding_done_${user.id}`
-      if (localStorage.getItem(cacheKey)) return
-
-      // Verificar en Supabase si ya aceptó el consentimiento informado
-      const { data: consent } = await supabase
-        .from('patient_consents')
-        .select('informed_consent_at')
-        .eq('patient_id', user.id)
-        .single()
-
-      if (!consent?.informed_consent_at) {
-        // Primera vez — ir a onboarding
-        router.replace('/patient/onboarding')
-      } else {
-        // Ya lo hizo — guardar en cache para no volver a consultar
-        localStorage.setItem(cacheKey, '1')
-      }
-    }
-    checkOnboarding()
+    fetch('/api/patient/consentimiento')
+      .then(r => r.ok ? r.json() : null)
+      .then((d: { onboardingHecho: boolean; alDia: boolean; solicitud: { created_at: string } | null } | null) => {
+        if (!d) return
+        if (!d.onboardingHecho) router.replace('/patient/onboarding')
+        else if (!d.alDia) router.replace('/patient/consentimiento')
+        else setSolicitudArco(d.solicitud)
+      })
+      .catch(() => { /* sin conexión: se revisa la próxima vez */ })
   }, [router])
 
   // Lo que le envió su terapeuta: cuestionarios por contestar (incluye la calificación de cierre)
@@ -898,9 +884,22 @@ export default function PatientChatPage() {
         <ActivarAvisos pro={pro} />
 
         {/* Lo que le envió su terapeuta: al terminar regresa aquí */}
-        {(mensajesNuevos.length > 0 || pendientes.length > 0) && (
+        {(mensajesNuevos.length > 0 || pendientes.length > 0 || solicitudArco) && (
           <div className="w-full space-y-2 text-left">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Tu {pro} te envió</p>
+            {solicitudArco && (
+              <Link
+                href="/patient/consentimiento"
+                className="flex items-center justify-between bg-amber-50 border-2 border-amber-200
+                           rounded-2xl px-4 py-3 hover:bg-amber-100 transition-colors"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-amber-800">🔒 Tu privacidad y Consentimiento Informado</p>
+                  <p className="text-xs text-amber-600 mt-0.5">Para elegir y firmar · habilitado {fechaCorta(solicitudArco.created_at)}</p>
+                </div>
+                <span className="text-amber-400 text-lg">→</span>
+              </Link>
+            )}
             {mensajesNuevos.map(m => (
               <Link
                 key={m.id}

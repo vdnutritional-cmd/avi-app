@@ -8,13 +8,15 @@ import { terminos, TERMINOLOGIA_SIN_EMPRESA, type Terminologia } from '@/lib/ter
 import {
   User, FolderOpen, MessageSquare, FileText, Calendar, Search,
   ArrowRightCircle, Users, Heart, ClipboardList, Activity,
-  CheckSquare, Printer, AlertTriangle, Lock, Menu,
+  CheckSquare, Printer, AlertTriangle, Lock, Menu, ShieldCheck,
 } from 'lucide-react'
 import ExpedienteTab from './ExpedienteTab'
 import DatosGeneralesTab from './DatosGeneralesTab'
 import TipoCasoTab from './TipoCasoTab'
 import DerivacionesCierresTab from './DerivacionesCierresTab'
+import DerechosArco from './DerechosArco'
 import AudioRecorder, { type Estado as EstadoEscucha } from '@/components/AudioRecorder'
+import type { OpcionEscucha } from '@/lib/consentimiento'
 
 const MAX_SESIONES_PRESENCIALES = 12
 
@@ -164,6 +166,7 @@ export default function PatientDetailPage() {
   }, [patientId, empresaId])
   const w = terminos(terminologia.persona)
   const wMenu = terminos(terminologia.terapeuta)
+
   const [savingEmpresa, setSavingEmpresa] = useState(false)
 
   const [analyzing, setAnalyzing] = useState(false)
@@ -175,8 +178,23 @@ export default function PatientDetailPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [expedienteRow, setExpedienteRow] = useState<Record<string, any> | null | undefined>(undefined)
 
-  type PatientTab = 'datos-generales' | 'tipo-caso' | 'sesiones' | 'presenciales' | 'analisis' | 'nota' | 'derivaciones-cierres' | 'individual' | 'familiar' | 'pareja' | 'prediagnostico' | 'analisis-clinicos' | 'cuestionarios' | 'impresiones'
+  type PatientTab = 'datos-generales' | 'tipo-caso' | 'sesiones' | 'presenciales' | 'analisis' | 'nota' | 'derivaciones-cierres' | 'derechos-arco' | 'individual' | 'familiar' | 'pareja' | 'prediagnostico' | 'analisis-clinicos' | 'cuestionarios' | 'impresiones'
   const [activeTab, setActiveTab] = useState<PatientTab>('datos-generales')
+
+  // Escucha de AVI: la autoriza la persona en su Consentimiento Informado (8 nov 2026).
+  // undefined = cargando · null = aún no elige. Se vuelve a consultar al entrar a Nota Inicial o
+  // Sesiones Presenciales (la persona pudo firmar mientras tanto).
+  const [opcionEscucha, setOpcionEscucha] = useState<OpcionEscucha | null | undefined>(undefined)
+  const enSeccionConEscucha = activeTab === 'nota' || activeTab === 'presenciales'
+  useEffect(() => {
+    if (!enSeccionConEscucha) return
+    let cancelado = false
+    fetch(`/api/therapist/consentimiento?patientId=${encodeURIComponent(patientId)}`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (!cancelado) setOpcionEscucha(d ? (d.opcion ?? null) : null) })
+      .catch(() => { if (!cancelado) setOpcionEscucha(null) })
+    return () => { cancelado = true }
+  }, [patientId, enSeccionConEscucha])
   const [therapistId, setTherapistId] = useState<string | null>(null)
   // Acceso del terapeuta (regla "la empresa paga") — nivel y bloqueo se calculan por paciente
   const [acceso, setAcceso] = useState<AccesoTerapeuta | null>(null)
@@ -675,6 +693,8 @@ export default function PatientDetailPage() {
     { id: 'sesiones',             Icon: MessageSquare,     label: 'Sesiones AVI',           badge: !pacienteBlockeado ? (patterns.length || undefined) : undefined, dim: pacienteBlockeado, dimMsg: BLOQUEO_MSG },
     { id: 'analisis',             Icon: Search,            label: 'Análisis',               badge: !pacienteBlockeado ? (analyses.length || undefined) : undefined, dim: pacienteBlockeado, dimMsg: BLOQUEO_MSG },
     { id: 'derivaciones-cierres', Icon: ArrowRightCircle,  label: 'Derivaciones / Cierres', dim: pacienteBlockeado, dimMsg: BLOQUEO_MSG },
+    // Para todos los planes y aunque la persona esté bloqueada: sus Derechos ARCO siempre se pueden ejercer (8 nov 2026)
+    { id: 'derechos-arco',        Icon: ShieldCheck,       label: 'Derechos ARCO' },
   ]
 
   const clinicoItems: SidebarItem[] = [
@@ -689,7 +709,7 @@ export default function PatientDetailPage() {
   ]
 
   const clinicoTabIds: PatientTab[] = ['individual','familiar','pareja','prediagnostico','analisis-clinicos','cuestionarios','impresiones']
-  const esencialTabIds: PatientTab[] = ['datos-generales','tipo-caso','nota','presenciales','sesiones','analisis','derivaciones-cierres']
+  const esencialTabIds: PatientTab[] = ['datos-generales','tipo-caso','nota','presenciales','sesiones','analisis','derivaciones-cierres','derechos-arco']
 
   const TAB_LABELS: Record<PatientTab, string> = {
     'datos-generales':      'Datos generales',
@@ -699,6 +719,7 @@ export default function PatientDetailPage() {
     'presenciales':         'Sesiones presenciales',
     'analisis':             'Análisis',
     'derivaciones-cierres': 'Derivaciones / Cierres',
+    'derechos-arco':        'Derechos ARCO',
     'individual':           'Individual',
     'familiar':             'Familiar',
     'pareja':               'Pareja',
@@ -724,11 +745,13 @@ export default function PatientDetailPage() {
       <AudioRecorder patientId={patientId} destino={slotEscuchaNota}
         onResumen={t => setInitialNote(prev => agregarResumen(prev, t))}
         onVolver={() => setActiveTab('nota')}
-        onEstado={setEstadoEscuchaNota} ocupado={estadoEscuchaPres !== 'idle'} />
+        onEstado={setEstadoEscuchaNota} ocupado={estadoEscuchaPres !== 'idle'}
+        opcion={opcionEscucha} palabras={{ user: w.user, User: w.User }} />
       <AudioRecorder patientId={patientId} destino={slotEscuchaPres}
         onResumen={t => setNewSessionDesarrollo(prev => agregarResumen(prev, t))}
         onVolver={() => setActiveTab('presenciales')}
-        onEstado={setEstadoEscuchaPres} ocupado={estadoEscuchaNota !== 'idle'} />
+        onEstado={setEstadoEscuchaPres} ocupado={estadoEscuchaNota !== 'idle'}
+        opcion={opcionEscucha} palabras={{ user: w.user, User: w.User }} />
 
       {/* ── Hamburger de secciones — fixed top-right, solo móvil ── */}
       <button
@@ -931,7 +954,7 @@ export default function PatientDetailPage() {
         <main className="flex-1 min-w-0 pl-0 md:pl-6 space-y-4">
 
       {/* ── Banner de bloqueo: paciente sin cobertura ── */}
-      {pacienteBlockeado && activeTab !== 'datos-generales' && (
+      {pacienteBlockeado && activeTab !== 'datos-generales' && activeTab !== 'derechos-arco' && (
         <div className="flex flex-col items-center justify-center py-16 px-8 text-center">
           <div className="w-16 h-16 bg-amber-100 rounded-2xl flex items-center justify-center mb-4">
             <Lock size={28} className="text-amber-600" />
@@ -2402,6 +2425,11 @@ export default function PatientDetailPage() {
           therapistId={therapistId}
           terminologia={terminologia.persona}
         />
+      )}
+
+      {/* ── TAB: Derechos ARCO (AVI-ESENCIAL; el mismo bloque está en AVI-CLÍNICO › Cuestionarios) ── */}
+      {activeTab === 'derechos-arco' && (
+        <DerechosArco patientId={patientId} w={w} terminologia={terminologia.persona} />
       )}
 
       {/* ── AVI-CLÍNICO tabs (controlados por el sidebar) ── */}

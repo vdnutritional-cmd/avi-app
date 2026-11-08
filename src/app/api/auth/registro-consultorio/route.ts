@@ -7,19 +7,26 @@ import { getTerminologiaPropia, getTerminologiaRegistro } from '@/lib/terminolog
 import { normalizarTerminologia } from '@/lib/terminologia'
 import { CAMPOS_DOMICILIO, domicilioEnUnaLinea } from '@/lib/domicilio'
 import { centroPorDefecto } from '@/lib/centros-atencion'
+import { esOpcionEscucha } from '@/lib/consentimiento'
+import { datosDelDispositivo, registrarFirma } from '@/lib/consentimiento-servidor'
 
 /**
  * POST /api/auth/registro-consultorio
  * Registra un paciente nuevo usando el token del terapeuta.
  * Crea la cuenta, el perfil, la vinculación therapist_patients
  * y el registro de patient_expediente con Datos Generales en un solo paso.
+ * 8 nov 2026: también la firma del Consentimiento Informado v2 con la opción de la Escucha de AVI
+ * (Tu privacidad importa). Si la firma no se guardara, se le pide al entrar a AVI.
  */
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const { token, email, password, datosGenerales, empresa_id, sin_empresa } = body
+  const { token, email, password, datosGenerales, empresa_id, sin_empresa, consentimiento } = body
 
   if (!token || !email || !password || !datosGenerales?.asesorado_nombre) {
     return NextResponse.json({ error: 'Datos incompletos' }, { status: 400 })
+  }
+  if (!esOpcionEscucha(consentimiento?.opcion) || consentimiento?.acepto !== true) {
+    return NextResponse.json({ error: 'Falta tu opción en "Tu privacidad importa" o tu Consentimiento Informado.' }, { status: 400 })
   }
 
   const admin = createAdminClient()
@@ -139,6 +146,15 @@ export async function POST(req: NextRequest) {
   if (expedienteErr) {
     console.error('[registro-consultorio] Error al crear patient_expediente:', expedienteErr)
   }
+
+  // ── 5b. Consentimiento Informado v2 (inborrable, con IP y dispositivo) ─────
+  const empresaNombre = resolvedEmpresaId
+    ? (empresasTerapeuta.find(e => e.id === resolvedEmpresaId)?.nombre?.trim() || null)
+    : null
+  await registrarFirma(admin, {
+    patientId, opcion: consentimiento.opcion, origen: 'registro_qr',
+    terminologia, empresa: empresaNombre, ...datosDelDispositivo(req),
+  })
 
   // ── 6. Auto-login del paciente ────────────────────────────────────────────
   const supabase = await createClient()

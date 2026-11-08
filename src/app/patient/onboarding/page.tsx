@@ -4,10 +4,17 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { aplicarTerminologia, TERMINOLOGIA_SIN_EMPRESA, type Terminologia } from '@/lib/terminologia'
+import type { OpcionEscucha } from '@/lib/consentimiento'
+import { AcuerdoConsentimiento, TuPrivacidad } from '@/components/consentimiento/PasosConsentimiento'
 
 // Textos con <user>/<pro>/<serv>: se cambian según la empresa del paciente (Inventario de Terminología, página 1)
+// Primera entrada (8 nov 2026): Bienvenida, ¿Cómo funciona? e Importante que sepas. "Tu privacidad importa"
+// y el Consentimiento Informado se firman en el registro por QR; si la persona no los firmó ahí
+// (p. ej. se registró por código), aparecen aquí también (src/lib/consentimiento.ts).
 
-const pasos = [
+type Paso = { icono: string; titulo: string; contenido?: string; requiereCheckbox?: boolean; textoCheckbox?: string; especial?: 'privacidad' | 'consentimiento' }
+
+const BIENVENIDA: Paso[] = [
   {
     icono: '👋',
     titulo: 'Bienvenido y platícame...',
@@ -23,13 +30,6 @@ El nombre de AVI viene de "Acompañamiento Virtual Interactivo" y está constitu
 AVI escucha, te hace preguntas y te acompaña. Al terminar, guarda un breve resumen que tu <pro> podrá conocer para darte un mejor acompañamiento en la siguiente sesión.`,
   },
   {
-    icono: '🔒',
-    titulo: 'Tu privacidad importa',
-    contenido: `Tu <pro> NO escucha las conversaciones. Solo ve un resumen de los temas que exploraste y las emociones que surgieron.
-
-Tus mensajes están protegidos. AVI no comparte tu información con nadie más.`,
-  },
-  {
     icono: '⚠️',
     titulo: 'Importante que sepas',
     contenido: `AVI NO es un terapeuta, consultor o asesor. NO hace diagnósticos. NO reemplaza la atención de tu <pro> personal.
@@ -40,33 +40,25 @@ Para cualquier otro apoyo, {{CONTACTO}}.`,
     requiereCheckbox: true,
     textoCheckbox: 'Entiendo que AVI es un acompañamiento, no una terapia, y que debo contactar a mi <pro> para mi proceso profesional.',
   },
-  {
-    icono: '📋',
-    titulo: 'Acuerdo de Consentimiento Informado para tu Acompañamiento',
-    contenido: `I.- Por este medio manifiesto y otorgo libre y voluntariamente mi Consentimiento Informado con respecto a la realización de entrevistas presenciales, virtuales o interactivas a través de esta plataforma o algún otro medio presencial o virtual, así como la aplicación de pruebas o test que me propongan realizar con el fin de verificar o evaluar o diagnosticar mi situación personal; y hago constar que estoy de acuerdo y dispuesto(a) a colaborar para que me realicen las entrevistas y pruebas necesarias. Comprendo que el fin de estas entrevistas y pruebas es única y exclusivamente para mi beneficio personal, por lo que he recibido información completa sobre las evaluaciones que se realizarán y he podido hacer todas las preguntas o dudas de mi interés, mismas que se han respondido satisfactoriamente.
-
-II.- Consentimiento sobre tratamiento de datos personales: Respecto a los datos que proporcione, así como los datos resultantes de la aplicación de las entrevistas y evaluaciones, manifiesto por este medio y otorgo mi consentimiento expreso para:
-
-     a) El tratamiento de mis datos personales.
-
-     b) Para que el <pro> me informe de los resultados de las entrevistas y pruebas realizadas a mi persona.
-
-Así mismo manifiesto y estoy enterado(a) de que quedo en libertad de revocar el presente consentimiento, sabiendo que para dichos efectos es suficiente entregar una solicitud de revocación del consentimiento dirigida al <pro> que me dio acceso a esta plataforma; o acudir personalmente a la oficina o consultorio para redactar la revocación de mi consentimiento.`,
-    requiereCheckbox: true,
-    textoCheckbox: 'Manifiesto y otorgo mi Consentimiento Informado en los términos aquí expuestos.',
-    esConsentimiento: true,
-  },
 ]
+const [PASO_BIENVENIDA, PASO_COMO, PASO_IMPORTANTE] = BIENVENIDA
+const PASO_PRIVACIDAD: Paso = { icono: '🔒', titulo: 'Tu privacidad importa', especial: 'privacidad' }
+const PASO_CONSENTIMIENTO: Paso = { icono: '📋', titulo: '', especial: 'consentimiento' }
 
 export default function OnboardingPage() {
   const router = useRouter()
   const [paso, setPaso] = useState(0)
   const [aceptadoGeneral, setAceptadoGeneral] = useState(false)
   const [aceptadoConsentimiento, setAceptadoConsentimiento] = useState(false)
+  const [opcion, setOpcion] = useState<OpcionEscucha | null>(null)
   const [guardando, setGuardando] = useState(false)
+  const [error, setError] = useState('')
   const [contacto, setContacto] = useState('contacta a tu <pro>')
   // null = aún cargando: los textos esperan para no cambiar de palabra frente al paciente
   const [terminologia, setTerminologia] = useState<Terminologia | null>(null)
+  // ¿Falta firmar el Consentimiento v2? (null = aún no se sabe)
+  const [faltaFirma, setFaltaFirma] = useState<boolean | null>(null)
+  const [empresa, setEmpresa] = useState<string | null>(null)
 
   // Contacto y terminología según la empresa CONVENIO del paciente, o el teléfono del terapeuta si no tiene empresa
   useEffect(() => {
@@ -77,25 +69,46 @@ export default function OnboardingPage() {
         setTerminologia(d.terminologia ?? TERMINOLOGIA_SIN_EMPRESA)
       })
       .catch(() => setTerminologia(TERMINOLOGIA_SIN_EMPRESA))
+    fetch('/api/patient/consentimiento')
+      .then(r => r.json())
+      .then((d: { alDia?: boolean; empresa?: string | null }) => { setFaltaFirma(!d.alDia); setEmpresa(d.empresa ?? null) })
+      .catch(() => setFaltaFirma(true))
   }, [])
   const t = (texto: string) => aplicarTerminologia(texto, terminologia ?? TERMINOLOGIA_SIN_EMPRESA)
 
+  const pasos: Paso[] = faltaFirma
+    ? [PASO_BIENVENIDA, PASO_COMO, PASO_PRIVACIDAD, PASO_IMPORTANTE, PASO_CONSENTIMIENTO]
+    : BIENVENIDA
   const esUltimo = paso === pasos.length - 1
   const actual = pasos[paso]
-  const esPasoImportante = paso === 3
-  const esPasoConsentimiento = paso === 4
 
-  const checkboxActual = esPasoConsentimiento ? aceptadoConsentimiento : aceptadoGeneral
-  const puedeAvanzar = actual.requiereCheckbox ? checkboxActual : true
+  const puedeAvanzar = actual.especial === 'privacidad' ? opcion !== null
+    : actual.especial === 'consentimiento' ? aceptadoConsentimiento
+    : actual.requiereCheckbox ? aceptadoGeneral : true
 
   function siguiente() {
     if (!puedeAvanzar || esUltimo) return
     setPaso(p => p + 1)
+    window.scrollTo(0, 0)
   }
 
   async function comenzar() {
-    if (!aceptadoConsentimiento) return
-    setGuardando(true)
+    if (!puedeAvanzar || faltaFirma === null) return
+    setGuardando(true); setError('')
+    // 1. Firma del Consentimiento v2 (la guarda el servidor, con IP y dispositivo)
+    if (faltaFirma) {
+      const res = await fetch('/api/patient/consentimiento', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ opcion, acepto: aceptadoConsentimiento }),
+      }).catch(() => null)
+      const json = res ? await res.json().catch(() => ({})) : {}
+      if (!res?.ok) {
+        setError(json.error ?? 'No se pudo guardar tu Consentimiento. Revisa tu conexión e intenta de nuevo.')
+        setGuardando(false)
+        return
+      }
+    }
+    // 2. Primera entrada (desde aquí se cuentan las sesiones AVI: limite-sesiones-avi.ts)
     try {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
@@ -110,13 +123,11 @@ export default function OnboardingPage() {
           })
       }
     } finally {
-      // Cache específico por usuario para no repetir la consulta a Supabase
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) localStorage.setItem(`avi_onboarding_done_${user.id}`, '1')
       router.push('/patient/chat')
     }
   }
+
+  const listo = terminologia !== null && faltaFirma !== null
 
   return (
     <div className="min-h-screen flex flex-col items-center bg-gradient-to-br from-primary-50 via-white to-calm-50">
@@ -136,34 +147,41 @@ export default function OnboardingPage() {
 
         {/* Contenido */}
         <div className="flex-1 overflow-y-auto px-6 py-8 space-y-5">
-          <div className="text-center space-y-3">
-            <div className="text-5xl">{actual.icono}</div>
-            <h2 className="text-lg font-bold text-gray-800 leading-snug">{actual.titulo}</h2>
-          </div>
+          {listo && actual.especial === 'consentimiento' && opcion ? (
+            <AcuerdoConsentimiento terminologia={terminologia} opcion={opcion} empresa={empresa}
+              acepto={aceptadoConsentimiento} onAcepto={setAceptadoConsentimiento} />
+          ) : listo && (
+            <>
+              <div className="text-center space-y-3">
+                <div className="text-5xl">{actual.icono}</div>
+                <h2 className={`text-lg font-bold leading-snug ${actual.especial === 'privacidad' ? 'text-primary-700' : 'text-gray-800'}`}>{actual.titulo}</h2>
+              </div>
 
-          <p className={`text-gray-600 text-sm leading-relaxed whitespace-pre-line ${
-            esPasoConsentimiento ? 'text-justify' : 'text-center'
-          }`}>
-            {terminologia ? t(actual.contenido.replace('{{CONTACTO}}', contacto)) : ''}
-          </p>
+              {actual.especial === 'privacidad' ? (
+                <TuPrivacidad terminologia={terminologia} opcion={opcion} onOpcion={setOpcion} />
+              ) : (
+                <p className="text-gray-600 text-sm leading-relaxed whitespace-pre-line text-center">
+                  {t((actual.contenido ?? '').replace('{{CONTACTO}}', contacto))}
+                </p>
+              )}
 
-          {/* Checkbox */}
-          {actual.requiereCheckbox && (
-            <label className="flex items-start gap-3 bg-white border-2 border-primary-200 rounded-2xl px-4 py-4 cursor-pointer mt-4">
-              <input
-                type="checkbox"
-                checked={esPasoConsentimiento ? aceptadoConsentimiento : aceptadoGeneral}
-                onChange={e => {
-                  if (esPasoConsentimiento) setAceptadoConsentimiento(e.target.checked)
-                  else setAceptadoGeneral(e.target.checked)
-                }}
-                className="mt-0.5 accent-primary-600 w-5 h-5 flex-shrink-0"
-              />
-              <span className="text-sm text-gray-700 leading-relaxed font-medium">
-                {terminologia ? t(actual.textoCheckbox ?? '') : ''}
-              </span>
-            </label>
+              {/* Checkbox */}
+              {actual.requiereCheckbox && (
+                <label className="flex items-start gap-3 bg-white border-2 border-primary-200 rounded-2xl px-4 py-4 cursor-pointer mt-4">
+                  <input
+                    type="checkbox"
+                    checked={aceptadoGeneral}
+                    onChange={e => setAceptadoGeneral(e.target.checked)}
+                    className="mt-0.5 accent-primary-600 w-5 h-5 flex-shrink-0"
+                  />
+                  <span className="text-sm text-gray-700 leading-relaxed font-medium">
+                    {t(actual.textoCheckbox ?? '')}
+                  </span>
+                </label>
+              )}
+            </>
           )}
+          {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">{error}</p>}
         </div>
 
         {/* Botones */}
@@ -171,16 +189,16 @@ export default function OnboardingPage() {
           {esUltimo ? (
             <button
               onClick={comenzar}
-              disabled={!aceptadoConsentimiento || guardando}
+              disabled={!listo || !puedeAvanzar || guardando}
               className="w-full py-4 bg-primary-600 text-white font-semibold rounded-2xl
                          hover:bg-primary-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              {guardando ? 'Guardando...' : 'Comenzar con AVI'}
+              {guardando ? 'Guardando...' : faltaFirma ? 'Acepto y firmo · Comenzar con AVI' : 'Comenzar con AVI'}
             </button>
           ) : (
             <button
               onClick={siguiente}
-              disabled={!puedeAvanzar}
+              disabled={!listo || !puedeAvanzar}
               className="w-full py-4 bg-primary-600 text-white font-semibold rounded-2xl
                          hover:bg-primary-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
@@ -190,7 +208,7 @@ export default function OnboardingPage() {
 
           {paso > 0 && (
             <button
-              onClick={() => setPaso(p => p - 1)}
+              onClick={() => { setPaso(p => p - 1); window.scrollTo(0, 0) }}
               className="w-full py-2 text-sm text-gray-400 hover:text-gray-600 transition-colors"
             >
               ← Anterior

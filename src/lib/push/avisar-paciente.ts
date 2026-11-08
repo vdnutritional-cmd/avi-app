@@ -12,13 +12,18 @@ import { terminos } from '@/lib/terminologia'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = SupabaseClient<any, any, any>
 
-/** Mensajes sin leer (de vínculos vigentes, sin retirados ni copias de un traslado) + cuestionarios por contestar */
+/**
+ * Mensajes sin leer (de vínculos vigentes, sin retirados ni copias de un traslado) + cuestionarios por contestar
+ * + cambio de Consentimiento habilitado por su <pro> (Derechos ARCO, 8 nov 2026)
+ */
 export async function contarPendientesPaciente(db: Db, patientId: string): Promise<number> {
-  const [{ data: vinculos }, { count: cuestionarios }] = await Promise.all([
+  const [{ data: vinculos }, { count: cuestionarios }, { count: arco }] = await Promise.all([
     db.from('therapist_patients').select('therapist_id')
       .eq('patient_id', patientId).eq('is_active', true).neq('status', 'archived'),
     db.from('patient_questionnaires').select('id', { count: 'exact', head: true })
       .eq('patient_id', patientId).eq('status', 'pending'),
+    db.from('patient_arco_solicitudes').select('id', { count: 'exact', head: true })
+      .eq('patient_id', patientId).is('atendida_at', null),
   ])
   const terapeutas = (vinculos ?? []).map(v => v.therapist_id as string)
   let mensajes = 0
@@ -28,11 +33,11 @@ export async function contarPendientesPaciente(db: Db, patientId: string): Promi
       .is('retirado_at', null).is('leido_at', null)
     mensajes = new Set((data ?? []).map(m => `${m.created_at}|${m.asunto}`)).size
   }
-  return mensajes + (cuestionarios ?? 0)
+  return mensajes + (cuestionarios ?? 0) + (arco ?? 0)
 }
 
 /** Manda el aviso a todos los teléfonos del paciente, después de responder (no retrasa al terapeuta) */
-export function avisarPacientePush(therapistId: string, patientId: string, tipo: 'mensaje' | 'cuestionario') {
+export function avisarPacientePush(therapistId: string, patientId: string, tipo: 'mensaje' | 'cuestionario' | 'arco') {
   const avisar = async () => {
     const publica = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
     const privada = process.env.VAPID_PRIVATE_KEY
@@ -52,7 +57,9 @@ export function avisarPacientePush(therapistId: string, patientId: string, tipo:
       title: 'AVI',
       body: tipo === 'mensaje'
         ? `Tienes un mensaje nuevo de tu ${pro}.`
-        : `Tu ${pro} te envió un cuestionario para contestar.`,
+        : tipo === 'arco'
+          ? `Tu ${pro} te habilitó el cambio de tu privacidad y Consentimiento Informado.`
+          : `Tu ${pro} te envió un cuestionario para contestar.`,
       url: '/patient/chat',
       badge,
     })

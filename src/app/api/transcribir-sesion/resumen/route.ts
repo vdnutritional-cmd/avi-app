@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { logApiAccess } from '@/lib/audit/log-access'
 import { registrarUso } from '@/lib/ia/registrar-uso'
-import { autorizarTerapeuta } from '../autorizar'
+import { autorizarTerapeuta, rechazoSinEscucha } from '../autorizar'
 
 // ─────────────────────────────────────────────────────────────
 // POST /api/transcribir-sesion/resumen — Sprint 13 (27 oct 2026)
@@ -20,6 +20,8 @@ export async function POST(req: NextRequest) {
   const { transcripcion, patientId } = await req.json().catch(() => ({}))
   const auth = await autorizarTerapeuta(typeof patientId === 'string' ? patientId : null)
   if (!auth) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+  const sinEscucha = await rechazoSinEscucha(typeof patientId === 'string' ? patientId : null)
+  if (sinEscucha) return sinEscucha
   if (typeof transcripcion !== 'string' || !transcripcion.trim()) {
     return NextResponse.json({ error: 'No se escuchó nada en la grabación.' }, { status: 400 })
   }

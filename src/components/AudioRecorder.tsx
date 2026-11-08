@@ -15,9 +15,13 @@
 // - Modo "flotante" (28 oct 2026): la página lo deja montado siempre y lo dibuja en `destino`
 //   (un lugar dentro de la sección). Si el terapeuta cambia de sección, la grabación sigue y se ve
 //   el aviso fijo "🎙 Escucha de AVI — 12:34"; al tocarlo, onVolver regresa a la sección.
+// - Consentimiento de la persona (8 nov 2026, src/lib/consentimiento.ts): sin opción 2 o 3, en vez del
+//   botón se ve el aviso rojo "no autorizó… debes tomar notas"; con 2 o 3, el aviso verde. Antes de
+//   grabar, "Avisa a <user>…". El servidor también rechaza la transcripción sin autorización.
 // ─────────────────────────────────────────────────────────────
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { escuchaPermitida, type OpcionEscucha } from '@/lib/consentimiento'
 
 export type Estado = 'idle' | 'recording' | 'transcribing' | 'error'
 // mensaje: aviso del servidor cuando el servicio no está disponible (pago, límite); si no, el de WiFi
@@ -66,9 +70,13 @@ interface Props {
   onEstado?: (estado: Estado) => void
   /** Otra escucha de AVI en curso en la misma página: no deja iniciar otra */
   ocupado?: boolean
+  /** Opción de la persona en su Consentimiento (undefined = cargando · null = aún no elige) */
+  opcion?: OpcionEscucha | null
+  /** Palabra de la persona: { user: 'paciente', User: 'Paciente' } */
+  palabras: { user: string; User: string }
 }
 
-export default function AudioRecorder({ onResumen, patientId, destino, onVolver, onEstado, ocupado }: Props) {
+export default function AudioRecorder({ onResumen, patientId, destino, onVolver, onEstado, ocupado, opcion, palabras }: Props) {
   const [estado, setEstado] = useState<Estado>('idle')
   const [segundos, setSegundos] = useState(0)
   const [banner, setBanner] = useState<keyof typeof BANNERS>('normal')
@@ -76,6 +84,7 @@ export default function AudioRecorder({ onResumen, patientId, destino, onVolver,
   const [error, setError] = useState('')
   useEffect(() => { onEstado?.(estado) }, [estado, onEstado])
   const [confirmarDescarte, setConfirmarDescarte] = useState(false)
+  const [confirmarInicio, setConfirmarInicio] = useState(false)
 
   const streamRef   = useRef<MediaStream | null>(null)
   const recorderRef = useRef<MediaRecorder | null>(null)
@@ -132,7 +141,7 @@ export default function AudioRecorder({ onResumen, patientId, destino, onVolver,
         const res = await fetch('/api/transcribir-sesion', { method: 'POST', body: form })
         const json = await res.json().catch(() => ({}))
         if (!res.ok) {
-          if (json.servicio) tramo.mensaje = json.error
+          if (json.servicio || res.status === 403) tramo.mensaje = json.error
           throw new Error(json.error)
         }
         tramo.texto = json.texto ?? ''
@@ -255,13 +264,43 @@ export default function AudioRecorder({ onResumen, patientId, destino, onVolver,
 
   const ui = (
     <div className="space-y-2">
-      {estado === 'idle' && (
-        <button type="button" onClick={iniciar} disabled={ocupado}
-          title={ocupado ? 'Ya hay una escucha de AVI en curso' : undefined}
-          className="text-sm font-semibold bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-xl transition-colors
-                     disabled:opacity-40 disabled:cursor-not-allowed">
-          🎙 Inicia escucha de AVI
-        </button>
+      {estado === 'idle' && opcion !== undefined && !escuchaPermitida(opcion) && (
+        <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-4 py-3 leading-relaxed">
+          {palabras.User} {opcion === null ? 'aún no autoriza' : 'no autorizó'} la Escucha de AVI; por tanto, debes{' '}
+          <strong>tomar notas de toda la sesión</strong> para poder registrarla en esta sección.
+        </p>
+      )}
+
+      {estado === 'idle' && escuchaPermitida(opcion) && (
+        <>
+          <p className="text-sm text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 leading-relaxed">
+            {opcion === 2
+              ? <>{palabras.User} autorizó la <strong>Escucha de AVI</strong>. También puedes tomar notas.</>
+              : <>{palabras.User} autorizó la <strong>Escucha de AVI</strong> y tu <strong>opción para tomar notas</strong> durante la sesión.</>}
+          </p>
+          {confirmarInicio ? (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 space-y-2">
+              <p className="text-sm text-amber-900 leading-relaxed">
+                <strong>Avisa a {palabras.user}</strong> que AVI va a escuchar esta sesión. Si hay otras personas, confirma que estén de acuerdo.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={() => { setConfirmarInicio(false); void iniciar() }} disabled={ocupado}
+                  className="text-sm font-semibold bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-xl transition-colors disabled:opacity-40">
+                  Ya avisé · Iniciar escucha
+                </button>
+                <button type="button" onClick={() => setConfirmarInicio(false)}
+                  className="text-sm text-gray-600 hover:text-gray-800 px-3 py-2">Cancelar</button>
+              </div>
+            </div>
+          ) : (
+            <button type="button" onClick={() => setConfirmarInicio(true)} disabled={ocupado}
+              title={ocupado ? 'Ya hay una escucha de AVI en curso' : undefined}
+              className="text-sm font-semibold bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-xl transition-colors
+                         disabled:opacity-40 disabled:cursor-not-allowed">
+              🎙 Inicia escucha de AVI
+            </button>
+          )}
+        </>
       )}
 
       {estado === 'recording' && (

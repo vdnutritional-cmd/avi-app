@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { logApiAccess } from '@/lib/audit/log-access'
 import { registrarUsoAudio } from '@/lib/ia/registrar-uso'
 import { avisarFallaServicioIA, type MotivoFalla } from '@/lib/ia/alerta-servicio'
-import { autorizarTerapeuta } from './autorizar'
+import { autorizarTerapeuta, rechazoSinEscucha } from './autorizar'
 
 // ─────────────────────────────────────────────────────────────
 // POST /api/transcribir-sesion — Sprint 13 (27 oct 2026)
@@ -45,6 +45,8 @@ export async function POST(req: NextRequest) {
 
   const auth = await autorizarTerapeuta(patientId)
   if (!auth) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+  const sinEscucha = await rechazoSinEscucha(patientId)
+  if (sinEscucha) return sinEscucha
   if (!(audio instanceof Blob) || audio.size === 0) {
     return NextResponse.json({ error: 'Falta el audio.' }, { status: 400 })
   }

@@ -30,6 +30,11 @@ export default async function PatientLayout({ children }: { children: React.Reac
           <span className="text-xl font-bold text-primary-700">Platícame...</span>
           <div className="flex items-center gap-3">
             <span className="text-sm text-gray-500">{profile?.full_name ?? user.email}</span>
+            {/* Mi privacidad y consentimiento (Derecho de Acceso, 8 nov 2026); en teléfono, corto */}
+            <Link href="/patient/privacidad"
+              className="text-xs font-medium text-primary-700 bg-primary-50 border border-primary-200 rounded-full px-2.5 py-1 hover:bg-primary-100 transition-colors whitespace-nowrap">
+              🔒 <span className="sm:hidden">Privacidad</span><span className="hidden sm:inline">Mi privacidad y consentimiento</span>
+            </Link>
             <LogoutButton variante="paciente" />
           </div>
         </header>

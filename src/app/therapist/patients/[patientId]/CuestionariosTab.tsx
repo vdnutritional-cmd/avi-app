@@ -9,6 +9,7 @@ import {
   type FADResult,
 } from '@/lib/questionnaires/mcmaster-fad'
 import MensajesPaciente from './MensajesPaciente'
+import DerechosArco from './DerechosArco'
 
 interface Props {
   patientId: string
@@ -89,6 +90,9 @@ export default function CuestionariosTab({ patientId, therapistId, terminologia 
 
   return (
     <div className="space-y-6">
+
+      {/* ── Derechos ARCO: opción de la Escucha de AVI y Consentimiento Informado (8 nov 2026) ── */}
+      <DerechosArco patientId={patientId} w={w} terminologia={terminologia} />
 
       {/* ── Mensajes al paciente (canal de un solo sentido) ── */}
       <MensajesPaciente patientId={patientId} w={w} />

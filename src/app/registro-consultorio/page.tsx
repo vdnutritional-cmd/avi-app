@@ -7,6 +7,8 @@ import { checkPassword } from '@/lib/password-strength'
 import PasswordStrengthBar from '@/components/PasswordStrengthBar'
 import { nombreAvi, terminos, terminologiaComun, TERMINOLOGIA_SIN_EMPRESA, type Terminologia } from '@/lib/terminologia'
 import { PAISES, domicilioVacio, estadosDePais, etiquetaEstado, type Domicilio } from '@/lib/domicilio'
+import type { OpcionEscucha } from '@/lib/consentimiento'
+import { AcuerdoConsentimiento, TuPrivacidad } from '@/components/consentimiento/PasosConsentimiento'
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
 interface Hijo { nombre: string; edad: string; ocupacion: string; vive_en_casa: string }
@@ -93,6 +95,9 @@ function RegistroConsultorioForm() {
   const [empresas,  setEmpresas]  = useState<{ id: string; nombre: string; terminologia: Terminologia }[]>([])
   const [empresaId, setEmpresaId] = useState('')   // id de la empresa, o SIN_EMPRESA (atención personal del terapeuta)
   const [terminologiaPropia, setTerminologiaPropia] = useState<Terminologia>(TERMINOLOGIA_SIN_EMPRESA)
+  // Tu privacidad importa (opción de la Escucha de AVI) y Consentimiento Informado v2 (8 nov 2026)
+  const [opcionEscucha, setOpcionEscucha] = useState<OpcionEscucha | null>(null)
+  const [aceptoConsentimiento, setAceptoConsentimiento] = useState(false)
 
   // Palabra de la persona (Inventario de Terminología, página 11): la de su empresa;
   // sin empresa (o "Ninguna"), "Cómo me nombran" del terapeuta. Antes de elegir en el
@@ -116,6 +121,8 @@ function RegistroConsultorioForm() {
     { id: 'hijos',       label: 'Hijos'       },
     { id: 'salud',       label: 'Salud'       },
     { id: 'institucion', label: 'Institución' },
+    { id: 'privacidad',  label: 'Privacidad'  },
+    { id: 'consentimiento', label: 'Firma' },
   ]
 
   // Cerrar sesión del paciente recién registrado en cuanto se muestra la pantalla de éxito
@@ -178,6 +185,8 @@ function RegistroConsultorioForm() {
       if (!apPaterno.trim()) return 'El apellido paterno es requerido'
       if (!dg.asesorado_sexo) return 'Selecciona el sexo'
     }
+    if (currentId === 'privacidad' && !opcionEscucha) return 'Elige una opción para el registro de tus sesiones'
+    if (currentId === 'consentimiento' && !aceptoConsentimiento) return 'Marca la casilla para otorgar tu Consentimiento Informado'
     return null
   }
 
@@ -197,6 +206,8 @@ function RegistroConsultorioForm() {
 
   async function handleEnviar() {
     setError(null)
+    const errPaso = validarPasoActual()
+    if (errPaso) { setError(errPaso); return }
     setLoading(true)
     // Combinar los 3 campos de nombre
     const nombreCompleto = [nombres.trim(), apPaterno.trim(), apMaterno.trim()].filter(Boolean).join(' ')
@@ -209,6 +220,7 @@ function RegistroConsultorioForm() {
           email: email.trim().toLowerCase(),
           password,
           ...(empresaId === SIN_EMPRESA ? { sin_empresa: true } : empresaId ? { empresa_id: empresaId } : {}),
+          consentimiento: { opcion: opcionEscucha, acepto: aceptoConsentimiento },
           datosGenerales: {
             ...dg,
             asesorado_nombre: nombreCompleto,
@@ -707,6 +719,19 @@ function RegistroConsultorioForm() {
             </Field>
           </>}
 
+          {/* ── Paso: Tu privacidad importa ── */}
+          {steps[step]?.id === 'privacidad' && <>
+            <h2 className="text-base font-semibold text-primary-700">🔒 Tu privacidad importa</h2>
+            <TuPrivacidad terminologia={terminologia} opcion={opcionEscucha} onOpcion={setOpcionEscucha} />
+          </>}
+
+          {/* ── Paso: Consentimiento Informado ── */}
+          {steps[step]?.id === 'consentimiento' && opcionEscucha && (
+            <AcuerdoConsentimiento terminologia={terminologia} opcion={opcionEscucha}
+              empresa={empresaElegida?.nombre ?? null}
+              acepto={aceptoConsentimiento} onAcepto={setAceptoConsentimiento} />
+          )}
+
           {/* Error */}
           {error && <p className="text-red-500 text-sm bg-red-50 px-4 py-3 rounded-xl">{error}</p>}
         </div>
@@ -725,9 +750,9 @@ function RegistroConsultorioForm() {
               Siguiente →
             </button>
           ) : (
-            <button onClick={handleEnviar} disabled={loading}
+            <button onClick={handleEnviar} disabled={loading || !aceptoConsentimiento}
               className="flex-1 py-3 rounded-2xl bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors disabled:opacity-50">
-              {loading ? 'Creando cuenta…' : '✓ Crear cuenta y finalizar'}
+              {loading ? 'Creando cuenta…' : '✓ Acepto y firmo · Crear cuenta'}
             </button>
           )}
         </div>
