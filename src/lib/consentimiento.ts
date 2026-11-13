@@ -140,7 +140,7 @@ const CONSENTIMIENTO_V_VIII = `## V. Tratamiento de mis datos personales
 
 Otorgo mi consentimiento expreso para el tratamiento de mis datos personales, incluidos los **datos sensibles de salud**. Su único fin es darme la <serv> y el acompañamiento descritos aquí.
 
-Sé que mis datos se guardan en servidores en la nube. Algunos servicios externos que la plataforma AVI contrata los procesan solo para funcionar: inteligencia artificial, voz a texto, voz de AVI, correo, base de datos y hospedaje. En las pláticas habladas con AVI, el dictado de voz lo hace el navegador de mi teléfono.
+Sé que mis datos se guardan en servidores en la nube. Algunos servicios externos que la plataforma AVI contrata los procesan solo para funcionar: inteligencia artificial, voz a texto, voz de AVI, correo, base de datos y hospedaje.
 
 AVI **no vende** mis datos ni los usa para otros fines.
 
