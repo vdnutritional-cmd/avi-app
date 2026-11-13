@@ -11,6 +11,8 @@ import {
   SCHEMA_PROTECCION_COL,
 } from './factores-nota-inicial'
 import { esTerapia, nombreAvi, terminos, normalizarTerminologia, TERMINOLOGIA_SIN_EMPRESA, type Terminologia } from '@/lib/terminologia'
+import { textoLegalHtml } from '@/lib/texto-legal'
+import { nombreOpcion, NOMBRE_ORIGEN, type OpcionEscucha, type OrigenFirma } from '@/lib/consentimiento'
 
 /**
  * Palabras de la persona para el PDF (Inventario de Terminología, página 7):
@@ -2767,6 +2769,105 @@ export async function imprimirDatosGeneralesDesdeReportes(
     ${nombreAvi(t)} · avi-app.com.mx · Documento de uso clínico confidencial
   </div>
 
+</body>
+</html>`
+
+  printHtmlViaIframe(html)
+}
+
+
+// ──────────────────────────────────────────────────────────
+// Consentimiento Informado y firma electrónica (Reportes terapéuticos › AVI-Esencial, 13 nov 2026)
+// Texto exacto que firmó la persona (patient_consentimientos, inborrable) + datos de la firma
+// (fecha, versión, opción, IP, dispositivo, huella SHA-256) + historial de firmas.
+// ──────────────────────────────────────────────────────────
+interface FirmaReporte {
+  version: number; opcion: OpcionEscucha; origen: OrigenFirma
+  firmado_at: string; ip: string | null; dispositivo: string; sha256: string
+}
+
+export async function imprimirConsentimientoDesdeReportes(patientId: string, headerOpts?: Partial<ReportHeaderOptions>) {
+  const t = await terminologiaDelReporte(patientId, headerOpts)
+  const w = terminos(t)
+  const res = await fetch(`/api/therapist/consentimiento?patientId=${encodeURIComponent(patientId)}&texto=1`).catch(() => null)
+  if (!res?.ok) { alert('No se pudo cargar el Consentimiento Informado. Revisa tu conexión e intenta de nuevo.'); return }
+  const datos = await res.json() as { firmas: FirmaReporte[]; textoVigente: string | null; version: number }
+  const vigente = datos.firmas[0]
+  if (!vigente || !datos.textoVigente) {
+    alert(`El ${w.user} aún no firma el Consentimiento Informado versión ${datos.version}. Lo verá al entrar a su app de AVI.`)
+    return
+  }
+
+  const supabase = createClient()
+  const [{ data: { user } }, { data: paciente }] = await Promise.all([
+    supabase.auth.getUser(),
+    supabase.from('profiles').select('full_name, email').eq('id', patientId).maybeSingle(),
+  ])
+  let terapeutaNombre = headerOpts?.terapeutaNombre ?? ''
+  if (!terapeutaNombre && user) {
+    const { data } = await supabase.from('profiles').select('full_name').eq('id', user.id).maybeSingle()
+    terapeutaNombre = data?.full_name ?? '—'
+  }
+
+  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const fechaHora = (iso: string) => new Date(iso).toLocaleString('es-MX', {
+    timeZone: 'America/Mexico_City', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit',
+  })
+  const nombre = paciente?.full_name || paciente?.email || '—'
+  const filas: [string, string][] = [
+    [w.User, nombre],
+    ['Correo de su cuenta en AVI', paciente?.email ?? '—'],
+    ['Fecha y hora de la firma', `${fechaHora(vigente.firmado_at)} (hora del centro de México)`],
+    ['Versión del Consentimiento', String(vigente.version)],
+    ['Opción elegida (Escucha de AVI)', nombreOpcion(vigente.opcion, t)],
+    ['Dónde firmó', NOMBRE_ORIGEN[vigente.origen]],
+    ['Dirección IP', vigente.ip ?? '—'],
+    ['Dispositivo', vigente.dispositivo],
+    ['Huella del texto firmado (SHA-256)', vigente.sha256],
+  ]
+
+  const html = `<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8"><title>Consentimiento Informado — ${esc(nombre)}</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+@page { size: letter; margin: 1cm 1.8cm 1.2cm; }
+html, body { margin: 0 !important; padding: 0 !important; }
+body { font-family: Arial, Helvetica, sans-serif; font-size: 9pt; color: #1a1a1a; line-height: 1.35; }
+.persona { font-size: 9.5pt; margin-bottom: 8pt; }
+.texto h2 { color: #2d3a8c; font-size: 11pt; margin: 12pt 0 6pt; border-bottom: 0.5pt solid #b0bbd4; padding-bottom: 2pt; }
+.texto h3 { color: #2d3a8c; font-size: 9.5pt; margin: 9pt 0 4pt; }
+.texto p { margin: 0 0 5pt; text-align: justify; }
+.texto ul { margin: 0 0 5pt 14pt; } .texto li { margin-bottom: 2pt; }
+.firma { margin-top: 14pt; border: 1.5pt solid #2d3a8c; border-radius: 4pt; padding: 8pt 10pt; page-break-inside: avoid; }
+.firma-titulo { color: #2d3a8c; font-weight: bold; font-size: 10.5pt; margin-bottom: 4pt; }
+.sello { display: inline-block; color: #047857; border: 1pt solid #047857; border-radius: 3pt; padding: 1pt 6pt; font-weight: bold; font-size: 8.5pt; margin-bottom: 6pt; }
+table { width: 100%; border-collapse: collapse; }
+td, th { border: 0.5pt solid #b0bbd4; padding: 3pt 5pt; vertical-align: top; text-align: left; }
+td.k { width: 34%; background: #eef1f9; font-weight: bold; color: #2d3a8c; }
+td.v { word-break: break-all; }
+th { background: #eef1f9; color: #2d3a8c; font-size: 8pt; }
+.historial { margin-top: 12pt; page-break-inside: avoid; }
+.historial td { font-size: 8pt; }
+.nota { font-size: 7.5pt; color: #666; margin-top: 6pt; text-align: justify; }
+</style></head><body>
+${buildReportHeader({ terapeutaNombre, terminologia: t, logoUrl: headerOpts?.logoUrl ?? null, side: headerOpts?.side ?? 'name', subtitle: 'Consentimiento Informado y firma electrónica' })}
+<div class="persona"><strong>${esc(w.User)}:</strong> ${esc(nombre)}</div>
+<div class="texto">${textoLegalHtml(datos.textoVigente)}</div>
+
+<div class="firma">
+  <div class="firma-titulo">Firma electrónica del ${esc(w.user)}</div>
+  <div class="sello">✔ ACEPTADO Y FIRMADO ELECTRÓNICAMENTE</div>
+  <table>${filas.map(([k, v]) => `<tr><td class="k">${esc(k)}</td><td class="v">${esc(v)}</td></tr>`).join('')}</table>
+  <p class="nota">La firma se otorgó en la plataforma AVI con la cuenta del ${esc(w.user)}, marcando la casilla de aceptación. El registro se guardó con la fecha y hora del servidor y no se puede modificar ni borrar. La huella SHA-256 identifica el texto exacto que el ${esc(w.user)} leyó y aceptó: cualquier cambio en el texto produciría una huella distinta.</p>
+</div>
+
+${datos.firmas.length > 1 ? `<div class="historial">
+  <div class="firma-titulo">Historial de firmas (${datos.firmas.length})</div>
+  <table>
+    <tr><th>Fecha y hora</th><th>Versión</th><th>Opción elegida</th><th>Dónde firmó</th><th>IP · Dispositivo</th></tr>
+    ${datos.firmas.map(f => `<tr><td>${esc(fechaHora(f.firmado_at))}</td><td>${f.version}</td><td>${esc(nombreOpcion(f.opcion, t))}</td><td>${esc(NOMBRE_ORIGEN[f.origen])}</td><td>${esc(f.ip ?? '—')} · ${esc(f.dispositivo)}</td></tr>`).join('')}
+  </table>
+</div>` : ''}
 </body>
 </html>`
 

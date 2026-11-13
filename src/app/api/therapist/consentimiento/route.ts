@@ -9,6 +9,7 @@ import { avisarPacientePush } from '@/lib/push/avisar-paciente'
 /**
  * Consentimiento Informado v2 de una persona, visto por su <pro> (8 nov 2026).
  *   GET  ?patientId= → { opcion, alDia, version, firmas[], solicitud }   (Escucha de AVI y Derechos ARCO)
+ *        &texto=1 → además textoVigente: el texto exacto de la firma vigente (reporte "Consentimiento Informado")
  *   POST { patientId } → habilita el cambio (Derechos ARCO): la persona elige y firma de nuevo en su app.
  * El <pro> nunca elige ni cambia la opción de la persona.
  */
@@ -32,6 +33,7 @@ export async function GET(req: NextRequest) {
       ip: f.ip, dispositivo: dispositivoDe(f.user_agent), sha256: f.texto_sha256,
     })),
     solicitud: estado.solicitud ? { created_at: estado.solicitud.created_at, propia: estado.solicitud.therapist_id === auth.user.id } : null,
+    ...(req.nextUrl.searchParams.get('texto') === '1' ? { textoVigente: firmas[0]?.texto_firmado ?? null } : {}),
   })
 }
 

@@ -19,6 +19,7 @@ import {
   imprimirIntegracionPlanDesdeReportes,
   imprimirReporteProcesoDesdeReportes,
   imprimirDatosGeneralesDesdeReportes,
+  imprimirConsentimientoDesdeReportes,
   type DGPreloaded,
 } from './patients/[patientId]/print-utils'
 import { createClient } from '@/lib/supabase/client'
@@ -27,7 +28,7 @@ import { imprimirReporteAtencion, type ReporteAtencionData } from './reportes/re
 
 // ── Tipos ─────────────────────────────────────────────────────
 type ReportId =
-  | 'datos-generales' | 'nota-inicial' | 'sesiones' | 'analisis' | 'reporte-atencion'
+  | 'datos-generales' | 'nota-inicial' | 'sesiones' | 'analisis' | 'reporte-atencion' | 'consentimiento'
   | 'hc-original' | 'hc-actualizada' | 'valorativo' | 'integracion' | 'proceso'
 
 interface Empresa  { id: string; nombre: string; logo_url: string | null }
@@ -47,6 +48,7 @@ const ESENCIAL_ITEMS: { id: ReportId; label: string }[] = [
   { id: 'sesiones',         label: 'Sesiones presenciales' },
   { id: 'analisis',         label: 'Análisis clínico y Propuesta técnica' },
   { id: 'reporte-atencion', label: 'Reporte de la Atención' },
+  { id: 'consentimiento',   label: 'Consentimiento Informado' },
 ]
 
 const CLINICO_ITEMS: { id: ReportId; label: string }[] = [
@@ -183,7 +185,7 @@ export default function ReportesPanel({ tier, terapeutaNombre, terminologia = TE
 
   function canPrint(): boolean {
     if (!pid || !selected) return false
-    if (pacienteBloqueado && selected !== 'datos-generales') return false
+    if (pacienteBloqueado && selected !== 'datos-generales' && selected !== 'consentimiento') return false
     if (selected === 'analisis' && !analisisOpt) return false
     if (selected === 'reporte-atencion' && sesiones.length === 0) return false
     if (CLINICO_ITEMS.some(i => i.id === selected) && !isClinico) return false
@@ -204,6 +206,8 @@ export default function ReportesPanel({ tier, terapeutaNombre, terminologia = TE
         await imprimirAnalisisDesdeReportes(pid, analisisOpt, headerOpts); break
       case 'reporte-atencion':
         await generarReporteAtencion(); return
+      case 'consentimiento':
+        await imprimirConsentimientoDesdeReportes(pid, headerOpts); break
       default:
         await runClinico(selected); break
     }

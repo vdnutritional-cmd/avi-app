@@ -10,7 +10,7 @@ import { createHash } from 'crypto'
 import type { NextRequest } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
-  CONSENTIMIENTO_VERSION, escuchaPermitida, textoFirmado,
+  CONSENTIMIENTO_VERSION, CONSENTIMIENTO_VERSION_MINIMA, escuchaPermitida, textoFirmado,
   type OpcionEscucha, type OrigenFirma,
 } from './consentimiento'
 import type { Terminologia } from './terminologia'
@@ -33,7 +33,7 @@ export interface SolicitudArco { id: string; therapist_id: string; created_at: s
 export interface EstadoConsentimiento {
   /** Firma más reciente (cualquier versión) */
   vigente: Firma | null
-  /** Firmó la versión actual del texto */
+  /** Firmó una versión que sigue válida (CONSENTIMIENTO_VERSION_MINIMA o más nueva) */
   alDia: boolean
   /** Opción vigente de la Escucha de AVI (null = aún no elige) */
   opcion: OpcionEscucha | null
@@ -53,7 +53,7 @@ export async function estadoConsentimiento(db: Db, patientId: string): Promise<E
   const vigente = (firma as Firma | null) ?? null
   return {
     vigente,
-    alDia: vigente?.version === CONSENTIMIENTO_VERSION,
+    alDia: (vigente?.version ?? 0) >= CONSENTIMIENTO_VERSION_MINIMA,
     opcion: vigente?.opcion_escucha ?? null,
     solicitud: (solicitud as SolicitudArco | null) ?? null,
   }

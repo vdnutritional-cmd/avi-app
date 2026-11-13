@@ -1,6 +1,7 @@
 // ─────────────────────────────────────────────────────────────
 // Consentimiento Informado v2 y "Tu privacidad importa" (8 nov 2026, migración 20261108).
 // Redacción aprobada por José Luis (borrador en ../AVI - Consentimiento Informado (borrador v2).md).
+// Versión 3 (13 nov 2026): sin nombres de proveedores en III (Escucha) y V (datos personales).
 // Fuente única del texto: lo muestran el registro por QR, el onboarding, /patient/consentimiento y
 // /patient/privacidad, y el servidor lo arma igual para guardarlo con su huella (consentimiento-servidor.ts).
 //
@@ -12,7 +13,13 @@
 // ─────────────────────────────────────────────────────────────
 import { aplicarTerminologia, type Terminologia } from './terminologia'
 
-export const CONSENTIMIENTO_VERSION = 2
+export const CONSENTIMIENTO_VERSION = 3
+/**
+ * Versión más antigua que sigue válida: quien la firmó no tiene que volver a firmar al entrar.
+ * La v3 solo quitó los nombres de los proveedores (no cambia lo que se hace con los datos), así que la v2 sigue válida.
+ * Subirla a CONSENTIMIENTO_VERSION obliga a todos a firmar de nuevo al entrar a AVI.
+ */
+export const CONSENTIMIENTO_VERSION_MINIMA = 2
 
 export type OpcionEscucha = 1 | 2 | 3
 export const OPCIONES: readonly OpcionEscucha[] = [1, 2, 3]
@@ -105,10 +112,7 @@ const CONSENTIMIENTO_ESCUCHA = `Sobre la Escucha de AVI, sé que:
   - Al concluir el resumen, el audio se borra de la memoria temporal del dispositivo de mi <pro> y no se puede recuperar.
   - El proceso anterior también aplica en las sesiones que realice con mi <pro> de forma virtual, cuando así se requiera.
 - **Qué permanece:** el audio y el texto completo no se guardan; se borran al terminar el resumen. Solo queda el resumen en las notas personales de mi <pro>, quien las revisa y las puede corregir. El resumen puede incluir los nombres propios que se mencionen en la sesión, para que se entienda la situación que se describe.
-- **Quién lo procesa:** lo procesan dos servicios externos que la plataforma AVI contrata:
-  - **Groq**, en Estados Unidos, que convierte la voz en texto;
-  - **Anthropic**, en Estados Unidos, que redacta el resumen.
-  - Ninguno de los dos usa mi información para entrenar sus sistemas.
+- **Quién lo procesa:** lo procesan dos servicios externos que la plataforma AVI contrata en Estados Unidos y ninguno de los dos usa mi información para entrenar sus sistemas.
 - **Durante cada sesión:**
   - Mi <pro> me avisará al iniciar cada escucha.
   - Puedo pedirle en ese momento que no la use, o que la detenga, sin dar explicaciones.
@@ -136,13 +140,7 @@ const CONSENTIMIENTO_V_VIII = `## V. Tratamiento de mis datos personales
 
 Otorgo mi consentimiento expreso para el tratamiento de mis datos personales, incluidos los **datos sensibles de salud**. Su único fin es darme la <serv> y el acompañamiento descritos aquí.
 
-Sé que mis datos se guardan en servidores en la nube. Algunos servicios externos que la plataforma AVI contrata los procesan solo para funcionar:
-- inteligencia artificial: Anthropic y OpenAI;
-- voz a texto: Groq;
-- voz de AVI: Amazon;
-- dictado de voz en las pláticas habladas con AVI: el servicio de voz del navegador de mi teléfono (Google o Apple);
-- correo: Resend;
-- base de datos y hospedaje: Supabase y Vercel.
+Sé que mis datos se guardan en servidores en la nube. Algunos servicios externos que la plataforma AVI contrata los procesan solo para funcionar: inteligencia artificial, voz a texto, voz de AVI, correo, base de datos y hospedaje. En las pláticas habladas con AVI, el dictado de voz lo hace el navegador de mi teléfono.
 
 AVI **no vende** mis datos ni los usa para otros fines.
 

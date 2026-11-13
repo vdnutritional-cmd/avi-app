@@ -1,6 +1,6 @@
 # AVI Therapy Companion App — Contexto para Claude Code
 
-> **Versión:** 1.1 (cerrada el 16 oct 2026: terminología Paciente/Asesorado completa) · **Actualizado:** 8 noviembre 2026  
+> **Versión:** 1.1 (cerrada el 16 oct 2026: terminología Paciente/Asesorado completa) · **Actualizado:** 13 noviembre 2026  
 > Este archivo es el punto de entrada para cualquier sesión de Claude Code en este proyecto.  
 > Léelo completo antes de modificar cualquier archivo.
 
@@ -252,6 +252,7 @@ Los 6 reportes que usan `sharedCSS()` ya lo tienen. Los demás lo tienen inline.
 | `imprimirIntegracionPlanDesdeReportes(pid, headerOpts?)` | Integración y Plan de Intervención |
 | `imprimirReporteProcesoDesdeReportes(pid, headerOpts?)` | Reporte de Proceso |
 | `imprimirReporteAtencion(data)` — en `reporte-atencion-print.ts` | Reporte de la Atención |
+| `imprimirConsentimientoDesdeReportes(pid, headerOpts?)` (13 nov 2026, AVI-Esencial) | Consentimiento Informado y firma electrónica: texto exacto firmado + firma (fecha, versión, opción, IP, dispositivo, SHA-256) + historial. Se imprime aunque la persona esté bloqueada |
 
 > **Importante:** todas las funciones `...DesdeReportes` aceptan `headerOpts?: Partial<ReportHeaderOptions>`. Siempre pasar `headerOpts` desde `ReportesPageClient.tsx` y `ReportesPanel.tsx` para que el logo de empresa aparezca en el reporte.
 
@@ -460,7 +461,7 @@ Una Persona Institucional siempre es una cuenta `role='therapist'` (Administraci
 | `domicilio.ts` | `ESTADOS_MEXICO`, `ESTADOS_USA`, `DEPARTAMENTOS_COLOMBIA`, `PAISES` (México, USA, Colombia; 6 nov 2026), `estadosDePais()`, `etiquetaEstado()` ("Departamento" en Colombia), `CAMPOS_DOMICILIO`, `domicilioEnUnaLinea()` |
 | `centros-atencion.ts` | CentrosAtención: `cargarCentros()`, `centroPorDefecto()` (el único del terapeuta en esa empresa: registro QR/código, cambio de empresa, alta en un CentroAtención), `resolverCentros()` / `enCentros()` (parámetro `centros`, `sin` = sin CentroAtención), `quitarDeCentrosDeEmpresa()` (baja de la empresa). Crear/renombrar/desactivar: Configuración Admin (`/api/institucional/centros-atencion`); asignar terapeutas: Alta/Baja (`…/terapeuta`); la persona: Asignación a Institución. Panel de Control (tabla por CentroAtención), Reporte General y por <Pro> (filtro + "Sesiones por CentroAtención", también en el PDF). El Community Manager los ve en el Panel; no hay administrador por CentroAtención |
 | `subcarpetas.ts` | SubCarpetas del terapeuta (cualquier plan): se crean, renombran y asignan en Mis <users> › Crear SubCarpeta (`/therapist/subcarpetas`, menú entre Seleccionar <user> y Asignación a Institución; API `/api/therapist/subcarpetas`); en Seleccionar <user>, filtro y selector por persona; filtro `subcarpetas` en Mi estadística y Mis Asesorías (`SelectorCarpetas`, común con `centros`) y selector "SubCarpeta" en la lista de Reportes terapéuticos (escritorio y móvil, vía `reportes-init`). La empresa no las ve |
-| `consentimiento.ts` | **Texto único** de "Tu privacidad importa" (3 opciones) y del Consentimiento Informado v2 (`CONSENTIMIENTO_VERSION`), `textoFirmado()`, `escuchaPermitida()`, `nombreOpcion()`. Formato `##`/`-`/`**` que dibujan `TextoLegal.tsx` y `texto-legal.ts` (PDF). **Cambiar una palabra = subir la versión** (todos firman de nuevo al entrar). Ver "Consentimiento Informado y Derechos ARCO" |
+| `consentimiento.ts` | **Texto único** de "Tu privacidad importa" (3 opciones) y del Consentimiento Informado v2 (`CONSENTIMIENTO_VERSION`), `textoFirmado()`, `escuchaPermitida()`, `nombreOpcion()`. Formato `##`/`-`/`**` que dibujan `TextoLegal.tsx` y `texto-legal.ts` (PDF). **Cambiar una palabra = subir la versión.** `CONSENTIMIENTO_VERSION_MINIMA` decide quién firma de nuevo al entrar (hoy 2: la v3 del 13 nov solo quitó nombres de proveedores; las firmas v2 siguen válidas). Ver "Consentimiento Informado y Derechos ARCO" |
 | `consentimiento-servidor.ts` | `estadoConsentimiento()`, `historialFirmas()`, `escuchaAutorizada()`, `registrarFirma()` (arma el texto en el servidor, SHA-256, IP de `x-forwarded-for`). Solo servidor |
 | `periodo.ts` | Periodo de los reportes estadísticos (Mi estadística, Mis Asesorías, Reporte General y por <Pro>): parámetro `mes` = `2026-10` (mes), `2026` (año acumulado), `total` o `2026-09-01_2026-10-31` (fechas). `resolverPeriodo()` → `inicio`/`fin` (fin excluido); todo el reporte usa el periodo, también Satisfacción (solo personas atendidas en él); selector común `src/components/SelectorPeriodo.tsx`. Consultas de sesiones con `todasLasFilas()` (`supabase/todas-las-filas.ts`: más de 1,000 filas) |
 | `ia/registrar-uso.ts` | `registrarUso(tipo, modelo, usage, ids)` — **toda llamada nueva a la IA debe registrar su uso** en `ia_uso` (con `after()`, sin costo de tokens) |
@@ -476,6 +477,8 @@ Decisión de José Luis para la controversia ética de la Escucha de AVI: **deci
 - **<Pro> (Nota Inicial y Sesiones Presenciales, `AudioRecorder` prop `opcion`):** opción 1 o sin firma → recuadro rojo "no autorizó / aún no autoriza… debes **tomar notas de toda la sesión**", sin botón; 2 y 3 → recuadro verde. Antes de grabar: "**Avisa a <user>**… si hay otras personas, confirma que estén de acuerdo". `/api/transcribir-sesion` y `/resumen` rechazan (403) sin opción 2 o 3 (`rechazoSinEscucha()`).
 - **Derechos ARCO** (`DerechosArco.tsx`): sección propia en **AVI-ESENCIAL** (debajo de Derivaciones / Cierres; para todos los planes y aunque la persona esté bloqueada) y arriba de **AVI-CLÍNICO › Cuestionarios**. Opción vigente, historial de firmas y "Habilitar cambio" (`POST /api/therapist/consentimiento`): a la persona le llega en "Tu <pro> te envió" + push (`avisarPacientePush(..., 'arco')`, cuenta en el número del ícono). El <pro> nunca elige por la persona.
 - **Persona:** "🔒 Mi privacidad y consentimiento" en el banner de arriba (`/patient/privacidad`): opción vigente, firmas (fecha, versión, origen, IP, dispositivo), texto firmado y PDF.
+- **Versión 3 (13 nov 2026):** III y V sin nombres de proveedores (redacción de José Luis); las firmas nuevas son v3 y las v2 siguen válidas (`CONSENTIMIENTO_VERSION_MINIMA = 2`). Los proveedores deben nombrarse en el Aviso de Privacidad (pendiente).
+- **Reporte:** Reportes terapéuticos › AVI-Esencial › "Consentimiento Informado" (`imprimirConsentimientoDesdeReportes`; `GET /api/therapist/consentimiento?…&texto=1` devuelve `textoVigente`).
 - Borrador y notas legales: `../AVI - Consentimiento Informado (borrador v2).md` (el texto definitivo es el de `consentimiento.ts`).
 
 ## Nombres visibles (13 oct 2026)
