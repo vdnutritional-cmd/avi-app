@@ -478,7 +478,7 @@ Decisión de José Luis para la controversia ética de la Escucha de AVI: **deci
 - **Derechos ARCO** (`DerechosArco.tsx`): sección propia en **AVI-ESENCIAL** (debajo de Derivaciones / Cierres; para todos los planes y aunque la persona esté bloqueada) y arriba de **AVI-CLÍNICO › Cuestionarios**. Opción vigente, historial de firmas y "Habilitar cambio" (`POST /api/therapist/consentimiento`): a la persona le llega en "Tu <pro> te envió" + push (`avisarPacientePush(..., 'arco')`, cuenta en el número del ícono). El <pro> nunca elige por la persona.
 - **Persona:** "🔒 Mi privacidad y consentimiento" en el banner de arriba (`/patient/privacidad`): opción vigente, firmas (fecha, versión, origen, IP, dispositivo), texto firmado y PDF.
 - **Versión 3 (13 nov 2026):** III y V sin nombres de proveedores (redacción de José Luis); las firmas nuevas son v3 y las v2 siguen válidas (`CONSENTIMIENTO_VERSION_MINIMA = 2`). Los proveedores deben nombrarse en el Aviso de Privacidad (pendiente).
-- **Reporte:** Reportes terapéuticos › AVI-Esencial › "Consentimiento Informado" (`imprimirConsentimientoDesdeReportes`; `GET /api/therapist/consentimiento?…&texto=1` devuelve `textoVigente`).
+- **Reporte:** Reportes terapéuticos › AVI-Esencial › "Consentimiento Informado" (`imprimirConsentimientoDesdeReportes`; `GET /api/therapist/consentimiento?…&texto=1` devuelve `textoVigente`). **Mismo formato** en Mi privacidad de la persona (pantalla y PDF): fuente única `src/lib/consentimiento-reporte.ts`.
 - Borrador y notas legales: `../AVI - Consentimiento Informado (borrador v2).md` (el texto definitivo es el de `consentimiento.ts`).
 
 ## Nombres visibles (13 oct 2026)
